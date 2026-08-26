@@ -1,0 +1,149 @@
+@extends('layouts.app')
+
+@section('title', $supervisor->name)
+@section('page-title', 'Supervisor details')
+@section('page-subtitle', $supervisor->supervisor_code)
+
+@section('content')
+<div class="space-y-6">
+    <x-page-header
+        :title="$supervisor->name"
+        :subtitle="'Supervisor '.$supervisor->supervisor_code"
+        :back="route('supervisors.index')"
+    >
+        <x-slot:actions>
+            @if ($canManage)
+                <a href="{{ route('supervisors.edit', $supervisor) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    Edit
+                </a>
+            @endif
+            @if ($canDelete ?? false)
+                <x-delete-button
+                    :action="route('supervisors.destroy', $supervisor)"
+                    label="Delete"
+                    size="md"
+                    confirm="Delete this supervisor? Allowed only when no sites are assigned."
+                />
+            @endif
+        </x-slot:actions>
+    </x-page-header>
+
+    <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-4 sm:px-6">
+            <h2 class="text-base font-semibold text-slate-900">Profile</h2>
+            <x-status-badge :tone="$supervisor->status->tone()" :label="$supervisor->status->label()" />
+        </div>
+        <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Code</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $supervisor->supervisor_code }}</dd>
+            </div>
+            <div class="border-b border-slate-100 px-5 py-4 sm:border-r lg:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Region</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">
+                    @if ($supervisor->region)
+                        <a href="{{ route('regions.show', $supervisor->region) }}" class="text-brand-700 hover:text-brand-800">
+                            {{ $supervisor->region->name }}
+                        </a>
+                    @else
+                        —
+                    @endif
+                </dd>
+            </div>
+            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Assignment date</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($supervisor->assignment_date)->format('d M Y') ?: '—' }}</dd>
+            </div>
+            <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Phone</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $supervisor->phone ?: '—' }}</dd>
+            </div>
+            <div class="border-b border-slate-100 px-5 py-4 sm:border-r lg:border-b-0 lg:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Email</dt>
+                <dd class="mt-1 break-all text-sm font-semibold text-slate-900">{{ $supervisor->email ?: '—' }}</dd>
+            </div>
+            <div class="px-5 py-4 sm:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notes</dt>
+                <dd class="mt-1 text-sm text-slate-700">{{ $supervisor->notes ?: '—' }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="grid gap-4 lg:grid-cols-2">
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+                <h2 class="text-base font-semibold text-slate-900">Assigned sites</h2>
+                <span class="text-xs font-medium text-slate-500">{{ $supervisor->sites->count() }}</span>
+            </div>
+            @if ($supervisor->sites->isEmpty())
+                <div class="p-5 sm:p-6">
+                    <x-empty-state title="No assigned sites" description="Sites supervised by this person will appear here." icon="shield" />
+                </div>
+            @else
+                <ul class="divide-y divide-slate-100">
+                    @foreach ($supervisor->sites as $site)
+                        <li>
+                            <a href="{{ route('sites.show', $site) }}" class="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-slate-50 sm:px-6">
+                                <div class="min-w-0">
+                                    <p class="truncate text-sm font-semibold text-slate-900">{{ $site->name }}</p>
+                                    <p class="text-xs text-slate-500">
+                                        {{ $site->code }}
+                                        @if ($site->client) · {{ $site->client->name }} @endif
+                                    </p>
+                                </div>
+                                <x-status-badge :tone="$site->status->tone()" :label="$site->status->label()" />
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            @endif
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+                <h2 class="text-base font-semibold text-slate-900">Assignment history</h2>
+                <p class="mt-0.5 text-sm text-slate-500">Region transfers and initial assignment.</p>
+            </div>
+            @if ($supervisor->assignmentHistories->isEmpty())
+                <div class="p-5 sm:p-6">
+                    <x-empty-state title="No history yet" description="Assignment changes will be recorded on this timeline." icon="swap" />
+                </div>
+            @else
+                <ol class="relative space-y-0 px-5 py-5 sm:px-6">
+                    @foreach ($supervisor->assignmentHistories as $history)
+                        <li class="relative flex gap-4 pb-6 last:pb-0">
+                            <div class="relative flex flex-col items-center">
+                                <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-brand-600 ring-4 ring-brand-50"></span>
+                                @if (! $loop->last)
+                                    <span class="mt-1 w-px flex-1 bg-slate-200"></span>
+                                @endif
+                            </div>
+                            <div class="min-w-0 flex-1 pb-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="text-sm font-semibold text-slate-900">
+                                        {{ str_replace('_', ' ', ucfirst($history->change_type)) }}
+                                    </p>
+                                    <span class="text-xs text-slate-500">
+                                        {{ optional($history->effective_at)->format('d M Y, H:i') }}
+                                    </span>
+                                </div>
+                                <p class="mt-1 text-sm text-slate-600">
+                                    {{ $history->previousRegion?->name ?? 'None' }}
+                                    →
+                                    {{ $history->newRegion?->name ?? 'None' }}
+                                </p>
+                                @if ($history->reason)
+                                    <p class="mt-1 text-xs text-slate-500">Reason: {{ $history->reason }}</p>
+                                @endif
+                                @if ($history->changer)
+                                    <p class="mt-1 text-xs text-slate-400">By {{ $history->changer->name }}</p>
+                                @endif
+                            </div>
+                        </li>
+                    @endforeach
+                </ol>
+            @endif
+        </div>
+    </section>
+</div>
+@endsection

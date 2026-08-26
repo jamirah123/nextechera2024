@@ -1,0 +1,118 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-brand-50: #eef6ff;
+    --color-brand-100: #d9eaff;
+    --color-brand-200: #bcdaff;
+    --color-brand-300: #8ec2ff;
+    --color-brand-400: #599fff;
+    --color-brand-500: #3379fc;
+    --color-brand-600: #1d59f1;
+    --color-brand-700: #1845de;
+    --color-brand-800: #1a39b3;
+    --color-brand-900: #1b348d;
+    --color-brand-950: #0a1a42;
+
+    --color-steel-850: #121c2f;
+    --color-steel-900: #0c1424;
+    --color-steel-950: #070d18;
+}
+
+@layer base {
+    html {
+        @apply antialiased;
+    }
+
+    body {
+        @apply bg-slate-50 text-slate-900;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+}
+
+/* Tom Select — searchable dropdowns */
+.ts-wrapper {
+    @apply relative w-full;
+}
+
+.ts-wrapper.single .ts-control {
+    @apply flex min-h-[42px] w-full cursor-text items-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm shadow-sm transition;
+}
+
+.ts-wrapper.focus .ts-control,
+.ts-wrapper.dropdown-active .ts-control {
+    @apply border-brand-500 outline-none ring-2 ring-brand-500/20;
+}
+
+.ts-wrapper.disabled .ts-control {
+    @apply cursor-not-allowed bg-slate-50 text-slate-400;
+}
+
+.ts-wrapper .ts-control > input {
+    @apply m-0 min-w-[4rem] flex-1 border-0 bg-transparent p-0 text-sm text-slate-900 shadow-none outline-none ring-0 focus:outline-none focus:ring-0;
+}
+
+.ts-wrapper.single .ts-control .item {
+    @apply mr-2 truncate text-sm text-slate-900;
+}
+
+.ts-wrapper .clear-button {
+    @apply absolute right-8 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700;
+}
+
+.ts-wrapper .ts-control::after {
+    content: '';
+    @apply pointer-events-none absolute right-3.5 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-b-2 border-r-2 border-slate-400;
+}
+
+.ts-dropdown {
+    @apply z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg;
+}
+
+.ts-dropdown .ts-dropdown-content {
+    @apply max-h-60 overflow-y-auto p-1;
+}
+
+.ts-dropdown .dropdown-input-wrap {
+    @apply border-b border-slate-100 p-2;
+}
+
+.ts-dropdown .dropdown-input {
+    @apply w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
+}
+
+.ts-dropdown .option {
+    @apply cursor-pointer rounded-lg px-3 py-2 text-sm text-slate-700;
+}
+
+.ts-dropdown .option:hover,
+.ts-dropdown .option.active {
+    @apply bg-brand-50 text-brand-800;
+}
+
+.ts-dropdown .option.selected {
+    @apply bg-brand-100 font-medium text-brand-900;
+}
+
+.ts-dropdown .no-results {
+    @apply px-3 py-2 text-sm text-slate-500;
+}
+
+.ts-hidden-accessible {
+    @apply !absolute !left-0 !top-0 !-z-10 !h-px !w-px !overflow-hidden !opacity-0;
+}
+
+select.ts-hidden-accessible + .ts-wrapper {
+    @apply block;
+}
+

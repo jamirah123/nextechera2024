@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Shifts;
 
+use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
@@ -143,6 +144,7 @@ class ShiftController extends Controller
             'overrideBy',
             'replacedShift.assignedGuard',
             'replacements.assignedGuard',
+            'replacementRecord',
         ]);
 
         return view('shifts.show', [
@@ -262,9 +264,14 @@ class ShiftController extends Controller
             'sites' => Site::query()->active()->with('region:id,name')->orderBy('name')->get(['id', 'name', 'code', 'region_id', 'supervisor_id']),
             'periods' => ShiftPeriod::cases(),
             'shiftTypes' => ShiftType::cases(),
+            'guardClassifications' => GuardClassification::cases(),
             'selectedGuardId' => $request->integer('guard_id') ?: null,
             'selectedSiteId' => $request->integer('site_id') ?: null,
             'selectedDate' => $request->input('date', now()->toDateString()),
+            'defaultDayStart' => config('psg.shift_defaults.day.start', '06:00'),
+            'defaultDayEnd' => config('psg.shift_defaults.day.end', '18:00'),
+            'defaultNightStart' => config('psg.shift_defaults.night.start', '18:00'),
+            'defaultNightEnd' => config('psg.shift_defaults.night.end', '06:00'),
             'canOverride' => $request->user()->can('override', Shift::class),
             'deployments' => Deployment::query()
                 ->current()

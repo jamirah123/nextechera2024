@@ -6,6 +6,7 @@ use App\Enums\EmploymentStatus;
 use App\Enums\LeaveStatus;
 use App\Enums\LeaveType;
 use App\Enums\OperationalStatus;
+use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
@@ -89,6 +90,7 @@ class HrManagementTest extends TestCase
                 'end_time' => '18:00',
                 'period' => ShiftPeriod::Day->value,
                 'shift_type' => ShiftType::Normal->value,
+                'guard_classification' => GuardClassification::Unarmed->value,
                 'acknowledge_warnings' => true,
             ])
             ->assertSessionHasErrors('shift');

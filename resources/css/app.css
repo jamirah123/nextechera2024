@@ -138,8 +138,14 @@ select.ts-hidden-accessible + .ts-wrapper {
         padding: 0 !important;
     }
 
-    .report-print-area {
+    .report-print-area,
+    .finance-document {
         break-inside: avoid;
+    }
+
+    .finance-document {
+        box-shadow: none !important;
+        border: 1px solid #e2e8f0 !important;
     }
 
     a[href]::after {

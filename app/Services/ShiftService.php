@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\GuardClassification;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
@@ -38,12 +39,15 @@ class ShiftService
      *     end_time: string,
      *     period?: string,
      *     shift_type?: string,
+     *     guard_classification?: string,
      *     status?: string,
      *     notes?: string|null,
      *     acknowledge_warnings?: bool,
      *     override_critical?: bool,
      *     override_reason?: string|null,
-     *     recurrence_id?: int|null
+     *     recurrence_id?: int|null,
+     *     replaced_shift_id?: int|null,
+     *     ignore_shift_id?: int|null
      * }  $data
      */
     public function create(array $data): Shift
@@ -60,6 +64,7 @@ class ShiftService
                 'site_id' => (int) $data['site_id'],
                 'starts_at' => $startsAt,
                 'ends_at' => $endsAt,
+                'ignore_shift_id' => $data['ignore_shift_id'] ?? null,
             ]);
 
             $this->assertValidation($validation, $data);
@@ -80,11 +85,13 @@ class ShiftService
                 'supervisor_id' => $site->supervisor_id,
                 'deployment_id' => $deployment?->id,
                 'recurrence_id' => $data['recurrence_id'] ?? null,
+                'replaced_shift_id' => $data['replaced_shift_id'] ?? null,
                 'shift_date' => $data['shift_date'],
                 'starts_at' => $startsAt,
                 'ends_at' => $endsAt,
                 'period' => $period,
                 'shift_type' => $data['shift_type'] ?? ShiftType::Normal->value,
+                'guard_classification' => $data['guard_classification'] ?? GuardClassification::Unarmed->value,
                 'status' => $data['status'] ?? ShiftStatus::Scheduled->value,
                 'is_overnight' => $isOvernight,
                 'notes' => $data['notes'] ?? null,
@@ -158,6 +165,7 @@ class ShiftService
                 'ends_at' => $endsAt,
                 'period' => $data['period'] ?? $shift->period->value,
                 'shift_type' => $data['shift_type'] ?? $shift->shift_type->value,
+                'guard_classification' => $data['guard_classification'] ?? $shift->guard_classification->value,
                 'is_overnight' => $isOvernight,
                 'notes' => array_key_exists('notes', $data) ? $data['notes'] : $shift->notes,
                 'override_used' => (bool) ($data['override_critical'] ?? $shift->override_used),
@@ -293,6 +301,7 @@ class ShiftService
                         'end_time' => substr((string) $recurrence->end_time, 0, 5),
                         'period' => $recurrence->period->value,
                         'shift_type' => $recurrence->shift_type->value,
+                        'guard_classification' => $data['guard_classification'] ?? GuardClassification::Unarmed->value,
                         'notes' => $recurrence->notes,
                         'recurrence_id' => $recurrence->id,
                         'acknowledge_warnings' => $data['acknowledge_warnings'] ?? false,

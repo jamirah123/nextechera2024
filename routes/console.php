@@ -8,6 +8,8 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('psg:backup-database --keep=14')
-    ->dailyAt('01:30')
+Schedule::command('psg:backup-database', [
+    '--keep' => config('psg.backup.keep_days', 14),
+    '--path' => config('psg.backup.path', 'backups'),
+])->dailyAt('01:30')
     ->withoutOverlapping();

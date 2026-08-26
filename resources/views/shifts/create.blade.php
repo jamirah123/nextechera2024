@@ -14,12 +14,16 @@
         guardId: @js((string) old('guard_id', $selectedGuardId ?? '')),
         siteId: @js((string) old('site_id', $selectedSiteId ?? '')),
         period: @js(old('period', 'day')),
-        startTime: @js(old('start_time', '06:00')),
-        endTime: @js(old('end_time', '18:00')),
+        startTime: @js(old('start_time', $defaultDayStart)),
+        endTime: @js(old('end_time', $defaultDayEnd)),
+        dayStart: @js($defaultDayStart),
+        dayEnd: @js($defaultDayEnd),
+        nightStart: @js($defaultNightStart),
+        nightEnd: @js($defaultNightEnd),
         map: @js($guardSiteMap),
         applyPeriod() {
-            if (this.period === 'night') { this.startTime = '18:00'; this.endTime = '06:00'; }
-            else { this.startTime = '06:00'; this.endTime = '18:00'; }
+            if (this.period === 'night') { this.startTime = this.nightStart; this.endTime = this.nightEnd; }
+            else { this.startTime = this.dayStart; this.endTime = this.dayEnd; }
         },
         syncSite() {
             const site = this.map[this.guardId];
@@ -79,6 +83,12 @@
                     <option value="{{ $type->value }}" @selected(old('shift_type', 'normal') === $type->value)>{{ $type->label() }}</option>
                 @endforeach
             </x-form-field>
+            <x-form-field label="Guard type" name="guard_classification" type="select" :required="true">
+                @foreach ($guardClassifications as $classification)
+                    <option value="{{ $classification->value }}" @selected(old('guard_classification', 'unarmed') === $classification->value)>{{ $classification->label() }}</option>
+                @endforeach
+            </x-form-field>
+            <p class="sm:col-span-2 text-xs text-slate-500">Armed and unarmed shifts are billed separately on invoices, even when rates are the same.</p>
             <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes')" class="sm:col-span-2" />
         </div>
 

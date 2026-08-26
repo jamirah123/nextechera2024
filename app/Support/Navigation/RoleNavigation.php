@@ -29,17 +29,19 @@ class RoleNavigation
     {
         return match ($user->role) {
             UserRole::SuperAdmin => [
-                self::module('Users & Access', 'Manage system users, roles and permissions.', 'users', 'slate'),
+                self::module('Users & Access', 'Manage system users, roles and permissions.', 'users', 'slate', route('users.index')),
                 self::module('Organization', 'Regions, supervisors, clients and security sites.', 'building', 'indigo', route('organization.index')),
                 self::module('Ops Dashboards', 'Company, region, site and guard operational views.', 'chart', 'brand', route('ops-dashboards.company')),
                 self::module('Manpower Coverage', 'Required vs deployed staffing across sites.', 'chart', 'amber', route('manpower.coverage')),
                 self::module('Guards', 'Company-wide guard registry and employment records.', 'shield', 'sky', route('guards.index')),
                 self::module('Deployments', 'Active deployments, transfers and replacements.', 'map', 'emerald', route('deployments.index')),
                 self::module('Shifts', 'Schedules, calendar and shift validation oversight.', 'calendar', 'amber', route('shifts.index')),
+                self::module('Replacements', 'Link original shifts to covering guards.', 'swap', 'indigo', route('replacements.index')),
                 self::module('Leave', 'Leave requests, approvals and conflict handling.', 'leave', 'sky', route('leaves.index')),
                 self::module('Absences', 'Daily absence recording and follow-up.', 'alert', 'amber', route('absences.index')),
                 self::module('Reports', 'Operational, HR and financial report exports.', 'chart', 'violet', route('reports.index')),
                 self::module('Audit Logs', 'Immutable trail of critical system actions.', 'audit', 'rose', route('audit.index')),
+                self::module('System Settings', 'Company profile, finance defaults, shift times and backups.', 'settings', 'violet', route('settings.index')),
             ],
             UserRole::OperationsManager => [
                 self::module('Ops Dashboards', 'Company and regional operational command views.', 'chart', 'brand', route('ops-dashboards.company')),
@@ -49,6 +51,7 @@ class RoleNavigation
                 self::module('Sites', 'Security sites and manpower requirements.', 'map', 'brand', route('sites.index')),
                 self::module('Today\'s Shifts', 'Monitor scheduled, in-progress and missed shifts.', 'calendar', 'brand', route('shifts.index')),
                 self::module('Deployments', 'Guard-to-site assignments across regions.', 'map', 'emerald', route('deployments.index')),
+                self::module('Replacements', 'Track original vs covering guards on duty.', 'swap', 'indigo', route('replacements.index')),
                 self::module('Operational Reports', 'Shift, overtime and coverage reports.', 'report', 'violet', route('reports.index')),
                 self::module('Audit Logs', 'Overrides and critical operational events.', 'audit', 'rose', route('audit.index')),
             ],
@@ -68,15 +71,16 @@ class RoleNavigation
                 self::module('Organization', 'Regions, supervisors and site structure.', 'building', 'indigo', route('organization.index')),
                 self::module('Deployments', 'Assign guards to sites before scheduling.', 'map', 'emerald', route('deployments.index')),
                 self::module('Today\'s Shifts', 'Monitor and update the live schedule.', 'calendar', 'sky', route('shifts.index')),
+                self::module('Replacements', 'Cover unavailable guards and keep reports accurate.', 'swap', 'indigo', route('replacements.index')),
                 self::module('Shift Reports', 'Daily and monthly shift and overtime exports.', 'report', 'violet', route('reports.index')),
             ],
             UserRole::FinanceManager => [
                 self::module('Clients & Sites', 'Contracts and site structure for billing context.', 'building', 'indigo', route('organization.index')),
                 self::module('Guards', 'Read-only employment context for payroll reporting.', 'shield', 'sky', route('guards.index')),
-                self::module('Client Billing', 'Contracts, billing rates and client revenue.', 'wallet', 'brand'),
-                self::module('Invoices', 'Create, approve and track client invoices.', 'invoice', 'indigo'),
-                self::module('Payments', 'Record payments and outstanding balances.', 'payment', 'emerald'),
-                self::module('Profitability', 'Client, site and region profitability analysis.', 'chart', 'violet'),
+                self::module('Client Billing', 'Contracts, billing rates and client revenue.', 'wallet', 'brand', route('billing.index')),
+                self::module('Invoices', 'Create, approve and track client invoices.', 'invoice', 'indigo', route('invoices.index')),
+                self::module('Payments', 'Record payments and outstanding balances.', 'payment', 'emerald', route('payments.index')),
+                self::module('Profitability', 'Client, site and region profitability analysis.', 'chart', 'violet', route('profitability.index')),
                 self::module('Monthly Shift Exports', 'Payroll-ready normal and overtime shift totals.', 'report', 'sky', route('reports.monthly-shifts')),
             ],
             default => [],
@@ -123,9 +127,9 @@ class RoleNavigation
             ],
             UserRole::FinanceManager => [
                 ['label' => 'Clients', 'value' => (string) $clientCount, 'hint' => 'Billing accounts', 'tone' => 'brand'],
-                ['label' => 'Active Sites', 'value' => (string) $siteCount, 'hint' => 'Billable locations', 'tone' => 'indigo'],
-                ['label' => 'Active Guards', 'value' => (string) $activeGuards, 'hint' => 'Payroll headcount', 'tone' => 'emerald'],
-                ['label' => 'Overdue', 'value' => '—', 'hint' => 'Past-due invoices', 'tone' => 'rose'],
+                ['label' => 'Outstanding', 'value' => \App\Support\Money::format(self::financeTotals()['outstanding']), 'hint' => 'Open invoice balance', 'tone' => 'amber'],
+                ['label' => 'Month collected', 'value' => \App\Support\Money::format(self::financeTotals()['month_collected']), 'hint' => 'Payments this month', 'tone' => 'emerald'],
+                ['label' => 'Overdue', 'value' => (string) self::financeTotals()['overdue_count'], 'hint' => 'Past-due invoices', 'tone' => 'rose'],
             ],
             default => [],
         };
@@ -145,20 +149,20 @@ class RoleNavigation
                 ['label' => 'Sites', 'href' => route('sites.index')],
                 ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
             ]),
-            self::nav('Administration', 'settings', route('audit.index'), 'audit.*', [
-                ['label' => 'Users', 'href' => '#'],
-                ['label' => 'Roles & Permissions', 'href' => '#'],
+            self::nav('Administration', 'settings', route('users.index'), 'users.*|roles.*|audit.*|settings.*', [
+                ['label' => 'Users', 'href' => route('users.index')],
+                ['label' => 'Roles & Permissions', 'href' => route('roles.index')],
                 ['label' => 'Audit Logs', 'href' => route('audit.index')],
-                ['label' => 'System Settings', 'href' => '#'],
+                ['label' => 'System Settings', 'href' => route('settings.index')],
             ]),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
-            self::nav('Operations', 'ops', route('deployments.index'), 'deployments.*|shifts.*', [
+            self::nav('Operations', 'ops', route('deployments.index'), 'deployments.*|shifts.*|replacements.*', [
                 ['label' => 'Deployments', 'href' => route('deployments.index')],
                 ['label' => 'Shifts', 'href' => route('shifts.index')],
                 ['label' => 'Calendar', 'href' => route('shifts.calendar')],
                 ['label' => 'Leave', 'href' => route('leaves.index')],
                 ['label' => 'Absences', 'href' => route('absences.index')],
-                ['label' => 'Replacements', 'href' => '#'],
+                ['label' => 'Replacements', 'href' => route('replacements.index')],
             ]),
             self::nav('Reports', 'chart', route('reports.index'), 'reports.*'),
         ];
@@ -183,7 +187,7 @@ class RoleNavigation
             self::nav('Deployments', 'map', route('deployments.index'), 'deployments.*'),
             self::nav('Leave', 'leave', route('leaves.index'), 'leaves.*'),
             self::nav('Absences', 'alert', route('absences.index'), 'absences.*'),
-            self::nav('Replacements', 'swap', '#'),
+            self::nav('Replacements', 'swap', route('replacements.index'), 'replacements.*'),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
             self::nav('Reports', 'report', route('reports.index'), 'reports.*'),
         ];
@@ -227,7 +231,7 @@ class RoleNavigation
                 ['label' => 'Regions', 'href' => route('regions.index')],
                 ['label' => 'Supervisors', 'href' => route('supervisors.index')],
             ]),
-            self::nav('Replacements', 'swap', '#'),
+            self::nav('Replacements', 'swap', route('replacements.index'), 'replacements.*'),
             self::nav('Shift Reports', 'report', route('reports.index'), 'reports.*'),
         ];
     }
@@ -246,12 +250,32 @@ class RoleNavigation
             ]),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
             self::nav('Deployments', 'map', route('deployments.index'), 'deployments.*'),
-            self::nav('Client Billing', 'wallet', '#'),
-            self::nav('Invoices', 'invoice', '#'),
-            self::nav('Payments', 'payment', '#'),
-            self::nav('Profitability', 'chart', '#'),
+            self::nav('Client Billing', 'wallet', route('billing.index'), 'billing.*'),
+            self::nav('Invoices', 'invoice', route('invoices.index'), 'invoices.*'),
+            self::nav('Payments', 'payment', route('payments.index'), 'payments.*'),
+            self::nav('Profitability', 'chart', route('profitability.index'), 'profitability.*'),
             self::nav('Shift Exports', 'report', route('reports.monthly-shifts'), 'reports.*'),
         ];
+    }
+
+    /** @return array<string, float|int> */
+    private static function financeTotals(): array
+    {
+        static $cache = null;
+
+        if ($cache === null) {
+            try {
+                $cache = app(\App\Services\Finance\ProfitabilityService::class)->dashboardTotals();
+            } catch (\Throwable) {
+                $cache = [
+                    'outstanding' => 0,
+                    'month_collected' => 0,
+                    'overdue_count' => 0,
+                ];
+            }
+        }
+
+        return $cache;
     }
 
     /** @return list<array{label: string, icon: string, href: string, active: bool}> */

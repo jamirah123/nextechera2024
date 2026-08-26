@@ -31,6 +31,8 @@ class AuditService
         $actor ??= Auth::user();
         $request ??= request();
 
+        $occurredAt = now()->timezone(config('app.timezone'));
+
         return AuditLog::query()->create([
             'action' => $action,
             'category' => $category,
@@ -45,7 +47,7 @@ class AuditService
             'user_agent' => $request ? mb_substr((string) $request->userAgent(), 0, 255) : null,
             'context' => $context === [] ? null : $context,
             'is_override' => $isOverride,
-            'created_at' => now(),
+            'created_at' => $occurredAt,
         ]);
     }
 

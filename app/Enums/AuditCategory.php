@@ -11,6 +11,7 @@ enum AuditCategory: string
     case Hr = 'hr';
     case Organization = 'organization';
     case Security = 'security';
+    case Finance = 'finance';
     case System = 'system';
 
     public function label(): string
@@ -23,6 +24,7 @@ enum AuditCategory: string
             self::Hr => 'HR',
             self::Organization => 'Organization',
             self::Security => 'Security',
+            self::Finance => 'Finance',
             self::System => 'System',
         };
     }
@@ -37,6 +39,7 @@ enum AuditCategory: string
             self::Hr => 'amber',
             self::Organization => 'indigo',
             self::Security => 'rose',
+            self::Finance => 'emerald',
             self::System => 'violet',
         };
     }

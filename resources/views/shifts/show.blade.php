@@ -17,6 +17,11 @@
                     Edit
                 </a>
             @endif
+            @if ($canManage && in_array($shift->status->value, ['scheduled', 'confirmed', 'in_progress', 'missed'], true) && ! $shift->replacementRecord)
+                <a href="{{ route('replacements.create', ['shift_id' => $shift->id]) }}" class="inline-flex items-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-800">
+                    <x-icon name="swap" class="h-4 w-4" /> Replace
+                </a>
+            @endif
         </x-slot:actions>
     </x-page-header>
 
@@ -24,6 +29,7 @@
         <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-steel-950 via-brand-950 to-brand-800 px-5 py-4 text-white sm:px-6">
             <x-status-badge :tone="$shift->status->tone()" :label="$shift->status->label()" />
             <x-status-badge :tone="$shift->shift_type->tone()" :label="$shift->shift_type->label()" />
+            <x-status-badge :tone="$shift->guard_classification->tone()" :label="$shift->guard_classification->label()" />
             <x-status-badge :tone="$shift->period->tone()" :label="$shift->period->label()" />
         </div>
         <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">

@@ -71,7 +71,7 @@
                             @foreach ($logs as $log)
                                 <tr @class(['hover:bg-slate-50/80', 'bg-rose-50/40' => $log->is_override])>
                                     <td class="px-5 py-3.5"><x-table-serial :paginator="$logs" :index="$loop->index" /></td>
-                                    <td class="px-5 py-3.5 text-slate-700">{{ $log->created_at?->format('d M Y H:i') }}</td>
+                                    <td class="px-5 py-3.5 text-slate-700 whitespace-nowrap">{{ $log->occurredAtLabel('d M Y, H:i:s') }}</td>
                                     <td class="px-5 py-3.5">
                                         <p class="font-semibold text-slate-900">{{ $log->summary }}</p>
                                         <p class="text-xs text-slate-500">{{ $log->action }}@if($log->is_override) · Override @endif</p>

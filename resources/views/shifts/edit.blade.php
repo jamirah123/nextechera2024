@@ -73,6 +73,11 @@
                     <option value="{{ $type->value }}" @selected(old('shift_type', $shift->shift_type->value) === $type->value)>{{ $type->label() }}</option>
                 @endforeach
             </x-form-field>
+            <x-form-field label="Guard type" name="guard_classification" type="select" :required="true">
+                @foreach ($guardClassifications as $classification)
+                    <option value="{{ $classification->value }}" @selected(old('guard_classification', $shift->guard_classification->value) === $classification->value)>{{ $classification->label() }}</option>
+                @endforeach
+            </x-form-field>
             <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes', $shift->notes)" class="sm:col-span-2" />
         </div>
 

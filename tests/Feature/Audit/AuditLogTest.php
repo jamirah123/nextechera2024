@@ -79,6 +79,23 @@ class AuditLogTest extends TestCase
         ]);
     }
 
+    public function test_audit_log_captures_application_timezone_wall_clock(): void
+    {
+        $admin = User::factory()->role(UserRole::SuperAdmin)->create();
+
+        $before = now()->timezone(config('app.timezone'))->subSecond();
+        $log = app(AuditService::class)->log(
+            action: 'time.check',
+            summary: 'Timezone stamp check',
+            actor: $admin,
+        );
+        $after = now()->timezone(config('app.timezone'))->addSecond();
+
+        $this->assertNotNull($log->created_at);
+        $this->assertTrue($log->created_at->betweenIncluded($before, $after));
+        $this->assertStringContainsString('EAT', $log->occurredAtLabel());
+    }
+
     public function test_shift_manager_cannot_override_without_permission(): void
     {
         $this->assertFalse(

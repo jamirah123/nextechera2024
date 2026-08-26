@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
@@ -41,6 +42,7 @@ class ShiftFactory extends Factory
             'ends_at' => $endsAt,
             'period' => ShiftPeriod::Day,
             'shift_type' => ShiftType::Normal,
+            'guard_classification' => GuardClassification::Unarmed,
             'status' => ShiftStatus::Scheduled,
             'is_overnight' => false,
             'notes' => null,

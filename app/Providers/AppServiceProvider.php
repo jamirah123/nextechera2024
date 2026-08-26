@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Policies\AuditLogPolicy;
+use App\Policies\FinancePolicy;
 use App\Policies\ReportPolicy;
+use App\Services\SystemSettingService;
 use App\Support\Navigation\RoleNavigation;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -25,6 +27,16 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('viewReports', [ReportPolicy::class, 'viewAny']);
         Gate::define('viewAuditLogs', [AuditLogPolicy::class, 'viewAny']);
+        Gate::define('viewFinance', [FinancePolicy::class, 'viewAny']);
+        Gate::define('manageFinance', [FinancePolicy::class, 'manage']);
+
+        try {
+            if (Schema::hasTable('system_settings')) {
+                app(SystemSettingService::class)->applyRuntimeConfig();
+            }
+        } catch (\Throwable) {
+            // Ignore during initial install or partial schema.
+        }
 
         View::composer('layouts.app', function ($view): void {
             $user = Auth::user();

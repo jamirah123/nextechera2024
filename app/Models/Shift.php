@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Shift extends Model
 {
@@ -31,6 +33,7 @@ class Shift extends Model
         'ends_at',
         'period',
         'shift_type',
+        'guard_classification',
         'status',
         'is_overnight',
         'notes',
@@ -53,6 +56,7 @@ class Shift extends Model
             'ends_at' => 'datetime',
             'period' => ShiftPeriod::class,
             'shift_type' => ShiftType::class,
+            'guard_classification' => GuardClassification::class,
             'status' => ShiftStatus::class,
             'is_overnight' => 'boolean',
             'override_used' => 'boolean',
@@ -100,6 +104,11 @@ class Shift extends Model
     public function replacements(): HasMany
     {
         return $this->hasMany(self::class, 'replaced_shift_id');
+    }
+
+    public function replacementRecord(): HasOne
+    {
+        return $this->hasOne(ShiftReplacement::class, 'original_shift_id');
     }
 
     public function overrideBy(): BelongsTo

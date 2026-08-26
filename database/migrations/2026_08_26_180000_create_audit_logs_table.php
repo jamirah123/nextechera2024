@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('user_agent', 255)->nullable();
             $table->json('context')->nullable();
             $table->boolean('is_override')->default(false);
-            $table->timestamp('created_at')->useCurrent();
+            $table->dateTime('created_at')->useCurrent();
 
             $table->index(['action', 'created_at']);
             $table->index(['category', 'created_at']);

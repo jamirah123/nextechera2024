@@ -1,9 +1,16 @@
 <?php
 
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\SystemSettingController;
+use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Audit\AuditLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Deployments\DeploymentController;
+use App\Http\Controllers\Finance\BillingController;
+use App\Http\Controllers\Finance\InvoiceController;
+use App\Http\Controllers\Finance\PaymentController;
+use App\Http\Controllers\Finance\ProfitabilityController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\Guards\GuardController;
 use App\Http\Controllers\Organization\ClientController;
@@ -18,6 +25,7 @@ use App\Http\Controllers\Hr\DesertionController;
 use App\Http\Controllers\Hr\LeaveController;
 use App\Http\Controllers\Dashboards\OperationalDashboardController;
 use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Shifts\ReplacementController;
 use App\Http\Controllers\Shifts\ShiftController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -69,6 +77,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/shifts/{shift}', [ShiftController::class, 'update'])->name('shifts.update');
     Route::post('/shifts/{shift}/status', [ShiftController::class, 'updateStatus'])->name('shifts.status');
 
+    Route::get('/replacements', [ReplacementController::class, 'index'])->name('replacements.index');
+    Route::get('/replacements/create', [ReplacementController::class, 'create'])->name('replacements.create');
+    Route::post('/replacements', [ReplacementController::class, 'store'])->name('replacements.store');
+    Route::get('/replacements/{replacement}', [ReplacementController::class, 'show'])->name('replacements.show');
+
     Route::get('/leaves', [LeaveController::class, 'index'])->name('leaves.index');
     Route::get('/leaves/create', [LeaveController::class, 'create'])->name('leaves.create');
     Route::post('/leaves', [LeaveController::class, 'store'])->name('leaves.store');
@@ -108,9 +121,53 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/hr', [ReportController::class, 'hr'])->name('reports.hr');
     Route::get('/reports/hr/export', [ReportController::class, 'exportHr'])->name('reports.hr.export');
 
+    Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
+    Route::get('/billing/export', [BillingController::class, 'export'])->name('billing.export');
+    Route::get('/billing/create', [BillingController::class, 'create'])->name('billing.create');
+    Route::post('/billing', [BillingController::class, 'store'])->name('billing.store');
+    Route::get('/billing/{billing}', [BillingController::class, 'show'])->name('billing.show');
+    Route::get('/billing/{billing}/edit', [BillingController::class, 'edit'])->name('billing.edit');
+    Route::put('/billing/{billing}', [BillingController::class, 'update'])->name('billing.update');
+
+    Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
+    Route::get('/invoices/export', [InvoiceController::class, 'export'])->name('invoices.export');
+    Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('invoices.create');
+    Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
+    Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::get('/invoices/{invoice}/export', [InvoiceController::class, 'exportDocument'])->name('invoices.export-document');
+    Route::get('/invoices/{invoice}/edit', [InvoiceController::class, 'edit'])->name('invoices.edit');
+    Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
+    Route::post('/invoices/{invoice}/issue', [InvoiceController::class, 'issue'])->name('invoices.issue');
+    Route::post('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
+
+    Route::get('/payments', [PaymentController::class, 'index'])->name('payments.index');
+    Route::get('/payments/export', [PaymentController::class, 'export'])->name('payments.export');
+    Route::get('/payments/create', [PaymentController::class, 'create'])->name('payments.create');
+    Route::post('/payments', [PaymentController::class, 'store'])->name('payments.store');
+    Route::get('/payments/{payment}', [PaymentController::class, 'show'])->name('payments.show');
+
+    Route::get('/profitability', [ProfitabilityController::class, 'index'])->name('profitability.index');
+    Route::get('/profitability/export', [ProfitabilityController::class, 'export'])->name('profitability.export');
+
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
     Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit.export');
     Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show'])->name('audit.show');
+
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+    Route::post('/users', [UserController::class, 'store'])->name('users.store');
+    Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
+    Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+    Route::put('/users/{user}/password', [UserController::class, 'updatePassword'])->name('users.password');
+    Route::post('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggle-active');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+
+    Route::get('/settings', [SystemSettingController::class, 'index'])->name('settings.index');
+    Route::put('/settings', [SystemSettingController::class, 'update'])->name('settings.update');
+    Route::post('/settings/backup', [SystemSettingController::class, 'backup'])->name('settings.backup');
+    Route::post('/settings/production-check', [SystemSettingController::class, 'productionCheck'])->name('settings.production-check');
 
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');

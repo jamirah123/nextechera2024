@@ -75,4 +75,24 @@ class User extends Authenticatable
 
         return $letters !== '' ? $letters : 'PS';
     }
+
+    public function scopeSearch($query, ?string $term)
+    {
+        if (! filled($term)) {
+            return $query;
+        }
+
+        $like = '%'.$term.'%';
+
+        return $query->where(function ($q) use ($like): void {
+            $q->where('name', 'like', $like)
+                ->orWhere('email', 'like', $like)
+                ->orWhere('phone', 'like', $like);
+        });
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
 }

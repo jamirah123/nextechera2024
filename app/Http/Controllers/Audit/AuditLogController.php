@@ -84,7 +84,7 @@ class AuditLogController extends Controller
         $headers = ['#', 'When', 'Action', 'Category', 'Severity', 'Summary', 'Actor', 'Role', 'Override', 'IP'];
         $data = $rows->values()->map(fn (AuditLog $log, int $index) => [
             $index + 1,
-            optional($log->created_at)?->format('Y-m-d H:i:s'),
+            optional($log->created_at)?->timezone(config('app.timezone'))->format('Y-m-d H:i:s'),
             $log->action,
             $log->category->label(),
             $log->severity->label(),

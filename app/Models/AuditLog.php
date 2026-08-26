@@ -83,4 +83,18 @@ class AuditLog extends Model
                 ->orWhere('actor_name', 'like', $like);
         });
     }
+
+    /**
+     * Wall-clock time in the application timezone (seconds + zone abbr).
+     */
+    public function occurredAtLabel(string $format = 'd M Y, H:i:s T'): string
+    {
+        if (! $this->created_at) {
+            return '—';
+        }
+
+        return $this->created_at
+            ->timezone(config('app.timezone'))
+            ->format($format);
+    }
 }

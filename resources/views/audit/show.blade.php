@@ -23,7 +23,7 @@
             <dl class="grid gap-4 sm:grid-cols-2">
                 <div>
                     <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">When</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $log->created_at?->format('d M Y, H:i:s') }}</dd>
+                    <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $log->occurredAtLabel() }}</dd>
                 </div>
                 <div>
                     <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Action</dt>

@@ -5,6 +5,7 @@ namespace Tests\Feature\Shifts;
 use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\OperationalStatus;
+use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
@@ -35,6 +36,7 @@ class ShiftManagementTest extends TestCase
                 'end_time' => '18:00',
                 'period' => ShiftPeriod::Day->value,
                 'shift_type' => ShiftType::Normal->value,
+                'guard_classification' => GuardClassification::Unarmed->value,
                 'acknowledge_warnings' => true,
             ])
             ->assertRedirect();
@@ -72,6 +74,7 @@ class ShiftManagementTest extends TestCase
                 'end_time' => '20:00',
                 'period' => ShiftPeriod::Day->value,
                 'shift_type' => ShiftType::Normal->value,
+                'guard_classification' => GuardClassification::Unarmed->value,
                 'acknowledge_warnings' => true,
             ])
             ->assertSessionHasErrors('shift');
@@ -100,6 +103,7 @@ class ShiftManagementTest extends TestCase
                 'end_time' => '06:00',
                 'period' => ShiftPeriod::Night->value,
                 'shift_type' => ShiftType::Normal->value,
+                'guard_classification' => GuardClassification::Unarmed->value,
                 'acknowledge_warnings' => true,
             ])
             ->assertRedirect();

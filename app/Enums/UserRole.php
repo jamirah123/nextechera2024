@@ -32,6 +32,17 @@ enum UserRole: string
         };
     }
 
+    public function tone(): string
+    {
+        return match ($this) {
+            self::SuperAdmin => 'rose',
+            self::OperationsManager => 'brand',
+            self::HrManager => 'sky',
+            self::ShiftManager => 'amber',
+            self::FinanceManager => 'emerald',
+        };
+    }
+
     /**
      * @return list<string>
      */

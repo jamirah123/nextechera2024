@@ -115,14 +115,7 @@
                     </div>
 
                     <div class="flex h-10 shrink-0 items-center gap-2 sm:gap-3">
-                        <button
-                            type="button"
-                            class="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 sm:inline-flex"
-                            aria-label="Notifications"
-                            title="Notifications coming soon"
-                        >
-                            <x-icon name="bell" class="h-5 w-5" />
-                        </button>
+                        <x-notification-bell />
                         <x-profile-menu :user="auth()->user()" />
                     </div>
                 </div>

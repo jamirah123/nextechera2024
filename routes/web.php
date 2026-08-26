@@ -12,6 +12,7 @@ use App\Http\Controllers\Finance\InvoiceController;
 use App\Http\Controllers\Finance\PaymentController;
 use App\Http\Controllers\Finance\ProfitabilityController;
 use App\Http\Controllers\GlobalSearchController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Guards\GuardController;
 use App\Http\Controllers\Organization\ClientController;
 use App\Http\Controllers\Organization\ManpowerCoverageController;
@@ -46,6 +47,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/ops-dashboards/sites/{site}', [OperationalDashboardController::class, 'site'])->name('ops-dashboards.site');
     Route::get('/ops-dashboards/guards/{guard}', [OperationalDashboardController::class, 'guard'])->name('ops-dashboards.guard');
     Route::get('/search', GlobalSearchController::class)->name('search');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
 
     Route::get('/organization', OrganizationDashboardController::class)->name('organization.index');
     Route::get('/manpower-coverage', [ManpowerCoverageController::class, 'index'])->name('manpower.coverage');

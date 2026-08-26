@@ -20,4 +20,7 @@ return [
         'keep_days' => (int) env('PSG_BACKUP_KEEP', 14),
         'path' => env('PSG_BACKUP_PATH', 'backups'),
     ],
+    'notifications' => [
+        'poll_seconds' => (int) env('PSG_NOTIFICATIONS_POLL_SECONDS', 30),
+    ],
 ];

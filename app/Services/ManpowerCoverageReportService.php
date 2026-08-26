@@ -68,6 +68,7 @@ class ManpowerCoverageReportService
     public function headers(): array
     {
         return [
+            '#',
             'Site Code',
             'Site Name',
             'Client',
@@ -94,11 +95,12 @@ class ManpowerCoverageReportService
     {
         $generatedAt = now()->timezone(config('app.timezone'))->format('Y-m-d H:i');
 
-        return $rows->map(function (array $row) use ($generatedAt) {
+        return $rows->values()->map(function (array $row, int $index) use ($generatedAt) {
             $site = $row['site'];
             $mp = $row['manpower'];
 
             return [
+                $index + 1,
                 $site->code,
                 $site->name,
                 $site->client?->name ?? '',
@@ -115,7 +117,7 @@ class ManpowerCoverageReportService
                 $mp['status']->label(),
                 $generatedAt,
             ];
-        })->values()->all();
+        })->all();
     }
 
     public function filename(Request $request, string $extension): string

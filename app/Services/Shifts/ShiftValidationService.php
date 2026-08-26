@@ -12,12 +12,15 @@ use App\Models\Guard;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Services\DeploymentService;
+use App\Services\LeaveService;
 use Carbon\CarbonInterface;
 
 class ShiftValidationService
 {
-    public function __construct(private DeploymentService $deployments)
-    {
+    public function __construct(
+        private DeploymentService $deployments,
+        private LeaveService $leaves,
+    ) {
     }
 
     /**
@@ -80,6 +83,10 @@ class ShiftValidationService
                 'unavailable_status',
                 'Guard operational status is '.$guard->operational_status->label().'.'
             );
+        }
+
+        if ($this->leaves->hasApprovedLeaveOn($guard->id, $startsAt->toDateString())) {
+            $result->critical('approved_leave', 'Guard has approved leave covering this shift date.');
         }
 
         if ($site->status !== SiteStatus::Active) {

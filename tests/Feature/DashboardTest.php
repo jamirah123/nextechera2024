@@ -29,7 +29,7 @@ class DashboardTest extends TestCase
             $response->assertOk();
             $response->assertSee($title, false);
             $response->assertSee($eyebrow, false);
-            $response->assertSee($user->name, false);
+            $response->assertSee($user->name);
             $response->assertSee('Your modules', false);
             $response->assertSee('Sign out', false);
         }

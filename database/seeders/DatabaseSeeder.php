@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             GuardSeeder::class,
             DeploymentSeeder::class,
             ShiftSeeder::class,
+            HrSeeder::class,
         ]);
     }
 }

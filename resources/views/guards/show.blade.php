@@ -17,6 +17,9 @@
                     Deploy
                 </a>
             @endif
+            <a href="{{ route('ops-dashboards.guard', $guard) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                Ops dashboard
+            </a>
             @if ($currentDeployment)
                 <a href="{{ route('deployments.show', $currentDeployment) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
                     View deployment

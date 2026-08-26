@@ -6,6 +6,8 @@ use App\Enums\DeploymentShiftType;
 use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\OperationalStatus;
+use App\Enums\AuditCategory;
+use App\Enums\AuditSeverity;
 use App\Models\Deployment;
 use App\Models\DeploymentTransfer;
 use App\Models\Guard;
@@ -15,6 +17,10 @@ use InvalidArgumentException;
 
 class DeploymentService
 {
+    public function __construct(private AuditService $audit)
+    {
+    }
+
     /**
      * @param  array{
      *     guard_id: int,
@@ -48,7 +54,20 @@ class DeploymentService
 
             $this->syncGuardAssignment($guard, $site, OperationalStatus::OffDuty);
 
-            return $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+            $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+            $this->audit->log(
+                action: 'deployment.created',
+                summary: 'Guard '.$guard->employment_id.' deployed to '.$site->name.'.',
+                category: AuditCategory::Deployment,
+                severity: AuditSeverity::Notice,
+                subject: $fresh,
+                context: [
+                    'guard_id' => $guard->id,
+                    'site_id' => $site->id,
+                ],
+            );
+
+            return $fresh;
         });
     }
 
@@ -110,7 +129,21 @@ class DeploymentService
 
             $this->syncGuardAssignment($guard, $toSite, $guard->operational_status ?? OperationalStatus::OffDuty);
 
-            return $newDeployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+            $fresh = $newDeployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+            $this->audit->log(
+                action: 'deployment.transferred',
+                summary: 'Guard '.$guard->employment_id.' transferred to '.$toSite->name.'.',
+                category: AuditCategory::Deployment,
+                severity: AuditSeverity::Warning,
+                subject: $fresh,
+                context: [
+                    'from_site_id' => $deployment->site_id,
+                    'to_site_id' => $toSite->id,
+                    'reason' => $data['reason'] ?? null,
+                ],
+            );
+
+            return $fresh;
         });
     }
 
@@ -136,7 +169,17 @@ class DeploymentService
                 'region_id' => $guard->region_id,
             ]);
 
-            return $deployment->fresh();
+            $fresh = $deployment->fresh();
+            $this->audit->log(
+                action: 'deployment.ended',
+                summary: 'Deployment ended for guard '.$guard->employment_id.'.',
+                category: AuditCategory::Deployment,
+                severity: AuditSeverity::Notice,
+                subject: $fresh,
+                context: ['guard_id' => $guard->id, 'site_id' => $fresh->site_id],
+            );
+
+            return $fresh;
         });
     }
 

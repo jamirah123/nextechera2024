@@ -14,6 +14,8 @@
         'intro' => 'Track client billing, invoices, collections, payroll-related costs and profitability using read-only operational data.',
     ])
 
+    @include('dashboards.partials.ops-pulse', ['ops' => $ops])
+
     <section class="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-950 shadow-sm sm:p-6">
         <h3 class="font-semibold">Separation of duties</h3>
         <p class="mt-2 leading-relaxed text-emerald-900/80">

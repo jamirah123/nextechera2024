@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Audit\AuditLogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Deployments\DeploymentController;
@@ -11,6 +12,12 @@ use App\Http\Controllers\Organization\OrganizationDashboardController;
 use App\Http\Controllers\Organization\RegionController;
 use App\Http\Controllers\Organization\SiteController;
 use App\Http\Controllers\Organization\SupervisorController;
+use App\Http\Controllers\Hr\AbsenceController;
+use App\Http\Controllers\Hr\AttendanceController;
+use App\Http\Controllers\Hr\DesertionController;
+use App\Http\Controllers\Hr\LeaveController;
+use App\Http\Controllers\Dashboards\OperationalDashboardController;
+use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\Shifts\ShiftController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +33,10 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/ops-dashboards', [OperationalDashboardController::class, 'company'])->name('ops-dashboards.company');
+    Route::get('/ops-dashboards/regions/{region}', [OperationalDashboardController::class, 'region'])->name('ops-dashboards.region');
+    Route::get('/ops-dashboards/sites/{site}', [OperationalDashboardController::class, 'site'])->name('ops-dashboards.site');
+    Route::get('/ops-dashboards/guards/{guard}', [OperationalDashboardController::class, 'guard'])->name('ops-dashboards.guard');
     Route::get('/search', GlobalSearchController::class)->name('search');
 
     Route::get('/organization', OrganizationDashboardController::class)->name('organization.index');
@@ -57,6 +68,49 @@ Route::middleware('auth')->group(function () {
     Route::get('/shifts/{shift}/edit', [ShiftController::class, 'edit'])->name('shifts.edit');
     Route::put('/shifts/{shift}', [ShiftController::class, 'update'])->name('shifts.update');
     Route::post('/shifts/{shift}/status', [ShiftController::class, 'updateStatus'])->name('shifts.status');
+
+    Route::get('/leaves', [LeaveController::class, 'index'])->name('leaves.index');
+    Route::get('/leaves/create', [LeaveController::class, 'create'])->name('leaves.create');
+    Route::post('/leaves', [LeaveController::class, 'store'])->name('leaves.store');
+    Route::get('/leaves/{leave}', [LeaveController::class, 'show'])->name('leaves.show');
+    Route::post('/leaves/{leave}/approve', [LeaveController::class, 'approve'])->name('leaves.approve');
+    Route::post('/leaves/{leave}/reject', [LeaveController::class, 'reject'])->name('leaves.reject');
+    Route::post('/leaves/{leave}/cancel', [LeaveController::class, 'cancel'])->name('leaves.cancel');
+    Route::post('/leaves/{leave}/complete', [LeaveController::class, 'complete'])->name('leaves.complete');
+
+    Route::get('/absences', [AbsenceController::class, 'index'])->name('absences.index');
+    Route::get('/absences/create', [AbsenceController::class, 'create'])->name('absences.create');
+    Route::post('/absences', [AbsenceController::class, 'store'])->name('absences.store');
+    Route::get('/absences/{absence}', [AbsenceController::class, 'show'])->name('absences.show');
+    Route::post('/absences/{absence}/clear', [AbsenceController::class, 'clear'])->name('absences.clear');
+
+    Route::get('/desertions', [DesertionController::class, 'index'])->name('desertions.index');
+    Route::get('/desertions/create', [DesertionController::class, 'create'])->name('desertions.create');
+    Route::post('/desertions', [DesertionController::class, 'store'])->name('desertions.store');
+    Route::get('/desertions/{desertion}', [DesertionController::class, 'show'])->name('desertions.show');
+    Route::post('/desertions/{desertion}/status', [DesertionController::class, 'updateStatus'])->name('desertions.status');
+
+    Route::get('/attendances', [AttendanceController::class, 'index'])->name('attendances.index');
+    Route::get('/attendances/create', [AttendanceController::class, 'create'])->name('attendances.create');
+    Route::post('/attendances', [AttendanceController::class, 'store'])->name('attendances.store');
+
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/monthly-shifts', [ReportController::class, 'monthlyShifts'])->name('reports.monthly-shifts');
+    Route::get('/reports/monthly-shifts/export', [ReportController::class, 'exportMonthlyShifts'])->name('reports.monthly-shifts.export');
+    Route::get('/reports/daily-shifts', [ReportController::class, 'dailyShifts'])->name('reports.daily-shifts');
+    Route::get('/reports/daily-shifts/export', [ReportController::class, 'exportDailyShifts'])->name('reports.daily-shifts.export');
+    Route::get('/reports/weekly-shifts', [ReportController::class, 'weeklyShifts'])->name('reports.weekly-shifts');
+    Route::get('/reports/weekly-shifts/export', [ReportController::class, 'exportWeeklyShifts'])->name('reports.weekly-shifts.export');
+    Route::get('/reports/guards', [ReportController::class, 'guards'])->name('reports.guards');
+    Route::get('/reports/guards/export', [ReportController::class, 'exportGuards'])->name('reports.guards.export');
+    Route::get('/reports/deployments', [ReportController::class, 'deployments'])->name('reports.deployments');
+    Route::get('/reports/deployments/export', [ReportController::class, 'exportDeployments'])->name('reports.deployments.export');
+    Route::get('/reports/hr', [ReportController::class, 'hr'])->name('reports.hr');
+    Route::get('/reports/hr/export', [ReportController::class, 'exportHr'])->name('reports.hr.export');
+
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
+    Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit.export');
+    Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show'])->name('audit.show');
 
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');

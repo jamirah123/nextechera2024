@@ -12,6 +12,9 @@
         :back="route('sites.index')"
     >
         <x-slot:actions>
+            <a href="{{ route('ops-dashboards.site', $site) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                Ops dashboard
+            </a>
             @if ($canDeploy ?? false)
                 <a href="{{ route('deployments.create', ['site_id' => $site->id]) }}" class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">
                     Deploy guard

@@ -116,3 +116,34 @@ select.ts-hidden-accessible + .ts-wrapper {
     @apply block;
 }
 
+@media print {
+    html,
+    body {
+        height: auto !important;
+        overflow: visible !important;
+        background: #fff !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    aside,
+    header {
+        display: none !important;
+    }
+
+    main {
+        overflow: visible !important;
+        padding: 0 !important;
+    }
+
+    .report-print-area {
+        break-inside: avoid;
+    }
+
+    a[href]::after {
+        content: none !important;
+    }
+}
+

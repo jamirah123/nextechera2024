@@ -14,6 +14,8 @@
         'intro' => 'Create and manage shifts quickly with conflict detection, manpower checks, replacements and auditable schedule history.',
     ])
 
+    @include('dashboards.partials.ops-pulse', ['ops' => $ops])
+
     <section class="mt-6 grid gap-4 md:grid-cols-2">
         <div class="rounded-2xl border border-brand-200 bg-brand-50 p-5 text-sm text-brand-950 shadow-sm sm:p-6">
             <h3 class="font-semibold">Recommended workflow</h3>

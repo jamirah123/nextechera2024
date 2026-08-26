@@ -12,6 +12,9 @@
         :back="route('regions.index')"
     >
         <x-slot:actions>
+            <a href="{{ route('ops-dashboards.region', $region) }}" class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">
+                Ops dashboard
+            </a>
             @if ($canManage)
                 <a href="{{ route('regions.edit', $region) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
                     Edit

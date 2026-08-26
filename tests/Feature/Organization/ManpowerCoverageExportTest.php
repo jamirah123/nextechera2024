@@ -26,7 +26,8 @@ class ManpowerCoverageExportTest extends TestCase
             ->get(route('manpower.coverage'))
             ->assertOk()
             ->assertSee('Export CSV')
-            ->assertSee('Export Excel')
+            ->assertSee('Print')
+            ->assertDontSee('Export Excel')
             ->assertSee(route('manpower.coverage.export', ['format' => 'csv']), false);
     }
 
@@ -52,31 +53,11 @@ class ManpowerCoverageExportTest extends TestCase
         $response->sendContent();
         $content = ob_get_clean();
 
+        $this->assertStringContainsString('#', $content);
         $this->assertStringContainsString('Site Code', $content);
         $this->assertStringContainsString('ABC-WH', $content);
         $this->assertStringContainsString('ABC Warehouse', $content);
         $this->assertStringContainsString('Coverage %', $content);
-    }
-
-    public function test_user_can_export_coverage_excel(): void
-    {
-        $user = User::factory()->role(UserRole::ShiftManager)->create();
-        Site::factory()->create(['code' => 'SITE99']);
-
-        $response = $this->actingAs($user)
-            ->get(route('manpower.coverage.export', ['format' => 'excel']));
-
-        $response->assertOk();
-        $this->assertStringContainsString(
-            'application/vnd.ms-excel',
-            (string) $response->headers->get('content-type'),
-        );
-
-        ob_start();
-        $response->sendContent();
-        $content = ob_get_clean();
-
-        $this->assertStringContainsString('SITE99', $content);
     }
 
     public function test_delete_confirmation_uses_in_app_modal_markup(): void

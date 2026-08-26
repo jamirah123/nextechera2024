@@ -91,6 +91,26 @@ class Guard extends Model
         return $this->hasMany(Shift::class)->latest('starts_at');
     }
 
+    public function leaves(): HasMany
+    {
+        return $this->hasMany(Leave::class)->latest('start_date');
+    }
+
+    public function absences(): HasMany
+    {
+        return $this->hasMany(Absence::class)->latest('absence_date');
+    }
+
+    public function desertions(): HasMany
+    {
+        return $this->hasMany(Desertion::class)->latest('date_reported');
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class)->latest('occurred_at');
+    }
+
     public function isEmploymentActive(): bool
     {
         return $this->employment_status === EmploymentStatus::Active;

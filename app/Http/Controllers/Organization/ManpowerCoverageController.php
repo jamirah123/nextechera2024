@@ -42,23 +42,12 @@ class ManpowerCoverageController extends Controller
     {
         $this->authorize('viewAny', Site::class);
 
-        $format = $request->string('format', 'csv')->toString();
         $rows = $this->report->rows($request);
-        $headers = $this->report->headers();
-        $data = $this->report->exportRows($rows);
-
-        if ($format === 'excel' || $format === 'xls') {
-            return $this->exporter->downloadExcel(
-                $this->report->filename($request, 'xls'),
-                $headers,
-                $data,
-            );
-        }
 
         return $this->exporter->downloadCsv(
             $this->report->filename($request, 'csv'),
-            $headers,
-            $data,
+            $this->report->headers(),
+            $this->report->exportRows($rows),
         );
     }
 }

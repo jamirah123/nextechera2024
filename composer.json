@@ -48,6 +48,12 @@
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"
         ],
+        "production-check": [
+            "@php artisan psg:production-check"
+        ],
+        "backup": [
+            "@php artisan psg:backup-database"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

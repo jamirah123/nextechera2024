@@ -2,12 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Dashboards\OperationalDashboardService;
 use App\Support\Navigation\RoleNavigation;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    public function __construct(private OperationalDashboardService $opsDashboards)
+    {
+    }
+
     public function __invoke(Request $request): View
     {
         $user = $request->user();
@@ -25,6 +30,7 @@ class DashboardController extends Controller
             'user' => $user,
             'kpis' => RoleNavigation::kpis($user),
             'modules' => RoleNavigation::modules($user),
+            'ops' => $this->opsDashboards->landingSnapshot(),
         ]);
     }
 }

@@ -31,29 +31,35 @@ class RoleNavigation
             UserRole::SuperAdmin => [
                 self::module('Users & Access', 'Manage system users, roles and permissions.', 'users', 'slate'),
                 self::module('Organization', 'Regions, supervisors, clients and security sites.', 'building', 'indigo', route('organization.index')),
+                self::module('Ops Dashboards', 'Company, region, site and guard operational views.', 'chart', 'brand', route('ops-dashboards.company')),
                 self::module('Manpower Coverage', 'Required vs deployed staffing across sites.', 'chart', 'amber', route('manpower.coverage')),
                 self::module('Guards', 'Company-wide guard registry and employment records.', 'shield', 'sky', route('guards.index')),
                 self::module('Deployments', 'Active deployments, transfers and replacements.', 'map', 'emerald', route('deployments.index')),
                 self::module('Shifts', 'Schedules, calendar and shift validation oversight.', 'calendar', 'amber', route('shifts.index')),
-                self::module('Reports', 'Operational, HR and financial report exports.', 'chart', 'violet'),
-                self::module('Audit Logs', 'Immutable trail of critical system actions.', 'audit', 'rose'),
+                self::module('Leave', 'Leave requests, approvals and conflict handling.', 'leave', 'sky', route('leaves.index')),
+                self::module('Absences', 'Daily absence recording and follow-up.', 'alert', 'amber', route('absences.index')),
+                self::module('Reports', 'Operational, HR and financial report exports.', 'chart', 'violet', route('reports.index')),
+                self::module('Audit Logs', 'Immutable trail of critical system actions.', 'audit', 'rose', route('audit.index')),
             ],
             UserRole::OperationsManager => [
+                self::module('Ops Dashboards', 'Company and regional operational command views.', 'chart', 'brand', route('ops-dashboards.company')),
                 self::module('Organization', 'Regions, supervisors, clients and sites.', 'building', 'indigo', route('organization.index')),
                 self::module('Manpower Coverage', 'Site staffing levels, shortages and surplus.', 'chart', 'amber', route('manpower.coverage')),
                 self::module('Guards', 'Review employment and operational guard status.', 'shield', 'sky', route('guards.index')),
                 self::module('Sites', 'Security sites and manpower requirements.', 'map', 'brand', route('sites.index')),
                 self::module('Today\'s Shifts', 'Monitor scheduled, in-progress and missed shifts.', 'calendar', 'brand', route('shifts.index')),
                 self::module('Deployments', 'Guard-to-site assignments across regions.', 'map', 'emerald', route('deployments.index')),
-                self::module('Operational Reports', 'Shift, overtime and coverage reports.', 'report', 'violet'),
+                self::module('Operational Reports', 'Shift, overtime and coverage reports.', 'report', 'violet', route('reports.index')),
+                self::module('Audit Logs', 'Overrides and critical operational events.', 'audit', 'rose', route('audit.index')),
             ],
             UserRole::HrManager => [
                 self::module('All Guards', 'Register and maintain guard employment records.', 'shield', 'brand', route('guards.index')),
                 self::module('Organization', 'View regions, sites and supervisors.', 'building', 'indigo', route('organization.index')),
-                self::module('Leave Management', 'Approve leave and detect schedule conflicts.', 'leave', 'sky'),
-                self::module('Absences', 'Record absences and trigger replacements.', 'alert', 'amber'),
-                self::module('Desertions', 'Track deserted guards and HR follow-up.', 'warning', 'rose'),
-                self::module('HR Reports', 'Employment, leave, absence and work summaries.', 'report', 'violet'),
+                self::module('Leave Management', 'Approve leave and detect schedule conflicts.', 'leave', 'sky', route('leaves.index')),
+                self::module('Absences', 'Record absences and trigger replacements.', 'alert', 'amber', route('absences.index')),
+                self::module('Desertions', 'Track deserted guards and HR follow-up.', 'warning', 'rose', route('desertions.index')),
+                self::module('Attendance', 'Manual attendance events with status history preserved.', 'calendar', 'brand', route('attendances.index')),
+                self::module('HR Reports', 'Employment, leave, absence and work summaries.', 'report', 'violet', route('reports.hr')),
             ],
             UserRole::ShiftManager => [
                 self::module('Create Shifts', 'Fast shift entry with validation and conflict checks.', 'plus', 'brand', route('shifts.create')),
@@ -62,7 +68,7 @@ class RoleNavigation
                 self::module('Organization', 'Regions, supervisors and site structure.', 'building', 'indigo', route('organization.index')),
                 self::module('Deployments', 'Assign guards to sites before scheduling.', 'map', 'emerald', route('deployments.index')),
                 self::module('Today\'s Shifts', 'Monitor and update the live schedule.', 'calendar', 'sky', route('shifts.index')),
-                self::module('Shift Reports', 'Daily and monthly shift and overtime exports.', 'report', 'violet'),
+                self::module('Shift Reports', 'Daily and monthly shift and overtime exports.', 'report', 'violet', route('reports.index')),
             ],
             UserRole::FinanceManager => [
                 self::module('Clients & Sites', 'Contracts and site structure for billing context.', 'building', 'indigo', route('organization.index')),
@@ -71,7 +77,7 @@ class RoleNavigation
                 self::module('Invoices', 'Create, approve and track client invoices.', 'invoice', 'indigo'),
                 self::module('Payments', 'Record payments and outstanding balances.', 'payment', 'emerald'),
                 self::module('Profitability', 'Client, site and region profitability analysis.', 'chart', 'violet'),
-                self::module('Financial Exports', 'Statements, revenue and expense exports.', 'report', 'sky'),
+                self::module('Monthly Shift Exports', 'Payroll-ready normal and overtime shift totals.', 'report', 'sky', route('reports.monthly-shifts')),
             ],
             default => [],
         };
@@ -130,6 +136,7 @@ class RoleNavigation
     {
         return [
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
+            self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
             self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*|manpower.*', [
                 ['label' => 'Overview', 'href' => route('organization.index')],
                 ['label' => 'Regions', 'href' => route('regions.index')],
@@ -138,10 +145,10 @@ class RoleNavigation
                 ['label' => 'Sites', 'href' => route('sites.index')],
                 ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
             ]),
-            self::nav('Administration', 'settings', '#', null, [
+            self::nav('Administration', 'settings', route('audit.index'), 'audit.*', [
                 ['label' => 'Users', 'href' => '#'],
                 ['label' => 'Roles & Permissions', 'href' => '#'],
-                ['label' => 'Audit Logs', 'href' => '#'],
+                ['label' => 'Audit Logs', 'href' => route('audit.index')],
                 ['label' => 'System Settings', 'href' => '#'],
             ]),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
@@ -149,9 +156,11 @@ class RoleNavigation
                 ['label' => 'Deployments', 'href' => route('deployments.index')],
                 ['label' => 'Shifts', 'href' => route('shifts.index')],
                 ['label' => 'Calendar', 'href' => route('shifts.calendar')],
+                ['label' => 'Leave', 'href' => route('leaves.index')],
+                ['label' => 'Absences', 'href' => route('absences.index')],
                 ['label' => 'Replacements', 'href' => '#'],
             ]),
-            self::nav('Reports', 'chart', '#'),
+            self::nav('Reports', 'chart', route('reports.index'), 'reports.*'),
         ];
     }
 
@@ -160,6 +169,8 @@ class RoleNavigation
     {
         return [
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
+            self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
+            self::nav('Audit Logs', 'audit', route('audit.index'), 'audit.*'),
             self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*|manpower.*', [
                 ['label' => 'Overview', 'href' => route('organization.index')],
                 ['label' => 'Regions', 'href' => route('regions.index')],
@@ -170,9 +181,11 @@ class RoleNavigation
             ]),
             self::nav('Today\'s Shifts', 'calendar', route('shifts.index'), 'shifts.*'),
             self::nav('Deployments', 'map', route('deployments.index'), 'deployments.*'),
+            self::nav('Leave', 'leave', route('leaves.index'), 'leaves.*'),
+            self::nav('Absences', 'alert', route('absences.index'), 'absences.*'),
             self::nav('Replacements', 'swap', '#'),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
-            self::nav('Reports', 'report', '#'),
+            self::nav('Reports', 'report', route('reports.index'), 'reports.*'),
         ];
     }
 
@@ -182,6 +195,7 @@ class RoleNavigation
         return [
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
             self::nav('All Guards', 'shield', route('guards.index'), 'guards.*'),
+            self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
             self::nav('Deployments', 'map', route('deployments.index'), 'deployments.*'),
             self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*', [
                 ['label' => 'Overview', 'href' => route('organization.index')],
@@ -189,10 +203,11 @@ class RoleNavigation
                 ['label' => 'Sites', 'href' => route('sites.index')],
                 ['label' => 'Supervisors', 'href' => route('supervisors.index')],
             ]),
-            self::nav('Leave', 'leave', route('guards.index', ['operational_status' => 'on_leave']), null),
-            self::nav('Absence', 'alert', route('guards.index', ['operational_status' => 'absent']), null),
-            self::nav('Desertion', 'warning', route('guards.index', ['operational_status' => 'deserted']), null),
-            self::nav('HR Reports', 'report', '#'),
+            self::nav('Leave', 'leave', route('leaves.index'), 'leaves.*'),
+            self::nav('Absence', 'alert', route('absences.index'), 'absences.*'),
+            self::nav('Desertion', 'warning', route('desertions.index'), 'desertions.*'),
+            self::nav('Attendance', 'calendar', route('attendances.index'), 'attendances.*'),
+            self::nav('HR Reports', 'report', route('reports.hr'), 'reports.*'),
         ];
     }
 
@@ -201,6 +216,7 @@ class RoleNavigation
     {
         return [
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
+            self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
             self::nav('Today\'s Shifts', 'calendar', route('shifts.index'), 'shifts.index|shifts.show|shifts.calendar'),
             self::nav('Create Shift', 'plus', route('shifts.create'), 'shifts.create|shifts.store|shifts.recurring.*|shifts.edit|shifts.update'),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
@@ -212,7 +228,7 @@ class RoleNavigation
                 ['label' => 'Supervisors', 'href' => route('supervisors.index')],
             ]),
             self::nav('Replacements', 'swap', '#'),
-            self::nav('Shift Reports', 'report', '#'),
+            self::nav('Shift Reports', 'report', route('reports.index'), 'reports.*'),
         ];
     }
 
@@ -221,6 +237,7 @@ class RoleNavigation
     {
         return [
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
+            self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
             self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|clients.*|sites.*', [
                 ['label' => 'Overview', 'href' => route('organization.index')],
                 ['label' => 'Clients', 'href' => route('clients.index')],
@@ -233,7 +250,7 @@ class RoleNavigation
             self::nav('Invoices', 'invoice', '#'),
             self::nav('Payments', 'payment', '#'),
             self::nav('Profitability', 'chart', '#'),
-            self::nav('Financial Exports', 'report', '#'),
+            self::nav('Shift Exports', 'report', route('reports.monthly-shifts'), 'reports.*'),
         ];
     }
 

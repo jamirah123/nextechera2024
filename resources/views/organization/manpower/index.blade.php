@@ -12,28 +12,17 @@
         :back="route('organization.index')"
     >
         <x-slot:actions>
-            <div class="flex flex-wrap items-center gap-2">
-                <a
-                    href="{{ route('manpower.coverage.export', array_merge($exportQuery, ['format' => 'csv'])) }}"
-                    class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
-                >
-                    <x-icon name="download" class="h-4 w-4" />
-                    Export CSV
-                </a>
-                <a
-                    href="{{ route('manpower.coverage.export', array_merge($exportQuery, ['format' => 'excel'])) }}"
-                    class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800"
-                >
-                    <x-icon name="report" class="h-4 w-4" />
-                    Export Excel
-                </a>
+            <x-report-actions
+                :csv="route('manpower.coverage.export', array_merge($exportQuery, ['format' => 'csv']))"
+            >
                 <a href="{{ route('sites.index') }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
                     Manage sites
                 </a>
-            </div>
+            </x-report-actions>
         </x-slot:actions>
     </x-page-header>
 
+    <div class="report-print-area space-y-6">
     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5 sm:gap-4">
         <x-kpi-card label="Required" :value="number_format($company['required'])" tone="brand" />
         <x-kpi-card label="Deployed" :value="number_format($company['deployed'])" tone="emerald" />
@@ -47,7 +36,7 @@
         />
     </section>
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section class="no-print rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <form
             method="GET"
             action="{{ route('manpower.coverage') }}"
@@ -92,25 +81,17 @@
             </x-slot:actions>
         </x-empty-state>
     @else
-        <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-950">
+        <div class="no-print flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-950">
             <p>
                 <span class="font-semibold">Coverage report ready.</span>
                 Export the filtered site manpower summary for management review.
             </p>
-            <div class="flex flex-wrap gap-2">
-                <a
-                    href="{{ route('manpower.coverage.export', array_merge($exportQuery, ['format' => 'csv'])) }}"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-800 hover:bg-brand-50"
-                >
-                    CSV
-                </a>
-                <a
-                    href="{{ route('manpower.coverage.export', array_merge($exportQuery, ['format' => 'excel'])) }}"
-                    class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800"
-                >
-                    Excel
-                </a>
-            </div>
+            <a
+                href="{{ route('manpower.coverage.export', array_merge($exportQuery, ['format' => 'csv'])) }}"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800"
+            >
+                Export CSV
+            </a>
         </div>
         {{-- Desktop table --}}
         <div class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
@@ -207,5 +188,6 @@
             </div>
         @endif
     @endif
+    </div>
 </div>
 @endsection

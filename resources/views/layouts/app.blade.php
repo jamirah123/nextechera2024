@@ -22,13 +22,13 @@
             x-cloak
             x-show="sidebarOpen"
             x-transition.opacity
-            class="fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm lg:hidden"
+            class="no-print fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm lg:hidden"
             @click="sidebarOpen = false"
         ></div>
 
         {{-- Sidebar: fixed in viewport, does not scroll with page --}}
         <aside
-            class="fixed inset-y-0 left-0 z-50 flex h-dvh w-[18rem] max-w-[85vw] -translate-x-full flex-col bg-steel-950 text-white transition-transform duration-300 lg:static lg:z-0 lg:h-full lg:max-w-none lg:w-72 lg:shrink-0 lg:translate-x-0"
+            class="no-print fixed inset-y-0 left-0 z-50 flex h-dvh w-[18rem] max-w-[85vw] -translate-x-full flex-col bg-steel-950 text-white transition-transform duration-300 lg:static lg:z-0 lg:h-full lg:max-w-none lg:w-72 lg:shrink-0 lg:translate-x-0"
             :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
         >
             <div class="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
@@ -89,7 +89,7 @@
 
         {{-- Main column: header fixed, content scrolls --}}
         <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-            <header class="z-30 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur">
+            <header class="no-print z-30 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur">
                 <div class="flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8">
                     <div class="flex min-w-0 shrink-0 items-center gap-3 sm:w-48 lg:w-56 xl:w-64">
                         <button

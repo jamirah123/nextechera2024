@@ -6,6 +6,8 @@ use App\Enums\OperationalStatus;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
+use App\Enums\AuditCategory;
+use App\Enums\AuditSeverity;
 use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Shift;
@@ -23,6 +25,7 @@ class ShiftService
     public function __construct(
         private ShiftValidationService $validator,
         private GuardService $guards,
+        private AuditService $audit,
     ) {
     }
 
@@ -91,6 +94,8 @@ class ShiftService
                 'override_at' => ($data['override_critical'] ?? false) ? now() : null,
                 'validation_snapshot' => $validation->all(),
             ]);
+
+            $this->auditShiftEvent($shift, 'shift.created', 'Shift '.$shift->reference.' created.', (bool) ($data['override_critical'] ?? false), $data['override_reason'] ?? null, $validation);
 
             return $shift->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
         });
@@ -164,7 +169,17 @@ class ShiftService
                 'validation_snapshot' => $validation->all(),
             ]);
 
-            return $shift->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+            $fresh = $shift->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+            $this->auditShiftEvent(
+                $fresh,
+                'shift.updated',
+                'Shift '.$fresh->reference.' updated.',
+                (bool) ($data['override_critical'] ?? false),
+                $data['override_reason'] ?? null,
+                $validation,
+            );
+
+            return $fresh;
         });
     }
 
@@ -202,7 +217,17 @@ class ShiftService
                 }
             }
 
-            return $shift->fresh();
+            $fresh = $shift->fresh();
+            $this->audit->log(
+                action: 'shift.status_changed',
+                summary: 'Shift '.$fresh->reference.' marked '.$status->label().'.',
+                category: AuditCategory::Shift,
+                severity: AuditSeverity::Notice,
+                subject: $fresh,
+                context: ['status' => $status->value],
+            );
+
+            return $fresh;
         });
     }
 
@@ -349,5 +374,44 @@ class ShiftService
                 'Warnings require acknowledgement: '.implode(' ', $validation->warningMessages())
             );
         }
+    }
+
+    private function auditShiftEvent(
+        Shift $shift,
+        string $action,
+        string $summary,
+        bool $override,
+        ?string $overrideReason,
+        ShiftValidationResult $validation,
+    ): void {
+        if ($override) {
+            $this->audit->logOverride(
+                action: $action.'.override',
+                summary: $summary.' Authorized override applied.',
+                subject: $shift,
+                reason: (string) $overrideReason,
+                context: [
+                    'critical' => $validation->criticalMessages(),
+                    'warnings' => $validation->warningMessages(),
+                    'reference' => $shift->reference,
+                ],
+                category: AuditCategory::Shift,
+            );
+
+            return;
+        }
+
+        $this->audit->log(
+            action: $action,
+            summary: $summary,
+            category: AuditCategory::Shift,
+            severity: AuditSeverity::Info,
+            subject: $shift,
+            context: [
+                'reference' => $shift->reference,
+                'guard_id' => $shift->guard_id,
+                'site_id' => $shift->site_id,
+            ],
+        );
     }
 }

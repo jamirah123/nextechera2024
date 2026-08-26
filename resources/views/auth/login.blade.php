@@ -27,7 +27,7 @@
                     </div>
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-300">Authorized Access</p>
-                        <p class="text-xl font-semibold tracking-tight">Platinum Security Group</p>
+                        <p class="text-xl font-semibold tracking-tight">{{ config('psg.company') }}</p>
                     </div>
                 </div>
 
@@ -77,7 +77,7 @@
                     <span class="text-sm font-bold tracking-wide">PSG</span>
                 </div>
                 <div class="min-w-0">
-                    <p class="truncate text-base font-semibold tracking-tight">Platinum Security Group</p>
+                    <p class="truncate text-base font-semibold tracking-tight">{{ config('psg.company') }}</p>
                     <p class="truncate text-xs text-slate-300">Guard Shift &amp; Operations System</p>
                 </div>
             </div>
@@ -90,9 +90,15 @@
                         <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-700">Secure Sign In</p>
                         <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Welcome back</h2>
                         <p class="mt-2 text-sm leading-relaxed text-slate-500">
-                            Sign in with your Platinum Security Group management account.
+                            Sign in with your {{ config('psg.company') }} management account.
                         </p>
                     </div>
+
+                    @if (session('status'))
+                        <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+                            {{ session('status') }}
+                        </div>
+                    @endif
 
                     @if ($errors->any())
                         <div class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
@@ -174,7 +180,7 @@
                                 >
                                 Remember this device
                             </label>
-                            <span class="text-xs text-slate-400">Encrypted session</span>
+                            <a href="{{ route('password.request') }}" class="text-xs font-semibold text-brand-700 hover:text-brand-800">Forgot password?</a>
                         </div>
 
                         <button
@@ -188,7 +194,7 @@
                 </div>
 
                 <p class="mt-6 px-1 text-center text-xs leading-relaxed text-slate-500">
-                    &copy; {{ date('Y') }} Platinum Security Group.<br class="sm:hidden">
+                    &copy; {{ date('Y') }} {{ config('psg.company') }}.<br class="sm:hidden">
                     Guard Shift, Deployment &amp; Operations Management.
                 </p>
             </div>

@@ -39,6 +39,7 @@ class RoleNavigation
                 self::module('Replacements', 'Link original shifts to covering guards.', 'swap', 'indigo', route('replacements.index')),
                 self::module('Leave', 'Leave requests, approvals and conflict handling.', 'leave', 'sky', route('leaves.index')),
                 self::module('Absences', 'Daily absence recording and follow-up.', 'alert', 'amber', route('absences.index')),
+                self::module('Finance', 'Client billing, invoices, payments and profitability.', 'wallet', 'emerald', route('billing.index')),
                 self::module('Reports', 'Operational, HR and financial report exports.', 'chart', 'violet', route('reports.index')),
                 self::module('Audit Logs', 'Immutable trail of critical system actions.', 'audit', 'rose', route('audit.index')),
                 self::module('System Settings', 'Company profile, finance defaults, shift times and backups.', 'settings', 'violet', route('settings.index')),
@@ -163,6 +164,12 @@ class RoleNavigation
                 ['label' => 'Leave', 'href' => route('leaves.index')],
                 ['label' => 'Absences', 'href' => route('absences.index')],
                 ['label' => 'Replacements', 'href' => route('replacements.index')],
+            ]),
+            self::nav('Finance', 'wallet', route('billing.index'), 'billing.*|invoices.*|payments.*|profitability.*', [
+                ['label' => 'Client Billing', 'href' => route('billing.index')],
+                ['label' => 'Invoices', 'href' => route('invoices.index')],
+                ['label' => 'Payments', 'href' => route('payments.index')],
+                ['label' => 'Profitability', 'href' => route('profitability.index')],
             ]),
             self::nav('Reports', 'chart', route('reports.index'), 'reports.*'),
         ];

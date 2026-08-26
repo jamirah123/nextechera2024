@@ -111,6 +111,18 @@ Daily database backup is registered at **01:30** via:
 Schedule::command('psg:backup-database --keep=14')
 ```
 
+Overdue invoice sync runs daily at **00:15**:
+
+```bash
+php artisan psg:mark-overdue-invoices
+```
+
+Shift lifecycle sync runs **every 15 minutes** (scheduled/confirmed → in progress; elapsed → missed):
+
+```bash
+php artisan psg:sync-shift-statuses
+```
+
 Backups are written to `storage/app/backups/`.
 
 If using database queues:

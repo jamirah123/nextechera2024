@@ -13,3 +13,11 @@ Schedule::command('psg:backup-database', [
     '--path' => config('psg.backup.path', 'backups'),
 ])->dailyAt('01:30')
     ->withoutOverlapping();
+
+Schedule::command('psg:mark-overdue-invoices')
+    ->dailyAt('00:15')
+    ->withoutOverlapping();
+
+Schedule::command('psg:sync-shift-statuses')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping();

@@ -75,7 +75,7 @@
                     Sign out
                 </button>
                 <div x-cloak x-show="confirming" class="space-y-2 rounded-xl bg-rose-50 p-3">
-                    <p class="text-xs leading-relaxed text-rose-800">Sign out of Platinum Security Group on this device?</p>
+                    <p class="text-xs leading-relaxed text-rose-800">Sign out of {{ config('psg.company') }} on this device?</p>
                     <div class="flex gap-2">
                         <button
                             type="submit"

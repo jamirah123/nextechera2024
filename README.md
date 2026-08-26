@@ -65,7 +65,16 @@ php artisan schedule:work
 7. Reporting (CSV + print)  
 8. Operational dashboards (company → region → site → guard)  
 9. Audit logs & active-user hardening  
-10. Production tooling (backup, checks, deploy docs)
+10. Production tooling (backup, checks, deploy docs)  
+11. Finance (UGX billing, headcount invoicing, payments, profitability)  
+12. Administration (users, roles matrix, system settings)  
+13. Live notifications (role-aware audit feed in the nav bar)
+
+Scheduled maintenance (requires `php artisan schedule:work` or cron):
+
+- Daily database backup (`01:30`)
+- Daily overdue invoice sync (`00:15`)
+- Shift status sync every 15 minutes (in progress / missed)
 
 ## License
 

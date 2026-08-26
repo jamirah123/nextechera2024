@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#0a1a42">
 
-    <title>@yield('title', 'Dashboard') — {{ config('app.name', 'Platinum Security Group') }}</title>
+    <title>@yield('title', 'Dashboard') — {{ config('psg.company') }}</title>
 
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -37,7 +37,7 @@
                         PSG
                     </div>
                     <div class="min-w-0">
-                        <p class="truncate text-sm font-semibold">Platinum Security</p>
+                        <p class="truncate text-sm font-semibold">{{ config('psg.company') }}</p>
                         <p class="truncate text-xs text-slate-400">Operations System</p>
                     </div>
                 </a>
@@ -105,7 +105,7 @@
                                 @yield('page-title', 'Dashboard')
                             </p>
                             <p class="mt-0.5 truncate text-xs leading-tight text-slate-500">
-                                @yield('page-subtitle', auth()->user()->role?->description() ?? 'Platinum Security Group')
+                                @yield('page-subtitle', auth()->user()->role?->description() ?? config('psg.company'))
                             </p>
                         </div>
                     </div>
@@ -124,7 +124,7 @@
                         @yield('page-title', 'Dashboard')
                     </p>
                     <p class="truncate text-xs text-slate-500">
-                        @yield('page-subtitle', auth()->user()->role?->description() ?? 'Platinum Security Group')
+                        @yield('page-subtitle', auth()->user()->role?->description() ?? config('psg.company'))
                     </p>
                 </div>
             </header>

@@ -45,7 +45,87 @@ PSG_BACKUP_KEEP=14
 
 Never commit `.env`. Keep `APP_DEBUG=false` in production.
 
-## 3. Install & migrate
+### Mail (password reset & alerts)
+
+Local development uses `MAIL_MAILER=log` (messages go to `storage/logs/laravel.log`).
+
+Production example:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.your-provider.com
+MAIL_PORT=587
+MAIL_USERNAME=ops@your-domain.com
+MAIL_PASSWORD=your-smtp-password
+MAIL_SCHEME=tls
+MAIL_FROM_ADDRESS=ops@your-domain.com
+MAIL_FROM_NAME="${PSG_COMPANY_NAME}"
+```
+
+Verify after configuring:
+
+```bash
+php artisan psg:test-mail admin@your-domain.com
+```
+
+Password reset emails use the company name from System Settings / `PSG_COMPANY_NAME`.
+
+## 3. WAMP deployment (Windows)
+
+Typical layout when the project lives at `C:\wamp64\www\psg_shifts`:
+
+1. **Document root** must point to `C:\wamp64\www\psg_shifts\public` (not the project root).
+2. Enable **mod_rewrite** in Apache and `AllowOverride All` for that directory.
+3. Create a MySQL database (e.g. `psg_shifts`) via phpMyAdmin.
+4. Copy `.env.example` to `.env`, set MySQL credentials:
+
+```env
+APP_URL=http://localhost/psg_shifts/public
+# or a virtual host: APP_URL=http://psg-shifts.local
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=psg_shifts
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+5. Install and build:
+
+```bash
+cd C:\wamp64\www\psg_shifts
+composer install
+php artisan key:generate
+php artisan migrate --seed
+npm install
+npm run build
+```
+
+6. Ensure `storage/` and `bootstrap/cache/` are writable by the Apache user.
+7. Add **MySQL bin** to PATH so `mysqldump` works for backups (`C:\wamp64\bin\mysql\mysql8.x.x\bin`).
+8. Schedule **Task Scheduler** to run every minute:
+
+```bat
+php C:\wamp64\www\psg_shifts\artisan schedule:run
+```
+
+Optional virtual host (`httpd-vhosts.conf`):
+
+```apache
+<VirtualHost *:80>
+    ServerName psg-shifts.local
+    DocumentRoot "C:/wamp64/www/psg_shifts/public"
+    <Directory "C:/wamp64/www/psg_shifts/public">
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+```
+
+Add `127.0.0.1 psg-shifts.local` to `C:\Windows\System32\drivers\etc\hosts`.
+
+## 4. Install & migrate
 
 ```bash
 composer install --no-dev --optimize-autoloader
@@ -56,7 +136,7 @@ php artisan db:seed --force   # first deploy only, if seeding admins
 php artisan storage:link
 ```
 
-## 4. Optimize Laravel
+## 5. Optimize Laravel
 
 ```bash
 php artisan config:cache
@@ -72,7 +152,7 @@ php artisan optimize:clear
 php artisan optimize
 ```
 
-## 5. Web server
+## 6. Web server
 
 Point the document root to `/public`.
 
@@ -95,7 +175,7 @@ location ~ \.php$ {
 }
 ```
 
-## 6. Scheduler & queues
+## 7. Scheduler & queues
 
 Run the scheduler every minute:
 
@@ -133,7 +213,7 @@ php artisan queue:work --sleep=3 --tries=3
 
 Use a process manager (Supervisor / NSSM) in production.
 
-## 7. Backups
+## 8. Backups
 
 Manual backup:
 
@@ -146,15 +226,15 @@ php artisan psg:backup-database --keep=14
 
 Store copies off-server (object storage / network share). Test restores quarterly.
 
-## 8. Health check
+## 9. Health check
 
 ```bash
 php artisan psg:production-check
 ```
 
-Confirms app key, schema, writable storage, and built frontend assets.
+Confirms app key, schema, writable storage, and built frontend assets. Warns if mail is still set to `log` in production.
 
-## 9. Security checklist
+## 10. Security checklist
 
 - [ ] `APP_DEBUG=false`
 - [ ] Strong `APP_KEY` and DB password
@@ -163,9 +243,11 @@ Confirms app key, schema, writable storage, and built frontend assets.
 - [ ] Audit logs reviewed by Super Admin / Operations
 - [ ] Only Ops/Super Admin can authorize shift overrides
 - [ ] File permissions: web user owns `storage/` and `bootstrap/cache/`
+- [ ] SMTP configured and verified with `psg:test-mail`
+
 - [ ] Disable directory listing
 
-## 10. Rollback
+## 11. Rollback
 
 1. Put app in maintenance: `php artisan down`
 2. Restore previous release code + `public/build`
@@ -173,13 +255,15 @@ Confirms app key, schema, writable storage, and built frontend assets.
 4. `php artisan migrate --force` only if schema matches the release
 5. `php artisan up`
 
-## 11. Smoke test after deploy
+## 12. Smoke test after deploy
 
 1. Login as Super Admin  
 2. Open Ops Dashboard and Manpower Coverage  
 3. Create/view a shift  
 4. Export a CSV report  
 5. Confirm a new row appears in Audit Logs  
+6. Send `php artisan psg:test-mail` to an inbox you control  
+7. Request **Forgot password** on the login page and confirm the email arrives  
 
 ## Support contacts
 

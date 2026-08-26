@@ -51,6 +51,7 @@ Useful commands:
 ```bash
 php artisan psg:production-check
 php artisan psg:backup-database
+php artisan psg:test-mail you@example.com
 php artisan schedule:work
 ```
 

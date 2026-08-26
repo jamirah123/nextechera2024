@@ -44,6 +44,9 @@ class ProductionCheckCommand extends Command
             if (config('queue.default') === 'sync') {
                 $this->warn('[WARN] QUEUE_CONNECTION=sync is not ideal for production workloads.');
             }
+            if (config('mail.default') === 'log') {
+                $this->warn('[WARN] MAIL_MAILER=log will not deliver password reset emails to users.');
+            }
         }
 
         if ($failures > 0) {

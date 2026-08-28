@@ -72,6 +72,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('guards', GuardController::class);
 
     Route::get('/deployments', [DeploymentController::class, 'index'])->name('deployments.index');
+    Route::get('/deployments/board', [DeploymentController::class, 'board'])->name('deployments.board');
+    Route::post('/deployments/board', [DeploymentController::class, 'boardStore'])->name('deployments.board.store');
     Route::get('/deployments/create', [DeploymentController::class, 'create'])->name('deployments.create');
     Route::post('/deployments', [DeploymentController::class, 'store'])->name('deployments.store');
     Route::get('/deployments/{deployment}', [DeploymentController::class, 'show'])->name('deployments.show');
@@ -81,6 +83,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/shifts', [ShiftController::class, 'index'])->name('shifts.index');
     Route::get('/shifts/calendar', [ShiftController::class, 'calendar'])->name('shifts.calendar');
+    Route::get('/shifts/allocate', [ShiftController::class, 'allocate'])->name('shifts.allocate');
+    Route::post('/shifts/allocate', [ShiftController::class, 'allocateStore'])->name('shifts.allocate.store');
+    Route::post('/shifts/bulk-complete', [ShiftController::class, 'bulkComplete'])->name('shifts.bulk-complete');
     Route::get('/shifts/create', [ShiftController::class, 'create'])->name('shifts.create');
     Route::post('/shifts', [ShiftController::class, 'store'])->name('shifts.store');
     Route::get('/shifts/recurring/create', [ShiftController::class, 'recurringCreate'])->name('shifts.recurring.create');

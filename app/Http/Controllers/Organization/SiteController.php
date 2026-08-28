@@ -30,11 +30,15 @@ class SiteController extends Controller
     {
         $this->authorize('viewAny', Site::class);
 
+        $user = $request->user();
+        $regionId = $user->regionId();
+
         $sites = Site::query()
             ->with(['client', 'region', 'supervisor'])
             ->search($request->string('q')->toString())
+            ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
-            ->when($request->filled('region_id'), fn ($q) => $q->where('region_id', $request->integer('region_id')))
+            ->when($request->filled('region_id') && ! $user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $request->integer('region_id')))
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', $request->integer('client_id')))
             ->latest()
             ->paginate(12)
@@ -48,12 +52,15 @@ class SiteController extends Controller
 
         return view('organization.sites.index', [
             'sites' => $sites,
-            'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'regions' => Region::query()
+                ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('id', $regionId))
+                ->orderBy('name')
+                ->get(['id', 'name', 'code']),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             'statuses' => SiteStatus::cases(),
             'filters' => $request->only(['q', 'status', 'region_id', 'client_id']),
-            'canManage' => $request->user()->can('create', Site::class),
-            'canDelete' => $request->user()->can('deleteAny', Site::class),
+            'canManage' => $user->can('create', Site::class),
+            'canDelete' => $user->can('deleteAny', Site::class),
         ]);
     }
 
@@ -62,7 +69,7 @@ class SiteController extends Controller
         $this->authorize('create', Site::class);
 
         return view('organization.sites.create', [
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'code', 'contract_status']),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'contract_status']),
             'regions' => Region::query()->active()->orderBy('name')->get(['id', 'name', 'code']),
             'supervisors' => Supervisor::query()->active()->with('region:id,name')->orderBy('name')->get(),
             'statuses' => SiteStatus::cases(),
@@ -116,7 +123,7 @@ class SiteController extends Controller
 
         return view('organization.sites.edit', [
             'site' => $site,
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'code', 'contract_status']),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'contract_status']),
             'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
             'supervisors' => Supervisor::query()->with('region:id,name')->orderBy('name')->get(),
             'statuses' => SiteStatus::cases(),

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Guard extends Model
@@ -81,9 +82,9 @@ class Guard extends Model
         return $this->hasMany(Deployment::class)->latest('start_date');
     }
 
-    public function currentDeployment(): HasMany
+    public function currentDeployment(): HasOne
     {
-        return $this->hasMany(Deployment::class)->current();
+        return $this->hasOne(Deployment::class)->current()->latestOfMany('start_date');
     }
 
     public function shifts(): HasMany
@@ -119,6 +120,16 @@ class Guard extends Model
     public function scopeActiveEmployment($query)
     {
         return $query->where('employment_status', EmploymentStatus::Active);
+    }
+
+    /**
+     * Guards without an active site posting (deployment board pool).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Guard>  $query
+     */
+    public function scopeAwaitingDeployment($query): void
+    {
+        $query->whereDoesntHave('deployments', fn ($q) => $q->current());
     }
 
     public function scopeSearch($query, ?string $term)

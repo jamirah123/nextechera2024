@@ -28,6 +28,7 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        $request->session()->put('last_activity_at', now()->getTimestamp());
 
         $user = $request->user();
         $user->forceFill([
@@ -51,11 +52,14 @@ class AuthenticatedSessionController extends Controller
     public function destroy(Request $request): RedirectResponse
     {
         $user = $request->user();
+        $idle = $request->input('reason') === 'idle';
 
         if ($user) {
             $this->audit->log(
-                action: 'auth.logout',
-                summary: $user->name.' signed out.',
+                action: $idle ? 'auth.logout.idle' : 'auth.logout',
+                summary: $idle
+                    ? $user->name.' signed out after inactivity.'
+                    : $user->name.' signed out.',
                 category: AuditCategory::Auth,
                 severity: AuditSeverity::Info,
                 subject: $user,
@@ -69,6 +73,12 @@ class AuthenticatedSessionController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        $redirect = redirect()->route('login');
+
+        if ($idle) {
+            return $redirect->with('status', 'You were signed out because your session was inactive.');
+        }
+
+        return $redirect;
     }
 }

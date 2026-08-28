@@ -19,10 +19,13 @@ class DashboardTest extends TestCase
             [UserRole::HrManager, 'HR Dashboard', 'Human Resources'],
             [UserRole::ShiftManager, 'Shift Manager Dashboard', 'Shift Operations'],
             [UserRole::FinanceManager, 'Finance Dashboard', 'Financial Oversight'],
+            [UserRole::RegionSupervisor, 'Region Supervisor Dashboard', 'Field Operations'],
         ];
 
         foreach ($cases as [$role, $title, $eyebrow]) {
-            $user = User::factory()->role($role)->create();
+            $user = $role === UserRole::RegionSupervisor
+                ? User::factory()->regionSupervisor()->create()
+                : User::factory()->role($role)->create();
 
             $response = $this->actingAs($user)->get(route('dashboard'));
 

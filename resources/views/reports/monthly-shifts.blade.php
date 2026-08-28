@@ -19,24 +19,25 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
-    <section class="flex flex-row gap-2 sm:gap-3">
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-brand-800 sm:text-[11px]">Normal</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($totals['normal']) }}</p>
-        </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-amber-800 sm:text-[11px]">Overtime</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($totals['overtime']) }}</p>
-        </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Total worked</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($totals['total']) }}</p>
-        </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-[11px]">Guards</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($rows->count()) }}</p>
-        </div>
-    </section>
+        <x-print.report-header title="Monthly shift summary" subtitle="Completed shifts by guard — payroll-ready month-end review." />
+        <section class="flex flex-row gap-2 sm:gap-3">
+            <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-brand-800 sm:text-[11px]">Normal</p>
+                <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($totals['normal']) }}</p>
+            </div>
+            <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-amber-800 sm:text-[11px]">Overtime</p>
+                <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($totals['overtime']) }}</p>
+            </div>
+            <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Total worked</p>
+                <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($totals['total']) }}</p>
+            </div>
+            <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-[11px]">Guards</p>
+                <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($totals['guards']) }}</p>
+            </div>
+        </section>
 
     <section class="no-print rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <form method="GET" action="{{ route('reports.monthly-shifts') }}" x-data x-ref="filterForm" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
@@ -83,7 +84,7 @@
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($rows as $row)
                             <tr class="hover:bg-slate-50/80">
-                                <td class="px-5 py-3.5"><x-table-serial :iteration="$loop->iteration" /></td>
+                                <td class="px-5 py-3.5"><x-table-serial :paginator="$rows" :index="$loop->index" /></td>
                                 <td class="px-5 py-3.5">
                                     <p class="font-semibold text-slate-900">{{ $row['full_name'] }}</p>
                                     <p class="text-xs text-slate-500">{{ $row['employment_id'] }}</p>
@@ -102,6 +103,13 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <div class="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p class="text-xs text-slate-500">
+                Showing {{ $rows->firstItem() ?? 0 }}–{{ $rows->lastItem() ?? 0 }} of {{ $rows->total() }}
+            </p>
+            <div>{{ $rows->links() }}</div>
         </div>
     @endif
     </div>

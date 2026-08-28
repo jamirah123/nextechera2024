@@ -51,6 +51,12 @@ class NotificationFeedService
             UserRole::FinanceManager => [
                 AuditCategory::Finance,
             ],
+            UserRole::RegionSupervisor => [
+                AuditCategory::Deployment,
+                AuditCategory::Hr,
+                AuditCategory::Guard,
+                AuditCategory::Shift,
+            ],
         };
     }
 

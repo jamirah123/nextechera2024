@@ -22,6 +22,7 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
+        <x-print.report-header title="Invoices register" subtitle="Draft, issued, overdue and paid invoice summary." />
         <section class="flex flex-row gap-2 sm:gap-3">
             @foreach ([['Draft','draft','text-slate-600'],['Open','open','text-sky-700'],['Overdue','overdue','text-rose-700'],['Paid','paid','text-emerald-700'],['All time','all_time','text-indigo-700']] as [$label,$key,$tone])
                 <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
@@ -44,7 +45,7 @@
                 <x-form-field label="Client" name="client_id" type="select" data-searchable="true" x-on:change="$refs.filterForm.requestSubmit()">
                     <option value="">All clients</option>
                     @foreach ($clients as $client)
-                        <option value="{{ $client->id }}" @selected((string) ($filters['client_id'] ?? '') === (string) $client->id)>{{ $client->code }} — {{ $client->name }}</option>
+                        <option value="{{ $client->id }}" @selected((string) ($filters['client_id'] ?? '') === (string) $client->id)>{{ $client->name }}</option>
                     @endforeach
                 </x-form-field>
                 <x-filter-reset :href="route('invoices.index', $scope === 'all' ? ['scope' => 'all'] : [])" />

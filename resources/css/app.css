@@ -117,25 +117,28 @@ select.ts-hidden-accessible + .ts-wrapper {
 }
 
 @media print {
+    @page {
+        margin: 12mm 12mm 14mm;
+    }
+
     html,
     body {
         height: auto !important;
         overflow: visible !important;
         background: #fff !important;
+        color: #0f172a !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     .no-print {
         display: none !important;
     }
 
-    aside,
-    header {
-        display: none !important;
-    }
-
     main {
         overflow: visible !important;
         padding: 0 !important;
+        margin: 0 !important;
     }
 
     .report-print-area,
@@ -145,11 +148,26 @@ select.ts-hidden-accessible + .ts-wrapper {
 
     .finance-document {
         box-shadow: none !important;
-        border: 1px solid #e2e8f0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+    }
+
+    .finance-document > div {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .print-logo {
+        max-height: 72px !important;
+    }
+
+    .print-letterhead {
+        margin-bottom: 0.5rem;
     }
 
     a[href]::after {
         content: none !important;
     }
 }
+
 

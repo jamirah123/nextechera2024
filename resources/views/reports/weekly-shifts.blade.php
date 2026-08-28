@@ -19,6 +19,10 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
+        <x-print.report-header
+            title="Weekly shifts report"
+            :subtitle="\Carbon\Carbon::parse($week_start)->format('d M Y').' – '.\Carbon\Carbon::parse($week_end)->format('d M Y')"
+        />
         <section class="flex flex-row gap-2 sm:gap-3">
             @foreach ([['Total','total','text-slate-700'],['Completed','completed','text-emerald-700'],['Overtime','overtime','text-amber-800'],['Missed','missed','text-rose-700']] as [$label,$key,$tone])
                 <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">

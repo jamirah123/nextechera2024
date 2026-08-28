@@ -79,18 +79,15 @@ class ReportController extends Controller
         $this->authorizeReports();
 
         $filters = $this->monthFilters($request);
-        $rows = $this->monthlyShifts->calculate($filters);
+        $rows = $this->monthlyShifts->paginate($filters, 25);
+        $totals = $this->monthlyShifts->summaryTotals($filters);
 
         return view('reports.monthly-shifts', [
             'rows' => $rows,
             'filters' => $filters,
             'regions' => Region::query()->orderBy('name')->get(['id', 'name']),
             'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code', 'region_id']),
-            'totals' => [
-                'normal' => $rows->sum('normal_shifts'),
-                'overtime' => $rows->sum('overtime_shifts'),
-                'total' => $rows->sum('total_shifts'),
-            ],
+            'totals' => $totals,
             'exportQuery' => $this->cleanQuery($filters),
         ]);
     }

@@ -139,4 +139,53 @@ class HrManagementTest extends TestCase
             ->get(route('desertions.create'))
             ->assertForbidden();
     }
+
+    public function test_shift_manager_can_record_absence_and_desertion(): void
+    {
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $site = Site::factory()->create();
+        $absentGuard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OffDuty,
+            'current_site_id' => $site->id,
+            'region_id' => $site->region_id,
+        ]);
+        $desertedGuard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OffDuty,
+            'current_site_id' => $site->id,
+            'region_id' => $site->region_id,
+        ]);
+
+        $this->actingAs($manager)
+            ->get(route('absences.create'))
+            ->assertOk();
+
+        $this->actingAs($manager)
+            ->post(route('absences.store'), [
+                'guard_id' => $absentGuard->id,
+                'absence_date' => now()->toDateString(),
+                'reason' => 'no_show',
+                'site_id' => $site->id,
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(OperationalStatus::Absent, $absentGuard->fresh()->operational_status);
+
+        $this->actingAs($manager)
+            ->get(route('desertions.create'))
+            ->assertOk();
+
+        $this->actingAs($manager)
+            ->post(route('desertions.store'), [
+                'guard_id' => $desertedGuard->id,
+                'date_reported' => now()->toDateString(),
+                'last_known_duty_date' => now()->subDay()->toDateString(),
+                'last_known_site_id' => $site->id,
+                'circumstances' => 'Left post without notice.',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(OperationalStatus::Deserted, $desertedGuard->fresh()->operational_status);
+    }
 }

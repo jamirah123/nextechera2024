@@ -12,6 +12,10 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
+        <x-print.report-header
+            title="Profitability analysis"
+            :subtitle="'Revenue vs estimated payroll · '.\Carbon\Carbon::parse($report['from'])->format('d M Y').' – '.\Carbon\Carbon::parse($report['to'])->format('d M Y')"
+        />
         <section class="no-print rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <form method="GET" class="grid gap-3 sm:grid-cols-4 sm:items-end">
                 <x-form-field label="From" name="from" type="date" :value="$filters['from']" />

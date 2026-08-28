@@ -57,4 +57,14 @@ class UserFactory extends Factory
     {
         return $this->role(UserRole::SuperAdmin);
     }
+
+    public function regionSupervisor(?int $supervisorId = null): static
+    {
+        return $this->state(function (array $attributes) use ($supervisorId) {
+            return [
+                'role' => UserRole::RegionSupervisor,
+                'supervisor_id' => $supervisorId ?? \App\Models\Supervisor::factory(),
+            ];
+        });
+    }
 }

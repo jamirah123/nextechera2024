@@ -33,6 +33,7 @@ class UserAccessService
                 'email' => $data['email'],
                 'phone' => $data['phone'] ?? null,
                 'role' => $data['role'],
+                'supervisor_id' => $this->resolveSupervisorId($data),
                 'password' => $data['password'],
                 'is_active' => (bool) ($data['is_active'] ?? true),
                 'email_verified_at' => now(),
@@ -72,14 +73,23 @@ class UserAccessService
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role->value,
+                'supervisor_id' => $user->supervisor_id,
                 'is_active' => $user->is_active,
             ];
+
+            $nextRole = $data['role'] ?? $user->role->value;
 
             $user->fill([
                 'name' => $data['name'] ?? $user->name,
                 'email' => $data['email'] ?? $user->email,
                 'phone' => array_key_exists('phone', $data) ? $data['phone'] : $user->phone,
-                'role' => $data['role'] ?? $user->role->value,
+                'role' => $nextRole,
+                'supervisor_id' => $this->resolveSupervisorId([
+                    'role' => $nextRole,
+                    'supervisor_id' => array_key_exists('supervisor_id', $data)
+                        ? $data['supervisor_id']
+                        : $user->supervisor_id,
+                ]),
                 'is_active' => array_key_exists('is_active', $data)
                     ? (bool) $data['is_active']
                     : $user->is_active,
@@ -190,5 +200,27 @@ class UserAccessService
             ->where('role', UserRole::SuperAdmin->value)
             ->where('is_active', true)
             ->count();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveSupervisorId(array $data): ?int
+    {
+        $role = isset($data['role'])
+            ? ($data['role'] instanceof UserRole ? $data['role'] : UserRole::from((string) $data['role']))
+            : null;
+
+        if ($role !== UserRole::RegionSupervisor) {
+            return null;
+        }
+
+        $supervisorId = $data['supervisor_id'] ?? null;
+
+        if (! $supervisorId) {
+            throw new InvalidArgumentException('Region Supervisor accounts must be linked to a supervisor profile.');
+        }
+
+        return (int) $supervisorId;
     }
 }

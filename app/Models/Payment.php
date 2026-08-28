@@ -61,7 +61,7 @@ class Payment extends Model
             $q->where('reference', 'like', $like)
                 ->orWhere('external_reference', 'like', $like)
                 ->orWhere('notes', 'like', $like)
-                ->orWhereHas('client', fn ($c) => $c->where('name', 'like', $like)->orWhere('code', 'like', $like))
+                ->orWhereHas('client', fn ($c) => $c->where('name', 'like', $like))
                 ->orWhereHas('invoice', fn ($i) => $i->where('reference', 'like', $like));
         });
     }

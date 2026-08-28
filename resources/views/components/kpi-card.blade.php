@@ -22,7 +22,7 @@
 <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
     <div class="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-gradient-to-br {{ $gradient }} opacity-10"></div>
     <p class="text-xs font-medium uppercase tracking-wide text-slate-500">{{ $label }}</p>
-    <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{{ $value }}</p>
+    <p class="mt-2 truncate text-lg font-semibold tracking-tight text-slate-900 sm:text-xl" title="{{ $value }}">{{ $value }}</p>
     @if ($hint)
         <p class="mt-1 text-xs text-slate-500">{{ $hint }}</p>
     @endif

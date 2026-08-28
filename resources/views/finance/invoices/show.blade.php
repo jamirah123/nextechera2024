@@ -37,6 +37,7 @@
                 'value' => $invoice->period_start->format('d M Y').' – '.$invoice->period_end->format('d M Y'),
                 'hint' => $invoice->due_date ? 'Due '.$invoice->due_date->format('d M Y') : null,
             ]])"
+            footer-note="Please settle the balance due by the stated due date. Bank transfers should reference this invoice number."
         >
             <div class="mb-6 grid gap-4 sm:grid-cols-2">
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
@@ -95,6 +96,19 @@
             @if ($invoice->notes)
                 <p class="mt-5 text-sm text-slate-600"><span class="font-semibold text-slate-800">Notes:</span> {{ $invoice->notes }}</p>
             @endif
+
+            <div class="mt-10 grid gap-8 sm:grid-cols-2">
+                <div>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Prepared by</p>
+                    <div class="mt-8 border-b border-slate-300"></div>
+                    <p class="mt-2 text-xs text-slate-500">Authorized signature · {{ config('psg.company') }}</p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Client acknowledgment</p>
+                    <div class="mt-8 border-b border-slate-300"></div>
+                    <p class="mt-2 text-xs text-slate-500">Name / signature / date</p>
+                </div>
+            </div>
         </x-finance.document>
 
         @if ($invoice->payments->isNotEmpty())

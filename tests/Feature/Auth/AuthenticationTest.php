@@ -97,6 +97,36 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('login'));
     }
 
+    public function test_idle_session_logs_user_out_after_timeout(): void
+    {
+        config(['psg.session.idle_minutes' => 15]);
+
+        $user = User::factory()->superAdmin()->create();
+
+        $this->actingAs($user)
+            ->withSession(['last_activity_at' => now()->subMinutes(20)->getTimestamp()])
+            ->get(route('dashboard'))
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('status');
+
+        $this->assertGuest();
+    }
+
+    public function test_notification_poll_does_not_extend_idle_session(): void
+    {
+        config(['psg.session.idle_minutes' => 15]);
+
+        $user = User::factory()->superAdmin()->create();
+        $stale = now()->subMinutes(20)->getTimestamp();
+
+        $this->actingAs($user)
+            ->withSession(['last_activity_at' => $stale])
+            ->getJson(route('notifications.index'))
+            ->assertUnauthorized();
+
+        $this->assertGuest();
+    }
+
     public function test_root_redirects_to_login(): void
     {
         $this->get('/')->assertRedirect('/login');

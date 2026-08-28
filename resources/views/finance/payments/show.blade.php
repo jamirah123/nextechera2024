@@ -19,6 +19,7 @@
             :status-tone="$payment->method->tone()"
             :status-label="$payment->method->label()"
             :meta="$recordMeta"
+            footer-note="This receipt confirms payment received by {{ config('psg.company') }}. Retain for your records."
         >
             <dl class="grid gap-4 sm:grid-cols-2">
                 <div class="rounded-xl border border-emerald-100 bg-emerald-50 p-5">

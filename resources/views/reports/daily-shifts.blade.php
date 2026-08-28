@@ -19,14 +19,15 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
-    <section class="flex flex-row gap-2 sm:gap-3">
-        @foreach ([['Total','total','text-slate-700'],['Completed','completed','text-emerald-700'],['Missed','missed','text-rose-700'],['Overtime','overtime','text-amber-800']] as [$label,$key,$tone])
-            <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }} sm:text-[11px]">{{ $label }}</p>
-                <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ $summary[$key] }}</p>
-            </div>
-        @endforeach
-    </section>
+        <x-print.report-header title="Daily shifts report" subtitle="Scheduled, completed, missed and overtime for a selected date." />
+        <section class="flex flex-row gap-2 sm:gap-3">
+            @foreach ([['Total','total','text-slate-700'],['Completed','completed','text-emerald-700'],['Missed','missed','text-rose-700'],['Overtime','overtime','text-amber-800']] as [$label,$key,$tone])
+                <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                    <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }} sm:text-[11px]">{{ $label }}</p>
+                    <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ $summary[$key] }}</p>
+                </div>
+            @endforeach
+        </section>
 
     <section class="no-print rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <form method="GET" action="{{ route('reports.daily-shifts') }}" x-data x-ref="filterForm" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">

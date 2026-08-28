@@ -15,7 +15,17 @@ class DesertionPolicy
 
     public function view(User $user, Desertion $desertion): bool
     {
-        return $this->canAccess($user);
+        if (! $this->canAccess($user)) {
+            return false;
+        }
+
+        if (! $user->mustStayInOwnRegion()) {
+            return true;
+        }
+
+        $desertion->loadMissing('assignedGuard:id,region_id');
+
+        return $user->canAccessRegion($desertion->assignedGuard?->region_id);
     }
 
     public function create(User $user): bool
@@ -25,7 +35,7 @@ class DesertionPolicy
 
     public function update(User $user, Desertion $desertion): bool
     {
-        return $this->canManage($user);
+        return $this->canManage($user) && $this->view($user, $desertion);
     }
 
     private function canAccess(User $user): bool
@@ -36,6 +46,7 @@ class DesertionPolicy
             UserRole::HrManager,
             UserRole::ShiftManager,
             UserRole::FinanceManager,
+            UserRole::RegionSupervisor,
         ], true);
     }
 
@@ -43,6 +54,8 @@ class DesertionPolicy
     {
         return $user->isSuperAdmin()
             || $user->hasRole(UserRole::HrManager)
-            || $user->hasRole(UserRole::OperationsManager);
+            || $user->hasRole(UserRole::OperationsManager)
+            || $user->hasRole(UserRole::ShiftManager)
+            || $user->hasRole(UserRole::RegionSupervisor);
     }
 }

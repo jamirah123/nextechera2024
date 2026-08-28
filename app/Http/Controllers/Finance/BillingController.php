@@ -32,7 +32,7 @@ class BillingController extends Controller
         $scope = $request->string('scope')->toString() === 'all' ? 'all' : 'current';
 
         $profiles = BillingProfile::query()
-            ->with(['client:id,name,code', 'site:id,name,code', 'creator:id,name'])
+            ->with(['client:id,name', 'site:id,name,code', 'creator:id,name'])
             ->search($request->string('q')->toString())
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', $request->integer('client_id')))
             ->when($scope === 'current', fn ($q) => $q->where('is_active', true))
@@ -49,7 +49,7 @@ class BillingController extends Controller
 
         return view('finance.billing.index', [
             'profiles' => $profiles,
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             'filters' => $request->only(['q', 'client_id', 'status', 'scope']),
             'scope' => $scope,
             'canManage' => $request->user()->can('manageFinance'),
@@ -67,7 +67,7 @@ class BillingController extends Controller
         Gate::authorize('manageFinance');
 
         return view('finance.billing.create', [
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code', 'client_id']),
             'currency' => Money::currency(),
         ]);
@@ -104,7 +104,7 @@ class BillingController extends Controller
 
         return view('finance.billing.edit', [
             'profile' => $billing,
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code', 'client_id']),
             'currency' => Money::currency(),
         ]);
@@ -128,7 +128,7 @@ class BillingController extends Controller
         $scope = $request->string('scope')->toString() === 'all' ? 'all' : 'current';
 
         $rows = BillingProfile::query()
-            ->with(['client:id,name,code', 'site:id,name,code'])
+            ->with(['client:id,name', 'site:id,name,code'])
             ->search($request->string('q')->toString())
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', $request->integer('client_id')))
             ->when($scope === 'current', fn ($q) => $q->where('is_active', true))

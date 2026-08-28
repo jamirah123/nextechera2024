@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Models\Supervisor;
 use App\Models\User;
 use App\Services\UserAccessService;
 use Illuminate\Http\RedirectResponse;
@@ -56,6 +57,7 @@ class UserController extends Controller
 
         return view('admin.users.create', [
             'roles' => UserRole::cases(),
+            'supervisors' => Supervisor::query()->with('region:id,name')->orderBy('name')->get(['id', 'name', 'supervisor_code', 'region_id']),
         ]);
     }
 
@@ -68,13 +70,22 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:40'],
             'role' => ['required', Rule::in(UserRole::values())],
+            'supervisor_id' => [
+                Rule::requiredIf(fn () => $request->input('role') === UserRole::RegionSupervisor->value),
+                'nullable',
+                'exists:supervisors,id',
+            ],
             'password' => ['required', 'confirmed', Password::defaults()],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 
         $data['is_active'] = $request->boolean('is_active', true);
 
-        $user = $this->users->create($data);
+        try {
+            $user = $this->users->create($data);
+        } catch (InvalidArgumentException $e) {
+            return back()->withInput()->withErrors(['role' => $e->getMessage()]);
+        }
 
         return redirect()
             ->route('users.show', $user)
@@ -86,7 +97,7 @@ class UserController extends Controller
         $this->authorize('view', $user);
 
         return view('admin.users.show', [
-            'user' => $user,
+            'user' => $user->load('supervisorProfile.region'),
             'canManage' => request()->user()->can('update', $user),
             'canDelete' => request()->user()->can('delete', $user),
         ]);
@@ -97,8 +108,9 @@ class UserController extends Controller
         $this->authorize('update', $user);
 
         return view('admin.users.edit', [
-            'user' => $user,
+            'user' => $user->load('supervisorProfile.region'),
             'roles' => UserRole::cases(),
+            'supervisors' => Supervisor::query()->with('region:id,name')->orderBy('name')->get(['id', 'name', 'supervisor_code', 'region_id']),
             'isSelf' => request()->user()->id === $user->id,
         ]);
     }
@@ -112,6 +124,11 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:40'],
             'role' => ['required', Rule::in(UserRole::values())],
+            'supervisor_id' => [
+                Rule::requiredIf(fn () => $request->input('role') === UserRole::RegionSupervisor->value),
+                'nullable',
+                'exists:supervisors,id',
+            ],
             'is_active' => ['sometimes', 'boolean'],
         ]);
 

@@ -26,30 +26,39 @@ class GuardController extends Controller
     {
         $this->authorize('viewAny', Guard::class);
 
+        $user = $request->user();
+        $regionId = $user->regionId();
+
         $guards = Guard::query()
             ->with(['region:id,name,code', 'currentSite:id,name,code', 'currentSupervisor:id,name'])
             ->search($request->string('q')->toString())
+            ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
             ->when($request->filled('employment_status'), fn ($q) => $q->where('employment_status', $request->string('employment_status')))
             ->when($request->filled('operational_status'), fn ($q) => $q->where('operational_status', $request->string('operational_status')))
-            ->when($request->filled('region_id'), fn ($q) => $q->where('region_id', $request->integer('region_id')))
+            ->when($request->filled('region_id') && ! $user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $request->integer('region_id')))
             ->latest()
             ->paginate(12)
             ->withQueryString();
 
+        $statsBase = Guard::query()->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId));
+
         return view('guards.index', [
             'guards' => $guards,
-            'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'regions' => Region::query()
+                ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('id', $regionId))
+                ->orderBy('name')
+                ->get(['id', 'name', 'code']),
             'employmentStatuses' => EmploymentStatus::cases(),
             'operationalStatuses' => OperationalStatus::cases(),
             'filters' => $request->only(['q', 'employment_status', 'operational_status', 'region_id']),
-            'canManage' => $request->user()->can('create', Guard::class),
-            'canDelete' => $request->user()->can('deleteAny', Guard::class),
+            'canManage' => $user->can('create', Guard::class),
+            'canDelete' => $user->can('deleteAny', Guard::class),
             'stats' => [
-                'total' => Guard::query()->count(),
-                'active' => Guard::query()->activeEmployment()->count(),
-                'on_leave' => Guard::query()->where('operational_status', OperationalStatus::OnLeave)->count(),
-                'absent' => Guard::query()->where('operational_status', OperationalStatus::Absent)->count(),
-                'deserted' => Guard::query()->where('operational_status', OperationalStatus::Deserted)->count(),
+                'total' => (clone $statsBase)->count(),
+                'active' => (clone $statsBase)->activeEmployment()->count(),
+                'on_leave' => (clone $statsBase)->where('operational_status', OperationalStatus::OnLeave)->count(),
+                'absent' => (clone $statsBase)->where('operational_status', OperationalStatus::Absent)->count(),
+                'deserted' => (clone $statsBase)->where('operational_status', OperationalStatus::Deserted)->count(),
             ],
         ]);
     }
@@ -91,7 +100,7 @@ class GuardController extends Controller
 
         return view('guards.show', [
             'guard' => $guard,
-            'currentDeployment' => $guard->currentDeployment()->first(),
+            'currentDeployment' => $guard->currentDeployment,
             'canManage' => request()->user()->can('update', $guard),
             'canDelete' => request()->user()->can('delete', $guard),
             'canDeploy' => request()->user()->can('create', Deployment::class),

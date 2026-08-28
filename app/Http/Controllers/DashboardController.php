@@ -23,6 +23,7 @@ class DashboardController extends Controller
             'hr_manager' => 'dashboards.hr',
             'shift_manager' => 'dashboards.shift',
             'finance_manager' => 'dashboards.finance',
+            'region_supervisor' => 'dashboards.region-supervisor',
             default => 'dashboards.generic',
         };
 

@@ -7,6 +7,8 @@ use App\Enums\ShiftType;
 use App\Models\Guard;
 use App\Models\Shift;
 use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class MonthlyShiftCalculationService
@@ -39,53 +41,86 @@ class MonthlyShiftCalculationService
      */
     public function calculate(array $filters): Collection
     {
+        $guards = $this->guardQuery($filters)
+            ->with(['region:id,name', 'currentSite:id,name'])
+            ->get(['id', 'employment_id', 'full_name', 'region_id', 'current_site_id']);
+
+        return $this->mapRows($filters, $guards);
+    }
+
+    /**
+     * @param  array{
+     *     year: int,
+     *     month: int,
+     *     region_id?: int|null,
+     *     site_id?: int|null
+     * }  $filters
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
+    {
+        /** @var LengthAwarePaginator<int, Guard> $paginator */
+        $paginator = $this->guardQuery($filters)
+            ->with(['region:id,name', 'currentSite:id,name'])
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $rows = $this->mapRows($filters, $paginator->getCollection());
+
+        /** @var LengthAwarePaginator<int, array<string, mixed>> $pagedRows */
+        $pagedRows = $paginator->setCollection($rows);
+
+        return $pagedRows;
+    }
+
+    /**
+     * Month-wide KPI totals (not limited to the current page).
+     *
+     * @param  array{
+     *     year: int,
+     *     month: int,
+     *     region_id?: int|null,
+     *     site_id?: int|null
+     * }  $filters
+     * @return array{normal: int, overtime: int, total: int, guards: int}
+     */
+    public function summaryTotals(array $filters): array
+    {
         $start = Carbon::create((int) $filters['year'], (int) $filters['month'], 1)->startOfMonth();
         $end = $start->copy()->endOfMonth();
 
-        $guards = Guard::query()
-            ->with(['region:id,name', 'currentSite:id,name'])
-            ->when(! empty($filters['region_id']), fn ($q) => $q->where('region_id', $filters['region_id']))
-            ->when(! empty($filters['site_id']), fn ($q) => $q->where('current_site_id', $filters['site_id']))
-            ->orderBy('employment_id')
-            ->get(['id', 'employment_id', 'full_name', 'region_id', 'current_site_id']);
+        $guardQuery = $this->guardQuery($filters);
+        $guards = (clone $guardQuery)->count();
 
-        $shiftRows = Shift::query()
+        $counts = Shift::query()
             ->whereBetween('shift_date', [$start->toDateString(), $end->toDateString()])
             ->when(! empty($filters['region_id']), fn ($q) => $q->where('region_id', $filters['region_id']))
             ->when(! empty($filters['site_id']), fn ($q) => $q->where('site_id', $filters['site_id']))
-            ->whereIn('guard_id', $guards->pluck('id'))
-            ->get(['guard_id', 'shift_type', 'status']);
+            ->whereIn('guard_id', (clone $guardQuery)->select('id'))
+            ->where('status', ShiftStatus::Completed->value)
+            ->whereIn('shift_type', [
+                ShiftType::Normal->value,
+                ShiftType::Overtime->value,
+                ShiftType::Relief->value,
+                ShiftType::Replacement->value,
+                ShiftType::SpecialDuty->value,
+            ])
+            ->selectRaw('shift_type, COUNT(*) as aggregate')
+            ->groupBy('shift_type')
+            ->pluck('aggregate', 'shift_type');
 
-        $grouped = $shiftRows->groupBy('guard_id');
+        $normal = (int) ($counts[ShiftType::Normal->value] ?? 0);
+        $overtime = (int) ($counts[ShiftType::Overtime->value] ?? 0);
+        $other = (int) ($counts[ShiftType::Relief->value] ?? 0)
+            + (int) ($counts[ShiftType::Replacement->value] ?? 0)
+            + (int) ($counts[ShiftType::SpecialDuty->value] ?? 0);
 
-        return $guards->map(function (Guard $guard) use ($grouped) {
-            $shifts = $grouped->get($guard->id, collect());
-
-            $worked = $shifts->filter(fn (Shift $shift) => $shift->status === ShiftStatus::Completed);
-
-            $normal = $worked->where('shift_type', ShiftType::Normal)->count();
-            $overtime = $worked->where('shift_type', ShiftType::Overtime)->count();
-            $relief = $worked->where('shift_type', ShiftType::Relief)->count();
-            $replacement = $worked->where('shift_type', ShiftType::Replacement)->count();
-            $special = $worked->where('shift_type', ShiftType::SpecialDuty)->count();
-
-            return [
-                'guard_id' => $guard->id,
-                'employment_id' => $guard->employment_id,
-                'full_name' => $guard->full_name,
-                'region' => $guard->region?->name,
-                'site' => $guard->currentSite?->name,
-                'normal_shifts' => $normal,
-                'overtime_shifts' => $overtime,
-                'relief_shifts' => $relief,
-                'replacement_shifts' => $replacement,
-                'special_duty_shifts' => $special,
-                // Master formula focuses on normal + overtime; other worked types included in total.
-                'total_shifts' => $normal + $overtime + $relief + $replacement + $special,
-                'missed_shifts' => $shifts->where('status', ShiftStatus::Missed)->count(),
-                'cancelled_shifts' => $shifts->where('status', ShiftStatus::Cancelled)->count(),
-            ];
-        })->values();
+        return [
+            'normal' => $normal,
+            'overtime' => $overtime,
+            'total' => $normal + $overtime + $other,
+            'guards' => $guards,
+        ];
     }
 
     /**
@@ -131,5 +166,78 @@ class MonthlyShiftCalculationService
             $row['missed_shifts'],
             $row['cancelled_shifts'],
         ])->all();
+    }
+
+    /**
+     * @param  array{
+     *     year: int,
+     *     month: int,
+     *     region_id?: int|null,
+     *     site_id?: int|null
+     * }  $filters
+     */
+    private function guardQuery(array $filters): Builder
+    {
+        return Guard::query()
+            ->when(! empty($filters['region_id']), fn ($q) => $q->where('region_id', $filters['region_id']))
+            ->when(! empty($filters['site_id']), fn ($q) => $q->where('current_site_id', $filters['site_id']))
+            ->orderBy('employment_id');
+    }
+
+    /**
+     * @param  array{
+     *     year: int,
+     *     month: int,
+     *     region_id?: int|null,
+     *     site_id?: int|null
+     * }  $filters
+     * @param  Collection<int, Guard>  $guards
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function mapRows(array $filters, Collection $guards): Collection
+    {
+        if ($guards->isEmpty()) {
+            return collect();
+        }
+
+        $start = Carbon::create((int) $filters['year'], (int) $filters['month'], 1)->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+
+        $shiftRows = Shift::query()
+            ->whereBetween('shift_date', [$start->toDateString(), $end->toDateString()])
+            ->when(! empty($filters['region_id']), fn ($q) => $q->where('region_id', $filters['region_id']))
+            ->when(! empty($filters['site_id']), fn ($q) => $q->where('site_id', $filters['site_id']))
+            ->whereIn('guard_id', $guards->pluck('id'))
+            ->get(['guard_id', 'shift_type', 'status']);
+
+        $grouped = $shiftRows->groupBy('guard_id');
+
+        return $guards->map(function (Guard $guard) use ($grouped) {
+            $shifts = $grouped->get($guard->id, collect());
+
+            $worked = $shifts->filter(fn (Shift $shift) => $shift->status === ShiftStatus::Completed);
+
+            $normal = $worked->where('shift_type', ShiftType::Normal)->count();
+            $overtime = $worked->where('shift_type', ShiftType::Overtime)->count();
+            $relief = $worked->where('shift_type', ShiftType::Relief)->count();
+            $replacement = $worked->where('shift_type', ShiftType::Replacement)->count();
+            $special = $worked->where('shift_type', ShiftType::SpecialDuty)->count();
+
+            return [
+                'guard_id' => $guard->id,
+                'employment_id' => $guard->employment_id,
+                'full_name' => $guard->full_name,
+                'region' => $guard->region?->name,
+                'site' => $guard->currentSite?->name,
+                'normal_shifts' => $normal,
+                'overtime_shifts' => $overtime,
+                'relief_shifts' => $relief,
+                'replacement_shifts' => $replacement,
+                'special_duty_shifts' => $special,
+                'total_shifts' => $normal + $overtime + $relief + $replacement + $special,
+                'missed_shifts' => $shifts->where('status', ShiftStatus::Missed)->count(),
+                'cancelled_shifts' => $shifts->where('status', ShiftStatus::Cancelled)->count(),
+            ];
+        })->values();
     }
 }

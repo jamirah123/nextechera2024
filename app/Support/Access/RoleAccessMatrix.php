@@ -20,11 +20,18 @@ class RoleAccessMatrix
             UserRole::OperationsManager->value,
             UserRole::ShiftManager->value,
         ];
+        $deploy = [
+            UserRole::SuperAdmin->value,
+            UserRole::OperationsManager->value,
+            UserRole::ShiftManager->value,
+            UserRole::RegionSupervisor->value,
+        ];
         $hrOps = [
             UserRole::SuperAdmin->value,
             UserRole::OperationsManager->value,
             UserRole::HrManager->value,
             UserRole::ShiftManager->value,
+            UserRole::RegionSupervisor->value,
         ];
         $hrCore = [
             UserRole::SuperAdmin->value,
@@ -48,16 +55,19 @@ class RoleAccessMatrix
             ['group' => 'Organization', 'capability' => 'View organization structure', 'roles' => $all],
             ['group' => 'Guards', 'capability' => 'Register / edit guards', 'roles' => $hrCore],
             ['group' => 'Guards', 'capability' => 'View guard registry', 'roles' => $all],
-            ['group' => 'Operations', 'capability' => 'Manage deployments & transfers', 'roles' => $ops],
+            ['group' => 'Operations', 'capability' => 'Manage deployments & transfers (region-scoped for supervisors)', 'roles' => $deploy],
+            ['group' => 'Operations', 'capability' => 'Deploy board lists guards between shifts for reposting / support', 'roles' => $deploy],
             ['group' => 'Operations', 'capability' => 'Create & edit shifts', 'roles' => $ops],
             ['group' => 'Operations', 'capability' => 'Authorize critical shift overrides', 'roles' => $audit],
             ['group' => 'Operations', 'capability' => 'Record replacements', 'roles' => $ops],
             ['group' => 'HR', 'capability' => 'Approve / reject leave', 'roles' => $hrCore],
             ['group' => 'HR', 'capability' => 'Record absences & attendance', 'roles' => $hrOps],
-            ['group' => 'HR', 'capability' => 'Manage desertions', 'roles' => [
+            ['group' => 'HR', 'capability' => 'Manage desertions (region-scoped for supervisors)', 'roles' => [
                 UserRole::SuperAdmin->value,
                 UserRole::OperationsManager->value,
                 UserRole::HrManager->value,
+                UserRole::ShiftManager->value,
+                UserRole::RegionSupervisor->value,
             ]],
             ['group' => 'Reporting', 'capability' => 'View & export operational / HR reports', 'roles' => $all],
             ['group' => 'Dashboards', 'capability' => 'View operational dashboards', 'roles' => $all],

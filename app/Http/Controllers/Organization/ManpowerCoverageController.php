@@ -26,12 +26,16 @@ class ManpowerCoverageController extends Controller
     {
         $this->authorize('viewAny', Site::class);
 
+        $user = $request->user();
         $rows = $this->report->paginate($request);
 
         return view('organization.manpower.index', [
             'rows' => $rows,
             'company' => $this->manpower->forCompany(),
-            'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'regions' => Region::query()
+                ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('id', $user->regionId()))
+                ->orderBy('name')
+                ->get(['id', 'name', 'code']),
             'filters' => $request->only(['region_id', 'status']),
             'statuses' => SiteStatus::cases(),
             'exportQuery' => array_filter($request->only(['region_id', 'status']), fn ($v) => $v !== null && $v !== ''),

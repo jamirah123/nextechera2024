@@ -41,7 +41,7 @@ class GlobalSearchTest extends TestCase
             'supervisor_code' => 'SUP0099',
             'region_id' => $region->id,
         ]);
-        $client = Client::factory()->create(['name' => 'Acme Holdings', 'code' => 'ACM']);
+        $client = Client::factory()->create(['name' => 'Acme Holdings']);
         $site = Site::factory()->create([
             'name' => 'Westgate Post',
             'code' => 'WG01',

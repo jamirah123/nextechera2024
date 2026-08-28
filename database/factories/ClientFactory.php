@@ -17,7 +17,6 @@ class ClientFactory extends Factory
 
         return [
             'name' => $name,
-            'code' => strtoupper(fake()->unique()->bothify('CLT###')),
             'contact_person' => fake()->name(),
             'phone' => fake()->e164PhoneNumber(),
             'email' => fake()->companyEmail(),

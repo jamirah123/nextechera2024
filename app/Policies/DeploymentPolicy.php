@@ -15,7 +15,7 @@ class DeploymentPolicy
 
     public function view(User $user, Deployment $deployment): bool
     {
-        return $this->canAccess($user);
+        return $this->canAccess($user) && $user->canAccessRegion($deployment->region_id);
     }
 
     public function create(User $user): bool
@@ -25,22 +25,22 @@ class DeploymentPolicy
 
     public function update(User $user, Deployment $deployment): bool
     {
-        return $this->canManage($user);
+        return $this->canManage($user) && $user->canAccessRegion($deployment->region_id);
     }
 
     public function delete(User $user, Deployment $deployment): bool
     {
-        return $this->canManage($user);
+        return $this->canManage($user) && $user->canAccessRegion($deployment->region_id);
     }
 
     public function transfer(User $user, Deployment $deployment): bool
     {
-        return $this->canManage($user);
+        return $this->canManage($user) && $user->canAccessRegion($deployment->region_id);
     }
 
     public function end(User $user, Deployment $deployment): bool
     {
-        return $this->canManage($user);
+        return $this->canManage($user) && $user->canAccessRegion($deployment->region_id);
     }
 
     private function canAccess(User $user): bool
@@ -51,6 +51,7 @@ class DeploymentPolicy
             UserRole::HrManager,
             UserRole::ShiftManager,
             UserRole::FinanceManager,
+            UserRole::RegionSupervisor,
         ], true);
     }
 
@@ -58,6 +59,7 @@ class DeploymentPolicy
     {
         return $user->isSuperAdmin()
             || $user->hasRole(UserRole::OperationsManager)
-            || $user->hasRole(UserRole::ShiftManager);
+            || $user->hasRole(UserRole::ShiftManager)
+            || $user->hasRole(UserRole::RegionSupervisor);
     }
 }

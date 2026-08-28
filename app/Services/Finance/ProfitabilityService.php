@@ -46,7 +46,7 @@ class ProfitabilityService
             ->sum('balance');
 
         $byClient = [];
-        $clients = Client::query()->orderBy('name')->get(['id', 'name', 'code']);
+        $clients = Client::query()->orderBy('name')->get(['id', 'name']);
 
         foreach ($clients as $client) {
             $revenue = (float) Invoice::query()
@@ -62,7 +62,7 @@ class ProfitabilityService
 
             $byClient[] = [
                 'label' => $client->name,
-                'code' => $client->code,
+                'code' => '',
                 'revenue' => $revenue,
                 'cost' => $cost,
                 'profit' => round($revenue - $cost, 2),

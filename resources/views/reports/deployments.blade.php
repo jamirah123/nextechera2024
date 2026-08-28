@@ -19,6 +19,7 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
+        <x-print.report-header title="Deployments report" subtitle="Current assignments and recent transfer activity." />
         <section class="flex flex-row gap-2 sm:gap-3">
             @foreach ([['Active','active','text-emerald-700'],['Transferred','transferred','text-sky-700'],['Ended','ended','text-slate-600'],['Transfers listed','transfers','text-amber-800']] as [$label,$key,$tone])
                 <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">

@@ -17,7 +17,6 @@ class Client extends Model
 
     protected $fillable = [
         'name',
-        'code',
         'contact_person',
         'phone',
         'email',
@@ -59,7 +58,6 @@ class Client extends Model
 
         return $query->where(function ($q) use ($like): void {
             $q->where('name', 'like', $like)
-                ->orWhere('code', 'like', $like)
                 ->orWhere('contact_person', 'like', $like)
                 ->orWhere('phone', 'like', $like);
         });

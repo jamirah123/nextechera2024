@@ -116,7 +116,7 @@ class BillingProfile extends Model
 
         return $query->where(function ($q) use ($like): void {
             $q->where('notes', 'like', $like)
-                ->orWhereHas('client', fn ($c) => $c->where('name', 'like', $like)->orWhere('code', 'like', $like))
+                ->orWhereHas('client', fn ($c) => $c->where('name', 'like', $like))
                 ->orWhereHas('site', fn ($s) => $s->where('name', 'like', $like)->orWhere('code', 'like', $like));
         });
     }

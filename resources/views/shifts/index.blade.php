@@ -5,6 +5,9 @@
 @section('page-subtitle', 'Daily schedules, validation and status tracking')
 
 @section('content')
+@php
+    $canBulkComplete = $canManageStatus ?? $canManage;
+@endphp
 <div class="space-y-6">
     <x-page-header
         title="Today's shifts"
@@ -16,12 +19,15 @@
                 Calendar
             </a>
             @if ($canManage)
+                <a href="{{ route('shifts.allocate', ['date' => $date]) }}" class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">
+                    <x-icon name="plus" class="h-4 w-4" />
+                    Allocate board
+                </a>
                 <a href="{{ route('shifts.recurring.create') }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
                     Recurring
                 </a>
-                <a href="{{ route('shifts.create', ['date' => $date]) }}" class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">
-                    <x-icon name="plus" class="h-4 w-4" />
-                    Create shift
+                <a href="{{ route('shifts.create', ['date' => $date]) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    Single form
                 </a>
             @endif
         </x-slot:actions>
@@ -78,6 +84,17 @@
         </form>
     </section>
 
+    @if (session('completion_errors'))
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p class="font-semibold">Some shifts were skipped</p>
+            <ul class="mt-1 list-disc space-y-0.5 pl-4">
+                @foreach (session('completion_errors') as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     @if ($shifts->isEmpty())
         <x-empty-state title="No shifts for this date" description="Create a shift for a deployed guard to begin the daily schedule." icon="calendar">
             @if ($canManage)
@@ -87,79 +104,186 @@
             @endif
         </x-empty-state>
     @else
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:hidden">
-            @foreach ($shifts as $shift)
-                <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div class="flex items-start justify-between gap-3">
-                        <div class="min-w-0">
-                            <a href="{{ route('shifts.show', $shift) }}" class="font-semibold text-slate-900 hover:text-brand-700">{{ $shift->assignedGuard?->full_name }}</a>
-                            <p class="mt-0.5 text-xs text-slate-500">{{ $shift->reference }}</p>
+        @if ($canBulkComplete)
+            <form
+                id="bulk-complete-form"
+                method="POST"
+                action="{{ route('shifts.bulk-complete') }}"
+                class="space-y-4"
+                x-data="{
+                    selected: 0,
+                    sync() {
+                        this.selected = this.$root.querySelectorAll('[data-row-check]:checked').length;
+                    },
+                    toggleAll(checked) {
+                        this.$root.querySelectorAll('[data-row-check]').forEach((el) => { el.checked = checked; });
+                        this.sync();
+                    }
+                }"
+            >
+                @csrf
+                <input type="hidden" name="date" value="{{ $date }}">
+
+                <div class="sticky top-0 z-10 rounded-2xl border border-emerald-200 bg-white/95 p-4 shadow-md backdrop-blur sm:p-5">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm font-semibold text-slate-900">Bulk complete</p>
+                            <p class="mt-0.5 text-xs text-slate-500">
+                                Tick scheduled / confirmed / in-progress / missed shifts where duty finished successfully, then mark them completed in one go.
+                            </p>
                         </div>
-                        <x-status-badge :tone="$shift->status->tone()" :label="$shift->status->label()" />
+                        <div class="flex flex-wrap items-center gap-3">
+                            <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                                <input type="checkbox" class="rounded border-slate-300 text-brand-700 focus:ring-brand-500/30" @change="toggleAll($event.target.checked)">
+                                Select all on page
+                            </label>
+                            <button
+                                type="submit"
+                                class="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                :disabled="selected === 0"
+                            >
+                                Complete selected
+                                <span class="rounded-md bg-white/20 px-1.5 py-0.5 text-xs" x-text="selected"></span>
+                            </button>
+                        </div>
                     </div>
-                    <p class="mt-3 text-sm text-slate-700">{{ $shift->site?->name }}</p>
-                    <p class="mt-1 text-xs text-slate-500">{{ $shift->timeLabel() }} · {{ $shift->period->label() }} · {{ $shift->shift_type->label() }}</p>
-                    <div class="mt-4 flex flex-wrap items-center gap-2.5 border-t border-slate-100 pt-3">
-                        <x-action-icon :href="route('shifts.show', $shift)" label="View" icon="eye" tone="brand" />
-                        @if ($canManage && ! in_array($shift->status->value, ['cancelled', 'completed', 'replaced'], true))
-                            <x-action-icon :href="route('shifts.edit', $shift)" label="Edit" icon="pencil" tone="slate" />
-                        @endif
-                    </div>
-                </article>
-            @endforeach
-        </div>
+                </div>
 
-        <div class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
-                    <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        <tr>
-                            <th class="w-14 px-5 py-3">#</th>
-                            <th class="px-5 py-3">Guard</th>
-                            <th class="px-5 py-3">Site</th>
-                            <th class="px-5 py-3">Time</th>
-                            <th class="px-5 py-3">Type</th>
-                            <th class="px-5 py-3">Status</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @foreach ($shifts as $shift)
-                            <tr class="hover:bg-slate-50/80">
-                                <td class="px-5 py-3.5"><x-table-serial :paginator="$shifts" :index="$loop->index" /></td>
-                                <td class="px-5 py-3.5">
-                                    <a href="{{ route('shifts.show', $shift) }}" class="font-semibold text-slate-900 hover:text-brand-700">{{ $shift->assignedGuard?->full_name }}</a>
-                                    <p class="text-xs text-slate-500">{{ $shift->assignedGuard?->employment_id }} · {{ $shift->reference }}</p>
-                                </td>
-                                <td class="px-5 py-3.5 text-slate-700">
-                                    <p>{{ $shift->site?->name }}</p>
-                                    <p class="text-xs text-slate-500">{{ $shift->region?->name }}</p>
-                                </td>
-                                <td class="px-5 py-3.5 text-slate-700">
-                                    <p>{{ $shift->timeLabel() }}</p>
-                                    <p class="text-xs text-slate-500">{{ $shift->period->label() }}@if ($shift->is_overnight) · overnight @endif</p>
-                                </td>
-                                <td class="px-5 py-3.5"><x-status-badge :tone="$shift->shift_type->tone()" :label="$shift->shift_type->label()" /></td>
-                                <td class="px-5 py-3.5"><x-status-badge :tone="$shift->status->tone()" :label="$shift->status->label()" /></td>
-                                <td class="px-5 py-3.5">
-                                    <div class="flex flex-wrap items-center justify-end gap-2.5">
-                                        <x-action-icon :href="route('shifts.show', $shift)" label="View" icon="eye" tone="brand" />
-                                        @if ($canManage && ! in_array($shift->status->value, ['cancelled', 'completed', 'replaced'], true))
-                                            <x-action-icon :href="route('shifts.edit', $shift)" label="Edit" icon="pencil" tone="slate" />
-                                        @endif
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
+                            <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th class="w-12 px-4 py-3"><span class="sr-only">Select</span></th>
+                                    <th class="w-14 px-5 py-3">#</th>
+                                    <th class="px-5 py-3">Guard</th>
+                                    <th class="px-5 py-3">Site</th>
+                                    <th class="px-5 py-3">Time</th>
+                                    <th class="px-5 py-3">Type</th>
+                                    <th class="px-5 py-3">Status</th>
+                                    <th class="px-5 py-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                @foreach ($shifts as $shift)
+                                    @php $completable = \App\Services\Shifts\BulkShiftCompletionService::isCompletable($shift); @endphp
+                                    <tr class="hover:bg-slate-50/80">
+                                        <td class="px-4 py-3.5">
+                                            @if ($completable)
+                                                <input
+                                                    type="checkbox"
+                                                    name="selected[]"
+                                                    value="{{ $shift->id }}"
+                                                    data-row-check
+                                                    class="rounded border-slate-300 text-brand-700 focus:ring-brand-500/30"
+                                                    @change="sync()"
+                                                >
+                                            @endif
+                                        </td>
+                                        <td class="px-5 py-3.5"><x-table-serial :paginator="$shifts" :index="$loop->index" /></td>
+                                        <td class="px-5 py-3.5">
+                                            <a href="{{ route('shifts.show', $shift) }}" class="font-semibold text-slate-900 hover:text-brand-700">{{ $shift->assignedGuard?->full_name }}</a>
+                                            <p class="text-xs text-slate-500">{{ $shift->assignedGuard?->employment_id }} · {{ $shift->reference }}</p>
+                                        </td>
+                                        <td class="px-5 py-3.5 text-slate-700">
+                                            <p>{{ $shift->site?->name }}</p>
+                                            <p class="text-xs text-slate-500">{{ $shift->region?->name }}</p>
+                                        </td>
+                                        <td class="px-5 py-3.5 text-slate-700">
+                                            <p>{{ $shift->timeLabel() }}</p>
+                                            <p class="text-xs text-slate-500">{{ $shift->period->label() }}@if ($shift->is_overnight) · overnight @endif</p>
+                                        </td>
+                                        <td class="px-5 py-3.5"><x-status-badge :tone="$shift->shift_type->tone()" :label="$shift->shift_type->label()" /></td>
+                                        <td class="px-5 py-3.5"><x-status-badge :tone="$shift->status->tone()" :label="$shift->status->label()" /></td>
+                                        <td class="px-5 py-3.5">
+                                            <div class="flex flex-wrap items-center justify-end gap-2.5">
+                                                <x-action-icon :href="route('shifts.show', $shift)" label="View" icon="eye" tone="brand" />
+                                                @if ($canManage && ! in_array($shift->status->value, ['cancelled', 'completed', 'replaced'], true))
+                                                    <x-action-icon :href="route('shifts.edit', $shift)" label="Edit" icon="pencil" tone="slate" />
+                                                @endif
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-xs text-slate-500">Showing {{ $shifts->firstItem() ?? 0 }}–{{ $shifts->lastItem() ?? 0 }} of {{ $shifts->total() }}</p>
+                    <div>{{ $shifts->links() }}</div>
+                </div>
+            </form>
+        @else
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:hidden">
+                @foreach ($shifts as $shift)
+                    <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <a href="{{ route('shifts.show', $shift) }}" class="font-semibold text-slate-900 hover:text-brand-700">{{ $shift->assignedGuard?->full_name }}</a>
+                                <p class="mt-0.5 text-xs text-slate-500">{{ $shift->reference }}</p>
+                            </div>
+                            <x-status-badge :tone="$shift->status->tone()" :label="$shift->status->label()" />
+                        </div>
+                        <p class="mt-3 text-sm text-slate-700">{{ $shift->site?->name }}</p>
+                        <p class="mt-1 text-xs text-slate-500">{{ $shift->timeLabel() }} · {{ $shift->period->label() }} · {{ $shift->shift_type->label() }}</p>
+                        <div class="mt-4 flex flex-wrap items-center gap-2.5 border-t border-slate-100 pt-3">
+                            <x-action-icon :href="route('shifts.show', $shift)" label="View" icon="eye" tone="brand" />
+                        </div>
+                    </article>
+                @endforeach
             </div>
-        </div>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs text-slate-500">Showing {{ $shifts->firstItem() ?? 0 }}–{{ $shifts->lastItem() ?? 0 }} of {{ $shifts->total() }}</p>
-            <div>{{ $shifts->links() }}</div>
-        </div>
+            <div class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
+                        <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="w-14 px-5 py-3">#</th>
+                                <th class="px-5 py-3">Guard</th>
+                                <th class="px-5 py-3">Site</th>
+                                <th class="px-5 py-3">Time</th>
+                                <th class="px-5 py-3">Type</th>
+                                <th class="px-5 py-3">Status</th>
+                                <th class="px-5 py-3 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach ($shifts as $shift)
+                                <tr class="hover:bg-slate-50/80">
+                                    <td class="px-5 py-3.5"><x-table-serial :paginator="$shifts" :index="$loop->index" /></td>
+                                    <td class="px-5 py-3.5">
+                                        <a href="{{ route('shifts.show', $shift) }}" class="font-semibold text-slate-900 hover:text-brand-700">{{ $shift->assignedGuard?->full_name }}</a>
+                                        <p class="text-xs text-slate-500">{{ $shift->assignedGuard?->employment_id }} · {{ $shift->reference }}</p>
+                                    </td>
+                                    <td class="px-5 py-3.5 text-slate-700">
+                                        <p>{{ $shift->site?->name }}</p>
+                                        <p class="text-xs text-slate-500">{{ $shift->region?->name }}</p>
+                                    </td>
+                                    <td class="px-5 py-3.5 text-slate-700">
+                                        <p>{{ $shift->timeLabel() }}</p>
+                                        <p class="text-xs text-slate-500">{{ $shift->period->label() }}@if ($shift->is_overnight) · overnight @endif</p>
+                                    </td>
+                                    <td class="px-5 py-3.5"><x-status-badge :tone="$shift->shift_type->tone()" :label="$shift->shift_type->label()" /></td>
+                                    <td class="px-5 py-3.5"><x-status-badge :tone="$shift->status->tone()" :label="$shift->status->label()" /></td>
+                                    <td class="px-5 py-3.5">
+                                        <div class="flex flex-wrap items-center justify-end gap-2.5">
+                                            <x-action-icon :href="route('shifts.show', $shift)" label="View" icon="eye" tone="brand" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p class="text-xs text-slate-500">Showing {{ $shifts->firstItem() ?? 0 }}–{{ $shifts->lastItem() ?? 0 }} of {{ $shifts->total() }}</p>
+                <div>{{ $shifts->links() }}</div>
+            </div>
+        @endif
     @endif
 </div>
 @endsection

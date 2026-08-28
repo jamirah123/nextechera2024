@@ -2,13 +2,13 @@
 
 @section('title', $client->name)
 @section('page-title', 'Client details')
-@section('page-subtitle', $client->code)
+@section('page-subtitle', $client->name)
 
 @section('content')
 <div class="space-y-6">
     <x-page-header
         :title="$client->name"
-        :subtitle="'Client '.$client->code"
+        :subtitle="$client->contract_status->label().' contract'"
         :back="route('clients.index')"
     >
         <x-slot:actions>
@@ -39,18 +39,14 @@
         </div>
         <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
             <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Code</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $client->code }}</dd>
-            </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Contact person</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $client->contact_person ?: '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+            <div class="border-b border-slate-100 px-5 py-4 sm:border-r lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Phone</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $client->phone ?: '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
+            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Email</dt>
                 <dd class="mt-1 break-all text-sm font-semibold text-slate-900">{{ $client->email ?: '—' }}</dd>
             </div>

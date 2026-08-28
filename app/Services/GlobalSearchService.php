@@ -156,7 +156,7 @@ class GlobalSearchService
                 'type' => 'client',
                 'label' => 'Client',
                 'title' => $client->name,
-                'subtitle' => $client->code.($client->contact_person ? ' · '.$client->contact_person : ''),
+                'subtitle' => $client->contact_person ?: ($client->phone ?: 'Client'),
                 'url' => route('clients.show', $client),
                 'badge' => $client->contract_status->label(),
             ]);

@@ -74,7 +74,8 @@ class ReportingTest extends TestCase
                 'month' => now()->month,
             ]))
             ->assertOk()
-            ->assertSee($guard->full_name);
+            ->assertSee($guard->full_name)
+            ->assertSee('Showing', false);
 
         $this->actingAs($user)
             ->get(route('reports.monthly-shifts.export', [

@@ -34,6 +34,30 @@ class UserAccessTest extends TestCase
         ]);
     }
 
+    public function test_super_admin_can_create_region_supervisor_linked_to_profile(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $supervisor = \App\Models\Supervisor::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('users.store'), [
+                'name' => 'Field Supervisor',
+                'email' => 'region.supervisor@example.com',
+                'role' => UserRole::RegionSupervisor->value,
+                'supervisor_id' => $supervisor->id,
+                'password' => 'Password@12345',
+                'password_confirmation' => 'Password@12345',
+                'is_active' => true,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'region.supervisor@example.com',
+            'role' => UserRole::RegionSupervisor->value,
+            'supervisor_id' => $supervisor->id,
+        ]);
+    }
+
     public function test_non_admin_cannot_manage_users(): void
     {
         $ops = User::factory()->role(UserRole::OperationsManager)->create();

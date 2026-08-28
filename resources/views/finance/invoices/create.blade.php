@@ -12,7 +12,7 @@
             <x-form-field label="Client" name="client_id" type="select" :required="true" class="sm:col-span-2" data-searchable="true">
                 <option value="">Select client</option>
                 @foreach ($clients as $client)
-                    <option value="{{ $client->id }}" @selected((string) old('client_id') === (string) $client->id)>{{ $client->code }} — {{ $client->name }}</option>
+                    <option value="{{ $client->id }}" @selected((string) old('client_id') === (string) $client->id)>{{ $client->name }}</option>
                 @endforeach
             </x-form-field>
             <x-form-field label="Site (optional)" name="site_id" type="select" class="sm:col-span-2" data-searchable="true">

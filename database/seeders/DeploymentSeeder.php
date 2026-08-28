@@ -3,14 +3,16 @@
 namespace Database\Seeders;
 
 use App\Enums\DeploymentShiftType;
+use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\OperationalStatus;
+use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Site;
 use App\Models\User;
-use App\Services\DeploymentService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class DeploymentSeeder extends Seeder
 {
@@ -23,47 +25,107 @@ class DeploymentSeeder extends Seeder
             Auth::login($admin);
         }
 
-        $service = app(DeploymentService::class);
         $sites = Site::query()->orderBy('id')->get();
-        $guards = Guard::query()
-            ->where('employment_status', EmploymentStatus::Active)
-            ->whereIn('operational_status', [
-                OperationalStatus::AwaitingDeployment,
-                OperationalStatus::OffDuty,
-                OperationalStatus::Training,
-            ])
-            ->orderBy('id')
-            ->get();
-
-        if ($sites->isEmpty() || $guards->isEmpty()) {
+        if ($sites->isEmpty()) {
             Auth::logout();
 
             return;
         }
 
-        $pairs = min(3, $sites->count(), $guards->count());
-        $shifts = [DeploymentShiftType::Day, DeploymentShiftType::Night, DeploymentShiftType::Rotating];
+        $guardsByRegion = Guard::query()
+            ->where('employment_status', EmploymentStatus::Active)
+            ->whereIn('operational_status', [
+                OperationalStatus::AwaitingDeployment,
+                OperationalStatus::Training,
+            ])
+            ->whereDoesntHave('deployments', fn ($q) => $q->current())
+            ->orderBy('id')
+            ->get(['id', 'region_id'])
+            ->groupBy('region_id')
+            ->map(fn ($group) => $group->values());
 
-        for ($i = 0; $i < $pairs; $i++) {
-            $guard = $guards[$i];
-            $site = $sites[$i % $sites->count()];
+        $shiftTypes = [
+            DeploymentShiftType::Day->value,
+            DeploymentShiftType::Night->value,
+            DeploymentShiftType::Rotating->value,
+        ];
 
-            if ($guard->deployments()->current()->exists()) {
+        $now = now();
+        $adminId = $admin?->id;
+        $rows = [];
+        $guardUpdates = [];
+        $deployed = 0;
+
+        foreach ($sites as $siteIndex => $site) {
+            $pool = $guardsByRegion->get($site->region_id, collect());
+            if ($pool->isEmpty()) {
                 continue;
             }
 
-            try {
-                $service->deploy([
+            $target = min(
+                max((int) $site->required_guards, 10),
+                $pool->count(),
+            );
+
+            for ($n = 0; $n < $target; $n++) {
+                /** @var Guard|null $guard */
+                $guard = $pool->shift();
+                if (! $guard) {
+                    break;
+                }
+
+                $guardsByRegion[$site->region_id] = $pool;
+                $shiftType = $shiftTypes[($siteIndex + $n) % count($shiftTypes)];
+
+                $rows[] = [
                     'guard_id' => $guard->id,
                     'site_id' => $site->id,
-                    'shift_type' => $shifts[$i % count($shifts)]->value,
-                    'start_date' => now()->subDays(7 - $i)->toDateString(),
-                    'notes' => 'Seeded active deployment',
-                ]);
-            } catch (\Throwable) {
-                // Skip invalid combinations during reseeds.
+                    'region_id' => $site->region_id,
+                    'supervisor_id' => $site->supervisor_id,
+                    'shift_type' => $shiftType,
+                    'status' => DeploymentStatus::Active->value,
+                    'start_date' => $now->copy()->subDays(($siteIndex + $n) % 40 + 3)->toDateString(),
+                    'end_date' => null,
+                    'is_current' => true,
+                    'notes' => 'Volume seeded deployment',
+                    'created_by' => $adminId,
+                    'updated_by' => $adminId,
+                    'created_at' => $now->toDateTimeString(),
+                    'updated_at' => $now->toDateTimeString(),
+                ];
+
+                $guardUpdates[$guard->id] = [
+                    'current_site_id' => $site->id,
+                    'current_supervisor_id' => $site->supervisor_id,
+                    'operational_status' => OperationalStatus::OffDuty->value,
+                    'region_id' => $site->region_id,
+                ];
+
+                $deployed++;
+
+                if (count($rows) >= 200) {
+                    DB::table('deployments')->insert($rows);
+                    $rows = [];
+                    $this->command?->getOutput()?->write('.');
+                }
             }
         }
+
+        if ($rows !== []) {
+            DB::table('deployments')->insert($rows);
+        }
+
+        foreach (array_chunk($guardUpdates, 200, true) as $chunk) {
+            foreach ($chunk as $guardId => $data) {
+                DB::table('guards')->where('id', $guardId)->update(array_merge($data, [
+                    'updated_at' => $now->toDateTimeString(),
+                    'updated_by' => $adminId,
+                ]));
+            }
+        }
+
+        $this->command?->newLine();
+        $this->command?->info('Deployments created: '.$deployed.' (current total '.Deployment::query()->current()->count().')');
 
         Auth::logout();
     }

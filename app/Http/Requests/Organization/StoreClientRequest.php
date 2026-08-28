@@ -18,7 +18,6 @@ class StoreClientRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:191'],
-            'code' => ['required', 'string', 'max:50', 'alpha_dash', Rule::unique('clients', 'code')],
             'contact_person' => ['nullable', 'string', 'max:191'],
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:191'],
@@ -28,12 +27,5 @@ class StoreClientRequest extends FormRequest
             'contract_status' => ['required', Rule::in(ContractStatus::values())],
             'notes' => ['nullable', 'string'],
         ];
-    }
-
-    protected function prepareForValidation(): void
-    {
-        if ($this->has('code')) {
-            $this->merge(['code' => strtoupper(trim((string) $this->input('code')))]);
-        }
     }
 }

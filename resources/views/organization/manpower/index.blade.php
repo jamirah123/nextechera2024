@@ -23,6 +23,7 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
+        <x-print.report-header title="Manpower coverage" subtitle="Required vs deployed guards by site." />
     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5 sm:gap-4">
         <x-kpi-card label="Required" :value="number_format($company['required'])" tone="brand" />
         <x-kpi-card label="Deployed" :value="number_format($company['deployed'])" tone="emerald" />

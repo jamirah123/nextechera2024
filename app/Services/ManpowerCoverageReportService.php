@@ -40,9 +40,13 @@ class ManpowerCoverageReportService
      */
     private function baseQuery(Request $request)
     {
+        $user = $request->user();
+        $regionId = $user?->regionId();
+
         return Site::query()
             ->with(['client', 'region', 'supervisor'])
-            ->when($request->filled('region_id'), fn ($q) => $q->where('region_id', $request->integer('region_id')))
+            ->when($user?->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+            ->when($request->filled('region_id') && ! $user?->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $request->integer('region_id')))
             ->when(
                 $request->filled('status'),
                 fn ($q) => $q->where('status', $request->string('status')),

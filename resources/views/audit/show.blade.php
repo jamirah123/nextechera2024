@@ -18,7 +18,9 @@
         </x-slot:actions>
     </x-page-header>
 
-    <div class="report-print-area grid gap-6 lg:grid-cols-3">
+    <div class="report-print-area space-y-6">
+        <x-print.report-header title="Audit event" :subtitle="$log->action" />
+        <div class="grid gap-6 lg:grid-cols-3">
         <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2 sm:p-6">
             <dl class="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -70,6 +72,7 @@
                 </div>
             </dl>
         </section>
+        </div>
     </div>
 </div>
 @endsection

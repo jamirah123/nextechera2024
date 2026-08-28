@@ -5,13 +5,18 @@ namespace App\Services;
 use App\Enums\DeploymentShiftType;
 use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
+use App\Enums\GuardClassification;
 use App\Enums\OperationalStatus;
+use App\Enums\ShiftPeriod;
+use App\Enums\ShiftType;
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Models\Deployment;
 use App\Models\DeploymentTransfer;
 use App\Models\Guard;
 use App\Models\Site;
+use App\Support\Deployments\DeploymentShiftSchedule;
+use App\Support\Shifts\ShiftDutyTypeResolver;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -37,7 +42,15 @@ class DeploymentService
             $site = Site::query()->with('supervisor')->findOrFail($data['site_id']);
 
             $this->assertGuardDeployable($guard);
-            $this->assertNoActiveDeployment($guard);
+
+            $existing = Deployment::query()
+                ->current()
+                ->where('guard_id', $guard->id)
+                ->first();
+
+            if ($existing) {
+                return $this->redeployExisting($existing, $guard, $site, $data);
+            }
 
             $deployment = Deployment::query()->create([
                 'guard_id' => $guard->id,
@@ -224,16 +237,138 @@ class DeploymentService
         }
     }
 
-    private function assertNoActiveDeployment(Guard $guard): void
+    /**
+     * @param  array{
+     *     guard_id: int,
+     *     site_id: int,
+     *     shift_type?: string,
+     *     start_date?: string,
+     *     notes?: string|null
+     * }  $data
+     */
+    private function redeployExisting(Deployment $existing, Guard $guard, Site $site, array $data): Deployment
     {
-        $exists = Deployment::query()
-            ->current()
-            ->where('guard_id', $guard->id)
-            ->exists();
+        $onShift = DeploymentShiftSchedule::isOnShift($existing->shift_type);
+        $notes = $data['notes'] ?? null;
 
-        if ($exists) {
-            throw new InvalidArgumentException('This guard already has an active deployment. Transfer them instead.');
+        if ($onShift && ! $notes) {
+            $notes = 'Client-requested guard switch from deployment board';
         }
+
+        if ((int) $existing->site_id === (int) $site->id) {
+            $fresh = $this->reassignShiftPosting($existing, $guard, $site, [
+                ...$data,
+                'notes' => $notes,
+            ]);
+        } else {
+            $fresh = $this->transfer($existing, [
+                'site_id' => $site->id,
+                'shift_type' => $existing->shift_type->value,
+                'effective_date' => $data['start_date'] ?? now()->toDateString(),
+                'notes' => $notes,
+                'reason' => $onShift ? 'client_guard_switch' : 'shift_reassignment',
+            ]);
+        }
+
+        $workPosting = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
+            ?? $existing->shift_type;
+        $this->scheduleWorkShift($guard, $site, $data, $existing->shift_type, $workPosting);
+
+        return $fresh;
+    }
+
+    /**
+     * @param  array{
+     *     guard_id: int,
+     *     site_id: int,
+     *     shift_type?: string,
+     *     start_date?: string,
+     *     notes?: string|null
+     * }  $data
+     */
+    private function reassignShiftPosting(Deployment $deployment, Guard $guard, Site $site, array $data): Deployment
+    {
+        $deployment->update([
+            'notes' => $data['notes'] ?? $deployment->notes,
+        ]);
+
+        $this->syncGuardAssignment($guard, $site, $guard->operational_status ?? OperationalStatus::OffDuty);
+
+        $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+        $this->audit->log(
+            action: 'deployment.shift_reassigned',
+            summary: 'Guard '.$guard->employment_id.' work shift updated at '.$fresh->site->name.' (normal posting: '.$deployment->shift_type->label().').',
+            category: AuditCategory::Deployment,
+            severity: AuditSeverity::Notice,
+            subject: $fresh,
+            context: [
+                'guard_id' => $guard->id,
+                'site_id' => $fresh->site_id,
+                'shift_type' => $deployment->shift_type->value,
+            ],
+        );
+
+        return $fresh;
+    }
+
+    /**
+     * @param  array{
+     *     guard_id: int,
+     *     site_id: int,
+     *     shift_type?: string,
+     *     start_date?: string,
+     *     notes?: string|null
+     * }  $data
+     */
+    private function scheduleWorkShift(
+        Guard $guard,
+        Site $site,
+        array $data,
+        DeploymentShiftType $normalPosting,
+        DeploymentShiftType $workPosting,
+    ): void {
+        if ($workPosting === DeploymentShiftType::Rotating || $workPosting === $normalPosting) {
+            return;
+        }
+
+        $workPeriod = ShiftDutyTypeResolver::workPeriodFor($workPosting);
+        $shiftType = ShiftDutyTypeResolver::resolve($normalPosting, $workPeriod);
+        [$start, $end] = $this->shiftTimesFor($workPeriod);
+
+        try {
+            app(ShiftService::class)->create([
+                'guard_id' => $guard->id,
+                'site_id' => $site->id,
+                'shift_date' => $data['start_date'] ?? now()->toDateString(),
+                'start_time' => $start,
+                'end_time' => $end,
+                'period' => $workPeriod->value,
+                'shift_type' => $shiftType->value,
+                'guard_classification' => GuardClassification::Unarmed->value,
+                'acknowledge_warnings' => true,
+                'notes' => $shiftType === ShiftType::Overtime
+                    ? 'Overtime — normal posting is '.$normalPosting->label()
+                    : 'Scheduled from deployment board',
+            ]);
+        } catch (InvalidArgumentException) {
+            // Deployment still succeeds if shift validation rejects a duplicate window.
+        }
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function shiftTimesFor(ShiftPeriod $period): array
+    {
+        if ($period === ShiftPeriod::Night) {
+            return [
+                config('psg.shift_defaults.night.start', '18:00'),
+                config('psg.shift_defaults.night.end', '06:00'),
+            ];
+        }
+
+        return [
+            config('psg.shift_defaults.day.start', '06:00'),
+            config('psg.shift_defaults.day.end', '18:00'),
+        ];
     }
 
     private function syncGuardAssignment(Guard $guard, Site $site, OperationalStatus $operationalStatus): void

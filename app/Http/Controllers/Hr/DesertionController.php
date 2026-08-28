@@ -24,27 +24,34 @@ class DesertionController extends Controller
     {
         $this->authorize('viewAny', Desertion::class);
 
+        $user = $request->user();
+        $regionId = $user->regionId();
+
         $desertions = Desertion::query()
-            ->with(['assignedGuard:id,employment_id,full_name', 'lastKnownSite:id,name,code', 'reporter:id,name'])
+            ->with(['assignedGuard:id,employment_id,full_name,region_id', 'lastKnownSite:id,name,code', 'reporter:id,name'])
             ->search($request->string('q')->toString())
+            ->when($user->mustStayInOwnRegion(), fn ($q) => $q->whereHas('assignedGuard', fn ($g) => $g->where('region_id', $regionId)))
             ->when($request->filled('hr_status'), fn ($q) => $q->where('hr_status', $request->string('hr_status')))
             ->latest('date_reported')
             ->paginate(12)
             ->withQueryString();
 
+        $statsBase = Desertion::query()
+            ->when($user->mustStayInOwnRegion(), fn ($q) => $q->whereHas('assignedGuard', fn ($g) => $g->where('region_id', $regionId)));
+
         return view('hr.desertions.index', [
             'desertions' => $desertions,
             'statuses' => DesertionHrStatus::cases(),
             'filters' => $request->only(['q', 'hr_status']),
-            'canManage' => $request->user()->can('create', Desertion::class),
+            'canManage' => $user->can('create', Desertion::class),
             'stats' => [
-                'open' => Desertion::query()->whereIn('hr_status', [
+                'open' => (clone $statsBase)->whereIn('hr_status', [
                     DesertionHrStatus::Reported->value,
                     DesertionHrStatus::Investigating->value,
                     DesertionHrStatus::Confirmed->value,
                 ])->count(),
-                'returned' => Desertion::query()->where('hr_status', DesertionHrStatus::Returned)->count(),
-                'closed' => Desertion::query()->where('hr_status', DesertionHrStatus::Closed)->count(),
+                'returned' => (clone $statsBase)->where('hr_status', DesertionHrStatus::Returned)->count(),
+                'closed' => (clone $statsBase)->where('hr_status', DesertionHrStatus::Closed)->count(),
             ],
         ]);
     }
@@ -53,9 +60,19 @@ class DesertionController extends Controller
     {
         $this->authorize('create', Desertion::class);
 
+        $user = request()->user();
+        $regionId = $user->regionId();
+
         return view('hr.desertions.create', [
-            'guards' => Guard::query()->activeEmployment()->orderBy('full_name')->get(['id', 'employment_id', 'full_name', 'current_site_id']),
-            'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'guards' => Guard::query()
+                ->activeEmployment()
+                ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+                ->orderBy('full_name')
+                ->get(['id', 'employment_id', 'full_name', 'current_site_id']),
+            'sites' => Site::query()
+                ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+                ->orderBy('name')
+                ->get(['id', 'name', 'code']),
         ]);
     }
 
@@ -72,6 +89,14 @@ class DesertionController extends Controller
             'action_taken' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        $user = $request->user();
+        if ($user->mustStayInOwnRegion()) {
+            $guard = Guard::query()->find($data['guard_id']);
+            if (! $guard || ! $user->canAccessRegion($guard->region_id)) {
+                return back()->withInput()->withErrors(['guard_id' => 'You can only report desertions for guards in your region.']);
+            }
+        }
 
         $desertion = $this->desertions->report($data);
 

@@ -42,6 +42,18 @@
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $user->role->label() }}</dd>
                 <p class="mt-0.5 text-xs text-slate-500">{{ $user->role->description() }}</p>
             </div>
+            @if ($user->isRegionSupervisor())
+                <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6 sm:col-span-2 lg:col-span-3">
+                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Linked supervisor / region</dt>
+                    <dd class="mt-1 text-sm font-semibold text-slate-900">
+                        {{ $user->supervisorProfile?->name ?? 'Not linked' }}
+                        @if ($user->supervisorProfile)
+                            <span class="font-normal text-slate-500">({{ $user->supervisorProfile->supervisor_code }})</span>
+                        @endif
+                    </dd>
+                    <p class="mt-0.5 text-xs text-slate-500">{{ $user->supervisorProfile?->region?->name ?? 'No region assigned' }}</p>
+                </div>
+            @endif
             <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Last login</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $user->last_login_at?->format('d M Y, H:i') ?? 'Never' }}</dd>

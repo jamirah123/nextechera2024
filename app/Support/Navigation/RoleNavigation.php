@@ -18,6 +18,7 @@ class RoleNavigation
             UserRole::HrManager => self::hr(),
             UserRole::ShiftManager => self::shift(),
             UserRole::FinanceManager => self::finance(),
+            UserRole::RegionSupervisor => self::regionSupervisor(),
             default => self::fallback(),
         };
     }
@@ -50,6 +51,8 @@ class RoleNavigation
                 self::module('Manpower Coverage', 'Site staffing levels, shortages and surplus.', 'chart', 'amber', route('manpower.coverage')),
                 self::module('Guards', 'Review employment and operational guard status.', 'shield', 'sky', route('guards.index')),
                 self::module('Sites', 'Security sites and manpower requirements.', 'map', 'brand', route('sites.index')),
+                self::module('Deploy Board', 'Bulk-assign guards to sites across regions.', 'map', 'emerald', route('deployments.board')),
+                self::module('Allocate Shifts', 'Schedule deployed guards with Day/Night dropdowns.', 'calendar', 'amber', route('shifts.allocate')),
                 self::module('Today\'s Shifts', 'Monitor scheduled, in-progress and missed shifts.', 'calendar', 'brand', route('shifts.index')),
                 self::module('Deployments', 'Guard-to-site assignments across regions.', 'map', 'emerald', route('deployments.index')),
                 self::module('Replacements', 'Track original vs covering guards on duty.', 'swap', 'indigo', route('replacements.index')),
@@ -66,13 +69,15 @@ class RoleNavigation
                 self::module('HR Reports', 'Employment, leave, absence and work summaries.', 'report', 'violet', route('reports.hr')),
             ],
             UserRole::ShiftManager => [
-                self::module('Create Shifts', 'Fast shift entry with validation and conflict checks.', 'plus', 'brand', route('shifts.create')),
+                self::module('Allocate Shifts', 'Board of deployed guards with quick Day/Night dropdowns.', 'plus', 'brand', route('shifts.allocate')),
+                self::module('Deploy Board', 'Assign many undeployed guards to sites in one pass.', 'map', 'emerald', route('deployments.board')),
                 self::module('Guards', 'Check availability and operational status.', 'shield', 'sky', route('guards.index')),
                 self::module('Sites & Manpower', 'Review site requirements before scheduling.', 'chart', 'amber', route('manpower.coverage')),
                 self::module('Organization', 'Regions, supervisors and site structure.', 'building', 'indigo', route('organization.index')),
-                self::module('Deployments', 'Assign guards to sites before scheduling.', 'map', 'emerald', route('deployments.index')),
                 self::module('Today\'s Shifts', 'Monitor and update the live schedule.', 'calendar', 'sky', route('shifts.index')),
                 self::module('Replacements', 'Cover unavailable guards and keep reports accurate.', 'swap', 'indigo', route('replacements.index')),
+                self::module('Absences', 'Record no-shows and trigger replacement review.', 'alert', 'amber', route('absences.index')),
+                self::module('Desertions', 'Report deserted guards for HR follow-up.', 'warning', 'rose', route('desertions.index')),
                 self::module('Shift Reports', 'Daily and monthly shift and overtime exports.', 'report', 'violet', route('reports.index')),
             ],
             UserRole::FinanceManager => [
@@ -84,6 +89,15 @@ class RoleNavigation
                 self::module('Profitability', 'Client, site and region profitability analysis.', 'chart', 'violet', route('profitability.index')),
                 self::module('Monthly Shift Exports', 'Payroll-ready normal and overtime shift totals.', 'report', 'sky', route('reports.monthly-shifts')),
             ],
+            UserRole::RegionSupervisor => [
+                self::module('Deploy Board', 'Post many guards to sites in your region from one screen.', 'map', 'emerald', route('deployments.board')),
+                self::module('Absences', 'Record absent guards from the field.', 'alert', 'amber', route('absences.index')),
+                self::module('Desertions', 'Report deserted guards for HR follow-up.', 'warning', 'rose', route('desertions.index')),
+                self::module('Guards', 'Review guards available in your region.', 'shield', 'sky', route('guards.index')),
+                self::module('Sites & Manpower', 'Coverage vs requirement for your sites.', 'chart', 'amber', route('manpower.coverage')),
+                self::module('Today\'s Shifts', 'Read-only view of the regional shift board.', 'calendar', 'brand', route('shifts.index')),
+                self::module('Ops Dashboard', 'Regional operational snapshot.', 'chart', 'indigo', route('ops-dashboards.company')),
+            ],
             default => [],
         };
     }
@@ -93,13 +107,33 @@ class RoleNavigation
      */
     public static function kpis(User $user): array
     {
+        $regionId = $user->regionId();
+        $regionScoped = $user->mustStayInOwnRegion();
+
         $regionCount = \App\Models\Region::query()->count();
-        $siteCount = \App\Models\Site::query()->active()->count();
+        $siteQuery = \App\Models\Site::query()->active();
+        $guardQuery = \App\Models\Guard::query()->activeEmployment();
+        $deploymentQuery = \App\Models\Deployment::query()->where('status', \App\Enums\DeploymentStatus::Active);
+
+        if ($regionScoped) {
+            $siteQuery->where('region_id', $regionId);
+            $guardQuery->where('region_id', $regionId);
+            $deploymentQuery->where('region_id', $regionId);
+        }
+
+        $siteCount = $siteQuery->count();
         $clientCount = \App\Models\Client::query()->count();
         $supervisorCount = \App\Models\Supervisor::query()->active()->count();
-        $activeGuards = \App\Models\Guard::query()->activeEmployment()->count();
-        $onLeave = \App\Models\Guard::query()->where('operational_status', \App\Enums\OperationalStatus::OnLeave)->count();
-        $absent = \App\Models\Guard::query()->where('operational_status', \App\Enums\OperationalStatus::Absent)->count();
+        $activeGuards = $guardQuery->count();
+        $activeDeployments = $deploymentQuery->count();
+        $onLeave = \App\Models\Guard::query()
+            ->when($regionScoped, fn ($q) => $q->where('region_id', $regionId))
+            ->where('operational_status', \App\Enums\OperationalStatus::OnLeave)
+            ->count();
+        $absent = \App\Models\Guard::query()
+            ->when($regionScoped, fn ($q) => $q->where('region_id', $regionId))
+            ->where('operational_status', \App\Enums\OperationalStatus::Absent)
+            ->count();
 
         return match ($user->role) {
             UserRole::SuperAdmin => [
@@ -132,6 +166,12 @@ class RoleNavigation
                 ['label' => 'Month collected', 'value' => \App\Support\Money::format(self::financeTotals()['month_collected']), 'hint' => 'Payments this month', 'tone' => 'emerald'],
                 ['label' => 'Overdue', 'value' => (string) self::financeTotals()['overdue_count'], 'hint' => 'Past-due invoices', 'tone' => 'rose'],
             ],
+            UserRole::RegionSupervisor => [
+                ['label' => 'Sites', 'value' => (string) $siteCount, 'hint' => 'Sites in your region', 'tone' => 'brand'],
+                ['label' => 'Deployed', 'value' => (string) $activeDeployments, 'hint' => 'Active deployments', 'tone' => 'emerald'],
+                ['label' => 'Guards', 'value' => (string) $activeGuards, 'hint' => 'Active employment in region', 'tone' => 'sky'],
+                ['label' => 'Absent', 'value' => (string) $absent, 'hint' => 'Needs field follow-up', 'tone' => 'amber'],
+            ],
             default => [],
         };
     }
@@ -158,7 +198,9 @@ class RoleNavigation
             ]),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
             self::nav('Operations', 'ops', route('deployments.index'), 'deployments.*|shifts.*|replacements.*', [
+                ['label' => 'Deploy board', 'href' => route('deployments.board')],
                 ['label' => 'Deployments', 'href' => route('deployments.index')],
+                ['label' => 'Allocate shifts', 'href' => route('shifts.allocate')],
                 ['label' => 'Shifts', 'href' => route('shifts.index')],
                 ['label' => 'Calendar', 'href' => route('shifts.calendar')],
                 ['label' => 'Leave', 'href' => route('leaves.index')],
@@ -191,7 +233,9 @@ class RoleNavigation
                 ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
             ]),
             self::nav('Today\'s Shifts', 'calendar', route('shifts.index'), 'shifts.*'),
-            self::nav('Deployments', 'map', route('deployments.index'), 'deployments.*'),
+            self::nav('Allocate Shifts', 'plus', route('shifts.allocate'), 'shifts.allocate*'),
+            self::nav('Deployments', 'map', route('deployments.index'), 'deployments.index|deployments.show|deployments.transfer*|deployments.end'),
+            self::nav('Deploy Board', 'ops', route('deployments.board'), 'deployments.board*|deployments.create|deployments.store'),
             self::nav('Leave', 'leave', route('leaves.index'), 'leaves.*'),
             self::nav('Absences', 'alert', route('absences.index'), 'absences.*'),
             self::nav('Replacements', 'swap', route('replacements.index'), 'replacements.*'),
@@ -228,10 +272,11 @@ class RoleNavigation
         return [
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
             self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
-            self::nav('Today\'s Shifts', 'calendar', route('shifts.index'), 'shifts.index|shifts.show|shifts.calendar'),
-            self::nav('Create Shift', 'plus', route('shifts.create'), 'shifts.create|shifts.store|shifts.recurring.*|shifts.edit|shifts.update'),
+            self::nav('Today\'s Shifts', 'calendar', route('shifts.index'), 'shifts.index|shifts.show|shifts.calendar|shifts.status'),
+            self::nav('Allocate Shifts', 'plus', route('shifts.allocate'), 'shifts.allocate|shifts.allocate.store|shifts.create|shifts.store|shifts.recurring.*|shifts.edit|shifts.update'),
+            self::nav('Deployments', 'map', route('deployments.index'), 'deployments.index|deployments.show|deployments.transfer*|deployments.end'),
+            self::nav('Deploy Board', 'ops', route('deployments.board'), 'deployments.board|deployments.board.store|deployments.create|deployments.store'),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
-            self::nav('Deployments', 'map', route('deployments.index'), 'deployments.*'),
             self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*|manpower.*', [
                 ['label' => 'Sites', 'href' => route('sites.index')],
                 ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
@@ -239,6 +284,8 @@ class RoleNavigation
                 ['label' => 'Supervisors', 'href' => route('supervisors.index')],
             ]),
             self::nav('Replacements', 'swap', route('replacements.index'), 'replacements.*'),
+            self::nav('Absences', 'alert', route('absences.index'), 'absences.*'),
+            self::nav('Desertions', 'warning', route('desertions.index'), 'desertions.*'),
             self::nav('Shift Reports', 'report', route('reports.index'), 'reports.*'),
         ];
     }
@@ -262,6 +309,25 @@ class RoleNavigation
             self::nav('Payments', 'payment', route('payments.index'), 'payments.*'),
             self::nav('Profitability', 'chart', route('profitability.index'), 'profitability.*'),
             self::nav('Shift Exports', 'report', route('reports.monthly-shifts'), 'reports.*'),
+        ];
+    }
+
+    /** @return list<array{label: string, icon: string, href: string, active: bool, children?: list<array{label: string, href: string, active?: bool}>}> */
+    private static function regionSupervisor(): array
+    {
+        return [
+            self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
+            self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
+            self::nav('Deployments', 'map', route('deployments.index'), 'deployments.index|deployments.show|deployments.transfer*|deployments.end'),
+            self::nav('Deploy Board', 'ops', route('deployments.board'), 'deployments.board*|deployments.create|deployments.store'),
+            self::nav('Absences', 'alert', route('absences.index'), 'absences.*'),
+            self::nav('Desertions', 'warning', route('desertions.index'), 'desertions.*'),
+            self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
+            self::nav('Sites', 'building', route('sites.index'), 'sites.*|manpower.*', [
+                ['label' => 'Sites', 'href' => route('sites.index')],
+                ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
+            ]),
+            self::nav('Today\'s Shifts', 'calendar', route('shifts.index'), 'shifts.index|shifts.show|shifts.calendar'),
         ];
     }
 

@@ -15,7 +15,17 @@ class AbsencePolicy
 
     public function view(User $user, Absence $absence): bool
     {
-        return $this->canAccess($user);
+        if (! $this->canAccess($user)) {
+            return false;
+        }
+
+        if (! $user->mustStayInOwnRegion()) {
+            return true;
+        }
+
+        $absence->loadMissing('assignedGuard:id,region_id');
+
+        return $user->canAccessRegion($absence->assignedGuard?->region_id);
     }
 
     public function create(User $user): bool
@@ -25,7 +35,7 @@ class AbsencePolicy
 
     public function update(User $user, Absence $absence): bool
     {
-        return $this->canManage($user);
+        return $this->canManage($user) && $this->view($user, $absence);
     }
 
     private function canAccess(User $user): bool
@@ -36,6 +46,7 @@ class AbsencePolicy
             UserRole::HrManager,
             UserRole::ShiftManager,
             UserRole::FinanceManager,
+            UserRole::RegionSupervisor,
         ], true);
     }
 
@@ -44,6 +55,7 @@ class AbsencePolicy
         return $user->isSuperAdmin()
             || $user->hasRole(UserRole::HrManager)
             || $user->hasRole(UserRole::OperationsManager)
-            || $user->hasRole(UserRole::ShiftManager);
+            || $user->hasRole(UserRole::ShiftManager)
+            || $user->hasRole(UserRole::RegionSupervisor);
     }
 }

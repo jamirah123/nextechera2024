@@ -93,7 +93,7 @@ class Invoice extends Model
         return $query->where(function ($q) use ($like): void {
             $q->where('reference', 'like', $like)
                 ->orWhere('notes', 'like', $like)
-                ->orWhereHas('client', fn ($c) => $c->where('name', 'like', $like)->orWhere('code', 'like', $like));
+                ->orWhereHas('client', fn ($c) => $c->where('name', 'like', $like));
         });
     }
 

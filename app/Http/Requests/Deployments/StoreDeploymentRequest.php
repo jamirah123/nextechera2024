@@ -4,8 +4,11 @@ namespace App\Http\Requests\Deployments;
 
 use App\Enums\DeploymentShiftType;
 use App\Models\Deployment;
+use App\Models\Guard;
+use App\Models\Site;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreDeploymentRequest extends FormRequest
 {
@@ -24,5 +27,26 @@ class StoreDeploymentRequest extends FormRequest
             'start_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $user = $this->user();
+            if (! $user?->mustStayInOwnRegion()) {
+                return;
+            }
+
+            $site = Site::query()->find($this->integer('site_id'));
+            $guard = Guard::query()->find($this->integer('guard_id'));
+
+            if ($site && ! $user->canAccessRegion($site->region_id)) {
+                $validator->errors()->add('site_id', 'You can only deploy to sites in your assigned region.');
+            }
+
+            if ($guard && ! $user->canAccessRegion($guard->region_id)) {
+                $validator->errors()->add('guard_id', 'You can only deploy guards assigned to your region.');
+            }
+        });
     }
 }

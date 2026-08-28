@@ -23,6 +23,7 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
+        <x-print.report-header title="Guards report" subtitle="Company-wide employment and operational status snapshot." />
         <section class="flex flex-row gap-2 sm:gap-3">
             @foreach ([['Total','total','text-slate-700'],['Active','active','text-emerald-700'],['On leave','on_leave','text-sky-700'],['Absent','absent','text-amber-800'],['Deserted','deserted','text-rose-700']] as [$label,$key,$tone])
                 <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">

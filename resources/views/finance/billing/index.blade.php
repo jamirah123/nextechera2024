@@ -20,6 +20,7 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
+        <x-print.report-header title="Client billing register" subtitle="Contracted rates and site fees." />
         <section class="flex flex-row gap-2 sm:gap-3">
             <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                 <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Active profiles</p>
@@ -38,7 +39,7 @@
                 <x-form-field label="Client" name="client_id" type="select" data-searchable="true" x-on:change="$refs.filterForm.requestSubmit()">
                     <option value="">All clients</option>
                     @foreach ($clients as $client)
-                        <option value="{{ $client->id }}" @selected((string) ($filters['client_id'] ?? '') === (string) $client->id)>{{ $client->code }} — {{ $client->name }}</option>
+                        <option value="{{ $client->id }}" @selected((string) ($filters['client_id'] ?? '') === (string) $client->id)>{{ $client->name }}</option>
                     @endforeach
                 </x-form-field>
                 @if ($scope === 'all')

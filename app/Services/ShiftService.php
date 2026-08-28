@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\DeploymentShiftType;
 use App\Enums\GuardClassification;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftPeriod;
@@ -16,6 +17,7 @@ use App\Models\ShiftRecurrence;
 use App\Models\Site;
 use App\Services\Shifts\ShiftValidationResult;
 use App\Services\Shifts\ShiftValidationService;
+use App\Support\Shifts\ShiftDutyTypeResolver;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Facades\DB;
@@ -75,7 +77,13 @@ class ShiftService
                 ->where('guard_id', $data['guard_id'])
                 ->first();
 
-            $period = $data['period'] ?? $this->inferPeriod($data['start_time'])->value;
+            $period = ShiftPeriod::tryFrom($data['period'] ?? $this->inferPeriod($data['start_time'])->value)
+                ?? $this->inferPeriod($data['start_time']);
+            $normalPosting = $deployment?->shift_type ?? DeploymentShiftType::Day;
+            $requestedType = isset($data['shift_type'])
+                ? ShiftType::tryFrom((string) $data['shift_type'])
+                : null;
+            $shiftType = ShiftDutyTypeResolver::resolve($normalPosting, $period, $requestedType);
 
             $shift = Shift::query()->create([
                 'reference' => $this->nextReference($startsAt),
@@ -89,8 +97,8 @@ class ShiftService
                 'shift_date' => $data['shift_date'],
                 'starts_at' => $startsAt,
                 'ends_at' => $endsAt,
-                'period' => $period,
-                'shift_type' => $data['shift_type'] ?? ShiftType::Normal->value,
+                'period' => $period->value,
+                'shift_type' => $shiftType->value,
                 'guard_classification' => $data['guard_classification'] ?? GuardClassification::Unarmed->value,
                 'status' => $data['status'] ?? ShiftStatus::Scheduled->value,
                 'is_overnight' => $isOvernight,

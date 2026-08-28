@@ -19,6 +19,10 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
+        <x-print.report-header
+            title="HR summary report"
+            :subtitle="'Leave, absences and desertions for '.\Carbon\Carbon::parse($from)->format('d M Y').' – '.\Carbon\Carbon::parse($to)->format('d M Y')"
+        />
         <section class="flex flex-row gap-2 sm:gap-3">
             @foreach ([['Leaves','leaves','text-sky-700'],['Approved','approved_leaves','text-emerald-700'],['Absences','absences','text-amber-800'],['Desertions','desertions','text-rose-700']] as [$label,$key,$tone])
                 <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">

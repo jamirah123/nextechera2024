@@ -56,7 +56,7 @@
                     <option value="">Select client</option>
                     @foreach ($clients as $client)
                         <option value="{{ $client->id }}" @selected((string) old('client_id', $site->client_id) === (string) $client->id)>
-                            {{ $client->name }} ({{ $client->code }})
+                            {{ $client->name }}
                         </option>
                     @endforeach
                 </x-form-field>

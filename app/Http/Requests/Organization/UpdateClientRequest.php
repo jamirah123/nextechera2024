@@ -16,11 +16,8 @@ class UpdateClientRequest extends FormRequest
     /** @return array<string, mixed> */
     public function rules(): array
     {
-        $clientId = $this->route('client')?->id;
-
         return [
             'name' => ['required', 'string', 'max:191'],
-            'code' => ['required', 'string', 'max:50', 'alpha_dash', Rule::unique('clients', 'code')->ignore($clientId)],
             'contact_person' => ['nullable', 'string', 'max:191'],
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:191'],
@@ -30,12 +27,5 @@ class UpdateClientRequest extends FormRequest
             'contract_status' => ['required', Rule::in(ContractStatus::values())],
             'notes' => ['nullable', 'string'],
         ];
-    }
-
-    protected function prepareForValidation(): void
-    {
-        if ($this->has('code')) {
-            $this->merge(['code' => strtoupper(trim((string) $this->input('code')))]);
-        }
     }
 }

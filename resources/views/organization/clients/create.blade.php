@@ -17,8 +17,7 @@
 
         <div class="grid gap-5 sm:grid-cols-2">
             <x-form-field label="Client name" name="name" :value="old('name')" :required="true" class="sm:col-span-2" />
-            <x-form-field label="Code" name="code" :value="old('code')" :required="true" help="Unique client code." />
-            <x-form-field label="Contract status" name="contract_status" type="select" :required="true">
+            <x-form-field label="Contract status" name="contract_status" type="select" :required="true" class="sm:col-span-2">
                 @foreach ($statuses as $status)
                     <option value="{{ $status->value }}" @selected(old('contract_status', 'active') === $status->value)>
                         {{ $status->label() }}

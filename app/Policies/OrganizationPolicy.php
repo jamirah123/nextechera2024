@@ -46,6 +46,7 @@ class OrganizationPolicy
             UserRole::HrManager,
             UserRole::ShiftManager,
             UserRole::FinanceManager,
+            UserRole::RegionSupervisor,
         ], true);
     }
 

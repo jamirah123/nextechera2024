@@ -18,6 +18,7 @@
     </x-page-header>
 
     <div class="report-print-area space-y-6">
+        <x-print.report-header title="Audit logs" subtitle="Append-only security and operations trail." />
         <section class="flex flex-row gap-2 sm:gap-3">
             @foreach ([['Total','total','text-slate-700'],['Today','today','text-brand-800'],['Overrides','overrides','text-rose-700'],['Critical','critical','text-amber-800']] as [$label,$key,$tone])
                 <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">

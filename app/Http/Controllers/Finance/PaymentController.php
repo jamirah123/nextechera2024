@@ -35,7 +35,7 @@ class PaymentController extends Controller
         $scope = $request->string('scope')->toString() === 'month' ? 'month' : 'all';
 
         $payments = Payment::query()
-            ->with(['client:id,name,code', 'invoice:id,reference', 'recorder:id,name'])
+            ->with(['client:id,name', 'invoice:id,reference', 'recorder:id,name'])
             ->search($request->string('q')->toString())
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', $request->integer('client_id')))
             ->when($request->filled('date'), fn ($q) => $q->whereDate('payment_date', $request->string('date')))
@@ -47,7 +47,7 @@ class PaymentController extends Controller
 
         return view('finance.payments.index', [
             'payments' => $payments,
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             'filters' => $request->only(['q', 'client_id', 'date', 'scope']),
             'scope' => $scope,
             'canManage' => $request->user()->can('manageFinance'),
@@ -70,7 +70,7 @@ class PaymentController extends Controller
 
         $openInvoices = Invoice::query()
             ->open()
-            ->with('client:id,name,code')
+            ->with('client:id,name')
             ->orderBy('due_date')
             ->get();
 

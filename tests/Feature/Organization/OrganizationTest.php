@@ -56,7 +56,6 @@ class OrganizationTest extends TestCase
         $this->actingAs($user)
             ->post(route('clients.store'), [
                 'name' => 'ABC Logistics',
-                'code' => 'ABC',
                 'contact_person' => 'Jane Client',
                 'phone' => '+255700000012',
                 'email' => 'jane@abc.local',
@@ -68,7 +67,7 @@ class OrganizationTest extends TestCase
             ])
             ->assertRedirect();
 
-        $client = Client::query()->where('code', 'ABC')->firstOrFail();
+        $client = Client::query()->where('name', 'ABC Logistics')->firstOrFail();
 
         $this->actingAs($user)
             ->post(route('sites.store'), [

@@ -11,7 +11,41 @@
     @fonts
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="h-dvh overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased">
+<body
+    class="h-dvh overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased"
+    x-data="idleSession(@js([
+        'idleMinutes' => (int) config('psg.session.idle_minutes', 30),
+        'warningMinutes' => (int) config('psg.session.idle_warning_minutes', 2),
+        'logoutUrl' => route('logout'),
+        'loginUrl' => route('login'),
+        'csrf' => csrf_token(),
+    ]))"
+    x-init="start()"
+>
+    {{-- Idle warning --}}
+    <div
+        x-cloak
+        x-show="warningVisible"
+        class="no-print fixed inset-x-0 top-0 z-[100] flex justify-center px-4 pt-4"
+        role="status"
+    >
+        <div class="flex max-w-lg items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-lg">
+            <p class="flex-1">
+                You will be signed out soon due to inactivity
+                (<span class="font-semibold" x-text="'(' + remainingLabel + ')'"></span>.
+                Move the mouse or press a key to stay signed in.
+            </p>
+            <button type="button" class="rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800" @click="poke()">
+                Stay signed in
+            </button>
+        </div>
+    </div>
+
+    <form id="idle-logout-form" method="POST" action="{{ route('logout') }}" class="hidden">
+        @csrf
+        <input type="hidden" name="reason" value="idle">
+    </form>
+
     <div
         class="flex h-full"
         x-data="{ sidebarOpen: false }"

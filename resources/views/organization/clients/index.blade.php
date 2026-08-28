@@ -33,7 +33,7 @@
                 name="q"
                 type="search"
                 :value="$filters['q'] ?? ''"
-                placeholder="Name, code or contact"
+                placeholder="Name or contact"
                 help="Results update as you type"
                 class="lg:col-span-2"
                 autocomplete="off"
@@ -79,11 +79,11 @@
                     <div class="flex items-start justify-between gap-3">
                         <a href="{{ route('clients.show', $client) }}" class="min-w-0">
                             <p class="truncate font-semibold text-slate-900 hover:text-brand-700">{{ $client->name }}</p>
-                            <p class="mt-0.5 text-xs text-slate-500">{{ $client->code }}</p>
+                            <p class="mt-0.5 text-xs text-slate-500">{{ $client->contact_person ?: 'No contact person' }}</p>
                         </a>
                         <x-status-badge :tone="$client->contract_status->tone()" :label="$client->contract_status->label()" />
                     </div>
-                    <p class="mt-3 text-sm text-slate-600">{{ $client->contact_person ?: 'No contact person' }}</p>
+                    <p class="mt-3 text-sm text-slate-600">{{ $client->phone ?: 'No phone' }}</p>
                     <p class="mt-1 text-xs text-slate-500">{{ $client->sites_count }} sites</p>
                     <div class="mt-4 flex flex-wrap items-center gap-2.5 sm:gap-3 lg:gap-3.5 border-t border-slate-100 pt-3">
                         <x-action-icon :href="route('clients.show', $client)" label="View" icon="eye" tone="brand" />
@@ -126,7 +126,6 @@
                                     <a href="{{ route('clients.show', $client) }}" class="font-semibold text-slate-900 hover:text-brand-700">
                                         {{ $client->name }}
                                     </a>
-                                    <p class="text-xs text-slate-500">{{ $client->code }}</p>
                                 </td>
                                 <td class="px-5 py-3.5 text-slate-600">
                                     <p>{{ $client->contact_person ?: '—' }}</p>

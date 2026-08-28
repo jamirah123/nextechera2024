@@ -36,7 +36,7 @@ class InvoiceController extends Controller
 
         $invoices = Invoice::query()
             ->when($scope === 'all', fn ($q) => $q->withTrashed())
-            ->with(['client:id,name,code', 'site:id,name,code', 'creator:id,name'])
+            ->with(['client:id,name', 'site:id,name,code', 'creator:id,name'])
             ->search($request->string('q')->toString())
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', $request->integer('client_id')))
@@ -51,7 +51,7 @@ class InvoiceController extends Controller
         return view('finance.invoices.index', [
             'invoices' => $invoices,
             'statuses' => InvoiceStatus::cases(),
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             'filters' => $request->only(['q', 'status', 'client_id', 'scope']),
             'scope' => $scope,
             'canManage' => $request->user()->can('manageFinance'),
@@ -71,7 +71,7 @@ class InvoiceController extends Controller
         Gate::authorize('manageFinance');
 
         return view('finance.invoices.create', [
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code', 'client_id']),
             'currency' => Money::currency(),
         ]);
@@ -135,7 +135,7 @@ class InvoiceController extends Controller
 
         return view('finance.invoices.edit', [
             'invoice' => $invoice,
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
             'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code', 'client_id']),
             'currency' => Money::currency(),
         ]);
@@ -203,7 +203,7 @@ class InvoiceController extends Controller
 
         $rows = Invoice::query()
             ->when($scope === 'all', fn ($q) => $q->withTrashed())
-            ->with(['client:id,name,code'])
+            ->with(['client:id,name'])
             ->search($request->string('q')->toString())
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', $request->integer('client_id')))

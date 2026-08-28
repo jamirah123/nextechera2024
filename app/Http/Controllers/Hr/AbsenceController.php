@@ -24,24 +24,31 @@ class AbsenceController extends Controller
     {
         $this->authorize('viewAny', Absence::class);
 
+        $user = $request->user();
+        $regionId = $user->regionId();
+
         $absences = Absence::query()
-            ->with(['assignedGuard:id,employment_id,full_name', 'site:id,name,code', 'reporter:id,name'])
+            ->with(['assignedGuard:id,employment_id,full_name,region_id', 'site:id,name,code', 'reporter:id,name'])
             ->search($request->string('q')->toString())
+            ->when($user->mustStayInOwnRegion(), fn ($q) => $q->whereHas('assignedGuard', fn ($g) => $g->where('region_id', $regionId)))
             ->when($request->filled('reason'), fn ($q) => $q->where('reason', $request->string('reason')))
             ->when($request->filled('date'), fn ($q) => $q->whereDate('absence_date', $request->string('date')))
             ->latest('absence_date')
             ->paginate(12)
             ->withQueryString();
 
+        $statsBase = Absence::query()
+            ->when($user->mustStayInOwnRegion(), fn ($q) => $q->whereHas('assignedGuard', fn ($g) => $g->where('region_id', $regionId)));
+
         return view('hr.absences.index', [
             'absences' => $absences,
             'reasons' => AbsenceReason::cases(),
             'filters' => $request->only(['q', 'reason', 'date']),
-            'canManage' => $request->user()->can('create', Absence::class),
+            'canManage' => $user->can('create', Absence::class),
             'stats' => [
-                'today' => Absence::query()->whereDate('absence_date', now()->toDateString())->count(),
-                'month' => Absence::query()->whereMonth('absence_date', now()->month)->whereYear('absence_date', now()->year)->count(),
-                'replacement' => Absence::query()->where('replacement_required', true)->count(),
+                'today' => (clone $statsBase)->whereDate('absence_date', now()->toDateString())->count(),
+                'month' => (clone $statsBase)->whereMonth('absence_date', now()->month)->whereYear('absence_date', now()->year)->count(),
+                'replacement' => (clone $statsBase)->where('replacement_required', true)->count(),
             ],
         ]);
     }
@@ -50,11 +57,25 @@ class AbsenceController extends Controller
     {
         $this->authorize('create', Absence::class);
 
+        $user = request()->user();
+        $regionId = $user->regionId();
+
         return view('hr.absences.create', [
-            'guards' => Guard::query()->activeEmployment()->orderBy('full_name')->get(['id', 'employment_id', 'full_name', 'current_site_id']),
-            'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code']),
+            'guards' => Guard::query()
+                ->activeEmployment()
+                ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+                ->orderBy('full_name')
+                ->get(['id', 'employment_id', 'full_name', 'current_site_id']),
+            'sites' => Site::query()
+                ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+                ->orderBy('name')
+                ->get(['id', 'name', 'code']),
             'reasons' => AbsenceReason::cases(),
-            'replacements' => Guard::query()->activeEmployment()->orderBy('full_name')->get(['id', 'employment_id', 'full_name']),
+            'replacements' => Guard::query()
+                ->activeEmployment()
+                ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+                ->orderBy('full_name')
+                ->get(['id', 'employment_id', 'full_name']),
         ]);
     }
 
@@ -75,6 +96,14 @@ class AbsenceController extends Controller
         ]);
 
         $data['replacement_required'] = $request->boolean('replacement_required');
+
+        $user = $request->user();
+        if ($user->mustStayInOwnRegion()) {
+            $guard = Guard::query()->find($data['guard_id']);
+            if (! $guard || ! $user->canAccessRegion($guard->region_id)) {
+                return back()->withInput()->withErrors(['guard_id' => 'You can only record absences for guards in your region.']);
+            }
+        }
 
         try {
             $absence = $this->absences->record($data);

@@ -52,6 +52,11 @@ class Supervisor extends Model
         return $this->hasMany(SupervisorAssignmentHistory::class)->latest('effective_at');
     }
 
+    public function loginAccounts(): HasMany
+    {
+        return $this->hasMany(User::class, 'supervisor_id');
+    }
+
     public function isActive(): bool
     {
         return $this->status === SupervisorStatus::Active;

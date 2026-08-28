@@ -31,6 +31,7 @@ class ShiftReplacementPolicy
             UserRole::HrManager,
             UserRole::ShiftManager,
             UserRole::FinanceManager,
+            UserRole::RegionSupervisor,
         ], true);
     }
 

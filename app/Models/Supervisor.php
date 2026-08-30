@@ -22,6 +22,7 @@ class Supervisor extends Model
         'phone',
         'email',
         'region_id',
+        'guard_id',
         'status',
         'assignment_date',
         'notes',
@@ -40,6 +41,11 @@ class Supervisor extends Model
     public function region(): BelongsTo
     {
         return $this->belongsTo(Region::class);
+    }
+
+    public function guardProfile(): BelongsTo
+    {
+        return $this->belongsTo(Guard::class, 'guard_id');
     }
 
     public function sites(): HasMany

@@ -19,23 +19,19 @@
         <div class="relative z-10 flex flex-1 flex-col justify-between px-10 py-12 xl:px-16">
             <div>
                 <div class="inline-flex items-center gap-3">
-                    <img
-                        src="{{ asset('images/logo.jpeg') }}"
-                        alt="{{ config('psg.company') }}"
-                        class="h-12 w-12 rounded-2xl bg-white object-contain p-1 shadow-sm ring-1 ring-white/20"
-                    >
+                    <x-company-logo size="lg" rounded="xl" class="ring-1 ring-white/20 shadow-sm" />
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-300">Authorized Access</p>
-                        <p class="text-xl font-semibold tracking-tight">{{ config('psg.company') }}</p>
+                        <p class="text-xl font-semibold tracking-tight">{{ $brand['name'] ?? config('psg.company') }}</p>
                     </div>
                 </div>
 
                 <div class="mt-16 max-w-lg">
                     <h1 class="text-3xl font-semibold tracking-tight text-white xl:text-4xl xl:leading-tight">
-                        Guard Shift, Deployment &amp; Operations
+                        {{ ($brand['tagline'] ?? config('psg.tagline')) ?: 'Guard Shift, Deployment & Operations' }}
                     </h1>
                     <p class="mt-4 text-base leading-relaxed text-slate-300">
-                        The operational source of truth for deployments, shift scheduling, manpower coverage and management reporting.
+                        {{ $brand['subtitle'] ?? config('psg.system_subtitle', 'Operations System') }} — deployments, shift scheduling, manpower coverage and management reporting.
                     </p>
                 </div>
 
@@ -68,30 +64,25 @@
     </aside>
 
     {{-- Form panel --}}
-    <section class="relative flex min-h-dvh flex-col bg-slate-50">
+    <section class="relative flex min-h-dvh flex-col bg-slate-50 dark:bg-slate-950">
+        <div class="absolute right-4 top-4 z-20 sm:right-8">
+            <x-theme-toggle />
+        </div>
         <div class="border-b border-steel-850/10 bg-steel-950 px-4 py-4 text-white sm:px-8 lg:hidden">
             <div class="mx-auto flex max-w-md items-center gap-3">
-                <img
-                    src="{{ asset('images/logo.jpeg') }}"
-                    alt="{{ config('psg.company') }}"
-                    class="h-10 w-10 rounded-xl bg-white object-contain p-0.5"
-                >
+                <x-company-logo size="md" rounded="xl" class="ring-0 shadow-none" />
                 <div class="min-w-0">
-                    <p class="truncate text-base font-semibold tracking-tight">{{ config('psg.company') }}</p>
-                    <p class="truncate text-xs text-slate-300">Guard Shift &amp; Operations System</p>
+                    <p class="truncate text-base font-semibold tracking-tight">{{ $brand['name'] ?? config('psg.company') }}</p>
+                    <p class="truncate text-xs text-slate-300">{{ $brand['subtitle'] ?? config('psg.system_subtitle', 'Operations System') }}</p>
                 </div>
             </div>
         </div>
 
         <div class="flex flex-1 flex-col justify-center px-4 py-8 sm:px-8 sm:py-12 lg:px-12 xl:px-20">
             <div class="mx-auto w-full max-w-md">
-                <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-8">
-                    <div class="mb-7 sm:mb-8">
+                <div class="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-8">
+                    <div class="mb-6">
                         <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-700">Secure Sign In</p>
-                        <h2 class="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Welcome back</h2>
-                        <p class="mt-2 text-sm leading-relaxed text-slate-500">
-                            Sign in with your {{ config('psg.company') }} management account.
-                        </p>
                     </div>
 
                     @if (session('status'))
@@ -175,7 +166,7 @@
                                     type="checkbox"
                                     name="remember"
                                     value="1"
-                                    class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                                    class="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
                                     @checked(old('remember'))
                                 >
                                 Remember this device

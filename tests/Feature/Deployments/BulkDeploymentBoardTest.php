@@ -6,6 +6,7 @@ use App\Enums\DeploymentShiftType;
 use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\OperationalStatus;
+use App\Enums\ShiftStatus;
 use App\Enums\UserRole;
 use App\Models\Deployment;
 use App\Models\Guard;
@@ -67,6 +68,9 @@ class BulkDeploymentBoardTest extends TestCase
             'status' => DeploymentStatus::Active->value,
             'is_current' => true,
         ]);
+
+        $guard->refresh();
+        $this->assertSame(OperationalStatus::OnDuty, $guard->operational_status);
     }
 
     public function test_deployed_guard_does_not_appear_on_board(): void
@@ -93,6 +97,35 @@ class BulkDeploymentBoardTest extends TestCase
             ->get(route('deployments.board'))
             ->assertOk()
             ->assertDontSee('Already Posted', false);
+    }
+
+    public function test_guards_index_syncs_off_duty_deployed_guard_to_on_duty(): void
+    {
+        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+        $site = Site::factory()->create();
+        $guard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OffDuty,
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+            'full_name' => 'Stale Status Guard',
+        ]);
+
+        Deployment::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+        ]);
+
+        $this->actingAs($ops)
+            ->get(route('guards.index'))
+            ->assertOk()
+            ->assertSee('On Duty', false);
+
+        $this->assertSame(OperationalStatus::OnDuty, $guard->fresh()->operational_status);
     }
 
     public function test_deploy_only_validates_selected_guard_rows(): void
@@ -133,5 +166,52 @@ class BulkDeploymentBoardTest extends TestCase
             'site_id' => $site->id,
             'is_current' => true,
         ]);
+    }
+
+    public function test_bulk_deploy_can_allocate_shifts_in_same_step(): void
+    {
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $site = Site::factory()->create();
+        $guard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $site->region_id,
+        ]);
+
+        $shiftDate = now()->toDateString();
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $shiftDate,
+                'shift_date' => $shiftDate,
+                'allocate_shifts' => '1',
+                'selected' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $site->id,
+                        'shift_type' => DeploymentShiftType::Day->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertDatabaseHas('deployments', [
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'status' => DeploymentStatus::Active->value,
+            'is_current' => true,
+        ]);
+
+        $this->assertDatabaseHas('shifts', [
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'status' => ShiftStatus::Scheduled->value,
+        ]);
+
+        $this->assertSame(1, \App\Models\Shift::query()
+            ->where('guard_id', $guard->id)
+            ->whereDate('shift_date', $shiftDate)
+            ->count());
     }
 }

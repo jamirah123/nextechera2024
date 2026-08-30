@@ -24,7 +24,7 @@
             placeholder="Search guards, sites, clients, regions…"
             autocomplete="off"
             aria-label="Search"
-            class="h-10 w-full rounded-xl border border-slate-200 bg-white py-2 pl-3.5 pr-9 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 transition hover:bg-slate-50 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            class="h-8 w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 transition hover:bg-slate-50 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
         >
         <button
             type="button"
@@ -34,7 +34,7 @@
             x-on:click="clear()"
             aria-label="Clear search"
         >
-            <x-icon name="close" class="h-4 w-4" />
+            <x-icon name="close" class="h-3.5 w-3.5" />
         </button>
     </div>
 
@@ -42,9 +42,9 @@
         x-cloak
         x-show="open"
         x-transition.origin.top
-        class="absolute left-0 right-0 z-50 mt-2 max-h-[24rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+        class="absolute left-0 right-0 z-50 mt-1 max-h-[20rem] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
     >
-        <div class="border-b border-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <div class="border-b border-slate-100 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400 dark:border-slate-700">
             <span x-show="loading">Searching…</span>
             <span x-show="!loading && query.length < 2">Type at least 2 characters</span>
             <span x-show="!loading && query.length >= 2" x-text="results.length ? (results.length + ' result' + (results.length === 1 ? '' : 's')) : 'No matches'"></span>
@@ -56,7 +56,7 @@
                     <a
                         :href="item.url"
                         class="flex items-start gap-3 px-3 py-2.5 transition"
-                        :class="index === active ? 'bg-brand-50' : 'hover:bg-slate-50'"
+                        :class="index === active ? 'bg-brand-50 dark:bg-brand-950/50' : 'hover:bg-slate-50 dark:hover:bg-slate-700'"
                         x-on:mouseenter="active = index"
                         role="option"
                     >

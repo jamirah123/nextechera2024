@@ -3,7 +3,14 @@
 return [
     'company' => env('PSG_COMPANY_NAME', 'Platinum Security Group'),
     'logo' => env('PSG_LOGO', 'images/logo.jpeg'),
+    'fallback_logo' => env('PSG_LOGO', 'images/logo.jpeg'),
+    'fallback_favicon' => env('PSG_FAVICON', 'favicon.ico'),
     'tagline' => env('PSG_TAGLINE', 'New Age Security and Protection'),
+    'system_subtitle' => env('PSG_SYSTEM_SUBTITLE', 'Operations System'),
+    'theme' => [
+        'primary' => env('PSG_THEME_PRIMARY', '#1845de'),
+        'sidebar' => env('PSG_THEME_SIDEBAR', '#070d18'),
+    ],
     'currency' => env('PSG_CURRENCY', 'UGX'),
     'currency_label' => env('PSG_CURRENCY_LABEL', 'Ugandan Shillings'),
     'currency_decimals' => (int) env('PSG_CURRENCY_DECIMALS', 0),
@@ -30,6 +37,9 @@ return [
         'idle_minutes' => (int) env('PSG_SESSION_IDLE_MINUTES', 30),
         // Warn the user this many minutes before idle logout (client-side).
         'idle_warning_minutes' => (int) env('PSG_SESSION_IDLE_WARNING_MINUTES', 2),
+    ],
+    'pagination' => [
+        'per_page' => (int) env('PSG_PER_PAGE', 25),
     ],
     'seed' => [
         // Approximate operational volume for local/system testing.

@@ -41,7 +41,7 @@ class SiteController extends Controller
             ->when($request->filled('region_id') && ! $user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $request->integer('region_id')))
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', $request->integer('client_id')))
             ->latest()
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         $sites->getCollection()->transform(function (Site $site) {

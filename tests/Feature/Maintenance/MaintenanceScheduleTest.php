@@ -77,6 +77,12 @@ class MaintenanceScheduleTest extends TestCase
             'ends_at' => now()->subHour(),
         ]);
 
+        $finished = Shift::factory()->create([
+            'status' => ShiftStatus::InProgress,
+            'starts_at' => now()->subHours(10),
+            'ends_at' => now()->subHour(),
+        ]);
+
         $future = Shift::factory()->create([
             'status' => ShiftStatus::Scheduled,
             'starts_at' => now()->addHours(2),
@@ -84,14 +90,22 @@ class MaintenanceScheduleTest extends TestCase
         ]);
 
         $this->artisan('psg:sync-shift-statuses')
-            ->expectsOutputToContain('1 started, 1 marked missed.')
+            ->expectsOutputToContain('1 started, 1 completed, 1 marked missed.')
             ->assertSuccessful();
 
         $this->assertSame(ShiftStatus::InProgress, $active->fresh()->status);
         $this->assertSame(ShiftStatus::Missed, $elapsed->fresh()->status);
+        $this->assertSame(ShiftStatus::Completed, $finished->fresh()->status);
         $this->assertSame(ShiftStatus::Scheduled, $future->fresh()->status);
 
         Carbon::setTestNow();
+    }
+
+    public function test_release_shift_window_guards_command_runs_successfully(): void
+    {
+        $this->artisan('psg:release-shift-window-guards')
+            ->expectsOutputToContain('Shift window release complete')
+            ->assertSuccessful();
     }
 
     public function test_super_admin_navigation_includes_finance_section(): void

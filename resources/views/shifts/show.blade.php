@@ -5,7 +5,7 @@
 @section('page-subtitle', $shift->reference)
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header
         :title="$shift->assignedGuard?->full_name ?? 'Shift'"
         :subtitle="$shift->reference.' · '.$shift->timeLabel()"
@@ -13,27 +13,26 @@
     >
         <x-slot:actions>
             @if ($canManage && ! in_array($shift->status->value, ['cancelled', 'completed', 'replaced'], true))
-                <a href="{{ route('shifts.edit', $shift) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                <a href="{{ route('shifts.edit', $shift) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
                     Edit
                 </a>
             @endif
             @if ($canManage && in_array($shift->status->value, ['scheduled', 'confirmed', 'in_progress', 'missed'], true) && ! $shift->replacementRecord)
-                <a href="{{ route('replacements.create', ['shift_id' => $shift->id]) }}" class="inline-flex items-center gap-2 rounded-xl bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-800">
-                    <x-icon name="swap" class="h-4 w-4" /> Replace
+                <a href="{{ route('replacements.create', ['shift_id' => $shift->id]) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-800">
+                    <x-icon name="swap" class="h-3.5 w-3.5" /> Replace
                 </a>
             @endif
         </x-slot:actions>
     </x-page-header>
 
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-steel-950 via-brand-950 to-brand-800 px-5 py-4 text-white sm:px-6">
+    <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-steel-950 via-brand-950 to-brand-800 px-3 py-2.5 text-white sm:px-6">
             <x-status-badge :tone="$shift->status->tone()" :label="$shift->status->label()" />
             <x-status-badge :tone="$shift->shift_type->tone()" :label="$shift->shift_type->label()" />
-            <x-status-badge :tone="$shift->guard_classification->tone()" :label="$shift->guard_classification->label()" />
             <x-status-badge :tone="$shift->period->tone()" :label="$shift->period->label()" />
         </div>
         <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Guard</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                     @if ($shift->assignedGuard)
@@ -44,7 +43,7 @@
                     @endif
                 </dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r lg:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Site</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                     @if ($shift->site)
@@ -53,7 +52,7 @@
                     @endif
                 </dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Window</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                     {{ $shift->shift_date->format('d M Y') }}
@@ -63,15 +62,15 @@
                     </span>
                 </dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Region</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $shift->region?->name ?? '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r lg:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Supervisor</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $shift->supervisor?->name ?? '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Created by</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                     {{ $shift->creator?->name ?? '—' }}
@@ -79,13 +78,13 @@
                 </dd>
             </div>
             @if ($shift->notes)
-                <div class="px-5 py-4 sm:col-span-2 lg:col-span-3 sm:px-6">
+                <div class="px-3 py-2.5 sm:col-span-2 lg:col-span-3 sm:px-6">
                     <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notes</dt>
                     <dd class="mt-1 text-sm text-slate-700">{{ $shift->notes }}</dd>
                 </div>
             @endif
             @if ($shift->override_used)
-                <div class="border-t border-amber-100 bg-amber-50 px-5 py-4 sm:col-span-2 lg:col-span-3 sm:px-6">
+                <div class="border-t border-amber-100 bg-amber-50 px-3 py-2.5 sm:col-span-2 lg:col-span-3 sm:px-6">
                     <dt class="text-xs font-medium uppercase tracking-wide text-amber-800">Authorized override</dt>
                     <dd class="mt-1 text-sm text-amber-950">
                         {{ $shift->override_reason ?: 'No reason recorded' }}
@@ -99,19 +98,21 @@
         </dl>
     </section>
 
-    @if ($canManage && ! in_array($shift->status->value, ['cancelled', 'replaced'], true))
-        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    @if ($canManage && ! in_array($shift->status->value, ['cancelled', 'completed', 'replaced'], true))
+        <section class="form-card">
             <h2 class="text-base font-semibold text-slate-900">Update status</h2>
-            <p class="mt-1 text-sm text-slate-500">Move the shift through the operational lifecycle.</p>
+            <p class="mt-1 text-sm text-slate-500">
+                Shifts complete automatically when the window ends. Mark cancelled or missed here when duty did not happen as planned.
+            </p>
             <form method="POST" action="{{ route('shifts.status', $shift) }}" class="mt-4 grid gap-4 sm:grid-cols-3 sm:items-end">
                 @csrf
                 <x-form-field label="Status" name="status" type="select" :required="true" class="sm:col-span-1">
-                    @foreach (\App\Enums\ShiftStatus::cases() as $status)
+                    @foreach (\App\Enums\ShiftStatus::manuallySettable() as $status)
                         <option value="{{ $status->value }}" @selected($shift->status === $status)>{{ $status->label() }}</option>
                     @endforeach
                 </x-form-field>
                 <x-form-field label="Notes" name="notes" :value="$shift->notes" class="sm:col-span-1" />
-                <button type="submit" class="inline-flex justify-center rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
+                <button type="submit" class="inline-flex justify-center rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800">
                     Save status
                 </button>
             </form>
@@ -119,8 +120,8 @@
     @endif
 
     @if (! empty($shift->validation_snapshot))
-        <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+        <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 px-3 py-2.5">
                 <h2 class="text-base font-semibold text-slate-900">Validation snapshot</h2>
                 <p class="mt-0.5 text-sm text-slate-500">Issues recorded when this shift was last saved.</p>
             </div>

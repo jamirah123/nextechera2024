@@ -6,7 +6,7 @@
 
 @section('content')
 <div
-    class="space-y-5"
+    class="space-y-3"
     x-data="{
         selected: 0,
         defaults: {
@@ -37,41 +37,30 @@
 >
     <x-page-header
         title="Deployment board"
-        subtitle="Guards without a current site posting. Once deployed they leave this board and appear under Deployments, then on Allocate Shifts for daily scheduling."
+        subtitle="Guards awaiting deployment. Day posted guards return after {{ $shiftWindows['day_available'] ?? '18:00 – 06:00' }}; night posted after {{ $shiftWindows['night_available'] ?? '06:00 – 18:00' }}."
         :back="route('deployments.index')"
     >
         <x-slot:actions>
-            <a href="{{ route('deployments.index') }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Active list</a>
-            <a href="{{ route('shifts.allocate') }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Allocate shifts</a>
-            <a href="{{ route('deployments.create') }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Single form</a>
+            <a href="{{ route('deployments.index') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Active list</a>
+            <a href="{{ route('shifts.allocate') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Allocate shifts</a>
+            <a href="{{ route('deployments.create') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Single form</a>
         </x-slot:actions>
     </x-page-header>
-
-    <section class="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-white to-emerald-50/50 p-4 shadow-sm sm:p-6">
-        <h2 class="text-sm font-semibold text-slate-900">How to deploy</h2>
-        <p class="mt-2 text-sm leading-relaxed text-slate-600">
-            This board lists <strong class="font-semibold text-slate-800">all company guards</strong> who do not yet have an active site posting.
-            Select guards, assign each to a site in their region, choose a <strong class="font-semibold text-slate-800">Day</strong> or <strong class="font-semibold text-slate-800">Night</strong> posting type, then deploy.
-            After deployment they <strong class="font-semibold text-slate-800">disappear from this board</strong> and appear under <strong class="font-semibold text-slate-800">Deployments</strong>.
-            Use <strong class="font-semibold text-slate-800">Allocate Shifts</strong> to schedule them by date.
-            To move a deployed guard to another site, use transfer from the deployment record.
-        </p>
-    </section>
 
     <section class="grid grid-cols-2 gap-2 sm:gap-3">
         <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-700 sm:text-[11px]">Awaiting deployment</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($stats['awaiting']) }}</p>
+            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats['awaiting']) }}</p>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Active deployments</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($stats['active']) }}</p>
+            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats['active']) }}</p>
         </div>
     </section>
 
     @if ($regions->count() > 1)
-        <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Available by region</p>
+        <section class="form-card">
+            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Available by region</p>
             <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
                 <a
                     href="{{ route('deployments.board', array_filter(['q' => $filters['q'] ?? null])) }}"
@@ -92,8 +81,8 @@
         </section>
     @endif
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <form method="GET" action="{{ route('deployments.board') }}" x-data x-ref="filterForm" class="grid gap-3 sm:grid-cols-3 xl:items-end">
+    <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <form method="GET" action="{{ route('deployments.board') }}" x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-3 xl:items-end">
             <x-form-field label="Search guard" name="q" type="search" :value="$filters['q'] ?? ''" placeholder="Name or ID" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" />
             <x-form-field label="Region" name="region_id" type="select" x-on:change="$refs.filterForm.requestSubmit()">
                 <option value="">All regions</option>
@@ -122,14 +111,14 @@
         <form method="POST" action="{{ route('deployments.board.store') }}" class="space-y-4">
             @csrf
 
-            <div class="sticky top-0 z-10 rounded-2xl border border-emerald-200 bg-white/95 p-4 shadow-md backdrop-blur sm:p-5">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div class="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div class="rounded-lg border border-emerald-200 bg-white p-3 shadow-sm">
+                <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="grid flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Start date
-                            <input type="date" name="start_date" value="{{ old('start_date', now()->toDateString()) }}" class="mt-1.5 block w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                            <input type="date" name="start_date" value="{{ old('start_date', now()->toDateString()) }}" class="mt-0.5 block w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
                         </label>
-                        <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 sm:col-span-2 lg:col-span-1">
+                        <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:col-span-2 lg:col-span-1">
                             Default site
                             <x-board-select x-model="defaults.site_id" class="mt-1.5">
                                 <option value="">Choose a site…</option>
@@ -145,7 +134,7 @@
                                 @endforeach
                             </x-board-select>
                         </label>
-                        <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Default posting type
                             <x-board-select x-model="defaults.shift_type" class="mt-1.5">
                                 @foreach ($shiftTypes as $type)
@@ -161,12 +150,24 @@
                                 @endforeach
                             </x-board-select>
                         </label>
+                        <label class="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700 sm:col-span-2 lg:col-span-3">
+                            <input type="hidden" name="allocate_shifts" value="0">
+                            <input type="checkbox" name="allocate_shifts" value="1" class="mt-0.5 rounded border-slate-300 text-brand-700 focus:ring-brand-500/30" @checked(old('allocate_shifts', true))>
+                            <span>
+                                <span class="font-semibold text-slate-900">Also allocate shift</span>
+                                <span class="mt-0.5 block text-xs text-slate-500">Create today’s duty record in the same step (Day/Night from posting type).</span>
+                            </span>
+                        </label>
+                        <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            Shift date
+                            <input type="date" name="shift_date" value="{{ old('shift_date', now()->toDateString()) }}" class="mt-0.5 block w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        </label>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <button type="button" @click="applyDefaultSite(); applyDefaultType()" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Apply to page</button>
+                        <button type="button" @click="applyDefaultSite(); applyDefaultType()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Apply to page</button>
                         <button
                             type="submit"
-                            class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
                             :disabled="selected === 0"
                         >
                             Deploy selected
@@ -185,7 +186,7 @@
 
                 @foreach ($guards as $guard)
                     @php $guardSites = $sitesByRegion->get($guard->region_id, collect()); @endphp
-                    <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <article class="form-card">
                         <div class="flex items-start gap-3">
                             <input
                                 type="checkbox"
@@ -204,7 +205,7 @@
                         </div>
 
                         <div class="mt-4 space-y-3 border-t border-slate-100 pt-4">
-                            <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                                 Assign to site
                                 <x-board-select
                                     name="rows[{{ $guard->id }}][site_id]"
@@ -218,7 +219,7 @@
                                     @endforeach
                                 </x-board-select>
                             </label>
-                            <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                                 Posting type
                                 <x-board-select
                                     name="rows[{{ $guard->id }}][shift_type]"
@@ -244,7 +245,7 @@
             </div>
 
             {{-- Desktop table --}}
-            <div class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+            <div class="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:block">
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-slate-100 text-sm">
                         <thead class="bg-slate-50/90 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">

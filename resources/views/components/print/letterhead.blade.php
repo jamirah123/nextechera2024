@@ -6,7 +6,7 @@
 
 @php
     $company = config('psg.company', 'Platinum Security Group');
-    $logo = asset(config('psg.logo', 'images/logo.jpeg'));
+    $logo = config('psg.logo_url', asset(config('psg.logo', 'images/logo.jpeg')));
     $email = config('psg.support_email');
     $phone = config('psg.support_phone');
 @endphp

@@ -34,7 +34,7 @@ class AuditLogController extends Controller
             ->when(! empty($filters['to']), fn ($q) => $q->whereDate('created_at', '<=', $filters['to']))
             ->latest('created_at')
             ->latest('id')
-            ->paginate(25)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('audit.index', [

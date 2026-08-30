@@ -4,12 +4,12 @@
 @section('page-title', 'Billing profile')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header :title="$profile->client?->name ?? 'Billing'" :subtitle="$profile->site?->name ?? 'Client-wide default'" :back="route('billing.index')">
         <x-slot:actions>
             <x-report-actions :show-print="true" />
             @if ($canManage)
-                <a href="{{ route('billing.edit', $profile) }}" class="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Edit</a>
+                <a href="{{ route('billing.edit', $profile) }}" class="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Edit</a>
             @endif
         </x-slot:actions>
     </x-page-header>
@@ -32,23 +32,23 @@
                     </dd>
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Armed — monthly bill</dt>
+                    <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Armed — monthly bill</dt>
                     <dd class="mt-1 text-xl font-semibold text-slate-900">
                         {{ \App\Support\Money::format($profile->monthly_rate_per_armed_guard, $profile->currency) }}
                     </dd>
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Unarmed — monthly bill</dt>
+                    <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Unarmed — monthly bill</dt>
                     <dd class="mt-1 text-xl font-semibold text-slate-900">
                         {{ \App\Support\Money::format($profile->monthly_rate_per_unarmed_guard, $profile->currency) }}
                     </dd>
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Monthly site fee</dt>
+                    <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Monthly site fee</dt>
                     <dd class="mt-1 text-xl font-semibold text-slate-900">{{ \App\Support\Money::format($profile->monthly_site_fee, $profile->currency) }}</dd>
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4 sm:col-span-2 lg:col-span-3">
-                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Effective period</dt>
+                    <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Effective period</dt>
                     <dd class="mt-1 text-sm font-semibold text-slate-900">
                         {{ $profile->effective_from->format('d M Y') }}
                         {{ $profile->effective_to ? ' – '.$profile->effective_to->format('d M Y') : ' – open-ended' }}

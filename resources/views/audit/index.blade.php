@@ -5,7 +5,7 @@
 @section('page-subtitle', 'Immutable trail of critical system actions')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header
         title="Audit logs"
         subtitle="Append-only security and operations trail. Overrides are highlighted."
@@ -17,19 +17,19 @@
         </x-slot:actions>
     </x-page-header>
 
-    <div class="report-print-area space-y-6">
+    <div class="report-print-area space-y-3">
         <x-print.report-header title="Audit logs" subtitle="Append-only security and operations trail." />
         <section class="flex flex-row gap-2 sm:gap-3">
             @foreach ([['Total','total','text-slate-700'],['Today','today','text-brand-800'],['Overrides','overrides','text-rose-700'],['Critical','critical','text-amber-800']] as [$label,$key,$tone])
                 <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                     <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }} sm:text-[11px]">{{ $label }}</p>
-                    <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($stats[$key]) }}</p>
+                    <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats[$key]) }}</p>
                 </div>
             @endforeach
         </section>
 
-        <section class="no-print rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <form method="GET" action="{{ route('audit.index') }}" x-data x-ref="filterForm" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6 xl:items-end">
+        <section class="filter-bar no-print rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+            <form method="GET" action="{{ route('audit.index') }}" x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-6 xl:items-end">
                 <x-form-field label="Search" name="q" type="search" :value="$filters['q'] ?? ''" placeholder="Action, actor, summary" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" class="sm:col-span-2" />
                 <x-form-field label="Category" name="category" type="select" x-on:change="$refs.filterForm.requestSubmit()">
                     <option value="">All</option>
@@ -54,36 +54,36 @@
         @if ($logs->isEmpty())
             <x-empty-state title="No audit events" description="Critical actions will appear here as the system is used." icon="audit" />
         @else
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
-                        <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
+                        <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             <tr>
-                                <th class="w-14 px-5 py-3">#</th>
-                                <th class="px-5 py-3">When</th>
-                                <th class="px-5 py-3">Event</th>
-                                <th class="px-5 py-3">Actor</th>
-                                <th class="px-5 py-3">Category</th>
-                                <th class="px-5 py-3">Severity</th>
-                                <th class="px-5 py-3 text-right">Actions</th>
+                                <th class="w-14 px-3 py-2">#</th>
+                                <th class="px-3 py-2">When</th>
+                                <th class="px-3 py-2">Event</th>
+                                <th class="px-3 py-2">Actor</th>
+                                <th class="px-3 py-2">Category</th>
+                                <th class="px-3 py-2">Severity</th>
+                                <th class="px-3 py-2 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             @foreach ($logs as $log)
                                 <tr @class(['hover:bg-slate-50/80', 'bg-rose-50/40' => $log->is_override])>
-                                    <td class="px-5 py-3.5"><x-table-serial :paginator="$logs" :index="$loop->index" /></td>
-                                    <td class="px-5 py-3.5 text-slate-700 whitespace-nowrap">{{ $log->occurredAtLabel('d M Y, H:i:s') }}</td>
-                                    <td class="px-5 py-3.5">
+                                    <td class="px-3 py-2"><x-table-serial :paginator="$logs" :index="$loop->index" /></td>
+                                    <td class="px-3 py-2 text-slate-700 whitespace-nowrap">{{ $log->occurredAtLabel('d M Y, H:i:s') }}</td>
+                                    <td class="px-3 py-2">
                                         <p class="font-semibold text-slate-900">{{ $log->summary }}</p>
                                         <p class="text-xs text-slate-500">{{ $log->action }}@if($log->is_override) · Override @endif</p>
                                     </td>
-                                    <td class="px-5 py-3.5 text-slate-700">
+                                    <td class="px-3 py-2 text-slate-700">
                                         <p>{{ $log->actor_name ?? 'System' }}</p>
                                         <p class="text-xs text-slate-500">{{ $log->actor_role ?? '—' }}</p>
                                     </td>
-                                    <td class="px-5 py-3.5"><x-status-badge :tone="$log->category->tone()" :label="$log->category->label()" /></td>
-                                    <td class="px-5 py-3.5"><x-status-badge :tone="$log->severity->tone()" :label="$log->severity->label()" /></td>
-                                    <td class="px-5 py-3.5 text-right"><x-action-icon :href="route('audit.show', $log)" label="View" icon="eye" tone="brand" /></td>
+                                    <td class="px-3 py-2"><x-status-badge :tone="$log->category->tone()" :label="$log->category->label()" /></td>
+                                    <td class="px-3 py-2"><x-status-badge :tone="$log->severity->tone()" :label="$log->severity->label()" /></td>
+                                    <td class="px-3 py-2 text-right"><x-action-icon :href="route('audit.show', $log)" label="View" icon="eye" tone="brand" /></td>
                                 </tr>
                             @endforeach
                         </tbody>

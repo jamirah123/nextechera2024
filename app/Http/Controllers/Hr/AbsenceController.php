@@ -34,7 +34,7 @@ class AbsenceController extends Controller
             ->when($request->filled('reason'), fn ($q) => $q->where('reason', $request->string('reason')))
             ->when($request->filled('date'), fn ($q) => $q->whereDate('absence_date', $request->string('date')))
             ->latest('absence_date')
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         $statsBase = Absence::query()
@@ -85,7 +85,7 @@ class AbsenceController extends Controller
 
         $data = $request->validate([
             'guard_id' => ['required', 'exists:guards,id'],
-            'absence_date' => ['required', 'date'],
+            'absence_date' => ['required', 'date', 'before:today'],
             'reason' => ['required', Rule::in(AbsenceReason::values())],
             'site_id' => ['nullable', 'exists:sites,id'],
             'shift_id' => ['nullable', 'exists:shifts,id'],

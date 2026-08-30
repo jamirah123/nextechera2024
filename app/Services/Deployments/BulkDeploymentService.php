@@ -24,13 +24,14 @@ class BulkDeploymentService
      *     start_date?: string|null,
      *     notes?: string|null
      * }>  $rows
-     * @return array{created: int, skipped: int, errors: list<string>}
+     * @return array{created: int, skipped: int, errors: list<string>, deployed_guard_ids: list<int>}
      */
     public function deployMany(array $rows): array
     {
         $created = 0;
         $skipped = 0;
         $errors = [];
+        $deployedGuardIds = [];
 
         $guardIds = collect($rows)->pluck('guard_id')->unique()->filter()->all();
         $siteIds = collect($rows)->pluck('site_id')->unique()->filter()->all();
@@ -70,6 +71,7 @@ class BulkDeploymentService
                     ]);
                 });
                 $created++;
+                $deployedGuardIds[] = $guard->id;
             } catch (InvalidArgumentException $e) {
                 $skipped++;
                 $errors[] = ($guard->employment_id ?? 'Guard').': '.$e->getMessage();
@@ -79,6 +81,11 @@ class BulkDeploymentService
             }
         }
 
-        return compact('created', 'skipped', 'errors');
+        return [
+            'created' => $created,
+            'skipped' => $skipped,
+            'errors' => $errors,
+            'deployed_guard_ids' => array_values(array_unique($deployedGuardIds)),
+        ];
     }
 }

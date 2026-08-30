@@ -1,0 +1,233 @@
+<?php
+
+namespace App\Support\Access;
+
+use App\Enums\UserRole;
+
+class PermissionCatalog
+{
+    /**
+     * @return list<array{key: string, group: string, label: string, description: string, roles: list<string>}>
+     */
+    public static function definitions(): array
+    {
+        $all = UserRole::values();
+        $ops = [
+            UserRole::SuperAdmin->value,
+            UserRole::OperationsManager->value,
+            UserRole::ShiftManager->value,
+        ];
+        $deploy = [
+            UserRole::SuperAdmin->value,
+            UserRole::OperationsManager->value,
+            UserRole::ShiftManager->value,
+            UserRole::RegionSupervisor->value,
+        ];
+        $hrOps = [
+            UserRole::SuperAdmin->value,
+            UserRole::OperationsManager->value,
+            UserRole::HrManager->value,
+            UserRole::ShiftManager->value,
+            UserRole::RegionSupervisor->value,
+        ];
+        $hrCore = [
+            UserRole::SuperAdmin->value,
+            UserRole::HrManager->value,
+        ];
+        $admin = [UserRole::SuperAdmin->value];
+        $audit = [
+            UserRole::SuperAdmin->value,
+            UserRole::OperationsManager->value,
+        ];
+        $financeView = [
+            UserRole::SuperAdmin->value,
+            UserRole::FinanceManager->value,
+            UserRole::OperationsManager->value,
+        ];
+        $financeManage = [
+            UserRole::SuperAdmin->value,
+            UserRole::FinanceManager->value,
+        ];
+
+        return [
+            [
+                'key' => 'admin.users_manage',
+                'group' => 'Administration',
+                'label' => 'Manage users & account access',
+                'description' => 'Create, edit and deactivate system user accounts.',
+                'roles' => $admin,
+            ],
+            [
+                'key' => 'admin.roles_manage',
+                'group' => 'Administration',
+                'label' => 'Manage roles & permissions',
+                'description' => 'View and configure the role permission matrix.',
+                'roles' => $admin,
+            ],
+            [
+                'key' => 'admin.settings_manage',
+                'group' => 'Administration',
+                'label' => 'Manage platform settings & backups',
+                'description' => 'White-label branding, finance defaults, shift templates and backups.',
+                'roles' => $admin,
+            ],
+            [
+                'key' => 'admin.audit_view',
+                'group' => 'Administration',
+                'label' => 'View audit logs',
+                'description' => 'Read the immutable audit trail for critical actions.',
+                'roles' => $audit,
+            ],
+            [
+                'key' => 'organization.manage',
+                'group' => 'Organization',
+                'label' => 'Manage regions, sites, clients & supervisors',
+                'description' => 'Create and edit the organization structure.',
+                'roles' => [
+                    UserRole::SuperAdmin->value,
+                    UserRole::OperationsManager->value,
+                ],
+            ],
+            [
+                'key' => 'organization.view',
+                'group' => 'Organization',
+                'label' => 'View organization structure',
+                'description' => 'Browse regions, sites, clients and supervisors.',
+                'roles' => $all,
+            ],
+            [
+                'key' => 'guards.manage',
+                'group' => 'Guards',
+                'label' => 'Register & edit guards',
+                'description' => 'Create and update guard employment records.',
+                'roles' => $hrCore,
+            ],
+            [
+                'key' => 'guards.view',
+                'group' => 'Guards',
+                'label' => 'View guard registry',
+                'description' => 'Browse guard profiles and operational status.',
+                'roles' => $all,
+            ],
+            [
+                'key' => 'operations.deployments_manage',
+                'group' => 'Operations',
+                'label' => 'Manage deployments & transfers',
+                'description' => 'Assign, transfer and end deployments. Region supervisors are region-scoped.',
+                'roles' => $deploy,
+            ],
+            [
+                'key' => 'operations.deploy_board',
+                'group' => 'Operations',
+                'label' => 'Use deploy board',
+                'description' => 'Bulk deploy guards between shifts and sites.',
+                'roles' => $deploy,
+            ],
+            [
+                'key' => 'operations.shifts_manage',
+                'group' => 'Operations',
+                'label' => 'Create & edit shifts',
+                'description' => 'Schedule shifts and manage shift lifecycle.',
+                'roles' => $ops,
+            ],
+            [
+                'key' => 'operations.shifts_override',
+                'group' => 'Operations',
+                'label' => 'Authorize critical shift overrides',
+                'description' => 'Approve exceptions that bypass shift validation rules.',
+                'roles' => $audit,
+            ],
+            [
+                'key' => 'operations.replacements_record',
+                'group' => 'Operations',
+                'label' => 'Record shift replacements',
+                'description' => 'Link covering guards to original shifts.',
+                'roles' => $ops,
+            ],
+            [
+                'key' => 'hr.leaves_manage',
+                'group' => 'HR',
+                'label' => 'Create & update leave requests',
+                'description' => 'Record and edit guard leave requests before approval.',
+                'roles' => [
+                    UserRole::SuperAdmin->value,
+                    UserRole::HrManager->value,
+                    UserRole::OperationsManager->value,
+                    UserRole::ShiftManager->value,
+                ],
+            ],
+            [
+                'key' => 'hr.leaves_approve',
+                'group' => 'HR',
+                'label' => 'Approve / reject leave',
+                'description' => 'Approve or reject guard leave requests.',
+                'roles' => $hrCore,
+            ],
+            [
+                'key' => 'hr.absences_attendance_record',
+                'group' => 'HR',
+                'label' => 'Record absences & attendance',
+                'description' => 'Daily absence and attendance workflows.',
+                'roles' => $hrOps,
+            ],
+            [
+                'key' => 'hr.desertions_manage',
+                'group' => 'HR',
+                'label' => 'Manage desertions',
+                'description' => 'Record and follow up desertion cases. Region supervisors are region-scoped.',
+                'roles' => $hrOps,
+            ],
+            [
+                'key' => 'finance.view',
+                'group' => 'Finance',
+                'label' => 'View finance module',
+                'description' => 'Billing, invoices, payments and profitability reports.',
+                'roles' => $financeView,
+            ],
+            [
+                'key' => 'finance.manage',
+                'group' => 'Finance',
+                'label' => 'Manage finance records',
+                'description' => 'Create and edit billing, invoices and payments.',
+                'roles' => $financeManage,
+            ],
+            [
+                'key' => 'reporting.view_export',
+                'group' => 'Reporting',
+                'label' => 'View & export reports',
+                'description' => 'Operational, HR and financial report exports.',
+                'roles' => $all,
+            ],
+            [
+                'key' => 'dashboards.operational_view',
+                'group' => 'Dashboards',
+                'label' => 'View operational dashboards',
+                'description' => 'Company, region, site and guard dashboard views.',
+                'roles' => $all,
+            ],
+        ];
+    }
+
+    /** @return list<string> */
+    public static function keys(): array
+    {
+        return array_column(self::definitions(), 'key');
+    }
+
+    public static function isValidKey(string $key): bool
+    {
+        return in_array($key, self::keys(), true);
+    }
+
+    /** @return list<string> */
+    public static function defaultRolesFor(string $key): array
+    {
+        foreach (self::definitions() as $definition) {
+            if ($definition['key'] === $key) {
+                return $definition['roles'];
+            }
+        }
+
+        return [];
+    }
+}

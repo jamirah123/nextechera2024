@@ -23,7 +23,7 @@ class RegionController extends Controller
             ->search($request->string('q')->toString())
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->latest()
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('organization.regions.index', [

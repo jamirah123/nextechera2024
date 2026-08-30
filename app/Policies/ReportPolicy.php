@@ -2,20 +2,13 @@
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
 use App\Models\User;
+use App\Support\Access\Access;
 
 class ReportPolicy
 {
     public function viewAny(User $user): bool
     {
-        return in_array($user->role, [
-            UserRole::SuperAdmin,
-            UserRole::OperationsManager,
-            UserRole::HrManager,
-            UserRole::ShiftManager,
-            UserRole::FinanceManager,
-            UserRole::RegionSupervisor,
-        ], true);
+        return Access::userCan($user, 'reporting.view_export');
     }
 }

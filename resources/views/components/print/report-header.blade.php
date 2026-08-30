@@ -21,7 +21,7 @@
 {{-- Screen-visible compact brand strip so on-screen print area still shows logo context --}}
 <div class="print-report-header-screen mb-5 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm print:hidden">
     <img
-        src="{{ asset(config('psg.logo', 'images/logo.jpeg')) }}"
+        src="{{ config('psg.logo_url', asset(config('psg.logo', 'images/logo.jpeg'))) }}"
         alt="{{ config('psg.company') }}"
         class="h-10 w-auto object-contain"
     >

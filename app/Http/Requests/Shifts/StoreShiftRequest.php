@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Shifts;
 
-use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftType;
 use App\Models\Shift;
@@ -27,7 +26,6 @@ class StoreShiftRequest extends FormRequest
             'end_time' => ['required', 'date_format:H:i'],
             'period' => ['required', Rule::in(ShiftPeriod::values())],
             'shift_type' => ['required', Rule::in(ShiftType::values())],
-            'guard_classification' => ['required', Rule::in(GuardClassification::values())],
             'notes' => ['nullable', 'string', 'max:2000'],
             'acknowledge_warnings' => ['sometimes', 'boolean'],
             'override_critical' => ['sometimes', 'boolean'],

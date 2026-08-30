@@ -4,15 +4,18 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="theme-color" content="#0a1a42">
+    <meta name="theme-color" content="{{ $brand['theme_sidebar'] ?? '#070d18' }}">
+    <link rel="icon" href="{{ $brand['favicon_url'] ?? asset('images/logo.jpeg') }}" type="image/png">
 
     <title>@yield('title', 'Dashboard') — {{ config('psg.company') }}</title>
 
     @fonts
+    <x-theme-script />
+    <x-brand-theme />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body
-    class="h-dvh overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased"
+    class="h-dvh overflow-hidden bg-slate-100 font-sans text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100"
     x-data="idleSession(@js([
         'idleMinutes' => (int) config('psg.session.idle_minutes', 30),
         'warningMinutes' => (int) config('psg.session.idle_warning_minutes', 2),
@@ -62,17 +65,15 @@
 
         {{-- Sidebar: fixed in viewport, does not scroll with page --}}
         <aside
-            class="no-print fixed inset-y-0 left-0 z-50 flex h-dvh w-[18rem] max-w-[85vw] -translate-x-full flex-col bg-steel-950 text-white transition-transform duration-300 lg:static lg:z-0 lg:h-full lg:max-w-none lg:w-72 lg:shrink-0 lg:translate-x-0"
+            class="no-print fixed inset-y-0 left-0 z-50 flex h-dvh w-[15rem] max-w-[85vw] -translate-x-full flex-col bg-steel-950 text-white transition-transform duration-300 lg:static lg:z-0 lg:h-full lg:max-w-none lg:w-60 lg:shrink-0 lg:translate-x-0"
             :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
         >
-            <div class="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
-                <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-3">
-                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold tracking-wide">
-                        PSG
-                    </div>
+            <div class="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2.5">
+                <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-2">
+                    <x-company-logo size="md" rounded="lg" class="ring-0 shadow-none bg-transparent" />
                     <div class="min-w-0">
-                        <p class="truncate text-sm font-semibold">{{ config('psg.company') }}</p>
-                        <p class="truncate text-xs text-slate-400">Operations System</p>
+                        <p class="truncate text-xs font-semibold">{{ $brand['name'] ?? config('psg.company') }}</p>
+                        <p class="truncate text-[10px] text-slate-400">{{ $brand['subtitle'] ?? config('psg.system_subtitle', 'Operations System') }}</p>
                     </div>
                 </a>
                 <button
@@ -85,21 +86,21 @@
                 </button>
             </div>
 
-            <div class="shrink-0 border-b border-white/10 px-5 py-3">
-                <p class="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-300">Signed in as</p>
-                <p class="mt-1 truncate text-sm font-medium text-white">{{ auth()->user()->roleLabel() }}</p>
+            <div class="shrink-0 border-b border-white/10 px-3 py-2">
+                <p class="text-[9px] font-semibold uppercase tracking-[0.18em] text-brand-300">Signed in as</p>
+                <p class="mt-0.5 truncate text-xs font-medium text-white">{{ auth()->user()->name }}</p>
             </div>
 
             <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 <x-sidebar-nav :navigation="$navigation" />
             </div>
 
-            <div class="shrink-0 border-t border-white/10 p-4">
+            <div class="shrink-0 border-t border-white/10 p-2">
                 <form method="POST" action="{{ route('logout') }}" x-data="{ confirming: false }">
                     @csrf
                     <button
                         type="button"
-                        class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-rose-500/10 hover:text-rose-200"
+                        class="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-rose-500/10 hover:text-rose-200"
                         x-show="!confirming"
                         @click="confirming = true"
                     >
@@ -123,22 +124,22 @@
 
         {{-- Main column: header fixed, content scrolls --}}
         <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-            <header class="no-print z-30 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur">
-                <div class="flex items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6 lg:px-8">
+            <header class="no-print z-30 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+                <div class="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 lg:px-6">
                     <div class="flex min-w-0 shrink-0 items-center gap-3 sm:w-48 lg:w-56 xl:w-64">
                         <button
                             type="button"
-                            class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 lg:hidden"
+                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 lg:hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                             @click="sidebarOpen = true"
                             aria-label="Open menu"
                         >
                             <x-icon name="menu" class="h-5 w-5" />
                         </button>
                         <div class="min-w-0 hidden sm:block">
-                            <p class="truncate text-sm font-semibold leading-tight text-slate-900 sm:text-base">
+                            <p class="truncate text-sm font-semibold leading-tight text-slate-900 dark:text-slate-100">
                                 @yield('page-title', 'Dashboard')
                             </p>
-                            <p class="mt-0.5 truncate text-xs leading-tight text-slate-500">
+                            <p class="truncate text-[11px] leading-tight text-slate-500">
                                 @yield('page-subtitle', auth()->user()->role?->description() ?? config('psg.company'))
                             </p>
                         </div>
@@ -148,13 +149,14 @@
                         <x-global-search />
                     </div>
 
-                    <div class="flex h-10 shrink-0 items-center gap-2 sm:gap-3">
+                    <div class="flex h-8 shrink-0 items-center gap-1.5 sm:gap-2">
+                        <x-theme-toggle />
                         <x-notification-bell />
                         <x-profile-menu :user="auth()->user()" />
                     </div>
                 </div>
-                <div class="border-t border-slate-100 px-4 py-2 sm:hidden">
-                    <p class="truncate text-sm font-semibold text-slate-900">
+                <div class="border-t border-slate-100 px-4 py-2 dark:border-slate-800 sm:hidden">
+                    <p class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
                         @yield('page-title', 'Dashboard')
                     </p>
                     <p class="truncate text-xs text-slate-500">
@@ -163,7 +165,7 @@
                 </div>
             </header>
 
-            <main class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+            <main class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2 sm:px-4 sm:py-3 lg:px-5">
                 @if (session('status'))
                     <div
                         x-data="{ show: true }"
@@ -172,7 +174,7 @@
                         x-transition:leave="transition ease-in duration-200"
                         x-transition:leave-start="opacity-100 translate-y-0"
                         x-transition:leave-end="opacity-0 -translate-y-1"
-                        class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
+                        class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
                         role="status"
                     >
                         {{ session('status') }}
@@ -180,7 +182,7 @@
                 @endif
 
                 @if ($errors->any())
-                    <div class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+                    <div class="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300" role="alert">
                         <p class="font-medium">Please correct the following:</p>
                         <ul class="mt-1 list-disc space-y-0.5 pl-4">
                             @foreach ($errors->all() as $error)
@@ -194,5 +196,6 @@
             </main>
         </div>
     </div>
+    @stack('scripts')
 </body>
 </html>

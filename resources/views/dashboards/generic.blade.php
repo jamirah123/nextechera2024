@@ -4,9 +4,5 @@
 @section('page-title', 'Dashboard')
 
 @section('content')
-    @include('dashboards.partials.shell', [
-        'user' => $user,
-        'kpis' => $kpis,
-        'modules' => $modules,
-    ])
+    @include('dashboards.partials.shell', ['kpis' => $kpis])
 @endsection

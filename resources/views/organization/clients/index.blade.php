@@ -5,7 +5,7 @@
 @section('page-subtitle', 'Client contracts and security accounts')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header
         title="Clients"
         subtitle="Manage contracted clients and linked security sites."
@@ -21,7 +21,7 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section class="filter-bar rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <form
             method="GET"
             action="{{ route('clients.index') }}"
@@ -75,7 +75,7 @@
     @else
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:hidden">
             @foreach ($clients as $client)
-                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                     <div class="flex items-start justify-between gap-3">
                         <a href="{{ route('clients.show', $client) }}" class="min-w-0">
                             <p class="truncate font-semibold text-slate-900 hover:text-brand-700">{{ $client->name }}</p>
@@ -102,47 +102,47 @@
             @endforeach
         </div>
 
-        <div class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+        <div class="data-table-shell hidden lg:block">
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
-                    <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="w-14 px-5 py-3">#</th>
-                            <th class="px-5 py-3">Client</th>
-                            <th class="px-5 py-3">Contact</th>
-                            <th class="px-5 py-3">Contract</th>
-                            <th class="px-5 py-3 text-right">Sites</th>
-                            <th class="px-5 py-3">Status</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
+                            <th class="w-10">#</th>
+                            <th>Client</th>
+                            <th>Contact</th>
+                            <th>Contract</th>
+                            <th class="text-right">Sites</th>
+                            <th>Status</th>
+                            <th class="text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody>
                         @foreach ($clients as $client)
                             <tr class="hover:bg-slate-50/80">
-                                <td class="px-5 py-3.5">
+                                <td class="text-slate-500">
                                     <x-table-serial :paginator="$clients" :index="$loop->index" />
                                 </td>
-                                <td class="px-5 py-3.5">
+                                <td>
                                     <a href="{{ route('clients.show', $client) }}" class="font-semibold text-slate-900 hover:text-brand-700">
                                         {{ $client->name }}
                                     </a>
                                 </td>
-                                <td class="px-5 py-3.5 text-slate-600">
+                                <td class="text-slate-600">
                                     <p>{{ $client->contact_person ?: '—' }}</p>
-                                    <p class="text-xs text-slate-500">{{ $client->phone ?: '' }}</p>
+                                    <p class="text-[10px] text-slate-500">{{ $client->phone ?: '' }}</p>
                                 </td>
-                                <td class="px-5 py-3.5 text-slate-600">
+                                <td class="text-slate-600">
                                     {{ optional($client->contract_start_date)->format('d M Y') ?: '—' }}
                                     @if ($client->contract_end_date)
                                         – {{ optional($client->contract_end_date)->format('d M Y') }}
                                     @endif
                                 </td>
-                                <td class="px-5 py-3.5 text-right text-slate-700">{{ $client->sites_count }}</td>
-                                <td class="px-5 py-3.5">
+                                <td class="text-right text-slate-700">{{ $client->sites_count }}</td>
+                                <td>
                                     <x-status-badge :tone="$client->contract_status->tone()" :label="$client->contract_status->label()" />
                                 </td>
-                                <td class="px-5 py-3.5">
-                                    <div class="flex flex-wrap items-center justify-end gap-2.5 sm:gap-3 lg:gap-3.5">
+                                <td>
+                                    <div class="flex flex-wrap items-center justify-end gap-1.5">
                                         <x-action-icon :href="route('clients.show', $client)" label="View" icon="eye" tone="brand" />
                                         @if ($canManage)
                                             <x-action-icon :href="route('clients.edit', $client)" label="Edit" icon="pencil" tone="slate" />

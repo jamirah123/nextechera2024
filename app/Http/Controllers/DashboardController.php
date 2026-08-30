@@ -3,14 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Services\Dashboards\OperationalDashboardService;
+use App\Services\Dashboards\ShiftDeskService;
 use App\Support\Navigation\RoleNavigation;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __construct(private OperationalDashboardService $opsDashboards)
-    {
+    public function __construct(
+        private OperationalDashboardService $opsDashboards,
+        private ShiftDeskService $shiftDesk,
+    ) {
     }
 
     public function __invoke(Request $request): View
@@ -27,11 +30,18 @@ class DashboardController extends Controller
             default => 'dashboards.generic',
         };
 
+        $shiftDeskSnapshot = in_array($user->role?->value, ['shift_manager', 'operations_manager'], true)
+            ? $this->shiftDesk->snapshot($user)
+            : null;
+
         return view($view, [
             'user' => $user,
-            'kpis' => RoleNavigation::kpis($user),
+            'kpis' => $shiftDeskSnapshot !== null
+                ? $this->shiftDesk->kpis($user)
+                : RoleNavigation::kpis($user),
             'modules' => RoleNavigation::modules($user),
             'ops' => $this->opsDashboards->landingSnapshot(),
+            'shiftDesk' => $shiftDeskSnapshot,
         ]);
     }
 }

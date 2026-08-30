@@ -2,64 +2,44 @@
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
 use App\Models\Shift;
 use App\Models\User;
+use App\Support\Access\Access;
 
 class ShiftPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->canAccess($user);
+        return Access::userCan($user, 'organization.view');
     }
 
     public function view(User $user, Shift $shift): bool
     {
-        return $this->canAccess($user);
+        return Access::userCan($user, 'organization.view');
     }
 
     public function create(User $user): bool
     {
-        return $this->canManage($user);
+        return Access::userCan($user, 'operations.shifts_manage');
     }
 
     public function update(User $user, Shift $shift): bool
     {
-        return $this->canManage($user);
+        return Access::userCan($user, 'operations.shifts_manage');
     }
 
     public function delete(User $user, Shift $shift): bool
     {
-        return $this->canManage($user);
+        return Access::userCan($user, 'operations.shifts_manage');
     }
 
     public function manageStatus(User $user, Shift $shift): bool
     {
-        return $this->canManage($user);
+        return Access::userCan($user, 'operations.shifts_manage');
     }
 
     public function override(User $user): bool
     {
-        return $user->isSuperAdmin()
-            || $user->hasRole(UserRole::OperationsManager);
-    }
-
-    private function canAccess(User $user): bool
-    {
-        return in_array($user->role, [
-            UserRole::SuperAdmin,
-            UserRole::OperationsManager,
-            UserRole::HrManager,
-            UserRole::ShiftManager,
-            UserRole::FinanceManager,
-            UserRole::RegionSupervisor,
-        ], true);
-    }
-
-    private function canManage(User $user): bool
-    {
-        return $user->isSuperAdmin()
-            || $user->hasRole(UserRole::OperationsManager)
-            || $user->hasRole(UserRole::ShiftManager);
+        return Access::userCan($user, 'operations.shifts_override');
     }
 }

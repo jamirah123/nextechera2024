@@ -5,7 +5,7 @@
 @section('page-subtitle', $deployment->assignedGuard?->employment_id)
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header
         :title="$deployment->assignedGuard?->full_name ?? 'Deployment'"
         :subtitle="$deployment->assignedGuard?->employment_id.' · '.$deployment->site?->name"
@@ -14,21 +14,21 @@
         <x-slot:actions>
             @can('create', App\Models\Shift::class)
                 @if ($deployment->isActive() && $deployment->assignedGuard)
-                    <a href="{{ route('shifts.create', ['guard_id' => $deployment->guard_id, 'site_id' => $deployment->site_id]) }}" class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">
+                    <a href="{{ route('shifts.create', ['guard_id' => $deployment->guard_id, 'site_id' => $deployment->site_id]) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">
                         Schedule shift
                     </a>
                 @endif
             @endcan
             @if ($canTransfer)
-                <a href="{{ route('deployments.transfer', $deployment) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-                    <x-icon name="swap" class="h-4 w-4" />
+                <a href="{{ route('deployments.transfer', $deployment) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    <x-icon name="swap" class="h-3.5 w-3.5" />
                     Transfer
                 </a>
             @endif
             @if ($canEnd)
                 <form method="POST" action="{{ route('deployments.end', $deployment) }}" class="inline" x-data="{ open: false }">
                     @csrf
-                    <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-100" @click="open = true">
+                    <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100" @click="open = true">
                         End deployment
                     </button>
                     <template x-teleport="body">
@@ -49,13 +49,13 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-steel-950 via-brand-950 to-brand-800 px-5 py-4 text-white sm:px-6">
+    <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-steel-950 via-brand-950 to-brand-800 px-3 py-2.5 text-white sm:px-6">
             <x-status-badge :tone="$deployment->status->tone()" :label="$deployment->status->label()" />
             <x-status-badge :tone="$deployment->shift_type->tone()" :label="$deployment->shift_type->label()" />
         </div>
         <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Guard</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                     @if ($deployment->assignedGuard)
@@ -65,7 +65,7 @@
                     @endif
                 </dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r lg:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Site</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                     @if ($deployment->site)
@@ -74,31 +74,31 @@
                     @endif
                 </dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Region</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $deployment->region?->name ?? '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Supervisor</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $deployment->supervisor?->name ?? '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r lg:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Start date</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($deployment->start_date)->format('d M Y') }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">End date</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($deployment->end_date)->format('d M Y') ?: '—' }}</dd>
             </div>
-            <div class="px-5 py-4 sm:col-span-2 lg:col-span-3 sm:px-6">
+            <div class="px-3 py-2.5 sm:col-span-2 lg:col-span-3 sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notes</dt>
                 <dd class="mt-1 text-sm text-slate-700">{{ $deployment->notes ?: '—' }}</dd>
             </div>
         </dl>
     </section>
 
-    <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+    <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 px-3 py-2.5">
             <h2 class="text-base font-semibold text-slate-900">Transfer history</h2>
             <p class="mt-0.5 text-sm text-slate-500">Site moves linked to this deployment record.</p>
         </div>

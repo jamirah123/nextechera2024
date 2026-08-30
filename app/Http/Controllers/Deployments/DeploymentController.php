@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Deployments;
 use App\Enums\DeploymentShiftType;
 use App\Enums\DeploymentStatus;
 use App\Enums\OperationalStatus;
+use App\Enums\ShiftPeriod;
 use App\Enums\SiteStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Deployments\StoreDeploymentRequest;
@@ -13,8 +14,11 @@ use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Region;
 use App\Models\Site;
+use App\Services\AbsenceService;
 use App\Services\DeploymentService;
 use App\Services\Deployments\BulkDeploymentService;
+use App\Services\Shifts\BulkShiftAllocationService;
+use App\Support\Deployments\DeploymentShiftSchedule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -26,6 +30,8 @@ class DeploymentController extends Controller
     public function __construct(
         private DeploymentService $deployments,
         private BulkDeploymentService $bulkDeployments,
+        private BulkShiftAllocationService $bulkAllocation,
+        private AbsenceService $absences,
     ) {
     }
 
@@ -46,7 +52,7 @@ class DeploymentController extends Controller
             ->when($request->filled('shift_type'), fn ($q) => $q->where('shift_type', $request->string('shift_type')))
             ->when($request->boolean('current_only', true) && ! $request->filled('status'), fn ($q) => $q->current())
             ->latest('start_date')
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         $statsBase = Deployment::query()
@@ -79,6 +85,8 @@ class DeploymentController extends Controller
     {
         $this->authorize('create', Deployment::class);
 
+        $this->releaseBoardPoolGuards($request->user());
+
         $user = $request->user();
         $regionId = $user->regionId();
 
@@ -86,14 +94,7 @@ class DeploymentController extends Controller
             'guards' => Guard::query()
                 ->activeEmployment()
                 ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
-                ->whereNotIn('operational_status', [
-                    OperationalStatus::Deserted,
-                    OperationalStatus::Suspended,
-                    OperationalStatus::OnLeave,
-                    OperationalStatus::Absent,
-                    OperationalStatus::SickUnavailable,
-                ])
-                ->awaitingDeployment()
+                ->availableForDeployment()
                 ->orderBy('full_name')
                 ->get(['id', 'employment_id', 'full_name', 'region_id']),
             'sites' => Site::query()
@@ -110,14 +111,17 @@ class DeploymentController extends Controller
 
     public function board(Request $request): View
     {
-        $this->authorize('create', Deployment::class);
+        $this->authorize('board', Deployment::class);
+
+        $this->releaseBoardPoolGuards($request->user());
 
         $user = $request->user();
         $regionId = $user->regionId();
+        $shiftSchedule = \App\Support\Deployments\DeploymentShiftSchedule::fromConfig();
         $baseQuery = $this->boardGuardQuery($request, $user);
 
         $guards = (clone $baseQuery)
-            ->paginate(25)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         $regions = Region::query()
@@ -146,6 +150,7 @@ class DeploymentController extends Controller
             'regionCounts' => $regionCounts,
             'shiftTypes' => DeploymentShiftType::cases(),
             'filters' => $request->only(['q', 'region_id']),
+            'shiftWindows' => $shiftSchedule->labels(),
             'stats' => [
                 'awaiting' => (clone $this->boardGuardQuery($request, $user, applyRegionFilter: false))->count(),
                 'active' => Deployment::query()
@@ -158,13 +163,17 @@ class DeploymentController extends Controller
 
     public function boardStore(Request $request): RedirectResponse
     {
-        $this->authorize('create', Deployment::class);
+        $this->authorize('board', Deployment::class);
+
+        $this->releaseBoardPoolGuards($request->user());
 
         $data = $request->validate([
             'selected' => ['required', 'array', 'min:1'],
             'selected.*' => ['integer', 'exists:guards,id'],
             'rows' => ['required', 'array'],
             'start_date' => ['nullable', 'date'],
+            'allocate_shifts' => ['sometimes', 'boolean'],
+            'shift_date' => ['nullable', 'date', 'required_if:allocate_shifts,1,true'],
         ]);
 
         $selectedIds = collect($data['selected'])->map(fn ($id) => (int) $id)->unique()->values();
@@ -211,20 +220,51 @@ class DeploymentController extends Controller
 
         $result = $this->bulkDeployments->deployMany($rows);
 
+        $this->deployments->syncDeployedGuardStatuses(
+            $user->mustStayInOwnRegion() ? $user->regionId() : null,
+        );
+
         $message = "Deployed {$result['created']} guard(s).";
+        $errors = $result['errors'];
+
+        if ($request->boolean('allocate_shifts') && $result['deployed_guard_ids'] !== []) {
+            $shiftDate = $data['shift_date'] ?? $data['start_date'] ?? now()->toDateString();
+            $deployments = Deployment::query()
+                ->current()
+                ->whereIn('guard_id', $result['deployed_guard_ids'])
+                ->get();
+
+            $allocRows = $deployments->map(fn (Deployment $deployment) => [
+                'deployment_id' => $deployment->id,
+                'period' => $this->periodForDeployment($deployment)->value,
+            ])->all();
+
+            $allocResult = $this->bulkAllocation->allocate($shiftDate, $allocRows);
+            $message .= " Allocated {$allocResult['created']} shift(s).";
+
+            if ($allocResult['skipped'] > 0) {
+                $message .= " Skipped {$allocResult['skipped']} allocation(s).";
+            }
+
+            $errors = array_merge($errors, $allocResult['errors']);
+        }
+
         if ($result['skipped'] > 0) {
             $message .= " Skipped {$result['skipped']}.";
         }
 
         return back()
             ->with('status', $message)
-            ->with('deployment_errors', array_slice($result['errors'], 0, 12));
+            ->with('deployment_errors', array_slice($errors, 0, 12));
     }
 
     public function store(StoreDeploymentRequest $request): RedirectResponse
     {
+        $this->releaseBoardPoolGuards($request->user());
+
         try {
             $deployment = $this->deployments->deploy($request->validated());
+            $this->deployments->syncDeployedGuardStatuses();
         } catch (InvalidArgumentException $e) {
             return back()->withInput()->withErrors(['deployment' => $e->getMessage()]);
         }
@@ -334,15 +374,27 @@ class DeploymentController extends Controller
                         ->orWhere('employment_id', 'like', $like);
                 });
             })
-            ->whereNotIn('operational_status', [
-                OperationalStatus::Deserted,
-                OperationalStatus::Suspended,
-                OperationalStatus::OnLeave,
-                OperationalStatus::Absent,
-                OperationalStatus::SickUnavailable,
-            ])
-            ->awaitingDeployment()
+            ->availableForDeployment()
             ->orderBy('region_id')
             ->orderBy('full_name');
+    }
+
+    private function releaseBoardPoolGuards(\App\Models\User $user): void
+    {
+        $this->absences->releaseEligibleAbsentGuards();
+        $this->deployments->releaseGuardsAfterShiftWindow(
+            $user->mustStayInOwnRegion() ? $user->regionId() : null,
+        );
+    }
+
+    private function periodForDeployment(Deployment $deployment): ShiftPeriod
+    {
+        return match ($deployment->shift_type) {
+            DeploymentShiftType::Night => ShiftPeriod::Night,
+            DeploymentShiftType::Day => ShiftPeriod::Day,
+            DeploymentShiftType::Rotating => DeploymentShiftSchedule::isOnShift(DeploymentShiftType::Night)
+                ? ShiftPeriod::Night
+                : ShiftPeriod::Day,
+        };
     }
 }

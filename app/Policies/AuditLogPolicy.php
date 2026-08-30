@@ -2,15 +2,14 @@
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
 use App\Models\User;
+use App\Support\Access\Access;
 
 class AuditLogPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->isSuperAdmin()
-            || $user->hasRole(UserRole::OperationsManager);
+        return Access::userCan($user, 'admin.audit_view');
     }
 
     public function view(User $user): bool

@@ -12,7 +12,7 @@ class RoleNavigation
      */
     public static function for(User $user): array
     {
-        return match ($user->role) {
+        $items = match ($user->role) {
             UserRole::SuperAdmin => self::superAdmin(),
             UserRole::OperationsManager => self::operations(),
             UserRole::HrManager => self::hr(),
@@ -21,6 +21,8 @@ class RoleNavigation
             UserRole::RegionSupervisor => self::regionSupervisor(),
             default => self::fallback(),
         };
+
+        return NavigationAccess::filter($user, $items);
     }
 
     /**
@@ -43,7 +45,8 @@ class RoleNavigation
                 self::module('Finance', 'Client billing, invoices, payments and profitability.', 'wallet', 'emerald', route('billing.index')),
                 self::module('Reports', 'Operational, HR and financial report exports.', 'chart', 'violet', route('reports.index')),
                 self::module('Audit Logs', 'Immutable trail of critical system actions.', 'audit', 'rose', route('audit.index')),
-                self::module('System Settings', 'Company profile, finance defaults, shift times and backups.', 'settings', 'violet', route('settings.index')),
+                self::module('Platform Settings', 'White-label branding, finance defaults, shift times and backups.', 'settings', 'violet', route('settings.index')),
+                self::module('Roles & Permissions', 'Configure role capabilities and access control.', 'settings', 'violet', route('roles.index')),
             ],
             UserRole::OperationsManager => [
                 self::module('Ops Dashboards', 'Company and regional operational command views.', 'chart', 'brand', route('ops-dashboards.company')),
@@ -194,7 +197,7 @@ class RoleNavigation
                 ['label' => 'Users', 'href' => route('users.index')],
                 ['label' => 'Roles & Permissions', 'href' => route('roles.index')],
                 ['label' => 'Audit Logs', 'href' => route('audit.index')],
-                ['label' => 'System Settings', 'href' => route('settings.index')],
+                ['label' => 'Platform Settings', 'href' => route('settings.index')],
             ]),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
             self::nav('Operations', 'ops', route('deployments.index'), 'deployments.*|shifts.*|replacements.*', [
@@ -397,6 +400,7 @@ class RoleNavigation
             'icon' => $icon,
             'href' => $href,
             'active' => $active,
+            'route_pattern' => $routePattern,
         ];
 
         if ($childItems !== null) {

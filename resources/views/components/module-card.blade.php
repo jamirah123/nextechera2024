@@ -24,24 +24,25 @@
 <a
     href="{{ $href }}"
     @class([
-        'group flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-brand-200 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
+        'group flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm transition hover:border-brand-200 hover:bg-slate-50/80 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2',
         'cursor-default opacity-95' => $href === '#',
     ])
 >
-    <div class="flex items-start justify-between gap-3">
-        <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl ring-1 {{ $iconTone }}">
-            <x-icon :name="$icon" class="h-5 w-5" />
-        </span>
-        @if ($badge)
-            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                {{ $badge }}
-            </span>
-        @endif
-    </div>
-    <h3 class="mt-4 text-base font-semibold text-slate-900 group-hover:text-brand-800">{{ $title }}</h3>
-    <p class="mt-1.5 flex-1 text-sm leading-relaxed text-slate-500">{{ $description }}</p>
-    <span class="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-brand-700">
-        Open module
-        <x-icon name="chevron" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+    <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md ring-1 {{ $iconTone }}">
+        <x-icon :name="$icon" class="h-3.5 w-3.5" />
     </span>
+
+    <span class="min-w-0 flex-1">
+        <span class="flex items-start justify-between gap-2">
+            <span class="truncate text-xs font-semibold text-slate-900 group-hover:text-brand-800">{{ $title }}</span>
+            @if ($badge)
+                <span class="shrink-0 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                    {{ $badge }}
+                </span>
+            @endif
+        </span>
+        <span class="mt-0.5 block line-clamp-2 text-[11px] leading-snug text-slate-500">{{ $description }}</span>
+    </span>
+
+    <x-icon name="chevron" class="h-3.5 w-3.5 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-brand-700" />
 </a>

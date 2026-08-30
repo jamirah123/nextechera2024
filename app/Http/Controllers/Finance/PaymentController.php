@@ -42,7 +42,7 @@ class PaymentController extends Controller
             ->when($scope === 'month', fn ($q) => $q->whereMonth('payment_date', now()->month)->whereYear('payment_date', now()->year))
             ->latest('payment_date')
             ->latest('id')
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('finance.payments.index', [

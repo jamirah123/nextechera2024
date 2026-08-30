@@ -14,15 +14,15 @@ class DashboardTest extends TestCase
     public function test_each_role_receives_its_dashboard(): void
     {
         $cases = [
-            [UserRole::SuperAdmin, 'Super Admin Dashboard', 'System Control Center'],
-            [UserRole::OperationsManager, 'Operations Dashboard', 'Operations Command'],
-            [UserRole::HrManager, 'HR Dashboard', 'Human Resources'],
-            [UserRole::ShiftManager, 'Shift Manager Dashboard', 'Shift Operations'],
-            [UserRole::FinanceManager, 'Finance Dashboard', 'Financial Oversight'],
-            [UserRole::RegionSupervisor, 'Region Supervisor Dashboard', 'Field Operations'],
+            [UserRole::SuperAdmin, 'Super Admin Dashboard'],
+            [UserRole::OperationsManager, 'Operations Dashboard'],
+            [UserRole::HrManager, 'HR Dashboard'],
+            [UserRole::ShiftManager, 'Shift Manager Dashboard'],
+            [UserRole::FinanceManager, 'Finance Dashboard'],
+            [UserRole::RegionSupervisor, 'Region Supervisor Dashboard'],
         ];
 
-        foreach ($cases as [$role, $title, $eyebrow]) {
+        foreach ($cases as [$role, $title]) {
             $user = $role === UserRole::RegionSupervisor
                 ? User::factory()->regionSupervisor()->create()
                 : User::factory()->role($role)->create();
@@ -31,9 +31,8 @@ class DashboardTest extends TestCase
 
             $response->assertOk();
             $response->assertSee($title, false);
-            $response->assertSee($eyebrow, false);
             $response->assertSee($user->name);
-            $response->assertSee('Your modules', false);
+            $response->assertDontSee('Your modules', false);
             $response->assertSee('Sign out', false);
         }
     }

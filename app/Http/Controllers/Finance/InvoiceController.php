@@ -45,7 +45,7 @@ class InvoiceController extends Controller
                 InvoiceStatus::Cancelled->value,
             ]))
             ->latest('id')
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('finance.invoices.index', [

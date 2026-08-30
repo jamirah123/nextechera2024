@@ -6,15 +6,19 @@ use App\Enums\AbsenceReason;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftStatus;
 use App\Models\Absence;
+use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Shift;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class AbsenceService
 {
-    public function __construct(private GuardService $guards)
-    {
+    public function __construct(
+        private GuardService $guards,
+        private DeploymentService $deployments,
+    ) {
     }
 
     /**
@@ -34,6 +38,18 @@ class AbsenceService
     {
         return DB::transaction(function () use ($data) {
             $guard = Guard::query()->findOrFail($data['guard_id']);
+            $absenceDate = Carbon::parse($data['absence_date'])->toDateString();
+
+            if ($absenceDate >= now()->toDateString()) {
+                throw new InvalidArgumentException('Record absences only for a day that has already passed (the missed duty date).');
+            }
+
+            if (Absence::query()
+                ->where('guard_id', $guard->id)
+                ->whereDate('absence_date', $absenceDate)
+                ->exists()) {
+                throw new InvalidArgumentException('An absence is already recorded for this guard on that date.');
+            }
 
             $shift = null;
             if (! empty($data['shift_id'])) {
@@ -47,7 +63,7 @@ class AbsenceService
                 'guard_id' => $guard->id,
                 'site_id' => $data['site_id'] ?? $shift?->site_id ?? $guard->current_site_id,
                 'shift_id' => $shift?->id,
-                'absence_date' => $data['absence_date'],
+                'absence_date' => $absenceDate,
                 'reason' => $data['reason'] ?? AbsenceReason::NoShow->value,
                 'action_taken' => $data['action_taken'] ?? null,
                 'replacement_required' => (bool) ($data['replacement_required'] ?? false),
@@ -64,12 +80,76 @@ class AbsenceService
                 ]);
             }
 
+            Deployment::query()
+                ->current()
+                ->where('guard_id', $guard->id)
+                ->each(function (Deployment $deployment) use ($absenceDate): void {
+                    $this->deployments->end(
+                        $deployment,
+                        $absenceDate,
+                        'Deployment ended due to recorded absence.',
+                    );
+                });
+
+            $guard->refresh();
+
             $this->guards->updateGuard($guard, [
                 'operational_status' => OperationalStatus::Absent->value,
             ], 'absence_recorded');
 
             return $absence->fresh(['assignedGuard', 'site', 'shift']);
         });
+    }
+
+    /**
+     * Return absent guards to the deployment board once the missed day has passed.
+     */
+    public function releaseEligibleAbsentGuards(?Carbon $asOf = null): int
+    {
+        $today = ($asOf ?? now())->toDateString();
+
+        $eligibleGuardIds = Absence::query()
+            ->select('guard_id')
+            ->groupBy('guard_id')
+            ->havingRaw('DATE(MAX(absence_date)) < ?', [$today])
+            ->pluck('guard_id');
+
+        $released = 0;
+
+        Guard::query()
+            ->where('operational_status', OperationalStatus::Absent)
+            ->whereIn('id', $eligibleGuardIds)
+            ->orderBy('id')
+            ->each(function (Guard $guard) use (&$released): void {
+                Deployment::query()
+                    ->current()
+                    ->where('guard_id', $guard->id)
+                    ->each(function (Deployment $deployment): void {
+                        $this->deployments->end(
+                            $deployment,
+                            now()->toDateString(),
+                            'Deployment ended while releasing guard after absence.',
+                        );
+                    });
+
+                $guard->refresh();
+
+                if ($guard->operational_status !== OperationalStatus::Absent) {
+                    $released++;
+
+                    return;
+                }
+
+                $this->guards->updateGuard($guard, [
+                    'current_site_id' => null,
+                    'current_supervisor_id' => null,
+                    'operational_status' => OperationalStatus::AwaitingDeployment->value,
+                ], 'absence_release');
+
+                $released++;
+            });
+
+        return $released;
     }
 
     public function clear(Absence $absence, ?string $notes = null): Absence

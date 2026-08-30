@@ -41,6 +41,14 @@ class SystemSettingController extends Controller
 
         $data = $request->validate([
             'company_name' => ['required', 'string', 'max:191'],
+            'tagline' => ['nullable', 'string', 'max:191'],
+            'system_subtitle' => ['nullable', 'string', 'max:120'],
+            'company_short_name' => ['nullable', 'string', 'max:12'],
+            'logo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
+            'favicon' => ['nullable', 'file', 'mimes:png,ico,svg', 'max:512'],
+            'theme_primary' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'theme_sidebar' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'email_footer_text' => ['nullable', 'string', 'max:500'],
             'support_email' => ['nullable', 'email', 'max:190'],
             'support_phone' => ['nullable', 'string', 'max:40'],
             'currency' => ['required', 'string', 'max:8'],
@@ -55,11 +63,37 @@ class SystemSettingController extends Controller
             'backup_path' => ['required', 'string', 'max:120', 'regex:/^[a-zA-Z0-9_\-\/]+$/'],
         ]);
 
-        $this->settings->update($data);
+        $logo = $request->file('logo');
+        $favicon = $request->file('favicon');
+        unset($data['logo'], $data['favicon']);
+
+        $this->settings->update($data, $logo, $favicon);
 
         return redirect()
             ->route('settings.index')
-            ->with('status', 'System settings saved.');
+            ->with('status', 'Platform settings saved.');
+    }
+
+    public function removeLogo(): RedirectResponse
+    {
+        $this->authorize('update', SystemSetting::class);
+
+        $this->settings->removeLogo();
+
+        return redirect()
+            ->route('settings.index')
+            ->with('status', 'Company logo removed.');
+    }
+
+    public function removeFavicon(): RedirectResponse
+    {
+        $this->authorize('update', SystemSetting::class);
+
+        $this->settings->removeFavicon();
+
+        return redirect()
+            ->route('settings.index')
+            ->with('status', 'Favicon removed.');
     }
 
     public function backup(): RedirectResponse

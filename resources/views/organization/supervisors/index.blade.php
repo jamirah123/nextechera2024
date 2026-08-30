@@ -5,7 +5,7 @@
 @section('page-subtitle', 'Field supervisors and region assignments')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header
         title="Supervisors"
         subtitle="Manage field supervisors assigned to operational regions."
@@ -79,7 +79,7 @@
     @else
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:hidden">
             @foreach ($supervisors as $supervisor)
-                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                     <div class="flex items-start justify-between gap-3">
                         <a href="{{ route('supervisors.show', $supervisor) }}" class="min-w-0">
                             <p class="truncate font-semibold text-slate-900 hover:text-brand-700">{{ $supervisor->name }}</p>
@@ -106,45 +106,45 @@
             @endforeach
         </div>
 
-        <div class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+        <div class="data-table-shell hidden lg:block">
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
-                    <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="w-14 px-5 py-3">#</th>
-                            <th class="px-5 py-3">Supervisor</th>
-                            <th class="px-5 py-3">Region</th>
-                            <th class="px-5 py-3">Contact</th>
-                            <th class="px-5 py-3 text-right">Sites</th>
-                            <th class="px-5 py-3">Status</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
+                            <th class="w-10">#</th>
+                            <th>Supervisor</th>
+                            <th>Region</th>
+                            <th>Contact</th>
+                            <th class="text-right">Sites</th>
+                            <th>Status</th>
+                            <th class="text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody>
                         @foreach ($supervisors as $supervisor)
                             <tr class="hover:bg-slate-50/80">
-                                <td class="px-5 py-3.5">
+                                <td class="text-slate-500">
                                     <x-table-serial :paginator="$supervisors" :index="$loop->index" />
                                 </td>
-                                <td class="px-5 py-3.5">
+                                <td>
                                     <a href="{{ route('supervisors.show', $supervisor) }}" class="font-semibold text-slate-900 hover:text-brand-700">
                                         {{ $supervisor->name }}
                                     </a>
-                                    <p class="text-xs text-slate-500">{{ $supervisor->supervisor_code }}</p>
+                                    <p class="text-[10px] text-slate-500">{{ $supervisor->supervisor_code }}</p>
                                 </td>
-                                <td class="px-5 py-3.5 text-slate-600">{{ $supervisor->region?->name ?? '—' }}</td>
-                                <td class="px-5 py-3.5 text-slate-600">
+                                <td class="text-slate-600">{{ $supervisor->region?->name ?? '—' }}</td>
+                                <td class="text-slate-600">
                                     <p>{{ $supervisor->phone ?: '—' }}</p>
                                     @if ($supervisor->email)
-                                        <p class="text-xs text-slate-500">{{ $supervisor->email }}</p>
+                                        <p class="text-[10px] text-slate-500">{{ $supervisor->email }}</p>
                                     @endif
                                 </td>
-                                <td class="px-5 py-3.5 text-right text-slate-700">{{ $supervisor->sites_count }}</td>
-                                <td class="px-5 py-3.5">
+                                <td class="text-right text-slate-700">{{ $supervisor->sites_count }}</td>
+                                <td>
                                     <x-status-badge :tone="$supervisor->status->tone()" :label="$supervisor->status->label()" />
                                 </td>
-                                <td class="px-5 py-3.5">
-                                    <div class="flex flex-wrap items-center justify-end gap-2.5 sm:gap-3 lg:gap-3.5">
+                                <td>
+                                    <div class="flex flex-wrap items-center justify-end gap-1.5">
                                         <x-action-icon :href="route('supervisors.show', $supervisor)" label="View" icon="eye" tone="brand" />
                                         @if ($canManage)
                                             <x-action-icon :href="route('supervisors.edit', $supervisor)" label="Edit" icon="pencil" tone="slate" />

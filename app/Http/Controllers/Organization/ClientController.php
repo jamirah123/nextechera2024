@@ -22,7 +22,7 @@ class ClientController extends Controller
             ->search($request->string('q')->toString())
             ->when($request->filled('contract_status'), fn ($q) => $q->where('contract_status', $request->string('contract_status')))
             ->latest()
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('organization.clients.index', [

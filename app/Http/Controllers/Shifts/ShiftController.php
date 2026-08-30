@@ -17,7 +17,7 @@ use App\Models\Shift;
 use App\Models\Site;
 use App\Services\ShiftService;
 use App\Services\Shifts\BulkShiftAllocationService;
-use App\Services\Shifts\BulkShiftCompletionService;
+use App\Services\Shifts\ShiftLifecycleService;
 use App\Services\Shifts\ShiftValidationService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -33,13 +33,15 @@ class ShiftController extends Controller
         private ShiftService $shifts,
         private ShiftValidationService $validator,
         private BulkShiftAllocationService $bulkAllocation,
-        private BulkShiftCompletionService $bulkCompletion,
+        private ShiftLifecycleService $lifecycle,
     ) {
     }
 
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Shift::class);
+
+        $this->lifecycle->sync();
 
         $date = $request->input('date', now()->toDateString());
 
@@ -53,7 +55,7 @@ class ShiftController extends Controller
             ->when($request->filled('site_id'), fn ($q) => $q->where('site_id', $request->integer('site_id')))
             ->when(! $request->boolean('all_dates'), fn ($q) => $q->forDate($date))
             ->orderBy('starts_at')
-            ->paginate(15)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         $statsBase = Shift::query()->forDate($date);
@@ -68,7 +70,6 @@ class ShiftController extends Controller
             'shiftTypes' => ShiftType::cases(),
             'filters' => $request->only(['q', 'date', 'status', 'period', 'shift_type', 'region_id', 'site_id', 'all_dates']),
             'canManage' => $request->user()->can('create', Shift::class),
-            'canManageStatus' => $request->user()->can('create', Shift::class),
             'stats' => [
                 'scheduled' => (clone $statsBase)->where('status', ShiftStatus::Scheduled)->count(),
                 'confirmed' => (clone $statsBase)->where('status', ShiftStatus::Confirmed)->count(),
@@ -129,6 +130,7 @@ class ShiftController extends Controller
         $user = $request->user();
         $date = $request->input('date', now()->toDateString());
         $regionId = $user->regionId();
+        $showAll = $request->boolean('show_all');
 
         $deployments = Deployment::query()
             ->current()
@@ -147,22 +149,22 @@ class ShiftController extends Controller
                         ->orWhere('employment_id', 'like', $like);
                 });
             })
-            ->when($request->boolean('unscheduled_only'), function ($q) use ($date): void {
+            ->when(! $showAll, function ($q) use ($date): void {
                 $q->whereDoesntHave('assignedGuard.shifts', function ($shift) use ($date): void {
                     $shift->whereDate('shift_date', $date)
-                        ->whereNotIn('status', [ShiftStatus::Cancelled->value, ShiftStatus::Replaced->value]);
+                        ->whereIn('status', ShiftStatus::blockingAllocationValues());
                 });
             })
             ->orderBy('site_id')
             ->orderBy('guard_id')
-            ->paginate(20)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         $guardIds = $deployments->getCollection()->pluck('guard_id')->all();
         $existingShifts = Shift::query()
             ->whereIn('guard_id', $guardIds)
             ->whereDate('shift_date', $date)
-            ->whereNotIn('status', [ShiftStatus::Cancelled->value, ShiftStatus::Replaced->value])
+            ->whereIn('status', ShiftStatus::blockingAllocationValues())
             ->get(['id', 'guard_id', 'period', 'status', 'reference'])
             ->groupBy('guard_id');
 
@@ -187,16 +189,25 @@ class ShiftController extends Controller
                 ->get(['id', 'name', 'code', 'region_id']),
             'periods' => ShiftPeriod::cases(),
             'shiftTypes' => ShiftType::cases(),
-            'filters' => $request->only(['q', 'date', 'region_id', 'site_id', 'unscheduled_only']),
+            'filters' => $request->only(['q', 'date', 'region_id', 'site_id', 'show_all']),
+            'showAll' => $showAll,
             'stats' => [
                 'deployed' => Deployment::query()
                     ->current()
                     ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
                     ->count(),
+                'needs_allocation' => Deployment::query()
+                    ->current()
+                    ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+                    ->whereDoesntHave('assignedGuard.shifts', function ($shift) use ($date): void {
+                        $shift->whereDate('shift_date', $date)
+                            ->whereIn('status', ShiftStatus::blockingAllocationValues());
+                    })
+                    ->count(),
                 'scheduled_today' => Shift::query()
                     ->forDate($date)
                     ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
-                    ->whereNotIn('status', [ShiftStatus::Cancelled->value, ShiftStatus::Replaced->value])
+                    ->whereIn('status', ShiftStatus::blockingAllocationValues())
                     ->count(),
             ],
         ]);
@@ -278,6 +289,9 @@ class ShiftController extends Controller
     {
         $this->authorize('view', $shift);
 
+        $this->lifecycle->sync();
+        $shift->refresh();
+
         $shift->load([
             'assignedGuard.region',
             'site.client',
@@ -326,7 +340,7 @@ class ShiftController extends Controller
         $this->authorize('manageStatus', $shift);
 
         $request->validate([
-            'status' => ['required', 'in:'.implode(',', ShiftStatus::values())],
+            'status' => ['required', Rule::in(ShiftStatus::manuallySettableValues())],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -337,56 +351,6 @@ class ShiftController extends Controller
         }
 
         return back()->with('status', 'Shift status updated.');
-    }
-
-    public function bulkComplete(Request $request): RedirectResponse
-    {
-        $this->authorize('create', Shift::class);
-
-        $data = $request->validate([
-            'selected' => ['required', 'array', 'min:1'],
-            'selected.*' => ['integer', 'exists:shifts,id'],
-            'notes' => ['nullable', 'string', 'max:2000'],
-            'date' => ['nullable', 'date'],
-        ]);
-
-        $user = $request->user();
-        $shiftIds = [];
-
-        $shifts = Shift::query()
-            ->whereIn('id', $data['selected'])
-            ->get(['id', 'region_id', 'shift_date']);
-
-        foreach ($shifts as $shift) {
-            if (! $user->canAccessRegion($shift->region_id)) {
-                continue;
-            }
-
-            if (! empty($data['date']) && $shift->shift_date?->toDateString() !== $data['date']) {
-                continue;
-            }
-
-            $shiftIds[] = $shift->id;
-        }
-
-        if ($shiftIds === []) {
-            return back()->withErrors(['selected' => 'Select at least one valid shift to complete.']);
-        }
-
-        $result = $this->bulkCompletion->complete(
-            $shiftIds,
-            $data['notes'] ?? 'Bulk completed from today\'s shifts',
-        );
-
-        $message = "Completed {$result['completed']} shift(s)";
-        if ($result['skipped'] > 0) {
-            $message .= ", skipped {$result['skipped']}";
-        }
-        $message .= '.';
-
-        return back()
-            ->with('status', $message)
-            ->with('completion_errors', $result['errors']);
     }
 
     public function recurringCreate(Request $request): View
@@ -459,7 +423,6 @@ class ShiftController extends Controller
             'sites' => Site::query()->active()->with('region:id,name')->orderBy('name')->get(['id', 'name', 'code', 'region_id', 'supervisor_id']),
             'periods' => ShiftPeriod::cases(),
             'shiftTypes' => ShiftType::cases(),
-            'guardClassifications' => GuardClassification::cases(),
             'selectedGuardId' => $request->integer('guard_id') ?: null,
             'selectedSiteId' => $request->integer('site_id') ?: null,
             'selectedDate' => $request->input('date', now()->toDateString()),

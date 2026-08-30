@@ -9,13 +9,13 @@ class SyncShiftStatusesCommand extends Command
 {
     protected $signature = 'psg:sync-shift-statuses';
 
-    protected $description = 'Promote active shifts to in progress and mark elapsed shifts as missed';
+    protected $description = 'Promote active shifts to in progress, complete finished duty, and mark no-shows as missed';
 
     public function handle(ShiftLifecycleService $lifecycle): int
     {
         $result = $lifecycle->sync();
 
-        $this->info("Shift sync complete: {$result['started']} started, {$result['missed']} marked missed.");
+        $this->info("Shift sync complete: {$result['started']} started, {$result['completed']} completed, {$result['missed']} marked missed.");
 
         return self::SUCCESS;
     }

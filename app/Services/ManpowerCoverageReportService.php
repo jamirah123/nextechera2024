@@ -27,8 +27,10 @@ class ManpowerCoverageReportService
     /**
      * @return LengthAwarePaginator<int, array{site: Site, manpower: array<string, mixed>}>
      */
-    public function paginate(Request $request, int $perPage = 12): LengthAwarePaginator
+    public function paginate(Request $request, ?int $perPage = null): LengthAwarePaginator
     {
+        $perPage ??= table_per_page();
+
         return $this->baseQuery($request)
             ->paginate($perPage)
             ->withQueryString()

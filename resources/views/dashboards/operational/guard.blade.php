@@ -5,21 +5,21 @@
 @section('page-subtitle', $guard->employment_id)
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header
         :title="$guard->full_name"
         :subtitle="$guard->employment_id.($guard->currentSite ? ' · '.$guard->currentSite->name : '')"
         :back="route('ops-dashboards.company')"
     >
         <x-slot:actions>
-            <a href="{{ route('guards.show', $guard) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Full profile</a>
+            <a href="{{ route('guards.show', $guard) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Full profile</a>
             @if ($guard->current_site_id)
-                <a href="{{ route('ops-dashboards.site', $guard->current_site_id) }}" class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">Site dashboard</a>
+                <a href="{{ route('ops-dashboards.site', $guard->current_site_id) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">Site dashboard</a>
             @endif
         </x-slot:actions>
     </x-page-header>
 
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div class="flex flex-col gap-3 border-b border-slate-100 bg-gradient-to-r from-steel-950 via-brand-950 to-brand-800 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <p class="text-lg font-semibold">{{ $guard->full_name }}</p>
@@ -42,17 +42,17 @@
         ] as [$label, $value, $tone])
             <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                 <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }} sm:text-[11px]">{{ $label }}</p>
-                <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ $value }}</p>
+                <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $value }}</p>
             </div>
         @endforeach
     </section>
 
     <div class="grid gap-6 xl:grid-cols-3">
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="border-b border-slate-100 px-5 py-4"><h2 class="text-sm font-semibold text-slate-900">Upcoming shifts</h2></div>
+        <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 px-3 py-2.5"><h2 class="text-sm font-semibold text-slate-900">Upcoming shifts</h2></div>
             <ul class="divide-y divide-slate-100">
                 @forelse ($upcoming as $shift)
-                    <li class="flex gap-3 px-5 py-3.5">
+                    <li class="flex gap-3 px-3 py-2">
                         <span class="w-6 shrink-0 tabular-nums text-sm text-slate-500">{{ $loop->iteration }}</span>
                         <div>
                             <p class="font-semibold text-slate-900">{{ $shift->shift_date->format('D d M') }}</p>
@@ -65,11 +65,11 @@
             </ul>
         </section>
 
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="border-b border-slate-100 px-5 py-4"><h2 class="text-sm font-semibold text-slate-900">Recent shifts</h2></div>
+        <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 px-3 py-2.5"><h2 class="text-sm font-semibold text-slate-900">Recent shifts</h2></div>
             <ul class="divide-y divide-slate-100">
                 @forelse ($recent_shifts as $shift)
-                    <li class="flex gap-3 px-5 py-3.5">
+                    <li class="flex gap-3 px-3 py-2">
                         <span class="w-6 shrink-0 tabular-nums text-sm text-slate-500">{{ $loop->iteration }}</span>
                         <div class="min-w-0 flex-1">
                             <p class="font-semibold text-slate-900">{{ $shift->shift_date->format('d M Y') }}</p>
@@ -83,11 +83,11 @@
             </ul>
         </section>
 
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="border-b border-slate-100 px-5 py-4"><h2 class="text-sm font-semibold text-slate-900">Deployments & leave</h2></div>
-            <div class="space-y-4 px-5 py-4">
+        <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 px-3 py-2.5"><h2 class="text-sm font-semibold text-slate-900">Deployments & leave</h2></div>
+            <div class="space-y-4 px-3 py-2.5">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Deployment history</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Deployment history</p>
                     <ul class="mt-2 space-y-2">
                         @forelse ($deployments as $deployment)
                             <li class="text-sm text-slate-700">
@@ -100,7 +100,7 @@
                     </ul>
                 </div>
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Active / pending leave</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Active / pending leave</p>
                     <ul class="mt-2 space-y-2">
                         @forelse ($active_leave as $leave)
                             <li class="text-sm text-slate-700">

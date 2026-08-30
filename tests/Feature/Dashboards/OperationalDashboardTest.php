@@ -22,7 +22,7 @@ class OperationalDashboardTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('Live operations')
-            ->assertSee('Open company dashboard');
+            ->assertSee('Company dashboard');
     }
 
     public function test_company_region_site_and_guard_dashboards_render(): void

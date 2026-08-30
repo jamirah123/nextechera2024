@@ -79,7 +79,7 @@ class ReportController extends Controller
         $this->authorizeReports();
 
         $filters = $this->monthFilters($request);
-        $rows = $this->monthlyShifts->paginate($filters, 25);
+        $rows = $this->monthlyShifts->paginate($filters);
         $totals = $this->monthlyShifts->summaryTotals($filters);
 
         return view('reports.monthly-shifts', [

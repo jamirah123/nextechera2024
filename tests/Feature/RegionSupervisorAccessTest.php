@@ -90,7 +90,7 @@ class RegionSupervisorAccessTest extends TestCase
         $this->actingAs($user)
             ->post(route('absences.store'), [
                 'guard_id' => $guard->id,
-                'absence_date' => now()->toDateString(),
+                'absence_date' => now()->subDay()->toDateString(),
                 'reason' => 'no_show',
                 'site_id' => $site->id,
             ])

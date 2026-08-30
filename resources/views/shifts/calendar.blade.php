@@ -5,24 +5,24 @@
 @section('page-subtitle', 'Weekly schedule board')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header
         title="Weekly calendar"
         :subtitle="$weekStart->format('d M Y').' – '.$weekStart->copy()->endOfWeek()->format('d M Y')"
         :back="route('shifts.index')"
     >
         <x-slot:actions>
-            <a href="{{ route('shifts.calendar', array_merge($filters, ['week' => $prevWeek])) }}" class="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Previous</a>
-            <a href="{{ route('shifts.calendar', array_merge(Illuminate\Support\Arr::except($filters, ['week']))) }}" class="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">This week</a>
-            <a href="{{ route('shifts.calendar', array_merge($filters, ['week' => $nextWeek])) }}" class="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Next</a>
+            <a href="{{ route('shifts.calendar', array_merge($filters, ['week' => $prevWeek])) }}" class="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Previous</a>
+            <a href="{{ route('shifts.calendar', array_merge(Illuminate\Support\Arr::except($filters, ['week']))) }}" class="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">This week</a>
+            <a href="{{ route('shifts.calendar', array_merge($filters, ['week' => $nextWeek])) }}" class="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Next</a>
             @if ($canManage)
-                <a href="{{ route('shifts.create') }}" class="inline-flex rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">Create shift</a>
+                <a href="{{ route('shifts.create') }}" class="inline-flex rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">Create shift</a>
             @endif
         </x-slot:actions>
     </x-page-header>
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <form method="GET" action="{{ route('shifts.calendar') }}" class="grid gap-3 sm:grid-cols-3 sm:items-end">
+    <section class="form-card">
+        <form method="GET" action="{{ route('shifts.calendar') }}" class="grid gap-2 sm:grid-cols-3 sm:items-end">
             <input type="hidden" name="week" value="{{ $weekStart->toDateString() }}">
             <x-form-field label="Region" name="region_id" type="select">
                 <option value="">All regions</option>
@@ -36,7 +36,7 @@
                     <option value="{{ $site->id }}" @selected((string) ($filters['site_id'] ?? '') === (string) $site->id)>{{ $site->name }}</option>
                 @endforeach
             </x-form-field>
-            <button type="submit" class="inline-flex justify-center rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">Apply filters</button>
+            <button type="submit" class="inline-flex justify-center rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800">Apply filters</button>
         </form>
     </section>
 
@@ -48,7 +48,7 @@
                 'border-slate-200' => ! $day['is_today'],
             ])>
                 <div class="mb-3 flex items-center justify-between gap-2">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $day['label'] }}</p>
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{{ $day['label'] }}</p>
                     <span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{{ $day['shifts']->count() }}</span>
                 </div>
                 <div class="space-y-2">

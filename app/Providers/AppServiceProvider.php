@@ -6,8 +6,10 @@ use App\Policies\AuditLogPolicy;
 use App\Policies\FinancePolicy;
 use App\Policies\ReportPolicy;
 use App\Services\SystemSettingService;
+use App\Support\Access\RolePermissionService;
 use App\Support\Navigation\RoleNavigation;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
@@ -34,6 +36,10 @@ class AppServiceProvider extends ServiceProvider
             if (Schema::hasTable('system_settings')) {
                 app(SystemSettingService::class)->applyRuntimeConfig();
             }
+
+            if (Schema::hasTable('role_permissions') && DB::table('role_permissions')->count() === 0) {
+                app(RolePermissionService::class)->seedDefaults();
+            }
         } catch (\Throwable) {
             // Ignore during initial install or partial schema.
         }
@@ -42,6 +48,16 @@ class AppServiceProvider extends ServiceProvider
             $user = Auth::user();
 
             $view->with('navigation', $user ? RoleNavigation::for($user) : []);
+        });
+
+        View::composer(['layouts.app', 'layouts.guest', 'auth.login', 'admin.settings.index'], function ($view): void {
+            try {
+                if (Schema::hasTable('system_settings')) {
+                    $view->with('brand', app(SystemSettingService::class)->branding());
+                }
+            } catch (\Throwable) {
+                // Ignore during initial install or partial schema.
+            }
         });
     }
 }

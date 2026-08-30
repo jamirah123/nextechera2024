@@ -46,7 +46,7 @@ class GuardService
                 $data['last_name'] ?? null,
             );
             $data['employment_status'] = $data['employment_status'] ?? EmploymentStatus::Active->value;
-            $data['operational_status'] = $data['operational_status'] ?? OperationalStatus::AwaitingDeployment->value;
+            $data['operational_status'] = $data['operational_status'] ?? OperationalStatus::Training->value;
             $data['date_employed'] = $data['date_employed'] ?? now()->toDateString();
 
             $guard = Guard::query()->create($data);

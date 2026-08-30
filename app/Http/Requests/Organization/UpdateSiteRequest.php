@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization;
 
+use App\Http\Requests\Organization\Concerns\SyncsSiteManpowerInputs;
 use App\Enums\SiteStatus;
 use App\Models\Supervisor;
 use Illuminate\Foundation\Http\FormRequest;
@@ -10,6 +11,8 @@ use Illuminate\Validation\Validator;
 
 class UpdateSiteRequest extends FormRequest
 {
+    use SyncsSiteManpowerInputs;
+
     public function authorize(): bool
     {
         return $this->user()?->can('update', $this->route('site')) ?? false;
@@ -45,17 +48,6 @@ class UpdateSiteRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            $day = (int) $this->input('required_day_guards', 0);
-            $night = (int) $this->input('required_night_guards', 0);
-            $total = (int) $this->input('required_guards', 0);
-
-            if ($day + $night > 0 && $total > 0 && ($day + $night) !== $total) {
-                $validator->errors()->add(
-                    'required_guards',
-                    'Total required guards should equal day + night requirements when both shifts are configured.'
-                );
-            }
-
             if ($this->filled('supervisor_id') && $this->filled('region_id')) {
                 $supervisor = Supervisor::query()->find($this->input('supervisor_id'));
                 if ($supervisor && (int) $supervisor->region_id !== (int) $this->input('region_id')) {
@@ -73,5 +65,7 @@ class UpdateSiteRequest extends FormRequest
         if ($this->has('code')) {
             $this->merge(['code' => strtoupper(trim((string) $this->input('code')))]);
         }
+
+        $this->syncSiteManpowerInputs();
     }
 }

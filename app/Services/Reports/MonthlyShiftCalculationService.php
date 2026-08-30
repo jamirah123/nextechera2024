@@ -42,7 +42,7 @@ class MonthlyShiftCalculationService
     public function calculate(array $filters): Collection
     {
         $guards = $this->guardQuery($filters)
-            ->with(['region:id,name', 'currentSite:id,name'])
+            ->with(['region:id,name', 'currentSite:id,name', 'supervisorProfile:id,guard_id,supervisor_code'])
             ->get(['id', 'employment_id', 'full_name', 'region_id', 'current_site_id']);
 
         return $this->mapRows($filters, $guards);
@@ -57,11 +57,13 @@ class MonthlyShiftCalculationService
      * }  $filters
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
+    public function paginate(array $filters, ?int $perPage = null): LengthAwarePaginator
     {
+        $perPage ??= table_per_page();
+
         /** @var LengthAwarePaginator<int, Guard> $paginator */
         $paginator = $this->guardQuery($filters)
-            ->with(['region:id,name', 'currentSite:id,name'])
+            ->with(['region:id,name', 'currentSite:id,name', 'supervisorProfile:id,guard_id,supervisor_code'])
             ->paginate($perPage)
             ->withQueryString();
 
@@ -131,7 +133,8 @@ class MonthlyShiftCalculationService
         return [
             '#',
             'Employment ID',
-            'Guard Name',
+            'Name',
+            'Role',
             'Region',
             'Site',
             'Normal Shifts',
@@ -155,6 +158,7 @@ class MonthlyShiftCalculationService
             $index + 1,
             $row['employment_id'],
             $row['full_name'],
+            $row['role'],
             $row['region'] ?? '',
             $row['site'] ?? '',
             $row['normal_shifts'],
@@ -227,6 +231,8 @@ class MonthlyShiftCalculationService
                 'guard_id' => $guard->id,
                 'employment_id' => $guard->employment_id,
                 'full_name' => $guard->full_name,
+                'role' => $guard->supervisorProfile ? 'Supervisor' : 'Guard',
+                'is_supervisor' => $guard->supervisorProfile !== null,
                 'region' => $guard->region?->name,
                 'site' => $guard->currentSite?->name,
                 'normal_shifts' => $normal,

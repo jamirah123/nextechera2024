@@ -47,6 +47,7 @@ class DeploymentManagementTest extends TestCase
 
         $guard->refresh();
         $this->assertSame($site->id, $guard->current_site_id);
+        $this->assertSame(OperationalStatus::OnDuty, $guard->operational_status);
     }
 
     public function test_transfer_preserves_previous_deployment_history(): void

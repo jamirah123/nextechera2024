@@ -6,9 +6,13 @@ use App\Enums\EmploymentStatus;
 use App\Enums\OperationalStatus;
 use App\Enums\UserRole;
 use App\Models\Guard;
+use App\Models\GuardAttachment;
 use App\Models\Region;
+use App\Models\Site;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class GuardManagementTest extends TestCase
@@ -38,6 +42,171 @@ class GuardManagementTest extends TestCase
         $this->assertSame('PSG0001', $guard->employment_id);
         $this->assertSame('John Kamau Mwangi', $guard->full_name);
         $this->assertDatabaseCount('guard_status_histories', 2);
+    }
+
+    public function test_new_guard_defaults_to_training_operational_status(): void
+    {
+        $hr = User::factory()->role(UserRole::HrManager)->create();
+        $region = Region::factory()->create();
+
+        $this->actingAs($hr)
+            ->post(route('guards.store'), [
+                'first_name' => 'Trainee',
+                'last_name' => 'Guard',
+                'region_id' => $region->id,
+                'employment_status' => EmploymentStatus::Active->value,
+                'operational_status' => OperationalStatus::Training->value,
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(OperationalStatus::Training, Guard::query()->first()->operational_status);
+    }
+
+    public function test_training_guard_is_hidden_from_deployment_board(): void
+    {
+        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+        $site = Site::factory()->create();
+        $training = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::Training,
+            'region_id' => $site->region_id,
+            'full_name' => 'Training Wing Guard',
+        ]);
+        $ready = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $site->region_id,
+            'full_name' => 'Ready Guard',
+        ]);
+
+        $this->actingAs($ops)
+            ->get(route('deployments.board'))
+            ->assertOk()
+            ->assertSee('Ready Guard', false)
+            ->assertDontSee('Training Wing Guard', false);
+    }
+
+    public function test_training_guard_cannot_be_deployed_until_hr_clears_them(): void
+    {
+        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+        $site = Site::factory()->create();
+        $guard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::Training,
+            'region_id' => $site->region_id,
+        ]);
+
+        $this->actingAs($ops)
+            ->post(route('deployments.store'), [
+                'guard_id' => $guard->id,
+                'site_id' => $site->id,
+                'shift_type' => 'day',
+                'start_date' => now()->toDateString(),
+            ])
+            ->assertSessionHasErrors('deployment');
+
+        $this->assertDatabaseCount('deployments', 0);
+    }
+
+    public function test_hr_manager_can_upload_attachments_when_registering_guard(): void
+    {
+        Storage::fake('local');
+
+        $hr = User::factory()->role(UserRole::HrManager)->create();
+        $region = Region::factory()->create();
+        $idCopy = UploadedFile::fake()->create('national-id.pdf', 120, 'application/pdf');
+        $contract = UploadedFile::fake()->create('contract.pdf', 80, 'application/pdf');
+
+        $response = $this->actingAs($hr)
+            ->post(route('guards.store'), [
+                'first_name' => 'Jane',
+                'last_name' => 'Wanjiku',
+                'region_id' => $region->id,
+                'employment_status' => EmploymentStatus::Active->value,
+                'operational_status' => OperationalStatus::AwaitingDeployment->value,
+                'attachments' => [$idCopy, $contract],
+            ]);
+
+        $guard = Guard::query()->first();
+        $response->assertRedirect(route('guards.show', $guard));
+
+        $this->assertDatabaseCount('guard_attachments', 2);
+        $this->assertSame(2, $guard->attachments()->count());
+
+        foreach ($guard->attachments as $attachment) {
+            Storage::disk('local')->assertExists($attachment->path);
+        }
+
+        $this->actingAs($hr)
+            ->get(route('guards.show', $guard))
+            ->assertOk()
+            ->assertSee('national-id.pdf')
+            ->assertSee('contract.pdf')
+            ->assertSee('View', false);
+
+        $attachment = $guard->attachments()->where('original_name', 'national-id.pdf')->firstOrFail();
+
+        $this->actingAs($hr)
+            ->get(route('guards.attachments.show', [$guard, $attachment]))
+            ->assertOk()
+            ->assertSee('Document viewer', false)
+            ->assertSee('national-id.pdf', false);
+
+        $this->actingAs($hr)
+            ->get(route('guards.attachments.stream', [$guard, $attachment]))
+            ->assertOk()
+            ->assertHeader('content-disposition');
+
+        $this->actingAs($hr)
+            ->get(route('guards.attachments.download', [$guard, $attachment]))
+            ->assertOk();
+
+        $this->actingAs($hr)
+            ->from(route('guards.attachments.show', [$guard, $attachment]))
+            ->delete(route('guards.attachments.destroy', [$guard, $attachment]))
+            ->assertRedirect(route('guards.show', $guard));
+
+        $this->assertDatabaseMissing('guard_attachments', ['id' => $attachment->id]);
+    }
+
+    public function test_finance_manager_can_download_but_not_delete_guard_attachments(): void
+    {
+        Storage::fake('local');
+
+        $hr = User::factory()->role(UserRole::HrManager)->create();
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $region = Region::factory()->create();
+
+        $this->actingAs($hr)
+            ->post(route('guards.store'), [
+                'first_name' => 'Peter',
+                'last_name' => 'Ochieng',
+                'region_id' => $region->id,
+                'employment_status' => EmploymentStatus::Active->value,
+                'operational_status' => OperationalStatus::AwaitingDeployment->value,
+                'attachments' => [UploadedFile::fake()->create('certificate.pdf', 50, 'application/pdf')],
+            ]);
+
+        $guard = Guard::query()->first();
+        $attachment = GuardAttachment::query()->first();
+
+        $this->actingAs($finance)
+            ->get(route('guards.attachments.show', [$guard, $attachment]))
+            ->assertOk();
+
+        $this->actingAs($finance)
+            ->get(route('guards.attachments.stream', [$guard, $attachment]))
+            ->assertOk();
+
+        $this->actingAs($finance)
+            ->get(route('guards.attachments.download', [$guard, $attachment]))
+            ->assertOk();
+
+        $this->actingAs($finance)
+            ->delete(route('guards.attachments.destroy', [$guard, $attachment]))
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('guard_attachments', 1);
     }
 
     public function test_operations_manager_cannot_create_guards(): void

@@ -4,21 +4,21 @@
     'back' => null,
 ])
 
-<div class="mb-5 flex flex-col gap-4 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
+<div class="mb-2 flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
     <div class="min-w-0">
         @if ($back)
-            <a href="{{ $back }}" class="no-print mb-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800">
-                <x-icon name="chevron" class="h-3.5 w-3.5 rotate-180" />
+            <a href="{{ $back }}" class="no-print mb-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 hover:text-brand-800">
+                <x-icon name="chevron" class="h-3 w-3 rotate-180" />
                 Back
             </a>
         @endif
-        <h1 class="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">{{ $title }}</h1>
+        <h1 class="text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100">{{ $title }}</h1>
         @if ($subtitle)
-            <p class="mt-1 text-sm text-slate-500">{{ $subtitle }}</p>
+            <p class="mt-0.5 text-[11px] leading-snug text-slate-500">{{ $subtitle }}</p>
         @endif
     </div>
     @isset($actions)
-        <div class="no-print flex flex-wrap items-center gap-2 sm:justify-end">
+        <div class="no-print flex flex-wrap items-center gap-1.5 sm:justify-end">
             {{ $actions }}
         </div>
     @endisset

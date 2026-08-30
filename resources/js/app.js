@@ -1,7 +1,10 @@
 import Alpine from 'alpinejs';
 import './searchable-selects';
+import { initAppearance } from './theme';
 
 window.Alpine = Alpine;
+
+initAppearance();
 
 Alpine.data('idleSession', (config = {}) => ({
     idleMinutes: Math.max(1, Number(config.idleMinutes || 30)),

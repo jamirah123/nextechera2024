@@ -14,7 +14,7 @@
     $nightEnd = config('psg.shift_defaults.night.end', '06:00');
 @endphp
 <div
-    class="space-y-5"
+    class="space-y-3"
     x-data="{
         selectAll: false,
         defaults: {
@@ -36,12 +36,12 @@
 >
     <x-page-header
         title="Shift allocation board"
-        :subtitle="'Give Day or Night shifts to deployed guards for '. \Illuminate\Support\Carbon::parse($date)->format('d M Y')"
+        :subtitle="'Deployed guards still needing a shift for '. \Illuminate\Support\Carbon::parse($date)->format('d M Y')"
         :back="route('shifts.index', ['date' => $date])"
     >
         <x-slot:actions>
-            <a href="{{ route('shifts.index', ['date' => $date]) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Today's list</a>
-            <a href="{{ route('shifts.create', ['date' => $date]) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Single form</a>
+            <a href="{{ route('shifts.index', ['date' => $date]) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Today's list</a>
+            <a href="{{ route('shifts.create', ['date' => $date]) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Single form</a>
         </x-slot:actions>
     </x-page-header>
 
@@ -50,11 +50,11 @@
         <ol class="mt-3 grid gap-3 text-sm leading-relaxed text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
             <li class="rounded-xl border border-slate-100 bg-white/80 p-3">
                 <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-brand-700">1. Pick the date</span>
-                Choose the duty date above the table. Only <strong class="font-semibold text-slate-800">already deployed</strong> guards appear here.
+                Choose the duty date above the table. Only <strong class="font-semibold text-slate-800">deployed guards without a shift</strong> for that date appear here (completed shifts are excluded).
             </li>
             <li class="rounded-xl border border-slate-100 bg-white/80 p-3">
                 <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-brand-700">2. Narrow the list</span>
-                Filter by region or site, or tick <strong class="font-semibold text-slate-800">Unscheduled only</strong> to hide people who already have a shift that day.
+                Filter by region or site. Use <strong class="font-semibold text-slate-800">Show all deployed</strong> if you need to review guards who already have a shift that day.
             </li>
             <li class="rounded-xl border border-slate-100 bg-white/80 p-3">
                 <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-brand-700">3. Set Day / Night</span>
@@ -71,19 +71,23 @@
         </p>
     </section>
 
-    <section class="grid grid-cols-2 gap-2 sm:gap-3">
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Active deployments</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($stats['deployed']) }}</p>
+            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats['deployed']) }}</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+            <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-700 sm:text-[11px]">Need allocation</p>
+            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats['needs_allocation']) }}</p>
         </div>
         <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
             <p class="text-[10px] font-semibold uppercase tracking-wide text-brand-700 sm:text-[11px]">Shifts on this date</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">{{ number_format($stats['scheduled_today']) }}</p>
+            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats['scheduled_today']) }}</p>
         </div>
     </section>
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <form method="GET" action="{{ route('shifts.allocate') }}" x-data x-ref="filterForm" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6 xl:items-end">
+    <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <form method="GET" action="{{ route('shifts.allocate') }}" x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-6 xl:items-end">
             <x-form-field label="Duty date" name="date" type="date" :value="$filters['date'] ?? $date" x-on:change="$refs.filterForm.requestSubmit()" />
             <x-form-field label="Search guard" name="q" type="search" :value="$filters['q'] ?? ''" placeholder="Name or ID" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" />
             <x-form-field label="Region" name="region_id" type="select" x-on:change="$refs.filterForm.requestSubmit()">
@@ -98,9 +102,9 @@
                     <option value="{{ $site->id }}" @selected((string) ($filters['site_id'] ?? '') === (string) $site->id)>{{ $site->name }}</option>
                 @endforeach
             </x-form-field>
-            <label class="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-700">
-                <input type="checkbox" name="unscheduled_only" value="1" @checked(! empty($filters['unscheduled_only'])) x-on:change="$refs.filterForm.requestSubmit()" class="rounded border-slate-300 text-brand-700 focus:ring-brand-500/30">
-                <span>Unscheduled only</span>
+            <label class="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700">
+                <input type="checkbox" name="show_all" value="1" @checked($showAll ?? false) x-on:change="$refs.filterForm.requestSubmit()" class="rounded border-slate-300 text-brand-700 focus:ring-brand-500/30">
+                <span>Show all deployed</span>
             </label>
             <a href="{{ route('shifts.allocate', ['date' => $date]) }}" class="rounded-xl border border-slate-200 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">Reset filters</a>
         </form>
@@ -118,16 +122,22 @@
     @endif
 
     @if ($deployments->isEmpty())
-        <x-empty-state title="No deployed guards match" description="Deploy guards first (Deploy Board), or clear filters. Only active deployments appear here." icon="calendar" />
+        <x-empty-state
+            title="{{ ($showAll ?? false) ? 'No deployed guards match' : 'All deployed guards are scheduled' }}"
+            :description="($showAll ?? false)
+                ? 'Deploy guards first (Deploy Board), or clear filters. Only active deployments appear here.'
+                : 'Every deployed guard already has a scheduled, in-progress, or completed shift for this date. Toggle Show all deployed to review them.'"
+            icon="calendar"
+        />
     @else
         <form method="POST" action="{{ route('shifts.allocate.store') }}" class="space-y-4">
             @csrf
             <input type="hidden" name="shift_date" value="{{ $date }}">
 
             <div class="sticky top-0 z-10 rounded-2xl border border-brand-200 bg-white/95 p-4 shadow-md backdrop-blur sm:p-5">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
                     <div class="grid flex-1 gap-3 sm:grid-cols-2">
-                        <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Default period
                             <x-board-select x-model="defaults.period" class="mt-1.5">
                                 @foreach ($periods as $period)
@@ -135,7 +145,7 @@
                                 @endforeach
                             </x-board-select>
                         </label>
-                        <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             Default duty type
                             <x-board-select x-model="defaults.shift_type" class="mt-1.5">
                                 @foreach ($shiftTypes as $type)
@@ -145,13 +155,13 @@
                         </label>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <button type="button" @click="applyDefaults()" class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Apply to this page</button>
-                        <button type="submit" class="rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">Allocate selected</button>
+                        <button type="button" @click="applyDefaults()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Apply to this page</button>
+                        <button type="submit" class="rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">Allocate selected</button>
                     </div>
                 </div>
             </div>
 
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-slate-100 text-sm">
                         <thead class="bg-slate-50/90 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">

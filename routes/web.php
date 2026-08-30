@@ -67,9 +67,15 @@ Route::middleware('auth')->group(function () {
 
     Route::resource('regions', RegionController::class);
     Route::resource('supervisors', SupervisorController::class);
+    Route::get('/supervisors/{supervisor}/deploy', [SupervisorController::class, 'deployForm'])->name('supervisors.deploy');
+    Route::post('/supervisors/{supervisor}/deploy', [SupervisorController::class, 'deploy'])->name('supervisors.deploy.store');
     Route::resource('clients', ClientController::class);
     Route::resource('sites', SiteController::class);
     Route::resource('guards', GuardController::class);
+    Route::get('/guards/{guard}/attachments/{attachment}', [GuardController::class, 'showAttachment'])->name('guards.attachments.show');
+    Route::get('/guards/{guard}/attachments/{attachment}/stream', [GuardController::class, 'streamAttachment'])->name('guards.attachments.stream');
+    Route::get('/guards/{guard}/attachments/{attachment}/download', [GuardController::class, 'downloadAttachment'])->name('guards.attachments.download');
+    Route::delete('/guards/{guard}/attachments/{attachment}', [GuardController::class, 'destroyAttachment'])->name('guards.attachments.destroy');
 
     Route::get('/deployments', [DeploymentController::class, 'index'])->name('deployments.index');
     Route::get('/deployments/board', [DeploymentController::class, 'board'])->name('deployments.board');
@@ -85,7 +91,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/shifts/calendar', [ShiftController::class, 'calendar'])->name('shifts.calendar');
     Route::get('/shifts/allocate', [ShiftController::class, 'allocate'])->name('shifts.allocate');
     Route::post('/shifts/allocate', [ShiftController::class, 'allocateStore'])->name('shifts.allocate.store');
-    Route::post('/shifts/bulk-complete', [ShiftController::class, 'bulkComplete'])->name('shifts.bulk-complete');
     Route::get('/shifts/create', [ShiftController::class, 'create'])->name('shifts.create');
     Route::post('/shifts', [ShiftController::class, 'store'])->name('shifts.store');
     Route::get('/shifts/recurring/create', [ShiftController::class, 'recurringCreate'])->name('shifts.recurring.create');
@@ -181,10 +186,19 @@ Route::middleware('auth')->group(function () {
     Route::put('/users/{user}/password', [UserController::class, 'updatePassword'])->name('users.password');
     Route::post('/users/{user}/toggle-active', [UserController::class, 'toggleActive'])->name('users.toggle-active');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    Route::get('/users/{user}/attachments/{attachment}', [UserController::class, 'showAttachment'])->name('users.attachments.show');
+    Route::get('/users/{user}/attachments/{attachment}/stream', [UserController::class, 'streamAttachment'])->name('users.attachments.stream');
+    Route::get('/users/{user}/attachments/{attachment}/download', [UserController::class, 'downloadAttachment'])->name('users.attachments.download');
+    Route::delete('/users/{user}/attachments/{attachment}', [UserController::class, 'destroyAttachment'])->name('users.attachments.destroy');
     Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+    Route::put('/roles/permissions', [RoleController::class, 'update'])->name('roles.permissions.update');
+    Route::post('/roles/permissions/clone', [RoleController::class, 'clone'])->name('roles.permissions.clone');
+    Route::post('/roles/permissions/reset', [RoleController::class, 'reset'])->name('roles.permissions.reset');
 
     Route::get('/settings', [SystemSettingController::class, 'index'])->name('settings.index');
     Route::put('/settings', [SystemSettingController::class, 'update'])->name('settings.update');
+    Route::delete('/settings/logo', [SystemSettingController::class, 'removeLogo'])->name('settings.logo.remove');
+    Route::delete('/settings/favicon', [SystemSettingController::class, 'removeFavicon'])->name('settings.favicon.remove');
     Route::post('/settings/backup', [SystemSettingController::class, 'backup'])->name('settings.backup');
     Route::post('/settings/production-check', [SystemSettingController::class, 'productionCheck'])->name('settings.production-check');
 
@@ -192,6 +206,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+    Route::post('/profile/documents', [ProfileController::class, 'storeDocuments'])->name('profile.attachments.store');
+    Route::get('/profile/documents/{attachment}', [ProfileController::class, 'showAttachment'])->name('profile.attachments.show');
+    Route::get('/profile/documents/{attachment}/stream', [ProfileController::class, 'streamAttachment'])->name('profile.attachments.stream');
+    Route::get('/profile/documents/{attachment}/download', [ProfileController::class, 'downloadAttachment'])->name('profile.attachments.download');
+    Route::delete('/profile/documents/{attachment}', [ProfileController::class, 'destroyAttachment'])->name('profile.attachments.destroy');
 
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });

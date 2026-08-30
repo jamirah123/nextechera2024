@@ -4,19 +4,19 @@
 @section('page-title', 'Invoice')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header :title="$invoice->reference" :subtitle="$invoice->client?->name" :back="route('invoices.index')">
         <x-slot:actions>
             <x-report-actions :csv="route('invoices.export-document', $invoice)" />
             @if ($canManage && $invoice->isEditable())
-                <a href="{{ route('invoices.edit', $invoice) }}" class="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Edit draft</a>
-                <form method="POST" action="{{ route('invoices.issue', $invoice) }}">@csrf<button class="inline-flex rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Issue invoice</button></form>
+                <a href="{{ route('invoices.edit', $invoice) }}" class="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Edit draft</a>
+                <form method="POST" action="{{ route('invoices.issue', $invoice) }}">@csrf<button class="inline-flex rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Issue invoice</button></form>
             @endif
             @if ($canManage && $invoice->status->isOpen())
-                <a href="{{ route('payments.create', ['invoice_id' => $invoice->id]) }}" class="inline-flex rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">Record payment</a>
+                <a href="{{ route('payments.create', ['invoice_id' => $invoice->id]) }}" class="btn btn-primary">Record payment</a>
             @endif
             @if ($canManage && $invoice->status->value !== 'paid' && (float) $invoice->amount_paid == 0)
-                <form method="POST" action="{{ route('invoices.cancel', $invoice) }}" onsubmit="return confirm('Cancel this invoice?')">@csrf<button class="inline-flex rounded-xl bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-800">Cancel</button></form>
+                <form method="POST" action="{{ route('invoices.cancel', $invoice) }}" onsubmit="return confirm('Cancel this invoice?')">@csrf<button class="inline-flex rounded-lg bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-800">Cancel</button></form>
             @endif
         </x-slot:actions>
     </x-page-header>
@@ -25,7 +25,7 @@
         <p class="no-print rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ $message }}</p>
     @enderror
 
-    <div class="report-print-area space-y-6">
+    <div class="report-print-area space-y-3">
         <x-finance.document
             :title="'Tax Invoice'"
             :reference="$invoice->reference"
@@ -61,7 +61,7 @@
 
             <div class="overflow-hidden rounded-xl border border-slate-200">
                 <table class="min-w-full divide-y divide-slate-100 text-sm">
-                    <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
                             <th class="px-4 py-3 text-left">#</th>
                             <th class="px-4 py-3 text-left">Description</th>
@@ -112,27 +112,27 @@
         </x-finance.document>
 
         @if ($invoice->payments->isNotEmpty())
-            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+            <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                <div class="border-b border-slate-100 px-3 py-2.5">
                     <h2 class="text-base font-semibold text-slate-900">Payment history</h2>
                     <p class="mt-0.5 text-sm text-slate-500">All collections applied to this invoice.</p>
                 </div>
                 <table class="min-w-full divide-y divide-slate-100 text-sm">
-                    <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th class="px-5 py-3 text-left">Reference</th>
-                            <th class="px-5 py-3 text-left">Date</th>
-                            <th class="px-5 py-3 text-left">Method</th>
-                            <th class="px-5 py-3 text-right">Amount</th>
+                            <th class="px-3 py-2 text-left">Reference</th>
+                            <th class="px-3 py-2 text-left">Date</th>
+                            <th class="px-3 py-2 text-left">Method</th>
+                            <th class="px-3 py-2 text-right">Amount</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($invoice->payments as $payment)
                             <tr>
-                                <td class="px-5 py-3.5"><a href="{{ route('payments.show', $payment) }}" class="font-semibold text-brand-700 hover:text-brand-800">{{ $payment->reference }}</a></td>
-                                <td class="px-5 py-3.5">{{ $payment->payment_date->format('d M Y') }}</td>
-                                <td class="px-5 py-3.5"><x-status-badge :tone="$payment->method->tone()" :label="$payment->method->label()" /></td>
-                                <td class="px-5 py-3.5 text-right font-semibold">{{ \App\Support\Money::format($payment->amount, $invoice->currency) }}</td>
+                                <td class="px-3 py-2"><a href="{{ route('payments.show', $payment) }}" class="font-semibold text-brand-700 hover:text-brand-800">{{ $payment->reference }}</a></td>
+                                <td class="px-3 py-2">{{ $payment->payment_date->format('d M Y') }}</td>
+                                <td class="px-3 py-2"><x-status-badge :tone="$payment->method->tone()" :label="$payment->method->label()" /></td>
+                                <td class="px-3 py-2 text-right font-semibold">{{ \App\Support\Money::format($payment->amount, $invoice->currency) }}</td>
                             </tr>
                         @endforeach
                     </tbody>

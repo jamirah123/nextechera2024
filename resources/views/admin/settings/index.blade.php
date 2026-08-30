@@ -1,139 +1,232 @@
 @extends('layouts.app')
 
-@section('title', 'System Settings')
-@section('page-title', 'System Settings')
-@section('page-subtitle', 'Company profile, finance defaults and maintenance')
+@section('title', 'Platform Settings')
+@section('page-title', 'Platform Settings')
+@section('page-subtitle', 'White-label branding, finance defaults and maintenance')
 
 @section('content')
-<div class="mx-auto max-w-4xl space-y-6">
-    <x-page-header title="System settings" subtitle="Configure company profile, billing defaults, shift templates and database backups.">
-        <x-slot:actions>
-            <a href="{{ route('roles.index') }}" class="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Roles matrix</a>
-        </x-slot:actions>
-    </x-page-header>
-
-    @if ($settings->updater)
-        <p class="text-sm text-slate-500">Last updated by {{ $settings->updater->name }} · {{ $settings->updated_at->timezone(config('app.timezone'))->format('d M Y H:i T') }}</p>
+<div class="form-page">
+    @if (session('status'))
+        <p class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{{ session('status') }}</p>
     @endif
 
-    <form method="POST" action="{{ route('settings.update') }}" class="space-y-6">
+    @if ($settings->updater)
+        <p class="mb-3 text-xs text-slate-500">Last updated by {{ $settings->updater->name }} · {{ $settings->updated_at->timezone(config('app.timezone'))->format('d M Y H:i T') }}</p>
+    @endif
+
+    <form method="POST" action="{{ route('settings.update') }}" enctype="multipart/form-data">
         @csrf
         @method('PUT')
 
-        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-            <h2 class="text-base font-semibold text-slate-900">Company profile</h2>
-            <p class="mt-1 text-sm text-slate-500">Shown on invoices, finance documents and across the application shell.</p>
-            <div class="mt-5 grid gap-5 sm:grid-cols-2">
+        <x-form-panel title="Platform settings" subtitle="Configure company branding, billing defaults, shift templates and database backups for each deployment.">
+            <x-slot:actions>
+                <a href="{{ route('roles.index') }}" class="btn btn-secondary">Roles matrix</a>
+            </x-slot:actions>
+
+            <x-form-group title="Company branding" description="Logo, name and tagline appear on sign-in, the sidebar, invoices and printed reports.">
+                <div class="sm:col-span-2 flex flex-wrap items-start gap-3">
+                    <x-company-logo size="xl" rounded="xl" />
+                    <div class="min-w-0 flex-1">
+                        <label for="logo" class="block text-xs font-semibold text-slate-700">Company logo</label>
+                        <input
+                            id="logo"
+                            name="logo"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            class="mt-1 block w-full max-w-md text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-brand-800"
+                        >
+                        @error('logo')
+                            <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p>
+                        @enderror
+                        <p class="mt-0.5 text-[10px] text-slate-500">JPEG, PNG or WebP · max 2 MB. Leave empty to keep the current logo.</p>
+                    </div>
+                </div>
                 <x-form-field label="Company name" name="company_name" :value="old('company_name', $settings->company_name)" :required="true" class="sm:col-span-2" />
+                <x-form-field label="Tagline" name="tagline" :value="old('tagline', $settings->tagline)" help="Shown on sign-in, emails and marketing surfaces." class="sm:col-span-2" />
+                <x-form-field label="System subtitle" name="system_subtitle" :value="old('system_subtitle', $settings->system_subtitle)" help="Short line under the company name in the sidebar." />
+                <x-form-field label="Sidebar badge" name="company_short_name" :value="old('company_short_name', $settings->company_short_name)" help="Optional initials when no logo is shown (max 12)." maxlength="12" />
+            </x-form-group>
+
+            <x-form-group title="Theme colors" description="Primary buttons, links and accents. Sidebar controls the navigation shell.">
+                <x-form-field
+                    label="Primary color"
+                    name="theme_primary"
+                    type="color"
+                    :value="old('theme_primary', $settings->resolvedThemePrimary())"
+                    help="Used for buttons, links and highlights."
+                />
+                <x-form-field
+                    label="Sidebar color"
+                    name="theme_sidebar"
+                    type="color"
+                    :value="old('theme_sidebar', $settings->resolvedThemeSidebar())"
+                    help="Navigation background and browser theme color."
+                />
+                <div class="sm:col-span-2 flex flex-wrap items-center gap-2">
+                    <span class="inline-flex rounded-md px-2 py-1 text-[10px] font-semibold text-white" style="background-color: {{ old('theme_primary', $settings->resolvedThemePrimary()) }}">Primary preview</span>
+                    <span class="inline-flex rounded-md px-2 py-1 text-[10px] font-semibold text-white" style="background-color: {{ old('theme_sidebar', $settings->resolvedThemeSidebar()) }}">Sidebar preview</span>
+                </div>
+            </x-form-group>
+
+            <x-form-group title="Favicon" description="Browser tab icon. Falls back to the company logo when not set.">
+                <div class="sm:col-span-2 flex flex-wrap items-center gap-3">
+                    <img src="{{ $settings->resolvedFaviconUrl() }}" alt="Favicon preview" class="h-8 w-8 rounded-md bg-white object-contain p-0.5 shadow-sm ring-1 ring-slate-200">
+                    <div class="min-w-0 flex-1">
+                        <label for="favicon" class="block text-xs font-semibold text-slate-700">Upload favicon</label>
+                        <input
+                            id="favicon"
+                            name="favicon"
+                            type="file"
+                            accept="image/png,image/x-icon,image/vnd.microsoft.icon,.ico"
+                            class="mt-1 block w-full max-w-md text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-brand-800"
+                        >
+                        @error('favicon')
+                            <p class="mt-0.5 text-xs text-rose-600">{{ $message }}</p>
+                        @enderror
+                        <p class="mt-0.5 text-[10px] text-slate-500">PNG or ICO · max 512 KB · square works best (32×32 or 64×64).</p>
+                    </div>
+                </div>
+            </x-form-group>
+
+            <x-form-group title="Email branding" description="Password reset and system emails use your logo, company name and this footer line.">
+                <x-form-field
+                    label="Email footer line"
+                    name="email_footer_text"
+                    type="textarea"
+                    :value="old('email_footer_text', $settings->email_footer_text)"
+                    help="Optional. Shown below the copyright line in outgoing emails."
+                    class="sm:col-span-2"
+                />
+            </x-form-group>
+
+            <x-form-group title="Contact details" description="Support contacts shown on invoices, finance documents and help surfaces.">
                 <x-form-field label="Support email" name="support_email" type="email" :value="old('support_email', $settings->support_email)" />
                 <x-form-field label="Support phone" name="support_phone" :value="old('support_phone', $settings->support_phone)" />
-            </div>
-        </section>
+            </x-form-group>
 
-        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-            <h2 class="text-base font-semibold text-slate-900">Finance defaults</h2>
-            <p class="mt-1 text-sm text-slate-500">Currency used for billing, invoices and profitability reports.</p>
-            <div class="mt-5 grid gap-5 sm:grid-cols-2">
+            <x-form-group title="Finance defaults" description="Currency used for billing, invoices and profitability reports.">
                 <x-form-field label="Currency code" name="currency" :value="old('currency', $settings->currency)" :required="true" />
                 <x-form-field label="Currency label" name="currency_label" :value="old('currency_label', $settings->currency_label)" :required="true" />
                 <x-form-field label="Decimal places" name="currency_decimals" type="number" :value="old('currency_decimals', $settings->currency_decimals)" :required="true" min="0" max="4" />
                 <x-form-field label="Invoice due days" name="invoice_due_days" type="number" :value="old('invoice_due_days', $settings->invoice_due_days)" :required="true" min="1" max="120" />
-            </div>
-        </section>
+            </x-form-group>
 
-        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-            <h2 class="text-base font-semibold text-slate-900">Shift time defaults</h2>
-            <p class="mt-1 text-sm text-slate-500">Pre-fill day and night shift windows when creating new shifts.</p>
-            <div class="mt-5 grid gap-5 sm:grid-cols-2">
+            <x-form-group title="Shift time defaults" description="Pre-fill day and night shift windows when creating new shifts.">
                 <x-form-field label="Day shift start" name="default_day_shift_start" type="time" :value="old('default_day_shift_start', $settings->default_day_shift_start)" :required="true" />
                 <x-form-field label="Day shift end" name="default_day_shift_end" type="time" :value="old('default_day_shift_end', $settings->default_day_shift_end)" :required="true" />
                 <x-form-field label="Night shift start" name="default_night_shift_start" type="time" :value="old('default_night_shift_start', $settings->default_night_shift_start)" :required="true" />
                 <x-form-field label="Night shift end" name="default_night_shift_end" type="time" :value="old('default_night_shift_end', $settings->default_night_shift_end)" :required="true" />
-            </div>
-        </section>
+            </x-form-group>
 
-        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-            <h2 class="text-base font-semibold text-slate-900">Backup retention</h2>
-            <p class="mt-1 text-sm text-slate-500">Automated backups run daily at 01:30 (server time). Manual backups are available below.</p>
-            <div class="mt-5 grid gap-5 sm:grid-cols-2">
+            <x-form-group title="Backup retention" description="Automated backups run daily at 01:30 (server time). Manual backups are available below.">
                 <x-form-field label="Keep backups (days/files)" name="backup_keep_days" type="number" :value="old('backup_keep_days', $settings->backup_keep_days)" :required="true" min="1" max="365" />
                 <x-form-field label="Backup folder" name="backup_path" :value="old('backup_path', $settings->backup_path)" :required="true" help="Relative to storage/app" />
-            </div>
-        </section>
+            </x-form-group>
 
-        <div class="flex flex-wrap gap-3">
-            <button type="submit" class="inline-flex rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">Save settings</button>
-        </div>
+            <div class="form-actions">
+                <div class="form-actions__inner">
+                    <button type="submit" class="btn btn-primary">Save platform settings</button>
+                    @if ($settings->logo_path)
+                        <button
+                            type="submit"
+                            form="remove-logo-form"
+                            class="btn btn-secondary text-rose-700"
+                            onclick="return confirm('Remove the uploaded logo and revert to the default?');"
+                        >
+                            Remove uploaded logo
+                        </button>
+                    @endif
+                    @if ($settings->favicon_path)
+                        <button
+                            type="submit"
+                            form="remove-favicon-form"
+                            class="btn btn-secondary text-rose-700"
+                            onclick="return confirm('Remove the uploaded favicon?');"
+                        >
+                            Remove favicon
+                        </button>
+                    @endif
+                </div>
+            </div>
+        </x-form-panel>
     </form>
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        <h2 class="text-base font-semibold text-slate-900">Environment</h2>
-        <dl class="mt-4 grid gap-4 sm:grid-cols-3">
-            <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Environment</dt>
+    @if ($settings->logo_path)
+        <form id="remove-logo-form" method="POST" action="{{ route('settings.logo.remove') }}" class="hidden">
+            @csrf
+            @method('DELETE')
+        </form>
+    @endif
+
+    @if ($settings->favicon_path)
+        <form id="remove-favicon-form" method="POST" action="{{ route('settings.favicon.remove') }}" class="hidden">
+            @csrf
+            @method('DELETE')
+        </form>
+    @endif
+
+    <x-form-panel title="Environment" subtitle="Timezone and database connection are configured in `.env` and require a server restart to change." class="mt-3">
+        <dl class="grid gap-2 sm:grid-cols-3">
+            <div class="form-group">
+                <dt class="form-group__title">Environment</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ strtoupper($environment['app_env']) }}</dd>
             </div>
-            <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Timezone</dt>
+            <div class="form-group">
+                <dt class="form-group__title">Timezone</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $environment['timezone'] }}</dd>
             </div>
-            <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Database</dt>
+            <div class="form-group">
+                <dt class="form-group__title">Database</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $environment['database'] }}</dd>
             </div>
         </dl>
-        <p class="mt-3 text-xs text-slate-500">Timezone and database connection are configured in `.env` and require a server restart to change.</p>
-    </section>
+    </x-form-panel>
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h2 class="text-base font-semibold text-slate-900">Maintenance</h2>
-                <p class="mt-1 text-sm text-slate-500">Run production readiness checks or create an on-demand database backup.</p>
-            </div>
+    <x-form-panel title="Maintenance" subtitle="Run production readiness checks or create an on-demand database backup." class="mt-3">
+        <x-slot:actions>
             <div class="flex flex-wrap gap-2">
                 <form method="POST" action="{{ route('settings.production-check') }}">
                     @csrf
-                    <button type="submit" class="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Production check</button>
+                    <button type="submit" class="btn btn-secondary">Production check</button>
                 </form>
                 <form method="POST" action="{{ route('settings.backup') }}">
                     @csrf
-                    <button type="submit" class="inline-flex rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Backup now</button>
+                    <button type="submit" class="btn btn-primary">Backup now</button>
                 </form>
             </div>
-        </div>
+        </x-slot:actions>
 
         @error('backup')
-            <p class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ $message }}</p>
+            <p class="form-alert form-alert--error">{{ $message }}</p>
         @enderror
         @error('production')
-            <p class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ $message }}</p>
+            <p class="form-alert form-alert--error">{{ $message }}</p>
         @enderror
 
         @if ($backups !== [])
-            <div class="mt-6 overflow-hidden rounded-xl border border-slate-100">
-                <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
-                    <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <div class="overflow-hidden rounded-lg border border-slate-100">
+                <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
+                    <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th class="px-4 py-2.5">Recent backups</th>
-                            <th class="px-4 py-2.5">Size</th>
-                            <th class="px-4 py-2.5">Created</th>
+                            <th class="px-3 py-2">Recent backups</th>
+                            <th class="px-3 py-2">Size</th>
+                            <th class="px-3 py-2">Created</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($backups as $backup)
                             <tr>
-                                <td class="px-4 py-3 font-mono text-xs text-slate-700">{{ $backup['name'] }}</td>
-                                <td class="px-4 py-3 text-slate-600">{{ $backup['size'] }}</td>
-                                <td class="px-4 py-3 text-slate-600">{{ $backup['modified'] }}</td>
+                                <td class="px-3 py-2 font-mono text-xs text-slate-700">{{ $backup['name'] }}</td>
+                                <td class="px-3 py-2 text-slate-600">{{ $backup['size'] }}</td>
+                                <td class="px-3 py-2 text-slate-600">{{ $backup['modified'] }}</td>
                             </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
         @else
-            <p class="mt-4 text-sm text-slate-500">No backup files found yet in <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs">storage/app/{{ $settings->backup_path }}</code>.</p>
+            <p class="text-xs text-slate-500">No backup files found yet in <code class="rounded bg-slate-100 px-1 py-0.5 text-[10px]">storage/app/{{ $settings->backup_path }}</code>.</p>
         @endif
-    </section>
+    </x-form-panel>
 </div>
 @endsection

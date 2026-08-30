@@ -15,6 +15,7 @@ use App\Models\Deployment;
 use App\Models\DeploymentTransfer;
 use App\Models\Guard;
 use App\Models\Site;
+use App\Models\Supervisor;
 use App\Support\Deployments\DeploymentShiftSchedule;
 use App\Support\Shifts\ShiftDutyTypeResolver;
 use Illuminate\Support\Facades\DB;
@@ -22,8 +23,10 @@ use InvalidArgumentException;
 
 class DeploymentService
 {
-    public function __construct(private AuditService $audit)
-    {
+    public function __construct(
+        private AuditService $audit,
+        private GuardService $guards,
+    ) {
     }
 
     /**
@@ -65,7 +68,7 @@ class DeploymentService
                 'notes' => $data['notes'] ?? null,
             ]);
 
-            $this->syncGuardAssignment($guard, $site, OperationalStatus::OffDuty);
+            $this->syncGuardAssignment($guard, $site, OperationalStatus::OnDuty);
 
             $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
             $this->audit->log(
@@ -82,6 +85,89 @@ class DeploymentService
 
             return $fresh;
         });
+    }
+
+    /**
+     * Deploy a supervisor to cover a site using their linked guard payroll profile.
+     * A scheduled shift is created automatically for payroll / monthly reporting.
+     *
+     * @param  array{
+     *     site_id: int,
+     *     shift_type?: string,
+     *     work_shift_type?: string,
+     *     start_date?: string,
+     *     notes?: string|null
+     * }  $data
+     */
+    public function deploySupervisor(Supervisor $supervisor, array $data): Deployment
+    {
+        $guard = app(SupervisorGuardService::class)->ensureGuardProfile($supervisor);
+        $site = Site::query()->findOrFail($data['site_id']);
+
+        $noteParts = array_filter([
+            $data['notes'] ?? null,
+            'Supervisor cover deployment.',
+        ]);
+
+        $deployment = $this->deploy([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'shift_type' => $data['shift_type'] ?? DeploymentShiftType::Day->value,
+            'start_date' => $data['start_date'] ?? now()->toDateString(),
+            'notes' => implode(' ', $noteParts),
+        ]);
+
+        $normalPosting = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? '')) ?? DeploymentShiftType::Day;
+        $workPosting = DeploymentShiftType::tryFrom((string) ($data['work_shift_type'] ?? '')) ?? $normalPosting;
+
+        $this->scheduleCoverShift($guard, $site, $data, $normalPosting, $workPosting);
+
+        return $deployment;
+    }
+
+    /**
+     * Schedule the first cover shift for a deployment (normal or overtime).
+     *
+     * @param  array{start_date?: string, notes?: string|null}  $data
+     */
+    public function scheduleCoverShift(
+        Guard $guard,
+        Site $site,
+        array $data,
+        DeploymentShiftType $normalPosting,
+        DeploymentShiftType $workPosting,
+    ): void {
+        if ($normalPosting === DeploymentShiftType::Rotating && $workPosting === DeploymentShiftType::Rotating) {
+            $normalPosting = DeploymentShiftType::Day;
+            $workPosting = DeploymentShiftType::Day;
+        } elseif ($normalPosting === DeploymentShiftType::Rotating) {
+            $normalPosting = $workPosting;
+        } elseif ($workPosting === DeploymentShiftType::Rotating) {
+            $workPosting = $normalPosting;
+        }
+
+        $workPeriod = ShiftDutyTypeResolver::workPeriodFor($workPosting);
+        $shiftType = ShiftDutyTypeResolver::resolve($normalPosting, $workPeriod);
+        [$start, $end] = $this->shiftTimesFor($workPeriod);
+
+        try {
+            app(ShiftService::class)->create([
+                'guard_id' => $guard->id,
+                'site_id' => $site->id,
+                'shift_date' => $data['start_date'] ?? now()->toDateString(),
+                'start_time' => $start,
+                'end_time' => $end,
+                'period' => $workPeriod->value,
+                'shift_type' => $shiftType->value,
+                'guard_classification' => GuardClassification::Unarmed->value,
+                'acknowledge_warnings' => true,
+                'notes' => $shiftType === ShiftType::Overtime
+                    ? 'Supervisor cover overtime — normal posting is '.$normalPosting->label().'.'
+                    : 'Supervisor cover shift scheduled automatically on deployment.',
+            ]);
+        } catch (InvalidArgumentException) {
+            // Deployment still succeeds if shift validation rejects a duplicate window.
+        }
     }
 
     /**
@@ -140,7 +226,7 @@ class DeploymentService
                 'effective_at' => now(),
             ]);
 
-            $this->syncGuardAssignment($guard, $toSite, $guard->operational_status ?? OperationalStatus::OffDuty);
+            $this->syncGuardAssignment($guard, $toSite, OperationalStatus::OnDuty);
 
             $fresh = $newDeployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
             $this->audit->log(
@@ -174,13 +260,14 @@ class DeploymentService
                 'notes' => $notes ?: $deployment->notes,
             ]);
 
-            $guard = $deployment->assignedGuard()->firstOrFail();
-            $guard->update([
+            $guard = $deployment->assignedGuard()->with('supervisorProfile')->firstOrFail();
+
+            $this->guards->updateGuard($guard, [
                 'current_site_id' => null,
                 'current_supervisor_id' => null,
-                'operational_status' => OperationalStatus::AwaitingDeployment,
+                'operational_status' => $this->postDeploymentStatus($guard)->value,
                 'region_id' => $guard->region_id,
-            ]);
+            ], 'deployment_ended');
 
             $fresh = $deployment->fresh();
             $this->audit->log(
@@ -194,6 +281,79 @@ class DeploymentService
 
             return $fresh;
         });
+    }
+
+    public function releaseGuardAfterDuty(Guard $guard, ?string $endDate = null, ?string $reason = null): void
+    {
+        Deployment::query()
+            ->current()
+            ->where('guard_id', $guard->id)
+            ->each(function (Deployment $deployment) use ($endDate, $reason): void {
+                $this->end(
+                    $deployment,
+                    $endDate ?? now()->toDateString(),
+                    $reason ?? 'Deployment ended after shift duty.',
+                );
+            });
+    }
+
+    /**
+     * Return day/night posted guards to the deployment board once their shift window ends.
+     */
+    public function releaseGuardsAfterShiftWindow(?int $regionId = null): int
+    {
+        $released = 0;
+
+        Deployment::query()
+            ->current()
+            ->with('assignedGuard')
+            ->when($regionId, fn ($query) => $query->where('region_id', $regionId))
+            ->whereIn('shift_type', [
+                DeploymentShiftType::Day->value,
+                DeploymentShiftType::Night->value,
+            ])
+            ->orderBy('id')
+            ->each(function (Deployment $deployment) use (&$released): void {
+                if (DeploymentShiftSchedule::isOnShift($deployment->shift_type)) {
+                    return;
+                }
+
+                $this->end(
+                    $deployment,
+                    now()->toDateString(),
+                    'Deployment released — '.$deployment->shift_type->label().' shift window ended.',
+                );
+                $released++;
+            });
+
+        return $released;
+    }
+
+    /**
+     * Align guard operational status with active deployments (On Duty when posted).
+     */
+    public function syncDeployedGuardStatuses(?int $regionId = null): int
+    {
+        $synced = 0;
+
+        Guard::query()
+            ->activeEmployment()
+            ->when($regionId, fn ($query) => $query->where('region_id', $regionId))
+            ->whereHas('deployments', fn ($query) => $query->current())
+            ->whereIn('operational_status', [
+                OperationalStatus::AwaitingDeployment,
+                OperationalStatus::OffDuty,
+            ])
+            ->orderBy('id')
+            ->each(function (Guard $guard) use (&$synced): void {
+                $this->guards->updateGuard($guard, [
+                    'operational_status' => OperationalStatus::OnDuty->value,
+                ], 'deployment_status_sync');
+
+                $synced++;
+            });
+
+        return $synced;
     }
 
     public function activeCountForSite(Site|int $site): int
@@ -232,8 +392,18 @@ class DeploymentService
             OperationalStatus::OnLeave,
             OperationalStatus::Absent,
             OperationalStatus::SickUnavailable,
+            OperationalStatus::Training,
         ], true)) {
             throw new InvalidArgumentException('This guard is not operationally available for deployment.');
+        }
+
+        $hasCurrentDeployment = Deployment::query()
+            ->current()
+            ->where('guard_id', $guard->id)
+            ->exists();
+
+        if (! $hasCurrentDeployment && $guard->operational_status !== OperationalStatus::AwaitingDeployment) {
+            throw new InvalidArgumentException('Only guards awaiting deployment can be posted. HR must update operational status from Training first.');
         }
     }
 
@@ -292,7 +462,7 @@ class DeploymentService
             'notes' => $data['notes'] ?? $deployment->notes,
         ]);
 
-        $this->syncGuardAssignment($guard, $site, $guard->operational_status ?? OperationalStatus::OffDuty);
+        $this->syncGuardAssignment($guard, $site, OperationalStatus::OnDuty);
 
         $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
         $this->audit->log(
@@ -373,11 +543,18 @@ class DeploymentService
 
     private function syncGuardAssignment(Guard $guard, Site $site, OperationalStatus $operationalStatus): void
     {
-        $guard->update([
+        $this->guards->updateGuard($guard, [
             'current_site_id' => $site->id,
             'current_supervisor_id' => $site->supervisor_id,
             'region_id' => $site->region_id,
-            'operational_status' => $operationalStatus,
-        ]);
+            'operational_status' => $operationalStatus->value,
+        ], 'deployment_assigned');
+    }
+
+    private function postDeploymentStatus(Guard $guard): OperationalStatus
+    {
+        return $guard->supervisorProfile
+            ? OperationalStatus::OffDuty
+            : OperationalStatus::AwaitingDeployment;
     }
 }

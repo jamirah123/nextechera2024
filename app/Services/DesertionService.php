@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\DesertionHrStatus;
 use App\Enums\OperationalStatus;
+use App\Models\Deployment;
 use App\Models\Desertion;
 use App\Models\Guard;
 use Illuminate\Support\Facades\DB;
@@ -11,8 +12,10 @@ use InvalidArgumentException;
 
 class DesertionService
 {
-    public function __construct(private GuardService $guards)
-    {
+    public function __construct(
+        private GuardService $guards,
+        private DeploymentService $deployments,
+    ) {
     }
 
     /**
@@ -44,6 +47,19 @@ class DesertionService
                 'reported_by' => auth()->id(),
             ]);
 
+            Deployment::query()
+                ->current()
+                ->where('guard_id', $guard->id)
+                ->each(function (Deployment $deployment) use ($data): void {
+                    $this->deployments->end(
+                        $deployment,
+                        $data['date_reported'],
+                        'Deployment ended due to reported desertion.',
+                    );
+                });
+
+            $guard->refresh();
+
             $this->guards->updateGuard($guard, [
                 'operational_status' => OperationalStatus::Deserted->value,
             ], 'desertion_reported');
@@ -68,13 +84,15 @@ class DesertionService
                         'operational_status' => OperationalStatus::Deserted->value,
                     ], 'desertion_'.$status->value);
                 }
-            } elseif (in_array($status, [DesertionHrStatus::Returned, DesertionHrStatus::Closed], true)) {
+            } elseif ($status === DesertionHrStatus::Returned) {
+                $this->restoreGuardToDeploymentBoard($guard, 'desertion_returned');
+            } elseif ($status === DesertionHrStatus::Closed) {
                 if ($guard->operational_status === OperationalStatus::Deserted) {
                     $this->guards->updateGuard($guard, [
                         'operational_status' => $guard->current_site_id
                             ? OperationalStatus::OffDuty->value
                             : OperationalStatus::AwaitingDeployment->value,
-                    ], 'desertion_'.$status->value);
+                    ], 'desertion_closed');
                 }
             } else {
                 throw new InvalidArgumentException('Unsupported desertion status transition.');
@@ -82,5 +100,27 @@ class DesertionService
 
             return $desertion->fresh();
         });
+    }
+
+    private function restoreGuardToDeploymentBoard(Guard $guard, string $reason): void
+    {
+        Deployment::query()
+            ->current()
+            ->where('guard_id', $guard->id)
+            ->each(function (Deployment $deployment): void {
+                $this->deployments->end(
+                    $deployment,
+                    now()->toDateString(),
+                    'Deployment ended while restoring deserted guard to the deployment board.',
+                );
+            });
+
+        $guard->refresh();
+
+        $this->guards->updateGuard($guard, [
+            'current_site_id' => null,
+            'current_supervisor_id' => null,
+            'operational_status' => OperationalStatus::AwaitingDeployment->value,
+        ], $reason);
     }
 }

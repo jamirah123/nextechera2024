@@ -6,7 +6,7 @@
     'allLabel' => 'All history',
 ])
 
-<div {{ $attributes->merge(['class' => 'no-print inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1']) }}>
+<div {{ $attributes->merge(['class' => 'no-print inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1']) }}>
     <a
         href="{{ $currentUrl }}"
         @class([

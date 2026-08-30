@@ -38,6 +38,7 @@ class StoreGuardRequest extends FormRequest
             'emergency_contact_phone' => ['nullable', 'string', 'max:30'],
             'notes' => ['nullable', 'string'],
             'reason' => ['nullable', 'string', 'max:191'],
+            ...GuardAttachmentRules::rules(),
         ];
     }
 }

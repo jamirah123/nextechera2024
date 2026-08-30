@@ -4,20 +4,29 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UserAttachmentRules;
 use App\Models\Supervisor;
 use App\Models\User;
+use App\Models\UserAttachment;
 use App\Services\UserAccessService;
+use App\Services\UserAttachmentService;
+use App\Support\Attachments\InlineAttachmentResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 use InvalidArgumentException;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UserController extends Controller
 {
-    public function __construct(private UserAccessService $users)
-    {
+    public function __construct(
+        private UserAccessService $users,
+        private UserAttachmentService $attachments,
+    ) {
     }
 
     public function index(Request $request): View
@@ -35,7 +44,7 @@ class UserController extends Controller
                 }
             })
             ->orderBy('name')
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('admin.users.index', [
@@ -97,9 +106,10 @@ class UserController extends Controller
         $this->authorize('view', $user);
 
         return view('admin.users.show', [
-            'user' => $user->load('supervisorProfile.region'),
+            'user' => $user->load(['supervisorProfile.region', 'attachments.uploader']),
             'canManage' => request()->user()->can('update', $user),
             'canDelete' => request()->user()->can('delete', $user),
+            'canManageDocuments' => request()->user()->can('manageAttachments', $user),
         ]);
     }
 
@@ -108,7 +118,7 @@ class UserController extends Controller
         $this->authorize('update', $user);
 
         return view('admin.users.edit', [
-            'user' => $user->load('supervisorProfile.region'),
+            'user' => $user->load(['supervisorProfile.region', 'attachments.uploader']),
             'roles' => UserRole::cases(),
             'supervisors' => Supervisor::query()->with('region:id,name')->orderBy('name')->get(['id', 'name', 'supervisor_code', 'region_id']),
             'isSelf' => request()->user()->id === $user->id,
@@ -130,6 +140,7 @@ class UserController extends Controller
                 'exists:supervisors,id',
             ],
             'is_active' => ['sometimes', 'boolean'],
+            ...UserAttachmentRules::rules(),
         ]);
 
         $data['is_active'] = $request->boolean('is_active');
@@ -142,6 +153,14 @@ class UserController extends Controller
             $this->users->update($user, $data);
         } catch (InvalidArgumentException $e) {
             return back()->withInput()->withErrors(['user' => $e->getMessage()]);
+        }
+
+        if ($request->hasFile('attachments')) {
+            $this->attachments->storeMany(
+                $user,
+                $request->file('attachments'),
+                $request->input('attachment_labels', []),
+            );
         }
 
         return redirect()
@@ -188,5 +207,53 @@ class UserController extends Controller
         return redirect()
             ->route('users.index')
             ->with('status', 'User account removed.');
+    }
+
+    public function showAttachment(User $user, UserAttachment $attachment): View
+    {
+        $this->authorize('viewAttachments', $user);
+        abort_unless($attachment->user_id === $user->id, 404);
+        abort_unless(Storage::disk('local')->exists($attachment->path), 404);
+
+        $attachment->load('uploader');
+
+        return view('users.attachments.show', [
+            'user' => $user,
+            'attachment' => $attachment,
+            'backRoute' => route('users.show', $user),
+            'streamRoute' => route('users.attachments.stream', [$user, $attachment]),
+            'downloadRoute' => route('users.attachments.download', [$user, $attachment]),
+            'destroyRoute' => route('users.attachments.destroy', [$user, $attachment]),
+            'canManage' => request()->user()->can('manageAttachments', $user),
+        ]);
+    }
+
+    public function streamAttachment(User $user, UserAttachment $attachment): StreamedResponse
+    {
+        $this->authorize('viewAttachments', $user);
+        abort_unless($attachment->user_id === $user->id, 404);
+        abort_unless(Storage::disk('local')->exists($attachment->path), 404);
+
+        return (new InlineAttachmentResponse($attachment))->toResponse(request());
+    }
+
+    public function downloadAttachment(User $user, UserAttachment $attachment): StreamedResponse
+    {
+        $this->authorize('viewAttachments', $user);
+        abort_unless($attachment->user_id === $user->id, 404);
+
+        return Storage::disk('local')->download($attachment->path, $attachment->original_name);
+    }
+
+    public function destroyAttachment(User $user, UserAttachment $attachment): RedirectResponse
+    {
+        $this->authorize('manageAttachments', $user);
+        abort_unless($attachment->user_id === $user->id, 404);
+
+        $this->attachments->delete($attachment);
+
+        return redirect()
+            ->route('users.show', $user)
+            ->with('status', 'Document removed.');
     }
 }

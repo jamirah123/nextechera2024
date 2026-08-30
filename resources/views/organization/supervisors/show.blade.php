@@ -5,15 +5,20 @@
 @section('page-subtitle', $supervisor->supervisor_code)
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header
         :title="$supervisor->name"
         :subtitle="'Supervisor '.$supervisor->supervisor_code"
         :back="route('supervisors.index')"
     >
         <x-slot:actions>
+            @if ($canDeployCover ?? false)
+                <a href="{{ route('supervisors.deploy', $supervisor) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">
+                    Deploy cover
+                </a>
+            @endif
             @if ($canManage)
-                <a href="{{ route('supervisors.edit', $supervisor) }}" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                <a href="{{ route('supervisors.edit', $supervisor) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
                     Edit
                 </a>
             @endif
@@ -28,17 +33,17 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-5 py-4 sm:px-6">
+    <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2.5">
             <h2 class="text-base font-semibold text-slate-900">Profile</h2>
             <x-status-badge :tone="$supervisor->status->tone()" :label="$supervisor->status->label()" />
         </div>
         <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Code</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $supervisor->supervisor_code }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r lg:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Region</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                     @if ($supervisor->region)
@@ -50,28 +55,65 @@
                     @endif
                 </dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Assignment date</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($supervisor->assignment_date)->format('d M Y') ?: '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Phone</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $supervisor->phone ?: '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-5 py-4 sm:border-r lg:border-b-0 lg:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:border-b-0 lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Email</dt>
                 <dd class="mt-1 break-all text-sm font-semibold text-slate-900">{{ $supervisor->email ?: '—' }}</dd>
             </div>
-            <div class="px-5 py-4 sm:px-6">
+            <div class="px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notes</dt>
                 <dd class="mt-1 text-sm text-slate-700">{{ $supervisor->notes ?: '—' }}</dd>
             </div>
         </dl>
     </section>
 
+    @if ($supervisor->guardProfile)
+        <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 px-3 py-2.5">
+                <h2 class="text-base font-semibold text-slate-900">Shift payroll profile</h2>
+                <p class="mt-0.5 text-sm text-slate-500">Linked guard record used for deployments, shifts and monthly reporting.</p>
+            </div>
+            <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
+                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Employment ID</dt>
+                    <dd class="mt-1 text-sm font-semibold text-slate-900">
+                        <a href="{{ route('guards.show', $supervisor->guardProfile) }}" class="text-brand-700 hover:text-brand-800">
+                            {{ $supervisor->guardProfile->employment_id }}
+                        </a>
+                    </dd>
+                </div>
+                <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
+                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Operational status</dt>
+                    <dd class="mt-1">
+                        <x-status-badge :tone="$supervisor->guardProfile->operational_status->tone()" :label="$supervisor->guardProfile->operational_status->label()" />
+                    </dd>
+                </div>
+                <div class="border-b border-slate-100 px-3 py-2.5 lg:border-b-0">
+                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Current cover site</dt>
+                    <dd class="mt-1 text-sm font-semibold text-slate-900">
+                        @if ($currentCover?->site)
+                            <a href="{{ route('sites.show', $currentCover->site) }}" class="text-brand-700 hover:text-brand-800">
+                                {{ $currentCover->site->name }}
+                            </a>
+                        @else
+                            <span class="text-slate-500">Not deployed for cover</span>
+                        @endif
+                    </dd>
+                </div>
+            </dl>
+        </section>
+    @endif
+
     <section class="grid gap-4 lg:grid-cols-2">
-        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+        <div class="rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2.5">
                 <h2 class="text-base font-semibold text-slate-900">Assigned sites</h2>
                 <span class="text-xs font-medium text-slate-500">{{ $supervisor->sites->count() }}</span>
             </div>
@@ -83,7 +125,7 @@
                 <ul class="divide-y divide-slate-100">
                     @foreach ($supervisor->sites as $site)
                         <li>
-                            <a href="{{ route('sites.show', $site) }}" class="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-slate-50 sm:px-6">
+                            <a href="{{ route('sites.show', $site) }}" class="flex items-center justify-between gap-3 px-3 py-2 hover:bg-slate-50 sm:px-6">
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-semibold text-slate-900">{{ $site->name }}</p>
                                     <p class="text-xs text-slate-500">
@@ -99,8 +141,8 @@
             @endif
         </div>
 
-        <div class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
+        <div class="rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-100 px-3 py-2.5">
                 <h2 class="text-base font-semibold text-slate-900">Assignment history</h2>
                 <p class="mt-0.5 text-sm text-slate-500">Region transfers and initial assignment.</p>
             </div>

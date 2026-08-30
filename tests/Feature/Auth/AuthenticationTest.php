@@ -16,7 +16,7 @@ class AuthenticationTest extends TestCase
         $response = $this->get(route('login'));
 
         $response->assertOk();
-        $response->assertSee('Welcome back');
+        $response->assertSee('Secure Sign In');
         $response->assertSee('Platinum Security Group');
     }
 

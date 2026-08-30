@@ -44,7 +44,7 @@ class BillingController extends Controller
                 }
             })
             ->latest()
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('finance.billing.index', [

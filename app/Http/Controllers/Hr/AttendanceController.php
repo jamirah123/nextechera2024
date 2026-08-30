@@ -29,7 +29,7 @@ class AttendanceController extends Controller
             ->when($request->filled('event_type'), fn ($q) => $q->where('event_type', $request->string('event_type')))
             ->when($request->filled('date'), fn ($q) => $q->whereDate('occurred_at', $request->string('date')))
             ->latest('occurred_at')
-            ->paginate(15)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('hr.attendances.index', [

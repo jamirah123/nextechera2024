@@ -29,6 +29,7 @@ class ShiftService
         private ShiftValidationService $validator,
         private GuardService $guards,
         private AuditService $audit,
+        private DeploymentService $deployments,
     ) {
     }
 
@@ -199,11 +200,19 @@ class ShiftService
         });
     }
 
-    public function updateStatus(Shift $shift, ShiftStatus $status, ?string $notes = null): Shift
+    public function updateStatus(Shift $shift, ShiftStatus $status, ?string $notes = null, bool $automatic = false): Shift
     {
-        return DB::transaction(function () use ($shift, $status, $notes) {
+        return DB::transaction(function () use ($shift, $status, $notes, $automatic) {
             if ($shift->status === ShiftStatus::Cancelled && $status !== ShiftStatus::Cancelled) {
                 throw new InvalidArgumentException('Cancelled shifts cannot be reopened.');
+            }
+
+            if (! $automatic && $status === ShiftStatus::Completed) {
+                throw new InvalidArgumentException('Shifts are completed automatically when the shift window ends.');
+            }
+
+            if (! $automatic && ! in_array($status, ShiftStatus::manuallySettable(), true)) {
+                throw new InvalidArgumentException('Only confirmed, cancelled, or missed may be set manually.');
             }
 
             $shift->update([
@@ -227,9 +236,11 @@ class ShiftService
 
                 if (in_array($status, [ShiftStatus::Completed, ShiftStatus::Cancelled, ShiftStatus::Missed], true)
                     && $guard->operational_status === OperationalStatus::OnDuty) {
-                    $this->guards->updateGuard($guard, [
-                        'operational_status' => OperationalStatus::OffDuty->value,
-                    ], 'shift_'.$status->value);
+                    $this->deployments->releaseGuardAfterDuty(
+                        $guard,
+                        $shift->shift_date?->toDateString(),
+                        'Deployment ended after shift marked '.$status->label().'.',
+                    );
                 }
             }
 

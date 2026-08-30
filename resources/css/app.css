@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
@@ -32,7 +34,11 @@
     }
 
     body {
-        @apply bg-slate-50 text-slate-900;
+        @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+    }
+
+    main {
+        @apply text-[13px] leading-5;
     }
 
     [x-cloak] {
@@ -40,13 +46,339 @@
     }
 }
 
-/* Tom Select — searchable dropdowns */
+@layer components {
+    .panel {
+        @apply rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800;
+    }
+
+    .btn {
+        @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm transition;
+    }
+
+    .btn-primary {
+        @apply bg-brand-700 text-white hover:bg-brand-800;
+    }
+
+    .btn-secondary {
+        @apply border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700;
+    }
+
+    .form-card {
+        @apply rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800;
+    }
+
+    .form-grid {
+        @apply grid gap-2 sm:grid-cols-2;
+    }
+
+    .form-grid-3 {
+        @apply lg:grid-cols-3;
+    }
+
+    .form-actions {
+        @apply mt-3 border-t border-slate-100 pt-3 dark:border-slate-700;
+    }
+
+    .form-actions__inner {
+        @apply flex flex-wrap items-center justify-end gap-2;
+    }
+
+    .form-section {
+        @apply rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800;
+    }
+
+    .form-section__header {
+        @apply mb-3 border-b border-slate-100 pb-2 dark:border-slate-700;
+    }
+
+    .form-section__title {
+        @apply text-sm font-semibold text-slate-900 dark:text-slate-100;
+    }
+
+    .form-section__description {
+        @apply mt-0.5 text-xs leading-snug text-slate-500 dark:text-slate-400;
+    }
+
+    .form-section__body {
+        @apply space-y-3;
+    }
+
+    .form-checkbox {
+        @apply flex cursor-pointer items-start gap-2 rounded-md border border-slate-200 bg-slate-50/60 px-2.5 py-2 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800/60 dark:hover:border-slate-500 dark:hover:bg-slate-800;
+    }
+
+    .form-checkbox__input {
+        @apply mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300 text-brand-700 focus:ring-brand-500/30;
+    }
+
+    .form-checkbox__content {
+        @apply min-w-0 space-y-0;
+    }
+
+    .form-checkbox__label {
+        @apply block text-xs font-medium leading-snug text-slate-800 dark:text-slate-200;
+    }
+
+    .form-checkbox__help {
+        @apply block text-[10px] leading-snug text-slate-500 dark:text-slate-400;
+    }
+
+    .field__label {
+        @apply mb-1 block text-[11px] font-medium text-slate-700 dark:text-slate-300;
+    }
+
+    .field__required {
+        @apply ml-0.5 text-rose-500;
+    }
+
+    .field__control {
+        @apply block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-900 shadow-sm transition placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500;
+    }
+
+    .field__control--select {
+        @apply cursor-pointer appearance-none bg-white pr-8 dark:bg-slate-900;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2394a3b8'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.45rem center;
+        background-size: 1rem 1rem;
+    }
+
+    .field__control--readonly {
+        @apply cursor-default bg-slate-50 font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-200;
+    }
+
+    .field__control--error {
+        @apply border-rose-400 focus:border-rose-500 focus:ring-rose-500/20;
+    }
+
+    .field__help {
+        @apply mt-0.5 text-[10px] leading-snug text-slate-500 dark:text-slate-400;
+    }
+
+    .field__error {
+        @apply mt-0.5 text-[10px] text-rose-600;
+    }
+
+    .filter-bar .field__label {
+        @apply mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400;
+    }
+
+    .filter-bar .field__control {
+        @apply rounded-md px-2 py-1.5 text-[11px] focus:ring-1;
+    }
+
+    .filter-bar .field__help,
+    .filter-bar .field__error {
+        @apply mt-0.5 text-[10px];
+    }
+
+    .data-table-shell {
+        @apply overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800;
+    }
+
+    .data-table {
+        @apply min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-700;
+    }
+
+    .data-table thead {
+        @apply bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-900/50 dark:text-slate-400;
+    }
+
+    .data-table th {
+        @apply px-3 py-1.5;
+    }
+
+    .data-table tbody {
+        @apply divide-y divide-slate-100 dark:divide-slate-700;
+    }
+
+    .data-table td {
+        @apply px-3 py-1.5;
+    }
+
+    .form-alert {
+        @apply rounded-lg border px-3 py-2 text-xs;
+    }
+
+    .form-alert--error {
+        @apply border-rose-200 bg-rose-50 text-rose-700;
+    }
+
+    /* Legacy aliases */
+    .form-shell {
+        @apply rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800;
+    }
+
+    .form-footer {
+        @apply mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-700;
+    }
+
+    .form-step {
+        @apply mb-2 flex items-center gap-1.5 border-b border-slate-100 pb-2 dark:border-slate-700;
+    }
+
+    .form-step__badge {
+        @apply flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-50 text-[10px] font-bold text-brand-700;
+    }
+
+    .form-step__title {
+        @apply text-xs font-semibold text-slate-900 dark:text-slate-100;
+    }
+
+    .form-page {
+        @apply mx-auto w-full max-w-3xl;
+    }
+
+    .form-panel {
+        @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800;
+    }
+
+    .form-panel__header {
+        @apply flex flex-col gap-2 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:from-slate-800 dark:to-slate-800;
+    }
+
+    .form-panel__heading {
+        @apply min-w-0 space-y-0.5;
+    }
+
+    .form-panel__back {
+        @apply mb-0.5 inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 hover:text-brand-800;
+    }
+
+    .form-panel__title {
+        @apply text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-100;
+    }
+
+    .form-panel__subtitle {
+        @apply text-[11px] leading-snug text-slate-500 dark:text-slate-400;
+    }
+
+    .form-panel__actions {
+        @apply flex flex-wrap items-center gap-1.5;
+    }
+
+    .form-panel__body {
+        @apply space-y-2.5 p-3;
+    }
+
+    .form-panel__grid {
+        @apply grid gap-2.5 lg:grid-cols-2;
+    }
+
+    .form-group {
+        @apply rounded-lg border border-slate-100 bg-slate-50/50 p-2.5 dark:border-slate-700 dark:bg-slate-900/40;
+    }
+
+    .form-group__header {
+        @apply mb-2;
+    }
+
+    .form-group__title {
+        @apply text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500;
+    }
+
+    .form-group__description {
+        @apply mt-0.5 text-[10px] leading-snug text-slate-500;
+    }
+
+    .form-group__fields {
+        @apply grid gap-2 sm:grid-cols-2;
+    }
+
+    .form-checkbox--inline {
+        @apply border-0 bg-transparent px-0 py-0 hover:border-transparent hover:bg-transparent;
+    }
+
+    .form-checkbox--inline .form-checkbox__input {
+        @apply mt-0;
+    }
+
+    .form-options {
+        @apply flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50/50 px-2.5 py-2 dark:border-slate-700 dark:bg-slate-900/40;
+    }
+
+    .form-highlight {
+        @apply rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-2 dark:border-brand-900/50 dark:bg-brand-950/40;
+    }
+
+    .form-highlight__label {
+        @apply text-[10px] font-semibold uppercase tracking-wide text-brand-700;
+    }
+
+    .form-highlight__value {
+        @apply mt-0.5 text-base font-semibold tracking-wide text-brand-950 dark:text-brand-100;
+    }
+
+    .form-highlight__help {
+        @apply mt-0.5 text-[10px] text-brand-800/80 dark:text-brand-300/80;
+    }
+}
+
+.dark main :is(.rounded-lg, .rounded-2xl).border.border-slate-200.bg-white,
+.dark main .overflow-hidden.rounded-lg.border.border-slate-200.bg-white,
+.dark main .rounded-2xl.border.border-slate-200.bg-white {
+    @apply border-slate-700 bg-slate-800;
+}
+
+.dark main .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+    @apply divide-slate-700;
+}
+
+.dark main tr.hover\:bg-slate-50\/80:hover {
+    @apply bg-slate-700/40;
+}
+
+.dark main thead.bg-slate-50 {
+    @apply bg-slate-900/50 text-slate-400;
+}
+
+.dark main .bg-slate-50 {
+    @apply bg-slate-900/40;
+}
+
+.dark main .border-slate-100 {
+    @apply border-slate-700;
+}
+
+.dark main .border-slate-200,
+.dark main .border-slate-200\/80 {
+    @apply border-slate-700;
+}
+
+.dark .filter-bar {
+    @apply border-slate-700 bg-slate-800;
+}
+
+.dark main .text-slate-900 {
+    @apply text-slate-100;
+}
+
+.dark main .text-slate-800 {
+    @apply text-slate-200;
+}
+
+.dark main .text-slate-700 {
+    @apply text-slate-300;
+}
+
+.dark main .text-slate-600 {
+    @apply text-slate-400;
+}
+
+.filter-bar .ts-wrapper.single .ts-control {
+    @apply min-h-[30px] rounded-md px-2 py-1 text-[11px];
+}
+
+.filter-bar .ts-wrapper.single .ts-control .item,
+.filter-bar .ts-wrapper .ts-control > input {
+    @apply text-[11px];
+}
 .ts-wrapper {
     @apply relative w-full;
 }
 
 .ts-wrapper.single .ts-control {
-    @apply flex min-h-[42px] w-full cursor-text items-center rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm shadow-sm transition;
+    @apply flex min-h-[30px] w-full cursor-text items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs shadow-sm transition dark:border-slate-600 dark:bg-slate-900;
 }
 
 .ts-wrapper.focus .ts-control,
@@ -55,15 +387,15 @@
 }
 
 .ts-wrapper.disabled .ts-control {
-    @apply cursor-not-allowed bg-slate-50 text-slate-400;
+    @apply cursor-not-allowed bg-slate-50 text-slate-400 dark:bg-slate-800 dark:text-slate-500;
 }
 
 .ts-wrapper .ts-control > input {
-    @apply m-0 min-w-[4rem] flex-1 border-0 bg-transparent p-0 text-sm text-slate-900 shadow-none outline-none ring-0 focus:outline-none focus:ring-0;
+    @apply m-0 min-w-[4rem] flex-1 border-0 bg-transparent p-0 text-xs text-slate-900 shadow-none outline-none ring-0 focus:outline-none focus:ring-0 dark:text-slate-100;
 }
 
 .ts-wrapper.single .ts-control .item {
-    @apply mr-2 truncate text-sm text-slate-900;
+    @apply mr-2 truncate text-xs text-slate-900 dark:text-slate-100;
 }
 
 .ts-wrapper .clear-button {
@@ -76,7 +408,7 @@
 }
 
 .ts-dropdown {
-    @apply z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg;
+    @apply z-50 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-800;
 }
 
 .ts-dropdown .ts-dropdown-content {
@@ -84,24 +416,24 @@
 }
 
 .ts-dropdown .dropdown-input-wrap {
-    @apply border-b border-slate-100 p-2;
+    @apply border-b border-slate-100 p-2 dark:border-slate-700;
 }
 
 .ts-dropdown .dropdown-input {
-    @apply w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20;
+    @apply w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100;
 }
 
 .ts-dropdown .option {
-    @apply cursor-pointer rounded-lg px-3 py-2 text-sm text-slate-700;
+    @apply cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200;
 }
 
 .ts-dropdown .option:hover,
 .ts-dropdown .option.active {
-    @apply bg-brand-50 text-brand-800;
+    @apply bg-brand-50 text-brand-800 dark:bg-brand-950/60 dark:text-brand-200;
 }
 
 .ts-dropdown .option.selected {
-    @apply bg-brand-100 font-medium text-brand-900;
+    @apply bg-brand-100 font-medium text-brand-900 dark:bg-brand-900/50 dark:text-brand-100;
 }
 
 .ts-dropdown .no-results {

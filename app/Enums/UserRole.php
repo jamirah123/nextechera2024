@@ -54,4 +54,16 @@ enum UserRole: string
     {
         return array_column(self::cases(), 'value');
     }
+
+    public function documentGuidance(): string
+    {
+        return match ($this) {
+            self::SuperAdmin => 'System policies, admin authorizations, or compliance records.',
+            self::OperationsManager => 'Operational authorizations, site access letters, or management certificates.',
+            self::HrManager => 'HR certifications, employment contracts, or policy acknowledgements.',
+            self::ShiftManager => 'Scheduling authorizations, training certificates, or ID copies.',
+            self::FinanceManager => 'Tax certificates, banking documents, or finance compliance files.',
+            self::RegionSupervisor => 'Supervisor ID, field authorizations, or regional appointment letters.',
+        };
+    }
 }

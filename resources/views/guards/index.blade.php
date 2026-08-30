@@ -163,57 +163,57 @@
         </div>
 
         {{-- Desktop table --}}
-        <div class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+        <div class="data-table-shell hidden lg:block">
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
-                    <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="w-14 px-5 py-3">#</th>
-                            <th class="px-5 py-3">Guard</th>
-                            <th class="px-5 py-3">Region</th>
-                            <th class="px-5 py-3">Contact</th>
-                            <th class="px-5 py-3">Employment</th>
-                            <th class="px-5 py-3">Operational</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
+                            <th class="w-10">#</th>
+                            <th>Guard</th>
+                            <th>Region</th>
+                            <th>Contact</th>
+                            <th>Employment</th>
+                            <th>Operational</th>
+                            <th class="text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody>
                         @foreach ($guards as $guard)
                             <tr class="hover:bg-slate-50/80">
-                                <td class="px-5 py-3.5">
+                                <td class="text-slate-500">
                                     <x-table-serial :paginator="$guards" :index="$loop->index" />
                                 </td>
-                                <td class="px-5 py-3.5">
-                                    <div class="flex items-center gap-3">
-                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-950 text-[11px] font-bold text-white">
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand-950 text-[10px] font-bold text-white">
                                             {{ collect(explode(' ', $guard->full_name))->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('') }}
                                         </div>
                                         <div class="min-w-0">
                                             <a href="{{ route('guards.show', $guard) }}" class="font-semibold text-slate-900 hover:text-brand-700">
                                                 {{ $guard->full_name }}
                                             </a>
-                                            <p class="text-xs text-slate-500">
+                                            <p class="text-[10px] text-slate-500">
                                                 {{ $guard->employment_id }}
                                                 @if ($guard->rank_designation) · {{ $guard->rank_designation }} @endif
                                             </p>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-5 py-3.5 text-slate-600">{{ $guard->region?->name ?? '—' }}</td>
-                                <td class="px-5 py-3.5 text-slate-600">
+                                <td class="text-slate-600">{{ $guard->region?->name ?? '—' }}</td>
+                                <td class="text-slate-600">
                                     <p>{{ $guard->phone ?: '—' }}</p>
                                     @if ($guard->national_id)
-                                        <p class="text-xs text-slate-500">ID {{ $guard->national_id }}</p>
+                                        <p class="text-[10px] text-slate-500">ID {{ $guard->national_id }}</p>
                                     @endif
                                 </td>
-                                <td class="px-5 py-3.5">
+                                <td>
                                     <x-status-badge :tone="$guard->employment_status->tone()" :label="$guard->employment_status->label()" />
                                 </td>
-                                <td class="px-5 py-3.5">
+                                <td>
                                     <x-status-badge :tone="$guard->operational_status->tone()" :label="$guard->operational_status->label()" />
                                 </td>
-                                <td class="px-5 py-3.5">
-                                    <div class="flex flex-wrap items-center justify-end gap-2.5 sm:gap-3 lg:gap-3.5">
+                                <td>
+                                    <div class="flex flex-wrap items-center justify-end gap-1.5">
                                         <x-action-icon :href="route('guards.show', $guard)" label="View" icon="eye" tone="brand" />
                                         @if ($canManage)
                                             <x-action-icon :href="route('guards.edit', $guard)" label="Edit" icon="pencil" tone="slate" />

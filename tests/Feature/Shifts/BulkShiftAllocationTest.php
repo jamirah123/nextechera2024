@@ -7,10 +7,12 @@ use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftPeriod;
+use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Enums\UserRole;
 use App\Models\Deployment;
 use App\Models\Guard;
+use App\Models\Shift;
 use App\Models\Site;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -143,5 +145,129 @@ class BulkShiftAllocationTest extends TestCase
             'period' => ShiftPeriod::Day->value,
             'shift_type' => ShiftType::Overtime->value,
         ]);
+    }
+
+    public function test_guard_with_completed_shift_is_hidden_from_allocate_board_by_default(): void
+    {
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $site = Site::factory()->create();
+        $scheduled = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OffDuty,
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+            'full_name' => 'Needs Shift Guard',
+        ]);
+        $completed = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OffDuty,
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+            'full_name' => 'Completed Shift Guard',
+        ]);
+
+        Deployment::factory()->create([
+            'guard_id' => $scheduled->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+        ]);
+        Deployment::factory()->create([
+            'guard_id' => $completed->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+        ]);
+
+        Shift::factory()->create([
+            'guard_id' => $completed->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'shift_date' => now()->toDateString(),
+            'status' => ShiftStatus::Completed,
+        ]);
+
+        $this->actingAs($manager)
+            ->get(route('shifts.allocate'))
+            ->assertOk()
+            ->assertSee('Needs Shift Guard', false)
+            ->assertDontSee('Completed Shift Guard', false);
+    }
+
+    public function test_guard_with_missed_shift_still_appears_for_reallocation(): void
+    {
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $site = Site::factory()->create();
+        $guard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OffDuty,
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+            'full_name' => 'Missed Shift Guard',
+        ]);
+
+        Deployment::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+        ]);
+
+        Shift::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'shift_date' => now()->toDateString(),
+            'status' => ShiftStatus::Missed,
+        ]);
+
+        $this->actingAs($manager)
+            ->get(route('shifts.allocate'))
+            ->assertOk()
+            ->assertSee('Missed Shift Guard', false);
+    }
+
+    public function test_show_all_includes_guards_with_completed_shifts(): void
+    {
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $site = Site::factory()->create();
+        $guard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OffDuty,
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+            'full_name' => 'Completed Shift Guard',
+        ]);
+
+        Deployment::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+        ]);
+
+        Shift::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'shift_date' => now()->toDateString(),
+            'status' => ShiftStatus::Completed,
+        ]);
+
+        $this->actingAs($manager)
+            ->get(route('shifts.allocate', ['show_all' => 1]))
+            ->assertOk()
+            ->assertSee('Completed Shift Guard', false);
     }
 }

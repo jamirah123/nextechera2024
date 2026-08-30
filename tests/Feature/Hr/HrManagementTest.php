@@ -120,7 +120,7 @@ class HrManagementTest extends TestCase
         $this->actingAs($ops)
             ->post(route('absences.store'), [
                 'guard_id' => $guard->id,
-                'absence_date' => now()->toDateString(),
+                'absence_date' => now()->subDay()->toDateString(),
                 'reason' => 'no_show',
                 'site_id' => $site->id,
                 'shift_id' => $shift->id,
@@ -164,7 +164,7 @@ class HrManagementTest extends TestCase
         $this->actingAs($manager)
             ->post(route('absences.store'), [
                 'guard_id' => $absentGuard->id,
-                'absence_date' => now()->toDateString(),
+                'absence_date' => now()->subDay()->toDateString(),
                 'reason' => 'no_show',
                 'site_id' => $site->id,
             ])

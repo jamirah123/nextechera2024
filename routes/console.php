@@ -21,3 +21,11 @@ Schedule::command('psg:mark-overdue-invoices')
 Schedule::command('psg:sync-shift-statuses')
     ->everyFifteenMinutes()
     ->withoutOverlapping();
+
+Schedule::command('psg:release-shift-window-guards')
+    ->dailyAt('06:00')
+    ->withoutOverlapping();
+
+Schedule::command('psg:release-shift-window-guards')
+    ->dailyAt('18:00')
+    ->withoutOverlapping();

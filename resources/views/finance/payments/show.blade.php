@@ -4,7 +4,7 @@
 @section('page-title', 'Payment receipt')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header :title="$payment->reference" :subtitle="$payment->client?->name" :back="route('payments.index')">
         <x-slot:actions>
             <x-report-actions :show-print="true" />
@@ -28,7 +28,7 @@
                     <dd class="mt-1 text-sm text-emerald-800">{{ $payment->payment_date->format('d M Y') }}</dd>
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-5">
-                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Applied to invoice</dt>
+                    <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Applied to invoice</dt>
                     <dd class="mt-2 text-lg font-semibold">
                         <a href="{{ route('invoices.show', $payment->invoice) }}" class="text-brand-700 hover:text-brand-800">{{ $payment->invoice?->reference }}</a>
                     </dd>

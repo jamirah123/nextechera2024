@@ -5,7 +5,7 @@
 @section('page-subtitle', 'Security sites and manpower coverage')
 
 @section('content')
-<div class="space-y-6">
+<div class="space-y-3">
     <x-page-header
         title="Security sites"
         subtitle="Manage sites, assignments and staffing requirements."
@@ -92,7 +92,7 @@
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:hidden">
             @foreach ($sites as $site)
                 @php $mp = $site->manpower; @endphp
-                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                     <div class="flex items-start justify-between gap-3">
                         <a href="{{ route('sites.show', $site) }}" class="min-w-0">
                             <p class="truncate font-semibold text-slate-900 hover:text-brand-700">{{ $site->name }}</p>
@@ -122,51 +122,51 @@
             @endforeach
         </div>
 
-        <div class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:block">
+        <div class="data-table-shell hidden lg:block">
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-100 text-left text-sm">
-                    <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="w-14 px-5 py-3">#</th>
-                            <th class="px-5 py-3">Site</th>
-                            <th class="px-5 py-3">Client / Region</th>
-                            <th class="px-5 py-3">Supervisor</th>
-                            <th class="px-5 py-3 text-right">Required</th>
-                            <th class="px-5 py-3">Coverage</th>
-                            <th class="px-5 py-3">Status</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
+                            <th class="w-10">#</th>
+                            <th>Site</th>
+                            <th>Client / Region</th>
+                            <th>Supervisor</th>
+                            <th class="text-right">Required</th>
+                            <th>Coverage</th>
+                            <th>Status</th>
+                            <th class="text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody>
                         @foreach ($sites as $site)
                             @php $mp = $site->manpower; @endphp
                             <tr class="hover:bg-slate-50/80">
-                                <td class="px-5 py-3.5">
+                                <td class="text-slate-500">
                                     <x-table-serial :paginator="$sites" :index="$loop->index" />
                                 </td>
-                                <td class="px-5 py-3.5">
+                                <td>
                                     <a href="{{ route('sites.show', $site) }}" class="font-semibold text-slate-900 hover:text-brand-700">
                                         {{ $site->name }}
                                     </a>
-                                    <p class="text-xs text-slate-500">{{ $site->code }}</p>
+                                    <p class="text-[10px] text-slate-500">{{ $site->code }}</p>
                                 </td>
-                                <td class="px-5 py-3.5 text-slate-600">
+                                <td class="text-slate-600">
                                     <p>{{ $site->client?->name ?? '—' }}</p>
-                                    <p class="text-xs text-slate-500">{{ $site->region?->name ?? '—' }}</p>
+                                    <p class="text-[10px] text-slate-500">{{ $site->region?->name ?? '—' }}</p>
                                 </td>
-                                <td class="px-5 py-3.5 text-slate-600">{{ $site->supervisor?->name ?? '—' }}</td>
-                                <td class="px-5 py-3.5 text-right font-medium text-slate-900">{{ $mp['required'] }}</td>
-                                <td class="px-5 py-3.5">
-                                    <div class="flex flex-col gap-1">
+                                <td class="text-slate-600">{{ $site->supervisor?->name ?? '—' }}</td>
+                                <td class="text-right font-medium text-slate-900">{{ $mp['required'] }}</td>
+                                <td>
+                                    <div class="flex flex-col gap-0.5">
                                         <x-status-badge :tone="$mp['status']->tone()" :label="$mp['status']->label()" />
-                                        <span class="text-xs text-slate-500">{{ $mp['coverage_percent'] }}%</span>
+                                        <span class="text-[10px] text-slate-500">{{ $mp['coverage_percent'] }}%</span>
                                     </div>
                                 </td>
-                                <td class="px-5 py-3.5">
+                                <td>
                                     <x-status-badge :tone="$site->status->tone()" :label="$site->status->label()" />
                                 </td>
-                                <td class="px-5 py-3.5">
-                                    <div class="flex flex-wrap items-center justify-end gap-2.5 sm:gap-3 lg:gap-3.5">
+                                <td>
+                                    <div class="flex flex-wrap items-center justify-end gap-1.5">
                                         <x-action-icon :href="route('sites.show', $site)" label="View" icon="eye" tone="brand" />
                                         @if ($canManage)
                                             <x-action-icon :href="route('sites.edit', $site)" label="Edit" icon="pencil" tone="slate" />

@@ -2,31 +2,23 @@
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
 use App\Models\User;
+use App\Support\Access\Access;
 
 class FinancePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->canAccess($user);
+        return Access::userCan($user, 'finance.view');
     }
 
     public function view(User $user): bool
     {
-        return $this->canAccess($user);
+        return Access::userCan($user, 'finance.view');
     }
 
     public function manage(User $user): bool
     {
-        return $user->isSuperAdmin()
-            || $user->hasRole(UserRole::FinanceManager);
-    }
-
-    private function canAccess(User $user): bool
-    {
-        return $user->isSuperAdmin()
-            || $user->hasRole(UserRole::FinanceManager)
-            || $user->hasRole(UserRole::OperationsManager);
+        return Access::userCan($user, 'finance.manage');
     }
 }

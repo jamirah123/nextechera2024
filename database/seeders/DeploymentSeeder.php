@@ -97,7 +97,7 @@ class DeploymentSeeder extends Seeder
                 $guardUpdates[$guard->id] = [
                     'current_site_id' => $site->id,
                     'current_supervisor_id' => $site->supervisor_id,
-                    'operational_status' => OperationalStatus::OffDuty->value,
+                    'operational_status' => OperationalStatus::OnDuty->value,
                     'region_id' => $site->region_id,
                 ];
 

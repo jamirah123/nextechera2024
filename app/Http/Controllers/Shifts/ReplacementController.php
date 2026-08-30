@@ -40,7 +40,7 @@ class ReplacementController extends Controller
             ->when($request->filled('date'), fn ($q) => $q->whereDate('replaced_at', $request->string('date')))
             ->when($request->filled('site_id'), fn ($q) => $q->where('site_id', $request->integer('site_id')))
             ->latest('replaced_at')
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('replacements.index', [

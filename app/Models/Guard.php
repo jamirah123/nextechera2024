@@ -102,6 +102,16 @@ class Guard extends Model
         return $this->hasMany(Absence::class)->latest('absence_date');
     }
 
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(GuardAttachment::class)->latest('created_at');
+    }
+
+    public function supervisorProfile(): HasOne
+    {
+        return $this->hasOne(Supervisor::class, 'guard_id');
+    }
+
     public function desertions(): HasMany
     {
         return $this->hasMany(Desertion::class)->latest('date_reported');
@@ -130,6 +140,29 @@ class Guard extends Model
     public function scopeAwaitingDeployment($query): void
     {
         $query->whereDoesntHave('deployments', fn ($q) => $q->current());
+    }
+
+    /**
+     * Guards HR has cleared for site posting (excludes training wing and others).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Guard>  $query
+     */
+    public function scopeAvailableForDeployment($query): void
+    {
+        $query
+            ->where('operational_status', OperationalStatus::AwaitingDeployment)
+            ->awaitingDeployment()
+            ->regularGuards();
+    }
+
+    /**
+     * Regular guards only — exclude supervisor payroll profiles from the deployment board.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Guard>  $query
+     */
+    public function scopeRegularGuards($query): void
+    {
+        $query->whereDoesntHave('supervisorProfile');
     }
 
     public function scopeSearch($query, ?string $term)

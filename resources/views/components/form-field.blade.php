@@ -5,21 +5,19 @@
     'value' => null,
     'required' => false,
     'help' => null,
+    'placeholder' => null,
 ])
 
 @php
     $fieldValue = old($name, $value);
     $hasError = $errors->has($name);
-    $baseClass = 'block w-full rounded-xl border px-3.5 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 '.($hasError
-        ? 'border-red-400 focus:border-red-500 focus:ring-red-500/20'
-        : 'border-slate-300 focus:border-brand-500 focus:ring-brand-500/20');
 @endphp
 
-<div {{ $attributes->only('class') }}>
-    <label for="{{ $name }}" class="mb-1.5 block text-sm font-medium text-slate-700">
+<div {{ $attributes->only('class')->class(['field']) }}>
+    <label for="{{ $name }}" class="field__label">
         {{ $label }}
         @if ($required)
-            <span class="text-rose-500">*</span>
+            <span class="field__required" aria-hidden="true">*</span>
         @endif
     </label>
 
@@ -27,10 +25,11 @@
         <textarea
             id="{{ $name }}"
             name="{{ $name }}"
-            rows="3"
+            rows="2"
             @if ($required) required @endif
+            @if ($placeholder) placeholder="{{ $placeholder }}" @endif
             {{ $attributes->except('class') }}
-            class="{{ $baseClass }}"
+            @class(['field__control', 'field__control--textarea', 'field__control--error' => $hasError])
         >{{ $fieldValue }}</textarea>
     @elseif ($type === 'select')
         <select
@@ -38,7 +37,7 @@
             name="{{ $name }}"
             @if ($required) required @endif
             {{ $attributes->except('class') }}
-            class="{{ $baseClass }} bg-white"
+            @class(['field__control', 'field__control--select', 'field__control--error' => $hasError])
         >
             {{ $slot }}
         </select>
@@ -49,15 +48,16 @@
             name="{{ $name }}"
             value="{{ $fieldValue }}"
             @if ($required) required @endif
+            @if ($placeholder) placeholder="{{ $placeholder }}" @endif
             {{ $attributes->except('class') }}
-            class="{{ $baseClass }}"
+            @class(['field__control', 'field__control--error' => $hasError])
         >
     @endif
 
     @if ($help)
-        <p class="mt-1 text-xs text-slate-500">{{ $help }}</p>
+        <p class="field__help">{{ $help }}</p>
     @endif
     @error($name)
-        <p class="mt-1 text-xs text-rose-600">{{ $message }}</p>
+        <p class="field__error">{{ $message }}</p>
     @enderror
 </div>

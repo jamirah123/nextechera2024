@@ -2,56 +2,39 @@
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
 use App\Models\Guard;
 use App\Models\User;
+use App\Support\Access\Access;
 
 class GuardPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->canAccess($user);
+        return Access::userCan($user, 'guards.view');
     }
 
     public function view(User $user, Guard $guard): bool
     {
-        return $this->canAccess($user);
+        return Access::userCan($user, 'guards.view');
     }
 
     public function create(User $user): bool
     {
-        return $this->canManage($user);
+        return Access::userCan($user, 'guards.manage');
     }
 
     public function update(User $user, Guard $guard): bool
     {
-        return $this->canManage($user);
+        return Access::userCan($user, 'guards.manage');
     }
 
     public function deleteAny(User $user): bool
     {
-        return $this->canManage($user);
+        return Access::userCan($user, 'guards.manage');
     }
 
     public function delete(User $user, Guard $guard): bool
     {
-        return $this->canManage($user);
-    }
-
-    private function canAccess(User $user): bool
-    {
-        return in_array($user->role, [
-            UserRole::SuperAdmin,
-            UserRole::OperationsManager,
-            UserRole::HrManager,
-            UserRole::ShiftManager,
-            UserRole::FinanceManager,
-            UserRole::RegionSupervisor,
-        ], true);
-    }
-
-    private function canManage(User $user): bool
-    {
-        return $user->isSuperAdmin() || $user->hasRole(UserRole::HrManager);
+        return Access::userCan($user, 'guards.manage');
     }
 }

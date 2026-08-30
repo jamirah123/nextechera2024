@@ -8,7 +8,7 @@
     'footerNote' => null,
 ])
 
-<article {{ $attributes->merge(['class' => 'finance-document overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm']) }}>
+<article {{ $attributes->merge(['class' => 'finance-document overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm']) }}>
     <div class="px-6 pt-6 sm:px-8 sm:pt-8">
         <x-print.letterhead
             :document-title="$title"
@@ -27,7 +27,7 @@
         </div>
 
         @if (! empty($meta))
-            <dl class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <dl class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach ($meta as $item)
                     <div class="rounded-xl border border-slate-150 border-slate-200 bg-slate-50/80 px-3.5 py-3">
                         <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{{ $item['label'] }}</dt>

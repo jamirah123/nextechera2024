@@ -30,7 +30,7 @@ class LeaveController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('leave_type'), fn ($q) => $q->where('leave_type', $request->string('leave_type')))
             ->latest('start_date')
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('hr.leaves.index', [

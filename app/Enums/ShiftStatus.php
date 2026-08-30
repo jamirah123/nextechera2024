@@ -53,9 +53,48 @@ enum ShiftStatus: string
         return $this === self::Completed;
     }
 
+    /** Shift already allocated for the date — hide from the allocation board. */
+    public function blocksAllocation(): bool
+    {
+        return in_array($this, self::blockingAllocation(), true);
+    }
+
+    /** @return list<self> */
+    public static function blockingAllocation(): array
+    {
+        return [
+            self::Scheduled,
+            self::Confirmed,
+            self::InProgress,
+            self::Completed,
+        ];
+    }
+
+    /** @return list<string> */
+    public static function blockingAllocationValues(): array
+    {
+        return array_map(static fn (self $status) => $status->value, self::blockingAllocation());
+    }
+
     /** @return list<string> */
     public static function values(): array
     {
         return array_column(self::cases(), 'value');
+    }
+
+    /** Statuses shift managers may set manually; completion is automatic. */
+    public static function manuallySettable(): array
+    {
+        return [
+            self::Confirmed,
+            self::Cancelled,
+            self::Missed,
+        ];
+    }
+
+    /** @return list<string> */
+    public static function manuallySettableValues(): array
+    {
+        return array_map(static fn (self $status) => $status->value, self::manuallySettable());
     }
 }

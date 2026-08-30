@@ -32,8 +32,9 @@ class DesertionController extends Controller
             ->search($request->string('q')->toString())
             ->when($user->mustStayInOwnRegion(), fn ($q) => $q->whereHas('assignedGuard', fn ($g) => $g->where('region_id', $regionId)))
             ->when($request->filled('hr_status'), fn ($q) => $q->where('hr_status', $request->string('hr_status')))
+            ->when($request->filled('date'), fn ($q) => $q->whereDate('date_reported', $request->string('date')))
             ->latest('date_reported')
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         $statsBase = Desertion::query()
@@ -42,7 +43,7 @@ class DesertionController extends Controller
         return view('hr.desertions.index', [
             'desertions' => $desertions,
             'statuses' => DesertionHrStatus::cases(),
-            'filters' => $request->only(['q', 'hr_status']),
+            'filters' => $request->only(['q', 'hr_status', 'date']),
             'canManage' => $user->can('create', Desertion::class),
             'stats' => [
                 'open' => (clone $statsBase)->whereIn('hr_status', [

@@ -4,11 +4,18 @@ namespace App\Http\Controllers\Organization;
 
 use App\Enums\SupervisorStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\DeploySupervisorRequest;
 use App\Http\Requests\Organization\StoreSupervisorRequest;
 use App\Http\Requests\Organization\UpdateSupervisorRequest;
+use App\Models\Deployment;
 use App\Models\Region;
+use App\Models\Site;
 use App\Models\Supervisor;
+use App\Enums\DeploymentShiftType;
+use App\Enums\SiteStatus;
+use App\Services\DeploymentService;
 use App\Services\OrganizationService;
+use App\Services\SupervisorGuardService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,8 +23,11 @@ use Illuminate\View\View;
 
 class SupervisorController extends Controller
 {
-    public function __construct(private OrganizationService $organization)
-    {
+    public function __construct(
+        private OrganizationService $organization,
+        private DeploymentService $deployments,
+        private SupervisorGuardService $supervisorGuards,
+    ) {
     }
 
     public function index(Request $request): View
@@ -31,7 +41,7 @@ class SupervisorController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('region_id'), fn ($q) => $q->where('region_id', $request->integer('region_id')))
             ->latest()
-            ->paginate(12)
+            ->paginate(table_per_page())
             ->withQueryString();
 
         return view('organization.supervisors.index', [
@@ -76,6 +86,8 @@ class SupervisorController extends Controller
             return $supervisor;
         });
 
+        $this->supervisorGuards->ensureGuardProfile($supervisor);
+
         return redirect()
             ->route('supervisors.show', $supervisor)
             ->with('status', 'Supervisor registered successfully.');
@@ -87,6 +99,8 @@ class SupervisorController extends Controller
 
         $supervisor->load([
             'region',
+            'guardProfile.currentDeployment.site',
+            'guardProfile.region',
             'sites.client',
             'assignmentHistories.previousRegion',
             'assignmentHistories.newRegion',
@@ -95,11 +109,59 @@ class SupervisorController extends Controller
             'updater',
         ]);
 
+        $currentCover = $supervisor->guardProfile?->currentDeployment;
+
         return view('organization.supervisors.show', [
             'supervisor' => $supervisor,
+            'currentCover' => $currentCover,
             'canManage' => request()->user()->can('update', $supervisor),
             'canDelete' => request()->user()->can('delete', $supervisor),
+            'canDeployCover' => request()->user()->can('create', Deployment::class) && ! $currentCover,
         ]);
+    }
+
+    public function deployForm(Supervisor $supervisor): View|RedirectResponse
+    {
+        $this->authorize('view', $supervisor);
+        $this->authorize('create', Deployment::class);
+
+        $supervisor->load('guardProfile.currentDeployment');
+
+        if ($supervisor->guardProfile?->currentDeployment) {
+            return redirect()
+                ->route('supervisors.show', $supervisor)
+                ->withErrors(['deployment' => 'This supervisor is already covering a site. End that deployment before assigning another.']);
+        }
+
+        $user = request()->user();
+        $regionId = $user->regionId();
+
+        return view('organization.supervisors.deploy', [
+            'supervisor' => $supervisor,
+            'sites' => Site::query()
+                ->where('status', SiteStatus::Active)
+                ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+                ->when(! $user->mustStayInOwnRegion() && $supervisor->region_id, fn ($q) => $q->where('region_id', $supervisor->region_id))
+                ->with('region:id,name')
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'region_id']),
+            'shiftTypes' => DeploymentShiftType::cases(),
+        ]);
+    }
+
+    public function deploy(DeploySupervisorRequest $request, Supervisor $supervisor): RedirectResponse
+    {
+        $this->authorize('view', $supervisor);
+
+        try {
+            $deployment = $this->deployments->deploySupervisor($supervisor, $request->validated());
+        } catch (\InvalidArgumentException $e) {
+            return back()->withInput()->withErrors(['deployment' => $e->getMessage()]);
+        }
+
+        return redirect()
+            ->route('supervisors.show', $supervisor)
+            ->with('status', 'Supervisor deployed for cover. A shift was scheduled for the monthly report.');
     }
 
     public function edit(Supervisor $supervisor): View

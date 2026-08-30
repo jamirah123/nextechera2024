@@ -15,7 +15,9 @@ use App\Models\Guard;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\Shifts\ShiftLifecycleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class ShiftManagementTest extends TestCase
@@ -120,7 +122,7 @@ class ShiftManagementTest extends TestCase
         $site = Site::factory()->create();
         $guard = Guard::factory()->create([
             'employment_status' => EmploymentStatus::Active,
-            'operational_status' => OperationalStatus::OffDuty,
+            'operational_status' => OperationalStatus::OnDuty,
             'region_id' => $site->region_id,
             'current_site_id' => $site->id,
             'current_supervisor_id' => $site->supervisor_id,
@@ -136,5 +138,39 @@ class ShiftManagementTest extends TestCase
         ]);
 
         return [$guard, $site];
+    }
+
+    public function test_completed_shift_returns_guard_to_deployment_board(): void
+    {
+        Carbon::setTestNow('2026-08-28 18:00:00');
+
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        [$guard, $site] = $this->deployedGuardAndSite();
+
+        $shift = Shift::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'shift_date' => now()->toDateString(),
+            'starts_at' => now()->setTime(6, 0),
+            'ends_at' => now()->setTime(18, 0),
+            'status' => ShiftStatus::InProgress,
+        ]);
+
+        $guard->update(['operational_status' => OperationalStatus::OnDuty]);
+
+        app(ShiftLifecycleService::class)->sync();
+        $shift->refresh();
+
+        $this->assertSame(ShiftStatus::Completed, $shift->status);
+
+        $guard->refresh();
+
+        $this->assertSame(OperationalStatus::AwaitingDeployment, $guard->operational_status);
+        $this->assertNull($guard->current_site_id);
+        $this->assertFalse(Deployment::query()->current()->where('guard_id', $guard->id)->exists());
+
+        Carbon::setTestNow();
     }
 }

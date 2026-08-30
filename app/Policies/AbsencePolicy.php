@@ -2,20 +2,20 @@
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
 use App\Models\Absence;
 use App\Models\User;
+use App\Support\Access\Access;
 
 class AbsencePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->canAccess($user);
+        return Access::userCan($user, 'organization.view');
     }
 
     public function view(User $user, Absence $absence): bool
     {
-        if (! $this->canAccess($user)) {
+        if (! Access::userCan($user, 'organization.view')) {
             return false;
         }
 
@@ -30,32 +30,11 @@ class AbsencePolicy
 
     public function create(User $user): bool
     {
-        return $this->canManage($user);
+        return Access::userCan($user, 'hr.absences_attendance_record');
     }
 
     public function update(User $user, Absence $absence): bool
     {
-        return $this->canManage($user) && $this->view($user, $absence);
-    }
-
-    private function canAccess(User $user): bool
-    {
-        return in_array($user->role, [
-            UserRole::SuperAdmin,
-            UserRole::OperationsManager,
-            UserRole::HrManager,
-            UserRole::ShiftManager,
-            UserRole::FinanceManager,
-            UserRole::RegionSupervisor,
-        ], true);
-    }
-
-    private function canManage(User $user): bool
-    {
-        return $user->isSuperAdmin()
-            || $user->hasRole(UserRole::HrManager)
-            || $user->hasRole(UserRole::OperationsManager)
-            || $user->hasRole(UserRole::ShiftManager)
-            || $user->hasRole(UserRole::RegionSupervisor);
+        return Access::userCan($user, 'hr.absences_attendance_record') && $this->view($user, $absence);
     }
 }

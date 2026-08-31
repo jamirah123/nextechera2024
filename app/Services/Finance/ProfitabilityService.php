@@ -225,7 +225,7 @@ class ProfitabilityService
 
     private function allocatedPayslipGross(string $from, string $to, ?int $clientId, ?int $siteId, ?int $regionId): float
     {
-        return (float) PayrollPayslip::query()
+        $shiftBased = (float) PayrollPayslip::query()
             ->whereHas('run', fn (Builder $query) => $this->applyPeriodOverlap(
                 $query->where('status', PayrollRunStatus::Paid->value),
                 $from,
@@ -243,6 +243,53 @@ class ProfitabilityService
                 }
             })
             ->sum('gross_pay');
+
+        $staffBased = (float) PayrollPayslip::query()
+            ->whereNotNull('staff_id')
+            ->whereHas('run', fn (Builder $query) => $this->applyPeriodOverlap(
+                $query->where('status', PayrollRunStatus::Paid->value),
+                $from,
+                $to,
+            ))
+            ->where(function (Builder $query) use ($clientId, $siteId, $regionId): void {
+                if ($siteId) {
+                    $query->whereRaw('0 = 1');
+
+                    return;
+                }
+
+                $query->whereHas('assignedStaff', function (Builder $staff) use ($regionId): void {
+                    if ($regionId) {
+                        $staff->where('region_id', $regionId);
+                    }
+                });
+
+                if ($regionId) {
+                    $query->orWhereHas('run', fn (Builder $run) => $run->where('region_id', $regionId));
+                }
+            })
+            ->sum('gross_pay');
+
+        $salaryGuards = (float) PayrollPayslip::query()
+            ->whereNotNull('guard_id')
+            ->whereNull('staff_id')
+            ->where('compensation_type', \App\Enums\CompensationType::Salary->value)
+            ->whereHas('run', fn (Builder $query) => $this->applyPeriodOverlap(
+                $query->where('status', PayrollRunStatus::Paid->value),
+                $from,
+                $to,
+            ))
+            ->where(function (Builder $query) use ($siteId, $regionId): void {
+                if ($siteId) {
+                    $query->whereHas('assignedGuard', fn (Builder $guard) => $guard->where('current_site_id', $siteId));
+                }
+                if ($regionId) {
+                    $query->whereHas('assignedGuard', fn (Builder $guard) => $guard->where('region_id', $regionId));
+                }
+            })
+            ->sum('gross_pay');
+
+        return $shiftBased + $staffBased + $salaryGuards;
     }
 
     private function paidRunsInPeriod(string $from, string $to): Builder

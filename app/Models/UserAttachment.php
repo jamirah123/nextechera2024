@@ -66,7 +66,12 @@ class UserAttachment extends Model
     protected static function booted(): void
     {
         static::deleting(function (UserAttachment $attachment): void {
+            app(\App\Services\ArchiveService::class)->recordSnapshot($attachment);
             $attachment->deleteFile();
+        });
+
+        static::deleted(function (UserAttachment $attachment): void {
+            app(\App\Services\ArchiveService::class)->logDeletion($attachment);
         });
     }
 }

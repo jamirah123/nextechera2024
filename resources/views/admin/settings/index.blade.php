@@ -88,7 +88,7 @@
                 </div>
             </x-form-group>
 
-            <x-form-group title="Email branding" description="Password reset and system emails use your logo, company name and this footer line.">
+            <x-form-group title="Email & notifications" description="Branding for outgoing mail and alerts when important workflow actions happen (payroll approvals, leave requests, and similar).">
                 <x-form-field
                     label="Email footer line"
                     name="email_footer_text"
@@ -97,6 +97,14 @@
                     help="Optional. Shown below the copyright line in outgoing emails."
                     class="sm:col-span-2"
                 />
+                <div class="sm:col-span-2">
+                    <x-form-checkbox
+                        name="notify_workflow_actions_by_email"
+                        label="Email workflow alerts to concerned users"
+                        :checked="old('notify_workflow_actions_by_email', $settings->notify_workflow_actions_by_email ?? true)"
+                        help="Sends email to active system users with the right permissions when payroll is submitted, approved, returned, paid, leave is requested or decided, and invoices are issued. Uses each user's login email address."
+                    />
+                </div>
             </x-form-group>
 
             <x-form-group title="Contact details" description="Support contacts shown on invoices, finance documents and help surfaces.">
@@ -111,7 +119,7 @@
                 <x-form-field label="Invoice due days" name="invoice_due_days" type="number" :value="old('invoice_due_days', $settings->invoice_due_days)" :required="true" min="1" max="120" />
             </x-form-group>
 
-            <x-form-group title="Payroll defaults" description="Monthly gross salary is divided by the number of calendar days in each payroll month (28, 29, 30, or 31) to calculate pay per shift.">
+            <x-form-group title="Payroll defaults" description="Rates and rules applied when calculating guard and staff payslips.">
                 <x-form-field
                     label="Default monthly gross salary ({{ $settings->currency }})"
                     name="payroll_default_base_shift_rate"
@@ -120,8 +128,18 @@
                     min="0"
                     :value="old('payroll_default_base_shift_rate', $settings->payroll_default_base_shift_rate)"
                     :required="true"
-                    help="Full-month gross pay before deductions. August uses 31 days, February uses 28 or 29 automatically."
+                    help="Full-month gross pay before deductions. Used as the default when a guard has no salary set."
                     class="sm:col-span-2"
+                />
+                <x-form-field
+                    label="Standard shifts per month"
+                    name="payroll_standard_shifts_per_month"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="31"
+                    :value="old('payroll_standard_shifts_per_month', $settings->payroll_standard_shifts_per_month ?? 0)"
+                    help="Divide monthly salary by this number to get the per-shift rate. Set to 0 to use calendar days in each payroll month (28–31)."
                 />
                 <x-form-field
                     label="Overtime multiplier"
@@ -134,8 +152,26 @@
                     :required="true"
                     help="Overtime rate = base shift rate × this multiplier when not set on the guard."
                 />
+                <div class="sm:col-span-2">
+                    <x-form-checkbox
+                        name="payroll_use_progressive_paye"
+                        label="Use Uganda progressive PAYE (2026)"
+                        :checked="old('payroll_use_progressive_paye', $settings->payroll_use_progressive_paye ?? true)"
+                        help="When enabled, monthly tax follows resident brackets below. Turn off to apply the flat PAYE rate instead."
+                    />
+                </div>
+                <div class="sm:col-span-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-600">
+                    <p class="font-semibold text-slate-700">Progressive PAYE brackets (monthly gross)</p>
+                    <ul class="mt-1 list-inside list-disc space-y-0.5">
+                        <li>Up to 335,000 — 0%</li>
+                        <li>335,001 – 410,000 — 20% on excess over 335,000</li>
+                        <li>410,001 – 485,000 — 15,000 + 25% on excess over 410,000</li>
+                        <li>485,001 – 10,000,000 — 33,750 + 30% on excess over 485,000</li>
+                        <li>Above 10,000,000 — additional 10% surtax on tax above 10M band</li>
+                    </ul>
+                </div>
                 <x-form-field
-                    label="PAYE rate (%)"
+                    label="PAYE rate (%) — flat fallback"
                     name="payroll_paye_rate"
                     type="number"
                     step="0.01"
@@ -143,7 +179,7 @@
                     max="100"
                     :value="old('payroll_paye_rate', $settings->payroll_paye_rate)"
                     :required="true"
-                    help="Percentage of gross pay deducted as PAYE. Set to 0 to disable."
+                    help="Applied only when progressive PAYE is turned off above."
                 />
                 <x-form-field
                     label="NSSF employee rate (%)"
@@ -165,8 +201,28 @@
                     :value="old('payroll_uniform_charge', $settings->payroll_uniform_charge)"
                     :required="true"
                     help="Flat monthly uniform deduction per guard payslip. Set to 0 to disable."
-                    class="sm:col-span-2"
                 />
+                <x-form-field
+                    label="Bank export format"
+                    name="payroll_bank_export_format"
+                    type="select"
+                    :value="old('payroll_bank_export_format', $settings->payroll_bank_export_format ?? 'generic')"
+                    :required="true"
+                    help="Column layout for payroll bank payment files."
+                    class="sm:col-span-2"
+                >
+                    <option value="generic" @selected(old('payroll_bank_export_format', $settings->payroll_bank_export_format ?? 'generic') === 'generic')>Generic CSV</option>
+                    <option value="centenary" @selected(old('payroll_bank_export_format', $settings->payroll_bank_export_format ?? 'generic') === 'centenary')>Centenary Bank</option>
+                    <option value="stanbic" @selected(old('payroll_bank_export_format', $settings->payroll_bank_export_format ?? 'generic') === 'stanbic')>Stanbic Bank</option>
+                </x-form-field>
+                <div class="sm:col-span-2">
+                    <x-form-checkbox
+                        name="payroll_send_payslip_email_on_approve"
+                        label="Email payslips when payroll is approved"
+                        :checked="old('payroll_send_payslip_email_on_approve', $settings->payroll_send_payslip_email_on_approve ?? true)"
+                        help="Sends PDF payslips to each employee's payroll email after the MD approves a run."
+                    />
+                </div>
             </x-form-group>
 
             <x-form-group title="Shift time defaults" description="Pre-fill day and night shift windows when creating new shifts.">

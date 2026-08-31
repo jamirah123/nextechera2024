@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Finance;
 
+use App\Enums\EmploymentStatus;
 use App\Enums\PayrollDeductionType;
 use App\Enums\PayrollRunStatus;
 use App\Enums\ShiftStatus;
@@ -13,9 +14,12 @@ use App\Models\PayrollPayslip;
 use App\Models\PayrollRun;
 use App\Models\Shift;
 use App\Models\Site;
+use App\Models\Staff;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\Finance\PayrollRunService;
 use App\Services\Finance\ProfitabilityService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -23,11 +27,25 @@ class PayrollManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** @return array{year: int, month: int, start: Carbon, days: int} */
+    private function closedPayrollPeriod(): array
+    {
+        $period = PayrollRunService::lastClosedPeriod();
+
+        return [
+            'year' => $period->year,
+            'month' => $period->month,
+            'start' => $period->copy()->startOfMonth(),
+            'days' => $period->daysInMonth,
+        ];
+    }
+
     public function test_finance_manager_can_run_full_payroll_cycle_from_shifts(): void
     {
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $director = User::factory()->managingDirector()->create();
         $site = Site::factory()->create();
+        $period = $this->closedPayrollPeriod();
 
         $guard = Guard::factory()->create([
             'region_id' => $site->region_id,
@@ -42,7 +60,7 @@ class PayrollManagementTest extends TestCase
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
-            'shift_date' => now()->startOfMonth()->toDateString(),
+            'shift_date' => $period['start']->toDateString(),
             'shift_type' => ShiftType::Normal,
             'status' => ShiftStatus::Completed,
         ]);
@@ -51,15 +69,15 @@ class PayrollManagementTest extends TestCase
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
-            'shift_date' => now()->startOfMonth()->addDay()->toDateString(),
+            'shift_date' => $period['start']->copy()->addDay()->toDateString(),
             'shift_type' => ShiftType::Overtime,
             'status' => ShiftStatus::Completed,
         ]);
 
         $this->actingAs($finance)
             ->post(route('payroll.store'), [
-                'period_year' => now()->year,
-                'period_month' => now()->month,
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
                 'notes' => 'Month-end payroll',
             ])
             ->assertRedirect();
@@ -79,7 +97,7 @@ class PayrollManagementTest extends TestCase
         $payslip = PayrollPayslip::query()->where('payroll_run_id', $run->id)->first();
         $this->assertNotNull($payslip);
         $this->assertSame(2, $payslip->total_shifts);
-        $perShift = round(900000 / now()->daysInMonth, 2);
+        $perShift = round(900000 / $period['days'], 2);
         $this->assertSame($perShift + 45000.0, (float) $payslip->gross_pay);
         $this->assertTrue($payslip->shifts()->where('shifts.id', $normalShift->id)->exists());
 
@@ -132,6 +150,7 @@ class PayrollManagementTest extends TestCase
     {
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $site = Site::factory()->create();
+        $period = $this->closedPayrollPeriod();
 
         $guard = Guard::factory()->create([
             'region_id' => $site->region_id,
@@ -143,7 +162,7 @@ class PayrollManagementTest extends TestCase
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
-            'shift_date' => now()->startOfMonth()->toDateString(),
+            'shift_date' => $period['start']->toDateString(),
             'shift_type' => ShiftType::Normal,
             'status' => ShiftStatus::Completed,
         ]);
@@ -158,8 +177,8 @@ class PayrollManagementTest extends TestCase
 
         $this->actingAs($finance)
             ->post(route('payroll.store'), [
-                'period_year' => now()->year,
-                'period_month' => now()->month,
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
             ])
             ->assertRedirect();
 
@@ -212,6 +231,7 @@ class PayrollManagementTest extends TestCase
     public function test_payroll_applies_statutory_deductions_from_system_settings(): void
     {
         SystemSetting::query()->first()?->update([
+            'payroll_use_progressive_paye' => false,
             'payroll_paye_rate' => 10,
             'payroll_nssf_employee_rate' => 5,
             'payroll_uniform_charge' => 3000,
@@ -221,10 +241,12 @@ class PayrollManagementTest extends TestCase
 
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $site = Site::factory()->create();
+        $period = $this->closedPayrollPeriod();
 
         $guard = Guard::factory()->create([
             'region_id' => $site->region_id,
             'current_site_id' => $site->id,
+            'compensation_type' => \App\Enums\CompensationType::Shift,
             'base_shift_rate' => 300000,
         ]);
 
@@ -232,15 +254,15 @@ class PayrollManagementTest extends TestCase
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
-            'shift_date' => now()->startOfMonth()->toDateString(),
+            'shift_date' => $period['start']->toDateString(),
             'shift_type' => ShiftType::Normal,
             'status' => ShiftStatus::Completed,
         ]);
 
         $this->actingAs($finance)
             ->post(route('payroll.store'), [
-                'period_year' => now()->year,
-                'period_month' => now()->month,
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
             ])
             ->assertRedirect();
 
@@ -252,7 +274,7 @@ class PayrollManagementTest extends TestCase
 
         $payslip = PayrollPayslip::query()->where('guard_id', $guard->id)->firstOrFail();
 
-        $perShift = round(300000 / now()->daysInMonth, 2);
+        $perShift = round(300000 / $period['days'], 2);
         $this->assertSame($perShift, (float) $payslip->gross_pay);
 
         $this->assertTrue($payslip->deductions()->where('type', PayrollDeductionType::Paye)->exists());
@@ -274,6 +296,7 @@ class PayrollManagementTest extends TestCase
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $director = User::factory()->managingDirector()->create();
         $site = Site::factory()->create();
+        $period = $this->closedPayrollPeriod();
 
         $guard = Guard::factory()->create([
             'region_id' => $site->region_id,
@@ -285,15 +308,15 @@ class PayrollManagementTest extends TestCase
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
-            'shift_date' => now()->startOfMonth()->toDateString(),
+            'shift_date' => $period['start']->toDateString(),
             'shift_type' => ShiftType::Normal,
             'status' => ShiftStatus::Completed,
         ]);
 
         $this->actingAs($finance)
             ->post(route('payroll.store'), [
-                'period_year' => now()->year,
-                'period_month' => now()->month,
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
             ])
             ->assertRedirect();
 
@@ -329,8 +352,8 @@ class PayrollManagementTest extends TestCase
 
         $this->actingAs($finance)
             ->post(route('payroll.store'), [
-                'period_year' => now()->year,
-                'period_month' => now()->month,
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
             ])
             ->assertRedirect();
 
@@ -350,10 +373,12 @@ class PayrollManagementTest extends TestCase
 
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $site = Site::factory()->create();
+        $period = $this->closedPayrollPeriod();
 
         $guard = Guard::factory()->create([
             'region_id' => $site->region_id,
             'current_site_id' => $site->id,
+            'compensation_type' => \App\Enums\CompensationType::Shift,
             'base_shift_rate' => 0,
         ]);
 
@@ -361,15 +386,15 @@ class PayrollManagementTest extends TestCase
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
-            'shift_date' => now()->startOfMonth()->toDateString(),
+            'shift_date' => $period['start']->toDateString(),
             'shift_type' => ShiftType::Normal,
             'status' => ShiftStatus::Completed,
         ]);
 
         $this->actingAs($finance)
             ->post(route('payroll.store'), [
-                'period_year' => now()->year,
-                'period_month' => now()->month,
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
             ])
             ->assertRedirect();
 
@@ -381,7 +406,7 @@ class PayrollManagementTest extends TestCase
 
         $payslip = PayrollPayslip::query()->where('guard_id', $guard->id)->firstOrFail();
 
-        $perShift = round(30000 / now()->daysInMonth, 2);
+        $perShift = round(30000 / $period['days'], 2);
         $this->assertSame($perShift, (float) $payslip->base_shift_rate);
         $this->assertSame($perShift, (float) $payslip->gross_pay);
         $this->assertSame($perShift, (float) $run->fresh()->gross_total);
@@ -698,5 +723,464 @@ class PayrollManagementTest extends TestCase
             ->assertSee('Paid')
             ->assertSee('Draft')
             ->assertSee('cannot be opened again');
+    }
+
+    public function test_cannot_open_payroll_before_month_ends(): void
+    {
+        if (PayrollRunService::isPeriodClosed(now()->year, now()->month)) {
+            $this->markTestSkipped('Current month is already closed in this test environment.');
+        }
+
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => now()->year,
+                'period_month' => now()->month,
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('payroll');
+    }
+
+    public function test_managing_director_sees_delete_action_on_paid_payroll(): void
+    {
+        $director = User::factory()->managingDirector()->create();
+
+        PayrollRun::query()->create([
+            'reference' => 'PAY-2026-08-004',
+            'period_year' => 2026,
+            'period_month' => 8,
+            'period_start' => '2026-08-01',
+            'period_end' => '2026-08-31',
+            'status' => PayrollRunStatus::Paid,
+            'currency' => 'UGX',
+            'guard_count' => 13,
+            'net_total' => 2725.84,
+            'paid_at' => now(),
+        ]);
+
+        $this->actingAs($director)
+            ->get(route('payroll.index'))
+            ->assertOk()
+            ->assertSee('Delete run')
+            ->assertDontSee('Reject run');
+    }
+
+    public function test_staff_are_included_in_payroll_without_shifts(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => 1200000,
+            'date_employed' => $period['start']->toDateString(),
+            'full_name' => 'Finance Officer One',
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+
+        $this->actingAs($finance)
+            ->post(route('payroll.calculate', $run))
+            ->assertRedirect();
+
+        $payslip = PayrollPayslip::query()->firstOrFail();
+
+        $this->assertSame(1, $run->fresh()->guard_count);
+        $this->assertSame(1200000.0, (float) $payslip->gross_pay);
+        $this->assertTrue($payslip->isFixedSalary());
+        $this->assertNotNull($payslip->staff_id);
+        $this->assertNull($payslip->guard_id);
+        $this->assertSame(0, $payslip->total_shifts);
+    }
+
+    public function test_staff_payslips_exclude_uniform_but_apply_paye_and_nssf(): void
+    {
+        SystemSetting::query()->first()?->update([
+            'payroll_use_progressive_paye' => false,
+            'payroll_paye_rate' => 10,
+            'payroll_nssf_employee_rate' => 5,
+            'payroll_uniform_charge' => 3000,
+        ]);
+
+        app(\App\Services\SystemSettingService::class)->applyRuntimeConfig();
+
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => 1000000,
+            'date_employed' => $period['start']->toDateString(),
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $payslip = PayrollPayslip::query()->firstOrFail();
+
+        $this->assertTrue($payslip->deductions()->where('type', PayrollDeductionType::Paye)->exists());
+        $this->assertTrue($payslip->deductions()->where('type', PayrollDeductionType::Nssf)->exists());
+        $this->assertFalse($payslip->deductions()->where('type', PayrollDeductionType::Uniform)->exists());
+    }
+
+    public function test_staff_pro_rated_when_hired_mid_month(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => $period['days'] * 10000,
+            'date_employed' => $period['start']->copy()->addDays(10)->toDateString(),
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $expectedDays = $period['days'] - 10;
+        $expectedGross = round(($period['days'] * 10000) * ($expectedDays / $period['days']), 2);
+
+        $this->assertSame($expectedGross, (float) PayrollPayslip::query()->value('gross_pay'));
+    }
+
+    public function test_staff_pro_rated_when_employment_ends_mid_month(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => $period['days'] * 10000,
+            'date_employed' => $period['start']->toDateString(),
+            'employment_end_date' => $period['start']->copy()->addDays(19)->toDateString(),
+            'employment_status' => EmploymentStatus::Resigned,
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $expectedGross = round(($period['days'] * 10000) * (20 / $period['days']), 2);
+
+        $this->assertSame($expectedGross, (float) PayrollPayslip::query()->value('gross_pay'));
+    }
+
+    public function test_staff_receives_full_month_when_no_employment_end_date(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => 1000000,
+            'date_employed' => $period['start']->toDateString(),
+            'employment_status' => EmploymentStatus::Active,
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $this->assertSame(1000000.0, (float) PayrollPayslip::query()->value('gross_pay'));
+    }
+
+    public function test_staff_excluded_from_payroll_after_employment_end_date(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => 1000000,
+            'date_employed' => $period['start']->copy()->subMonths(6)->toDateString(),
+            'employment_end_date' => $period['start']->copy()->subMonth()->endOfMonth()->toDateString(),
+            'employment_status' => EmploymentStatus::Terminated,
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $this->assertSame(0, PayrollPayslip::query()->count());
+    }
+
+    public function test_site_scoped_payroll_excludes_staff(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $site = Site::factory()->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => $site->region_id,
+            'monthly_salary' => 900000,
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+                'site_id' => $site->id,
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $this->assertSame(0, $run->fresh()->guard_count);
+    }
+
+    public function test_managing_director_can_return_submitted_payroll_to_finance(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $director = User::factory()->managingDirector()->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create(['region_id' => null, 'monthly_salary' => 500000, 'date_employed' => $period['start']->toDateString()]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), ['period_year' => $period['year'], 'period_month' => $period['month']])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+        $this->actingAs($finance)->post(route('payroll.submit', $run))->assertRedirect();
+
+        $this->actingAs($director)
+            ->post(route('payroll.reject', $run), ['reason' => 'Check advance deductions'])
+            ->assertRedirect();
+
+        $run->refresh();
+        $this->assertSame(PayrollRunStatus::Calculated, $run->status);
+        $this->assertNull($run->submitted_at);
+        $this->assertSame(1, $run->payslips()->count());
+        $this->assertStringContainsString('Returned to finance: Check advance deductions', $run->notes);
+    }
+
+    public function test_rejecting_payroll_requires_a_reason(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $director = User::factory()->managingDirector()->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create(['region_id' => null, 'monthly_salary' => 500000, 'date_employed' => $period['start']->toDateString()]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), ['period_year' => $period['year'], 'period_month' => $period['month']])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+        $this->actingAs($finance)->post(route('payroll.submit', $run))->assertRedirect();
+
+        $this->actingAs($director)
+            ->post(route('payroll.reject', $run), [])
+            ->assertSessionHasErrors('reason');
+
+        $this->actingAs($director)
+            ->post(route('payroll.reject', $run), ['reason' => 'ab'])
+            ->assertSessionHasErrors('reason');
+
+        $this->assertSame(PayrollRunStatus::Submitted, $run->fresh()->status);
+    }
+
+    public function test_salary_guard_is_paid_without_shifts(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Guard::factory()->create([
+            'region_id' => null,
+            'compensation_type' => \App\Enums\CompensationType::Salary,
+            'base_shift_rate' => 900000,
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), ['period_year' => $period['year'], 'period_month' => $period['month']])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $payslip = PayrollPayslip::query()->firstOrFail();
+        $this->assertSame(\App\Enums\CompensationType::Salary, $payslip->compensation_type);
+        $this->assertSame(900000.0, (float) $payslip->gross_pay);
+    }
+
+    public function test_guard_pro_rated_when_employment_ends_mid_month(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Guard::factory()->create([
+            'region_id' => null,
+            'compensation_type' => \App\Enums\CompensationType::Salary,
+            'base_shift_rate' => $period['days'] * 10000,
+            'date_employed' => $period['start']->toDateString(),
+            'employment_end_date' => $period['start']->copy()->addDays(19)->toDateString(),
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), ['period_year' => $period['year'], 'period_month' => $period['month']])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $expected = round(($period['days'] * 10000) * (20 / $period['days']), 2);
+        $this->assertSame($expected, (float) PayrollPayslip::query()->value('gross_pay'));
+    }
+
+    public function test_staff_advance_auto_deducts_on_payroll(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+        $staff = Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => 1000000,
+            'date_employed' => $period['start']->toDateString(),
+        ]);
+
+        \App\Models\GuardSalaryAdvance::query()->create([
+            'staff_id' => $staff->id,
+            'label' => 'Emergency advance',
+            'original_amount' => 200000,
+            'balance_remaining' => 200000,
+            'monthly_installment' => 100000,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), ['period_year' => $period['year'], 'period_month' => $period['month']])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $payslip = PayrollPayslip::query()->firstOrFail();
+        $this->assertTrue($payslip->deductions()->where('type', PayrollDeductionType::Advance)->exists());
+    }
+
+    public function test_payslip_pdf_download_returns_pdf(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => 800000,
+            'date_employed' => $period['start']->toDateString(),
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), ['period_year' => $period['year'], 'period_month' => $period['month']])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $payslip = PayrollPayslip::query()->firstOrFail();
+
+        $response = $this->actingAs($finance)
+            ->get(route('payroll.payslips.print', [$run, $payslip, 'format' => 'pdf']));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
+
+    public function test_progressive_paye_applies_uganda_2026_brackets_on_staff(): void
+    {
+        config(['psg.payroll.use_progressive_paye' => true]);
+
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => 1_000_000,
+            'date_employed' => $period['start']->toDateString(),
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $payslip = PayrollPayslip::query()->firstOrFail();
+        $paye = (float) $payslip->deductions()->where('type', PayrollDeductionType::Paye)->value('amount');
+
+        $this->assertSame(188_250.0, $paye);
+        $this->assertStringContainsString('Uganda resident brackets', $payslip->deductions()->where('type', PayrollDeductionType::Paye)->value('label'));
+    }
+
+    public function test_progressive_paye_is_zero_below_tax_free_threshold(): void
+    {
+        config(['psg.payroll.use_progressive_paye' => true]);
+
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => 300_000,
+            'date_employed' => $period['start']->toDateString(),
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $this->assertFalse(PayrollPayslip::query()->firstOrFail()->deductions()->where('type', PayrollDeductionType::Paye)->exists());
     }
 }

@@ -246,4 +246,49 @@ class MonthlyShiftCalculationService
             ];
         })->values();
     }
+
+    /**
+     * @return array{
+     *     guard_id: int,
+     *     employment_id: string,
+     *     full_name: string,
+     *     normal_shifts: int,
+     *     overtime_shifts: int,
+     *     relief_shifts: int,
+     *     replacement_shifts: int,
+     *     special_duty_shifts: int,
+     *     total_shifts: int
+     * }
+     */
+    public function guardRowForPeriod(int $guardId, string $start, string $end, ?\App\Models\PayrollRun $run = null): array
+    {
+        $guard = Guard::query()->findOrFail($guardId);
+
+        $shifts = Shift::query()
+            ->where('guard_id', $guardId)
+            ->whereBetween('shift_date', [$start, $end])
+            ->when($run?->region_id, fn ($q) => $q->where('region_id', $run->region_id))
+            ->when($run?->site_id, fn ($q) => $q->where('site_id', $run->site_id))
+            ->get(['shift_type', 'status']);
+
+        $worked = $shifts->filter(fn (Shift $shift) => $shift->status === ShiftStatus::Completed);
+
+        $normal = $worked->where('shift_type', ShiftType::Normal)->count();
+        $overtime = $worked->where('shift_type', ShiftType::Overtime)->count();
+        $relief = $worked->where('shift_type', ShiftType::Relief)->count();
+        $replacement = $worked->where('shift_type', ShiftType::Replacement)->count();
+        $special = $worked->where('shift_type', ShiftType::SpecialDuty)->count();
+
+        return [
+            'guard_id' => $guard->id,
+            'employment_id' => $guard->employment_id,
+            'full_name' => $guard->full_name,
+            'normal_shifts' => $normal,
+            'overtime_shifts' => $overtime,
+            'relief_shifts' => $relief,
+            'replacement_shifts' => $replacement,
+            'special_duty_shifts' => $special,
+            'total_shifts' => $normal + $overtime + $relief + $replacement + $special,
+        ];
+    }
 }

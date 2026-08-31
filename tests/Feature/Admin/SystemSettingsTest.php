@@ -25,7 +25,7 @@ class SystemSettingsTest extends TestCase
             ->assertSee('Platform settings')
             ->assertSee('Company branding')
             ->assertSee('Theme colors')
-            ->assertSee('Email branding')
+            ->assertSee('Email & notifications')
             ->assertSee('Finance defaults')
             ->assertSee('Payroll defaults');
 
@@ -79,11 +79,14 @@ class SystemSettingsTest extends TestCase
                 'currency_decimals' => 0,
                 'invoice_due_days' => 14,
                 'payroll_default_base_shift_rate' => 25000,
-            'payroll_standard_shifts_per_month' => 30,
+                'payroll_standard_shifts_per_month' => 0,
                 'payroll_overtime_multiplier' => 1.5,
                 'payroll_paye_rate' => 0,
+                'payroll_use_progressive_paye' => '1',
                 'payroll_nssf_employee_rate' => 5,
                 'payroll_uniform_charge' => 0,
+                'payroll_bank_export_format' => 'generic',
+                'payroll_send_payslip_email_on_approve' => '1',
                 'default_day_shift_start' => '06:00',
                 'default_day_shift_end' => '18:00',
                 'default_night_shift_start' => '18:00',
@@ -159,6 +162,7 @@ class SystemSettingsTest extends TestCase
             'theme_primary' => '#1845de',
             'theme_sidebar' => '#070d18',
             'email_footer_text' => null,
+            'notify_workflow_actions_by_email' => '1',
             'support_email' => null,
             'support_phone' => null,
             'currency' => 'UGX',
@@ -166,11 +170,14 @@ class SystemSettingsTest extends TestCase
             'currency_decimals' => 0,
             'invoice_due_days' => 14,
             'payroll_default_base_shift_rate' => 25000,
-            'payroll_standard_shifts_per_month' => 30,
+            'payroll_standard_shifts_per_month' => 0,
             'payroll_overtime_multiplier' => 1.5,
             'payroll_paye_rate' => 0,
+            'payroll_use_progressive_paye' => '1',
             'payroll_nssf_employee_rate' => 5,
             'payroll_uniform_charge' => 0,
+            'payroll_bank_export_format' => 'generic',
+            'payroll_send_payslip_email_on_approve' => '1',
             'default_day_shift_start' => '06:00',
             'default_day_shift_end' => '18:00',
             'default_night_shift_start' => '18:00',
@@ -213,11 +220,14 @@ class SystemSettingsTest extends TestCase
                 'currency_decimals' => 0,
                 'invoice_due_days' => 14,
                 'payroll_default_base_shift_rate' => 25000,
-            'payroll_standard_shifts_per_month' => 30,
+                'payroll_standard_shifts_per_month' => 0,
                 'payroll_overtime_multiplier' => 1.5,
                 'payroll_paye_rate' => 0,
+                'payroll_use_progressive_paye' => '1',
                 'payroll_nssf_employee_rate' => 5,
                 'payroll_uniform_charge' => 0,
+                'payroll_bank_export_format' => 'generic',
+                'payroll_send_payslip_email_on_approve' => '1',
                 'default_day_shift_start' => '06:00',
                 'default_day_shift_end' => '18:00',
                 'default_night_shift_start' => '18:00',
@@ -226,6 +236,38 @@ class SystemSettingsTest extends TestCase
                 'backup_path' => 'backups',
             ])
             ->assertForbidden();
+    }
+
+    public function test_super_admin_can_update_payroll_platform_settings(): void
+    {
+        $admin = User::factory()->role(UserRole::SuperAdmin)->create();
+
+        $this->actingAs($admin)
+            ->put(route('settings.update'), $this->baseSettingsPayload([
+                'payroll_standard_shifts_per_month' => 26,
+                'payroll_use_progressive_paye' => '0',
+                'payroll_paye_rate' => 15,
+                'payroll_bank_export_format' => 'stanbic',
+                'payroll_send_payslip_email_on_approve' => '0',
+            ]))
+            ->assertRedirect(route('settings.index'));
+
+        Cache::forget('system_settings.id');
+        app(\App\Services\SystemSettingService::class)->applyRuntimeConfig();
+
+        $this->assertDatabaseHas('system_settings', [
+            'payroll_standard_shifts_per_month' => 26,
+            'payroll_use_progressive_paye' => false,
+            'payroll_paye_rate' => 15,
+            'payroll_bank_export_format' => 'stanbic',
+            'payroll_send_payslip_email_on_approve' => false,
+        ]);
+
+        $this->assertSame(26, (int) config('psg.payroll.standard_shifts_per_month'));
+        $this->assertFalse(config('psg.payroll.use_progressive_paye'));
+        $this->assertSame(15.0, (float) config('psg.payroll.paye_rate'));
+        $this->assertSame('stanbic', config('psg.payroll.bank_export_format'));
+        $this->assertFalse(config('psg.payroll.send_payslip_email_on_approve'));
     }
 
     public function test_super_admin_can_update_payroll_defaults(): void

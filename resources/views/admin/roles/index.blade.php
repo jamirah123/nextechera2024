@@ -21,18 +21,6 @@
         <p class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{{ session('status') }}</p>
     @endif
 
-    <section class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        @foreach ($roles as $role)
-            <div class="form-card">
-                <x-status-badge :tone="$role->tone()" :label="$role->label()" />
-                <p class="mt-3 text-sm text-slate-600">{{ $role->description() }}</p>
-                <p class="mt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    {{ (int) ($counts[$role->value] ?? 0) }} account{{ (int) ($counts[$role->value] ?? 0) === 1 ? '' : 's' }}
-                </p>
-            </div>
-        @endforeach
-    </section>
-
     <section class="form-card">
         <h2 class="text-sm font-semibold text-slate-900">Clone permissions</h2>
         <p class="mt-1 text-xs text-slate-500">Copy all capabilities from one role to another. Useful when onboarding a new client with a similar org structure.</p>

@@ -65,11 +65,14 @@ class PayrollRunController extends Controller
     {
         Gate::authorize('manageFinance');
 
+        $lastClosed = PayrollRunService::lastClosedPeriod();
+
         return view('finance.payroll.create', [
             'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
             'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code', 'region_id']),
-            'defaultYear' => now()->year,
-            'defaultMonth' => now()->month,
+            'defaultYear' => (int) old('period_year', $lastClosed->year),
+            'defaultMonth' => (int) old('period_month', $lastClosed->month),
+            'lastClosedLabel' => $lastClosed->format('F Y'),
             'existingRuns' => PayrollRun::query()
                 ->whereNot('status', PayrollRunStatus::Cancelled->value)
                 ->with(['region:id,name', 'site:id,name,code'])
@@ -169,6 +172,27 @@ class PayrollRunController extends Controller
         return back()->with('status', 'Payroll run approved.');
     }
 
+    public function reject(Request $request, PayrollRun $payroll): RedirectResponse
+    {
+        Gate::authorize('approvePayroll');
+
+        if (! PayrollAccess::canReject($request->user(), $payroll)) {
+            abort(403, 'You cannot return this payroll run to finance.');
+        }
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        try {
+            $this->payroll->reject($payroll, $request->user(), $data['reason']);
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['payroll' => $e->getMessage()]);
+        }
+
+        return back()->with('status', 'Payroll returned to finance for revision.');
+    }
+
     public function pay(PayrollRun $payroll): RedirectResponse
     {
         Gate::authorize('manageFinance');
@@ -187,10 +211,8 @@ class PayrollRunController extends Controller
         $user = request()->user();
 
         if (! PayrollAccess::canCancel($user, $payroll)) {
-            abort(403, 'You are not allowed to cancel or reject this payroll run.');
+            abort(403, 'You are not allowed to delete this payroll run.');
         }
-
-        $previousStatus = $payroll->status;
 
         try {
             $this->payroll->cancel($payroll);
@@ -198,11 +220,9 @@ class PayrollRunController extends Controller
             return back()->withErrors(['payroll' => $e->getMessage()]);
         }
 
-        $rejected = in_array($previousStatus, [PayrollRunStatus::Submitted, PayrollRunStatus::Approved, PayrollRunStatus::Paid], true);
-
         return redirect()
             ->route('payroll.index')
-            ->with('status', $rejected ? 'Payroll run rejected.' : 'Payroll run deleted.');
+            ->with('status', 'Payroll run deleted.');
     }
 
     public function exportBank(PayrollRun $payroll): StreamedResponse

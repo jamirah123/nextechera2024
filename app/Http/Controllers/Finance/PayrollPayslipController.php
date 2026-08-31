@@ -9,10 +9,12 @@ use App\Models\PayrollPayslip;
 use App\Models\PayrollRun;
 use App\Services\Finance\PayrollCalculationService;
 use App\Services\Finance\PayrollPayslipExportService;
+use App\Services\Finance\PayrollPayslipPdfService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -22,6 +24,7 @@ class PayrollPayslipController extends Controller
     public function __construct(
         private PayrollCalculationService $calculator,
         private PayrollPayslipExportService $exports,
+        private PayrollPayslipPdfService $pdf,
     ) {
     }
 
@@ -31,7 +34,7 @@ class PayrollPayslipController extends Controller
 
         abort_unless((int) $payslip->payroll_run_id === (int) $payroll->id, 404);
 
-        $payslip->load(['deductions', 'shifts.site:id,name,code', 'assignedGuard:id,employment_id,nssf_number']);
+        $payslip->load(['deductions', 'shifts.site:id,name,code', 'assignedGuard:id,employment_id,nssf_number', 'assignedStaff']);
 
         return view('finance.payroll.payslip', [
             'run' => $payroll,
@@ -87,12 +90,19 @@ class PayrollPayslipController extends Controller
         return $this->exports->downloadCsv($payroll, $payslip);
     }
 
-    public function print(PayrollRun $payroll, PayrollPayslip $payslip): View
+    public function print(PayrollRun $payroll, PayrollPayslip $payslip): View|Response
     {
         Gate::authorize('viewFinance');
         abort_unless((int) $payslip->payroll_run_id === (int) $payroll->id, 404);
 
-        $payslip->load(['deductions', 'assignedGuard:id,employment_id,nssf_number']);
+        $payslip->load(['deductions', 'assignedGuard:id,employment_id,nssf_number', 'assignedStaff']);
+
+        if (request()->query('format') === 'pdf') {
+            return response($this->pdf->renderBinary($payroll, $payslip), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'attachment; filename="payslip-'.$payslip->employment_id.'.pdf"',
+            ]);
+        }
 
         return view('finance.payroll.payslip-print', [
             'run' => $payroll,

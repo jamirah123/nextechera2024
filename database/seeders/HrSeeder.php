@@ -30,6 +30,8 @@ class HrSeeder extends Seeder
         $this->seedAbsences();
         $this->seedDesertions();
 
+        $this->call(StaffSeeder::class);
+
         Auth::logout();
     }
 

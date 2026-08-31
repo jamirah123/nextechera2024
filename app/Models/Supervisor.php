@@ -15,6 +15,7 @@ class Supervisor extends Model
 {
     /** @use HasFactory<SupervisorFactory> */
     use HasFactory, SoftDeletes, TracksUserChanges;
+    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $fillable = [
         'supervisor_code',

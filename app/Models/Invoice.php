@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Invoice extends Model
 {
     use SoftDeletes, TracksUserChanges;
+    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $fillable = [
         'reference',

@@ -86,6 +86,13 @@ class PermissionCatalog
                 'roles' => $audit,
             ],
             [
+                'key' => 'admin.records_restore',
+                'group' => 'Administration',
+                'label' => 'Restore archived records',
+                'description' => 'View deletion backups and restore mistakenly removed records.',
+                'roles' => $executiveUsers,
+            ],
+            [
                 'key' => 'organization.manage',
                 'group' => 'Organization',
                 'label' => 'Manage regions, sites, clients & supervisors',
@@ -116,6 +123,20 @@ class PermissionCatalog
                 'label' => 'View guard registry',
                 'description' => 'Browse guard profiles and operational status.',
                 'roles' => $all,
+            ],
+            [
+                'key' => 'staff.manage',
+                'group' => 'Staff',
+                'label' => 'Register & edit staff',
+                'description' => 'Create and update salaried office employee records.',
+                'roles' => $hrCore,
+            ],
+            [
+                'key' => 'staff.view',
+                'group' => 'Staff',
+                'label' => 'View staff registry',
+                'description' => 'Browse salaried employee profiles for payroll.',
+                'roles' => array_values(array_unique([...$all, ...$financeView])),
             ],
             [
                 'key' => 'operations.deployments_manage',

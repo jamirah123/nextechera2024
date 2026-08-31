@@ -46,6 +46,7 @@ class RoleNavigation
                 self::module('Finance', 'Client billing, invoices, payments and profitability.', 'wallet', 'emerald', route('billing.index')),
                 self::module('Reports', 'Operational, HR and financial report exports.', 'chart', 'violet', route('reports.index')),
                 self::module('Audit Logs', 'Immutable trail of critical system actions.', 'audit', 'rose', route('audit.index')),
+                self::module('Archived Records', 'Deletion backups that can be restored by administrators.', 'audit', 'amber', route('archived.index')),
                 self::module('Platform Settings', 'White-label branding, finance defaults, shift times and backups.', 'settings', 'violet', route('settings.index')),
                 self::module('Roles & Permissions', 'Configure role capabilities and access control.', 'settings', 'violet', route('roles.index')),
             ],
@@ -65,6 +66,7 @@ class RoleNavigation
                 self::module('Finance', 'Client billing, invoices, payments and profitability.', 'wallet', 'emerald', route('billing.index')),
                 self::module('Reports', 'Operational, HR and financial report exports.', 'chart', 'violet', route('reports.index')),
                 self::module('Audit Logs', 'Immutable trail of critical system actions.', 'audit', 'rose', route('audit.index')),
+                self::module('Archived Records', 'Deletion backups that can be restored by administrators.', 'audit', 'amber', route('archived.index')),
             ],
             UserRole::OperationsManager => [
                 self::module('Ops Dashboards', 'Company and regional operational command views.', 'chart', 'brand', route('ops-dashboards.company')),
@@ -82,6 +84,7 @@ class RoleNavigation
             ],
             UserRole::HrManager => [
                 self::module('All Guards', 'Register and maintain guard employment records.', 'shield', 'brand', route('guards.index')),
+                self::module('Staff', 'Register salaried office and admin employees.', 'users', 'indigo', route('staff.index')),
                 self::module('Organization', 'View regions, sites and supervisors.', 'building', 'indigo', route('organization.index')),
                 self::module('Leave Management', 'Approve leave and detect schedule conflicts.', 'leave', 'sky', route('leaves.index')),
                 self::module('Absences', 'Record absences and trigger replacements.', 'alert', 'amber', route('absences.index')),
@@ -104,6 +107,7 @@ class RoleNavigation
             UserRole::FinanceManager => [
                 self::module('Clients & Sites', 'Contracts and site structure for billing context.', 'building', 'indigo', route('organization.index')),
                 self::module('Guards', 'Read-only employment context for payroll reporting.', 'shield', 'sky', route('guards.index')),
+                self::module('Staff', 'Salaried employees included in monthly payroll.', 'users', 'indigo', route('staff.index')),
                 self::module('Client Billing', 'Contracts, billing rates and client revenue.', 'wallet', 'brand', route('billing.index')),
                 self::module('Invoices', 'Create, approve and track client invoices.', 'invoice', 'indigo', route('invoices.index')),
                 self::module('Payments', 'Record payments and outstanding balances.', 'payment', 'emerald', route('payments.index')),
@@ -218,13 +222,15 @@ class RoleNavigation
                 ['label' => 'Sites', 'href' => route('sites.index')],
                 ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
             ]),
-            self::nav('Administration', 'settings', route('users.index'), 'users.*|roles.*|audit.*|settings.*', [
+            self::nav('Administration', 'settings', route('users.index'), 'users.*|roles.*|audit.*|archived.*|settings.*', [
                 ['label' => 'Users', 'href' => route('users.index')],
                 ['label' => 'Roles & Permissions', 'href' => route('roles.index')],
                 ['label' => 'Audit Logs', 'href' => route('audit.index')],
+                ['label' => 'Archived Records', 'href' => route('archived.index')],
                 ['label' => 'Platform Settings', 'href' => route('settings.index')],
             ]),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
+            self::nav('Staff', 'users', route('staff.index'), 'staff.*'),
             self::nav('Operations', 'ops', route('deployments.index'), 'deployments.*|shifts.*|replacements.*', [
                 ['label' => 'Deploy board', 'href' => route('deployments.board')],
                 ['label' => 'Deployments', 'href' => route('deployments.index')],
@@ -265,6 +271,7 @@ class RoleNavigation
                 ['label' => 'Audit Logs', 'href' => route('audit.index')],
             ]),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
+            self::nav('Staff', 'users', route('staff.index'), 'staff.*'),
             self::nav('Operations', 'ops', route('deployments.index'), 'deployments.*|shifts.*|replacements.*', [
                 ['label' => 'Deploy board', 'href' => route('deployments.board')],
                 ['label' => 'Deployments', 'href' => route('deployments.index')],
@@ -321,6 +328,7 @@ class RoleNavigation
         return [
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
             self::nav('All Guards', 'shield', route('guards.index'), 'guards.*'),
+            self::nav('Staff', 'users', route('staff.index'), 'staff.*'),
             self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
             self::nav('Deployments', 'map', route('deployments.index'), 'deployments.*'),
             self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*', [
@@ -374,6 +382,7 @@ class RoleNavigation
                 ['label' => 'Regions', 'href' => route('regions.index')],
             ]),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
+            self::nav('Staff', 'users', route('staff.index'), 'staff.*'),
             self::nav('Deployments', 'map', route('deployments.index'), 'deployments.*'),
             self::nav('Client Billing', 'wallet', route('billing.index'), 'billing.*'),
             self::nav('Invoices', 'invoice', route('invoices.index'), 'invoices.*'),

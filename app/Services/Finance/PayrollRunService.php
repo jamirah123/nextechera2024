@@ -19,6 +19,7 @@ class PayrollRunService
         private PayrollCalculationService $calculator,
         private PaymentService $payments,
         private AuditService $audit,
+        private PayrollPayslipNotificationService $payslipNotifications,
     ) {
     }
 
@@ -37,6 +38,12 @@ class PayrollRunService
         $month = (int) $data['period_month'];
         $start = Carbon::create($year, $month, 1)->startOfMonth();
         $end = $start->copy()->endOfMonth();
+
+        if (! self::isPeriodClosed($year, $month)) {
+            throw new InvalidArgumentException(
+                'Payroll for '.$start->format('F Y').' cannot be opened until the month has ended. Choose a completed period.'
+            );
+        }
 
         $existing = PayrollRun::query()
             ->where('period_year', $year)
@@ -110,7 +117,10 @@ class PayrollRunService
             subject: $run,
         );
 
-        return $run->fresh(['payslips', 'approver']);
+        $run = $run->fresh(['payslips', 'approver']);
+        $this->payslipNotifications->sendForRun($run);
+
+        return $run;
     }
 
     public function submit(PayrollRun $run, ?User $actor = null): PayrollRun
@@ -136,6 +146,40 @@ class PayrollRunService
             severity: AuditSeverity::Warning,
             subject: $run,
             actor: $actor,
+        );
+
+        return $run->fresh(['payslips', 'submitter']);
+    }
+
+    public function reject(PayrollRun $run, ?User $actor = null, ?string $reason = null): PayrollRun
+    {
+        if ($run->status !== PayrollRunStatus::Submitted) {
+            throw new InvalidArgumentException('Only submitted payroll runs can be returned to finance.');
+        }
+
+        $notes = $run->notes;
+
+        if (filled($reason)) {
+            $notes = trim(($notes ? $notes."\n\n" : '').'Returned to finance: '.$reason);
+        }
+
+        $run->update([
+            'status' => PayrollRunStatus::Calculated,
+            'submitted_at' => null,
+            'submitted_by' => null,
+            'notes' => $notes,
+        ]);
+
+        $this->audit->log(
+            action: 'payroll.rejected',
+            summary: 'Payroll run '.$run->reference.' returned to finance for revision.',
+            category: AuditCategory::Finance,
+            severity: AuditSeverity::Warning,
+            subject: $run,
+            actor: $actor,
+            context: [
+                'reason' => $reason,
+            ],
         );
 
         return $run->fresh(['payslips', 'submitter']);
@@ -224,5 +268,15 @@ class PayrollRunService
         }
 
         return $prefix.str_pad((string) $sequence, 3, '0', STR_PAD_LEFT);
+    }
+
+    public static function isPeriodClosed(int $year, int $month): bool
+    {
+        return Carbon::create($year, $month, 1)->endOfMonth()->toDateString() < now()->toDateString();
+    }
+
+    public static function lastClosedPeriod(): Carbon
+    {
+        return now()->startOfMonth()->subDay();
     }
 }

@@ -32,6 +32,7 @@ class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
+    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     /**
      * @return array<string, mixed>

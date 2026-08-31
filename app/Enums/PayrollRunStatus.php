@@ -60,6 +60,11 @@ enum PayrollRunStatus: string
         return $this === self::Submitted;
     }
 
+    public function canReject(): bool
+    {
+        return $this === self::Submitted;
+    }
+
     public function canCancel(): bool
     {
         return $this !== self::Cancelled;

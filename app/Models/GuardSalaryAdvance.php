@@ -10,6 +10,7 @@ class GuardSalaryAdvance extends Model
 {
     protected $fillable = [
         'guard_id',
+        'staff_id',
         'label',
         'original_amount',
         'balance_remaining',
@@ -32,6 +33,11 @@ class GuardSalaryAdvance extends Model
     public function assignedGuard(): BelongsTo
     {
         return $this->belongsTo(Guard::class, 'guard_id');
+    }
+
+    public function assignedStaff(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'staff_id');
     }
 
     public function creator(): BelongsTo

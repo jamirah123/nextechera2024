@@ -17,6 +17,7 @@ class Site extends Model
 {
     /** @use HasFactory<SiteFactory> */
     use HasFactory, SoftDeletes, TracksUserChanges;
+    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $fillable = [
         'name',

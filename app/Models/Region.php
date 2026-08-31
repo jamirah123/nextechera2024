@@ -14,6 +14,7 @@ class Region extends Model
 {
     /** @use HasFactory<RegionFactory> */
     use HasFactory, SoftDeletes, TracksUserChanges;
+    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $fillable = [
         'name',

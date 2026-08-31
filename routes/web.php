@@ -26,6 +26,7 @@ use App\Http\Controllers\Hr\AbsenceController;
 use App\Http\Controllers\Hr\AttendanceController;
 use App\Http\Controllers\Hr\DesertionController;
 use App\Http\Controllers\Hr\LeaveController;
+use App\Http\Controllers\Hr\StaffController;
 use App\Http\Controllers\Dashboards\OperationalDashboardController;
 use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\Shifts\ReplacementController;
@@ -76,6 +77,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/guards/{guard}/attachments/{attachment}/stream', [GuardController::class, 'streamAttachment'])->name('guards.attachments.stream');
     Route::get('/guards/{guard}/attachments/{attachment}/download', [GuardController::class, 'downloadAttachment'])->name('guards.attachments.download');
     Route::delete('/guards/{guard}/attachments/{attachment}', [GuardController::class, 'destroyAttachment'])->name('guards.attachments.destroy');
+
+    Route::resource('staff', StaffController::class);
+    Route::post('/staff/{staff}/advances', [\App\Http\Controllers\Finance\StaffAdvanceController::class, 'store'])->name('staff.advances.store');
+    Route::post('/staff/{staff}/advances/{advance}/write-off', [\App\Http\Controllers\Finance\StaffAdvanceController::class, 'writeOff'])->name('staff.advances.write-off');
 
     Route::get('/deployments', [DeploymentController::class, 'index'])->name('deployments.index');
     Route::get('/deployments/board', [DeploymentController::class, 'board'])->name('deployments.board');
@@ -180,6 +185,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/payroll/{payroll}/calculate', [\App\Http\Controllers\Finance\PayrollRunController::class, 'calculate'])->name('payroll.calculate');
     Route::post('/payroll/{payroll}/submit', [\App\Http\Controllers\Finance\PayrollRunController::class, 'submit'])->name('payroll.submit');
     Route::post('/payroll/{payroll}/approve', [\App\Http\Controllers\Finance\PayrollRunController::class, 'approve'])->name('payroll.approve');
+    Route::post('/payroll/{payroll}/reject', [\App\Http\Controllers\Finance\PayrollRunController::class, 'reject'])->name('payroll.reject');
     Route::post('/payroll/{payroll}/pay', [\App\Http\Controllers\Finance\PayrollRunController::class, 'pay'])->name('payroll.pay');
     Route::post('/payroll/{payroll}/cancel', [\App\Http\Controllers\Finance\PayrollRunController::class, 'cancel'])->name('payroll.cancel');
     Route::get('/payroll/{payroll}/export/bank', [\App\Http\Controllers\Finance\PayrollRunController::class, 'exportBank'])->name('payroll.export.bank');
@@ -196,6 +202,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
     Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit.export');
     Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show'])->name('audit.show');
+
+    Route::get('/archived-records', [\App\Http\Controllers\Admin\ArchivedRecordController::class, 'index'])->name('archived.index');
+    Route::get('/archived-records/{deletedRecordSnapshot}', [\App\Http\Controllers\Admin\ArchivedRecordController::class, 'show'])->name('archived.show');
+    Route::post('/archived-records/{deletedRecordSnapshot}/restore', [\App\Http\Controllers\Admin\ArchivedRecordController::class, 'restore'])->name('archived.restore');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('users.create');

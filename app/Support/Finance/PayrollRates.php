@@ -4,6 +4,8 @@ namespace App\Support\Finance;
 
 use App\Models\Guard;
 use App\Models\PayrollRun;
+use App\Models\Staff;
+use Carbon\CarbonInterface;
 
 class PayrollRates
 {
@@ -20,6 +22,17 @@ class PayrollRates
 
     public static function periodDays(PayrollRun $run): int
     {
+        $standard = (int) config('psg.payroll.standard_shifts_per_month', 0);
+
+        if ($standard > 0) {
+            return $standard;
+        }
+
+        return max(1, $run->period_start->diffInDays($run->period_end) + 1);
+    }
+
+    public static function calendarDays(PayrollRun $run): int
+    {
         return max(1, $run->period_start->diffInDays($run->period_end) + 1);
     }
 
@@ -28,7 +41,7 @@ class PayrollRates
     {
         $divisor = $run !== null
             ? self::periodDays($run)
-            : max(1, (int) now()->daysInMonth);
+            : max(1, (int) config('psg.payroll.standard_shifts_per_month', 0) ?: now()->daysInMonth);
 
         return round(self::monthlyGross($guard) / $divisor, 2);
     }
@@ -47,5 +60,104 @@ class PayrollRates
         }
 
         return round(self::perShiftRate($guard, $run) * (float) config('psg.payroll.overtime_multiplier', 1.5), 2);
+    }
+
+    /** Fixed monthly gross pro-rated for mid-period joiners and leavers. */
+    public static function fixedPeriodGross(Guard $guard, PayrollRun $run): float
+    {
+        $monthly = self::monthlyGross($guard);
+
+        if ($monthly <= 0) {
+            return 0;
+        }
+
+        $eligibleDays = self::guardEligibleDays($guard, $run);
+
+        if ($eligibleDays <= 0) {
+            return 0;
+        }
+
+        return round($monthly * ($eligibleDays / self::calendarDays($run)), 2);
+    }
+
+    public static function guardEligibleDays(Guard $guard, PayrollRun $run): int
+    {
+        return self::eligibleDaysInPeriod(
+            $run->period_start,
+            $run->period_end,
+            $guard->date_employed,
+            $guard->employment_end_date,
+        );
+    }
+
+    public static function staffMonthlyGross(Staff $staff): float
+    {
+        return max(0, (float) $staff->monthly_salary);
+    }
+
+    public static function staffPeriodGross(Staff $staff, PayrollRun $run): float
+    {
+        $monthly = self::staffMonthlyGross($staff);
+
+        if ($monthly <= 0) {
+            return 0;
+        }
+
+        $eligibleDays = self::staffEligibleDays($staff, $run);
+
+        if ($eligibleDays <= 0) {
+            return 0;
+        }
+
+        return round($monthly * ($eligibleDays / self::calendarDays($run)), 2);
+    }
+
+    public static function staffEligibleDays(Staff $staff, PayrollRun $run): int
+    {
+        return self::eligibleDaysInPeriod(
+            $run->period_start,
+            $run->period_end,
+            $staff->date_employed,
+            $staff->employment_end_date,
+        );
+    }
+
+    public static function effectiveShiftEnd(Guard $guard, PayrollRun $run): CarbonInterface
+    {
+        $periodEnd = $run->period_end->copy()->startOfDay();
+
+        if ($guard->employment_end_date !== null && $guard->employment_end_date->lessThan($periodEnd)) {
+            return $guard->employment_end_date->copy()->startOfDay();
+        }
+
+        return $periodEnd;
+    }
+
+    public static function eligibleDaysInPeriod(
+        CarbonInterface $periodStart,
+        CarbonInterface $periodEnd,
+        ?CarbonInterface $dateEmployed,
+        ?CarbonInterface $employmentEndDate,
+    ): int {
+        $start = $periodStart->copy()->startOfDay();
+        $end = $periodEnd->copy()->startOfDay();
+
+        $eligibleStart = $start;
+
+        if ($dateEmployed !== null && $dateEmployed->greaterThan($start)) {
+            $eligibleStart = $dateEmployed->copy()->startOfDay();
+        }
+
+        $eligibleEnd = $end;
+
+        if ($employmentEndDate !== null && $employmentEndDate->lessThan($end)) {
+            $eligibleEnd = $employmentEndDate->copy()->startOfDay();
+        }
+
+        if ($eligibleStart->greaterThan($eligibleEnd)) {
+            return 0;
+        }
+
+        return $eligibleStart->diffInDays($eligibleEnd) + 1;
     }
 }

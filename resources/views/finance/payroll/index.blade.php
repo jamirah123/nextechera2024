@@ -84,13 +84,14 @@
                                     @if (\App\Support\Finance\PayrollAccess::canCancel(auth()->user(), $run))
                                         @php
                                             $cancelLabel = \App\Support\Finance\PayrollAccess::cancelLabel($run->status, auth()->user());
+                                            $isDelete = str_contains(strtolower($cancelLabel), 'delete');
                                         @endphp
                                         <x-confirm-action
                                             :action="route('payroll.cancel', $run)"
-                                            :title="str_contains(strtolower($cancelLabel), 'reject') ? 'Reject payroll run' : 'Delete payroll run'"
-                                            :confirm="(str_contains(strtolower($cancelLabel), 'reject') ? 'Reject' : 'Delete').' '.$run->reference.'? This removes all payslips and restores salary advance balances.'"
+                                            :title="$isDelete ? 'Delete payroll run' : 'Cancel payroll run'"
+                                            :confirm="($isDelete ? 'Delete' : 'Cancel').' '.$run->reference.'? This removes all payslips and restores salary advance balances.'"
                                             :label="$cancelLabel"
-                                            :confirm-label="str_contains(strtolower($cancelLabel), 'reject') ? 'Yes, reject' : 'Yes, delete'"
+                                            :confirm-label="$isDelete ? 'Yes, delete' : 'Yes, cancel'"
                                             cancel-label="Go back"
                                             button-class="text-rose-600 hover:underline dark:text-rose-400 text-xs font-semibold bg-transparent shadow-none p-0 rounded-none"
                                         />

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CompensationType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,8 +13,10 @@ class PayrollPayslip extends Model
     protected $fillable = [
         'payroll_run_id',
         'guard_id',
+        'staff_id',
         'employment_id',
         'full_name',
+        'compensation_type',
         'normal_shifts',
         'overtime_shifts',
         'relief_shifts',
@@ -27,12 +30,16 @@ class PayrollPayslip extends Model
         'net_pay',
         'bank_name',
         'bank_account',
+        'nssf_number',
+        'tin_number',
+        'payroll_email',
         'notes',
     ];
 
     protected function casts(): array
     {
         return [
+            'compensation_type' => CompensationType::class,
             'base_shift_rate' => 'decimal:2',
             'overtime_shift_rate' => 'decimal:2',
             'gross_pay' => 'decimal:2',
@@ -51,6 +58,11 @@ class PayrollPayslip extends Model
         return $this->belongsTo(Guard::class, 'guard_id');
     }
 
+    public function assignedStaff(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'staff_id');
+    }
+
     public function deductions(): HasMany
     {
         return $this->hasMany(PayrollDeduction::class)->orderBy('id');
@@ -60,5 +72,10 @@ class PayrollPayslip extends Model
     {
         return $this->belongsToMany(Shift::class, 'payroll_payslip_shifts')
             ->withTimestamps();
+    }
+
+    public function isFixedSalary(): bool
+    {
+        return $this->compensation_type === CompensationType::Salary;
     }
 }

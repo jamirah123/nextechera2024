@@ -4,6 +4,7 @@ namespace App\Services\Finance;
 
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
+use App\Enums\CompensationType;
 use App\Enums\PayrollDeductionType;
 use App\Enums\PayrollRunStatus;
 use App\Enums\ShiftStatus;
@@ -14,11 +15,15 @@ use App\Models\PayrollDeduction;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollRun;
 use App\Models\Shift;
+use App\Models\Staff;
+use App\Services\ArchiveService;
 use App\Services\AuditService;
 use App\Services\Reports\MonthlyShiftCalculationService;
+use App\Support\Finance\PayrollPayeCalculator;
 use App\Support\Finance\PayrollRates;
 use App\Support\Money;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -27,6 +32,7 @@ class PayrollCalculationService
     public function __construct(
         private MonthlyShiftCalculationService $shiftTotals,
         private AuditService $audit,
+        private ArchiveService $archive,
     ) {
     }
 
@@ -60,45 +66,30 @@ class PayrollCalculationService
             foreach ($rows as $row) {
                 $guard = Guard::query()->find($row['guard_id']);
 
-                if ($guard === null) {
+                if ($guard === null || $guard->isSalaryStaff()) {
                     continue;
                 }
 
-                $baseRate = PayrollRates::baseShiftRate($guard, $run);
-                $overtimeRate = PayrollRates::overtimeShiftRate($guard, $run);
+                $payslip = $this->createShiftPayslip($run, $guard, $row, $start, $end);
 
-                $gross = round(
-                    ((int) $row['normal_shifts'] * $baseRate)
-                    + ((int) $row['overtime_shifts'] * $overtimeRate)
-                    + ((int) $row['relief_shifts'] * $baseRate)
-                    + ((int) $row['replacement_shifts'] * $baseRate)
-                    + ((int) $row['special_duty_shifts'] * $baseRate),
-                    2,
-                );
+                $grossTotal += (float) $payslip->gross_pay;
+                $deductionsTotal += (float) $payslip->total_deductions;
+                $netTotal += (float) $payslip->net_pay;
+                $count++;
+            }
 
-                $payslip = PayrollPayslip::query()->create([
-                    'payroll_run_id' => $run->id,
-                    'guard_id' => $guard->id,
-                    'employment_id' => $row['employment_id'],
-                    'full_name' => $row['full_name'],
-                    'normal_shifts' => $row['normal_shifts'],
-                    'overtime_shifts' => $row['overtime_shifts'],
-                    'relief_shifts' => $row['relief_shifts'],
-                    'replacement_shifts' => $row['replacement_shifts'],
-                    'special_duty_shifts' => $row['special_duty_shifts'],
-                    'total_shifts' => $row['total_shifts'],
-                    'base_shift_rate' => $baseRate,
-                    'overtime_shift_rate' => $overtimeRate,
-                    'gross_pay' => $gross,
-                    'bank_name' => $guard->bank_name,
-                    'bank_account' => $guard->bank_account,
-                ]);
+            foreach ($this->salaryGuardsForRun($run) as $guard) {
+                $payslip = $this->createSalaryGuardPayslip($run, $guard);
 
-                $this->applyStatutoryDeductions($payslip, $gross);
-                $this->applyAdvanceDeductions($payslip, $guard);
-                $this->linkShifts($payslip, $guard->id, $start, $end, $run);
+                $grossTotal += (float) $payslip->gross_pay;
+                $deductionsTotal += (float) $payslip->total_deductions;
+                $netTotal += (float) $payslip->net_pay;
+                $count++;
+            }
 
-                $payslip->refresh();
+            foreach ($this->staffForRun($run) as $member) {
+                $payslip = $this->createStaffPayslip($run, $member);
+
                 $grossTotal += (float) $payslip->gross_pay;
                 $deductionsTotal += (float) $payslip->total_deductions;
                 $netTotal += (float) $payslip->net_pay;
@@ -116,7 +107,7 @@ class PayrollCalculationService
 
             $this->audit->log(
                 action: 'payroll.calculated',
-                summary: 'Payroll run '.$run->reference.' calculated for '.$count.' guards.',
+                summary: 'Payroll run '.$run->reference.' calculated for '.$count.' staff.',
                 category: AuditCategory::Finance,
                 severity: AuditSeverity::Notice,
                 subject: $run,
@@ -189,17 +180,19 @@ class PayrollCalculationService
         });
     }
 
-    private function applyStatutoryDeductions(PayrollPayslip $payslip, float $gross): void
+    private function applyStatutoryDeductions(PayrollPayslip $payslip, float $gross, bool $includeUniform = true): void
     {
-        $payeRate = (float) config('psg.payroll.paye_rate', 0);
         $nssfRate = (float) config('psg.payroll.nssf_employee_rate', 5);
+        $paye = $this->calculatePaye($gross);
 
-        if ($payeRate > 0 && $gross > 0) {
+        if ($paye > 0) {
             PayrollDeduction::query()->create([
                 'payroll_payslip_id' => $payslip->id,
                 'type' => PayrollDeductionType::Paye,
-                'label' => 'PAYE ('.rtrim(rtrim(number_format($payeRate, 2), '0'), '.').'%)',
-                'amount' => round($gross * ($payeRate / 100), 2),
+                'label' => config('psg.payroll.use_progressive_paye', true)
+                    ? PayrollPayeCalculator::label()
+                    : 'PAYE ('.rtrim(rtrim(number_format((float) config('psg.payroll.paye_rate', 0), 2), '0'), '.').'%)',
+                'amount' => $paye,
                 'is_statutory' => true,
             ]);
         }
@@ -216,7 +209,7 @@ class PayrollCalculationService
 
         $uniformCharge = (float) config('psg.payroll.uniform_charge', 0);
 
-        if ($uniformCharge > 0) {
+        if ($includeUniform && $uniformCharge > 0) {
             PayrollDeduction::query()->create([
                 'payroll_payslip_id' => $payslip->id,
                 'type' => PayrollDeductionType::Uniform,
@@ -229,7 +222,169 @@ class PayrollCalculationService
         $this->recalculatePayslipTotals($payslip);
     }
 
-    private function applyAdvanceDeductions(PayrollPayslip $payslip, Guard $guard): void
+    private function calculatePaye(float $gross): float
+    {
+        if ($gross <= 0) {
+            return 0.0;
+        }
+
+        if (config('psg.payroll.use_progressive_paye', true)) {
+            return PayrollPayeCalculator::monthlyTax($gross);
+        }
+
+        $payeRate = (float) config('psg.payroll.paye_rate', 0);
+
+        if ($payeRate <= 0) {
+            return 0.0;
+        }
+
+        return round($gross * ($payeRate / 100), 2);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function createShiftPayslip(PayrollRun $run, Guard $guard, array $row, string $start, string $end): PayrollPayslip
+    {
+        $effectiveEnd = PayrollRates::effectiveShiftEnd($guard, $run)->toDateString();
+        $baseRate = PayrollRates::baseShiftRate($guard, $run);
+        $overtimeRate = PayrollRates::overtimeShiftRate($guard, $run);
+
+        if ($effectiveEnd < $end) {
+            $row = $this->shiftTotals->guardRowForPeriod($guard->id, $start, $effectiveEnd, $run);
+        }
+
+        $gross = round(
+            ((int) $row['normal_shifts'] * $baseRate)
+            + ((int) $row['overtime_shifts'] * $overtimeRate)
+            + ((int) $row['relief_shifts'] * $baseRate)
+            + ((int) $row['replacement_shifts'] * $baseRate)
+            + ((int) $row['special_duty_shifts'] * $baseRate),
+            2,
+        );
+
+        $payslip = PayrollPayslip::query()->create([
+            'payroll_run_id' => $run->id,
+            'guard_id' => $guard->id,
+            'employment_id' => $row['employment_id'],
+            'full_name' => $row['full_name'],
+            'compensation_type' => CompensationType::Shift,
+            'normal_shifts' => $row['normal_shifts'],
+            'overtime_shifts' => $row['overtime_shifts'],
+            'relief_shifts' => $row['relief_shifts'],
+            'replacement_shifts' => $row['replacement_shifts'],
+            'special_duty_shifts' => $row['special_duty_shifts'],
+            'total_shifts' => $row['total_shifts'],
+            'base_shift_rate' => $baseRate,
+            'overtime_shift_rate' => $overtimeRate,
+            'gross_pay' => $gross,
+            'bank_name' => $guard->bank_name,
+            'bank_account' => $guard->bank_account,
+            'nssf_number' => $guard->nssf_number,
+            'payroll_email' => $guard->email,
+        ]);
+
+        $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true);
+        $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
+        $this->linkShifts($payslip, $guard->id, $start, $effectiveEnd, $run);
+
+        return $payslip->refresh();
+    }
+
+    private function createSalaryGuardPayslip(PayrollRun $run, Guard $guard): PayrollPayslip
+    {
+        $monthlyGross = PayrollRates::monthlyGross($guard);
+        $gross = PayrollRates::fixedPeriodGross($guard, $run);
+
+        $payslip = PayrollPayslip::query()->create([
+            'payroll_run_id' => $run->id,
+            'guard_id' => $guard->id,
+            'employment_id' => $guard->employment_id,
+            'full_name' => $guard->full_name,
+            'compensation_type' => CompensationType::Salary,
+            'normal_shifts' => 0,
+            'overtime_shifts' => 0,
+            'relief_shifts' => 0,
+            'replacement_shifts' => 0,
+            'special_duty_shifts' => 0,
+            'total_shifts' => 0,
+            'base_shift_rate' => $monthlyGross,
+            'overtime_shift_rate' => 0,
+            'gross_pay' => $gross,
+            'bank_name' => $guard->bank_name,
+            'bank_account' => $guard->bank_account,
+            'nssf_number' => $guard->nssf_number,
+            'payroll_email' => $guard->email,
+        ]);
+
+        $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true);
+        $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
+
+        return $payslip->refresh();
+    }
+
+    private function createStaffPayslip(PayrollRun $run, Staff $member): PayrollPayslip
+    {
+        $monthlyGross = PayrollRates::staffMonthlyGross($member);
+        $gross = PayrollRates::staffPeriodGross($member, $run);
+
+        $payslip = PayrollPayslip::query()->create([
+            'payroll_run_id' => $run->id,
+            'staff_id' => $member->id,
+            'employment_id' => $member->employment_id,
+            'full_name' => $member->full_name,
+            'compensation_type' => CompensationType::Salary,
+            'normal_shifts' => 0,
+            'overtime_shifts' => 0,
+            'relief_shifts' => 0,
+            'replacement_shifts' => 0,
+            'special_duty_shifts' => 0,
+            'total_shifts' => 0,
+            'base_shift_rate' => $monthlyGross,
+            'overtime_shift_rate' => 0,
+            'gross_pay' => $gross,
+            'bank_name' => $member->bank_name,
+            'bank_account' => $member->bank_account,
+            'nssf_number' => $member->nssf_number,
+            'tin_number' => $member->tin_number,
+            'payroll_email' => $member->email,
+        ]);
+
+        $this->applyStatutoryDeductions($payslip, $gross, includeUniform: false);
+        $this->applyAdvanceDeductions($payslip, staffId: $member->id);
+
+        return $payslip->refresh();
+    }
+
+    /** @return Collection<int, Staff> */
+    private function staffForRun(PayrollRun $run): Collection
+    {
+        if ($run->site_id) {
+            return collect();
+        }
+
+        return Staff::query()
+            ->employedDuringPeriod($run->period_start, $run->period_end)
+            ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
+            ->orderBy('employment_id')
+            ->get()
+            ->filter(fn (Staff $member) => PayrollRates::staffPeriodGross($member, $run) > 0);
+    }
+
+    /** @return Collection<int, Guard> */
+    private function salaryGuardsForRun(PayrollRun $run): Collection
+    {
+        return Guard::query()
+            ->onSalaryPay()
+            ->employedDuringPeriod($run->period_start, $run->period_end)
+            ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
+            ->when($run->site_id, fn ($q) => $q->where('current_site_id', $run->site_id))
+            ->orderBy('employment_id')
+            ->get()
+            ->filter(fn (Guard $guard) => PayrollRates::fixedPeriodGross($guard, $run) > 0);
+    }
+
+    private function applyAdvanceDeductions(PayrollPayslip $payslip, ?int $guardId = null, ?int $staffId = null): void
     {
         $available = max(0, round((float) $payslip->gross_pay - (float) $payslip->deductions()->sum('amount'), 2));
 
@@ -238,7 +393,8 @@ class PayrollCalculationService
         }
 
         $advances = GuardSalaryAdvance::query()
-            ->where('guard_id', $guard->id)
+            ->when($guardId, fn ($q) => $q->where('guard_id', $guardId))
+            ->when($staffId, fn ($q) => $q->where('staff_id', $staffId))
             ->where('is_active', true)
             ->where('balance_remaining', '>', 0)
             ->orderBy('id')
@@ -289,6 +445,10 @@ class PayrollCalculationService
         if ($payslipIds->isEmpty()) {
             return;
         }
+
+        $run->payslips()->with('deductions')->get()->each(function (PayrollPayslip $payslip): void {
+            $this->archive->recordSnapshot($payslip, 'payroll.payslips_cleared');
+        });
 
         DB::table('payroll_payslip_shifts')->whereIn('payroll_payslip_id', $payslipIds)->delete();
         PayrollDeduction::query()->whereIn('payroll_payslip_id', $payslipIds)->delete();

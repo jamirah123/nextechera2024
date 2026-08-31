@@ -4,6 +4,7 @@ namespace App\Services\Finance;
 
 use App\Models\Guard;
 use App\Models\GuardSalaryAdvance;
+use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -36,6 +37,42 @@ class GuardAdvanceService
 
         return GuardSalaryAdvance::query()->create([
             'guard_id' => $guard->id,
+            'label' => $data['label'],
+            'original_amount' => $amount,
+            'balance_remaining' => $amount,
+            'monthly_installment' => $installment,
+            'is_active' => true,
+            'notes' => $data['notes'] ?? null,
+            'created_by' => $actor?->id,
+        ]);
+    }
+
+    /**
+     * @param  array{
+     *     label: string,
+     *     original_amount: float|int|string,
+     *     monthly_installment?: float|int|string|null,
+     *     notes?: string|null
+     * }  $data
+     */
+    public function createForStaff(Staff $staff, array $data, ?User $actor = null): GuardSalaryAdvance
+    {
+        $amount = round((float) $data['original_amount'], 2);
+
+        if ($amount <= 0) {
+            throw new InvalidArgumentException('Advance amount must be greater than zero.');
+        }
+
+        $installment = isset($data['monthly_installment']) && $data['monthly_installment'] !== null && $data['monthly_installment'] !== ''
+            ? round((float) $data['monthly_installment'], 2)
+            : null;
+
+        if ($installment !== null && ($installment <= 0 || $installment > $amount)) {
+            throw new InvalidArgumentException('Monthly installment must be between zero and the advance amount.');
+        }
+
+        return GuardSalaryAdvance::query()->create([
+            'staff_id' => $staff->id,
             'label' => $data['label'],
             'original_amount' => $amount,
             'balance_remaining' => $amount,

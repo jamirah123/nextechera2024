@@ -24,17 +24,12 @@ class RoleController extends Controller
         $this->authorize('manageAccess', User::class);
 
         $roles = UserRole::cases();
-        $counts = User::query()
-            ->selectRaw('role, count(*) as total')
-            ->groupBy('role')
-            ->pluck('total', 'role');
 
         return view('admin.roles.index', [
             'roles' => $roles,
             'matrix' => RoleAccessMatrix::rows(),
             'catalog' => PermissionCatalog::definitions(),
             'grants' => $this->permissions->matrix(),
-            'counts' => $counts,
         ]);
     }
 

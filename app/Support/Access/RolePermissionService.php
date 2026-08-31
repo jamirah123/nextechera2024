@@ -54,7 +54,9 @@ class RolePermissionService
 
             foreach (PermissionCatalog::definitions() as $definition) {
                 if ($hasConfiguredRows) {
-                    $matrix[$definition['key']] = $stored[$definition['key']] ?? [];
+                    $matrix[$definition['key']] = array_key_exists($definition['key'], $stored)
+                        ? $stored[$definition['key']]
+                        : $definition['roles'];
                 } else {
                     $matrix[$definition['key']] = $definition['roles'];
                 }

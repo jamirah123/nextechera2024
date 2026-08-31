@@ -14,6 +14,7 @@ class Client extends Model
 {
     /** @use HasFactory<ClientFactory> */
     use HasFactory, SoftDeletes, TracksUserChanges;
+    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $fillable = [
         'name',

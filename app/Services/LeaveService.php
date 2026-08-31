@@ -71,7 +71,24 @@ class LeaveService
                 $this->applyApprovedEffects($leave);
             }
 
-            return $leave->fresh(['assignedGuard']);
+            $fresh = $leave->fresh(['assignedGuard']);
+
+            if ($status === LeaveStatus::Pending) {
+                $this->audit->log(
+                    action: 'leave.requested',
+                    summary: 'Leave request submitted for '.$fresh->assignedGuard?->employment_id.'.',
+                    category: \App\Enums\AuditCategory::Hr,
+                    severity: \App\Enums\AuditSeverity::Warning,
+                    subject: $fresh,
+                    context: [
+                        'start_date' => $fresh->start_date->toDateString(),
+                        'end_date' => $fresh->end_date->toDateString(),
+                        'leave_type' => $fresh->leave_type->value,
+                    ],
+                );
+            }
+
+            return $fresh;
         });
     }
 
@@ -135,13 +152,16 @@ class LeaveService
             'approved_at' => now(),
         ]);
 
-        $fresh = $leave->fresh();
+        $fresh = $leave->fresh(['assignedGuard']);
         $this->audit->log(
             action: 'leave.rejected',
-            summary: 'Leave rejected.',
+            summary: 'Leave rejected for '.$fresh->assignedGuard?->employment_id.'.',
             category: \App\Enums\AuditCategory::Hr,
             severity: \App\Enums\AuditSeverity::Notice,
             subject: $fresh,
+            context: [
+                'notes' => $notes,
+            ],
         );
 
         return $fresh;

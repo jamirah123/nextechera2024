@@ -98,6 +98,11 @@ class PayrollRun extends Model
         return sprintf('%04d-%02d', $this->period_year, $this->period_month);
     }
 
+    public function payslipCount(): int
+    {
+        return (int) $this->guard_count;
+    }
+
     public function scopeSearch($query, ?string $term)
     {
         if (! filled($term)) {

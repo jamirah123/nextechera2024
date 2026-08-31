@@ -7,11 +7,22 @@
     'confirmLabel' => 'Yes, continue',
     'cancelLabel' => 'Go back',
     'buttonClass' => 'inline-flex rounded-lg bg-rose-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-rose-800',
+    'variant' => 'danger',
 ])
 
 @php
     $dialogId = 'confirm-action-'.md5($action.$label);
     $httpMethod = strtoupper($method);
+    $iconWrapperClass = match ($variant) {
+        'primary' => 'bg-brand-50 text-brand-600 ring-brand-100 dark:bg-brand-950/50 dark:text-brand-400 dark:ring-brand-900',
+        'warning' => 'bg-amber-50 text-amber-600 ring-amber-100 dark:bg-amber-950/50 dark:text-amber-400 dark:ring-amber-900',
+        default => 'bg-rose-50 text-rose-600 ring-rose-100 dark:bg-rose-950/50 dark:text-rose-400 dark:ring-rose-900',
+    };
+    $confirmButtonClass = match ($variant) {
+        'primary' => 'bg-brand-700 hover:bg-brand-800',
+        'warning' => 'bg-amber-700 hover:bg-amber-800',
+        default => 'bg-rose-600 hover:bg-rose-700',
+    };
 @endphp
 
 <div
@@ -51,7 +62,7 @@
             >
                 <div class="border-b border-slate-100 px-3 py-2.5 dark:border-slate-800">
                     <div class="flex items-start gap-3">
-                        <span class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 dark:bg-rose-950/50 dark:text-rose-400 dark:ring-rose-900">
+                        <span class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 {{ $iconWrapperClass }}">
                             <x-icon name="warning" class="h-5 w-5" />
                         </span>
                         <div class="min-w-0">
@@ -80,7 +91,7 @@
                         @endif
                         <button
                             type="submit"
-                            class="inline-flex w-full items-center justify-center rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 sm:w-auto"
+                            class="inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white sm:w-auto {{ $confirmButtonClass }}"
                         >
                             {{ $confirmLabel }}
                         </button>

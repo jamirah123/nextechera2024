@@ -19,6 +19,11 @@ class PayrollAccess
         return Access::userCan($user, 'finance.payroll.approve');
     }
 
+    public static function canReject(User $user, PayrollRun $run): bool
+    {
+        return $run->status->canReject() && self::canApprove($user);
+    }
+
     public static function canCancel(User $user, PayrollRun $run): bool
     {
         if (! $run->status->canCancel()) {
@@ -34,8 +39,12 @@ class PayrollAccess
 
     public static function cancelLabel(PayrollRunStatus $status, User $user): string
     {
-        if (in_array($status, [PayrollRunStatus::Submitted, PayrollRunStatus::Approved, PayrollRunStatus::Paid], true)) {
-            return 'Reject run';
+        if (in_array($status, [PayrollRunStatus::Approved, PayrollRunStatus::Paid], true)) {
+            return self::canApprove($user) ? 'Delete run' : 'Reject run';
+        }
+
+        if ($status === PayrollRunStatus::Submitted) {
+            return self::canApprove($user) ? 'Delete run' : 'Reject run';
         }
 
         return $status === PayrollRunStatus::Draft ? 'Cancel' : 'Delete run';

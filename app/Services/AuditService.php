@@ -33,7 +33,7 @@ class AuditService
 
         $occurredAt = now()->timezone(config('app.timezone'));
 
-        return AuditLog::query()->create([
+        $entry = AuditLog::query()->create([
             'action' => $action,
             'category' => $category,
             'severity' => $isOverride ? AuditSeverity::Critical : $severity,
@@ -49,6 +49,10 @@ class AuditService
             'is_override' => $isOverride,
             'created_at' => $occurredAt,
         ]);
+
+        app(WorkflowMailService::class)->notifyFromAudit($entry);
+
+        return $entry;
     }
 
     public function logOverride(

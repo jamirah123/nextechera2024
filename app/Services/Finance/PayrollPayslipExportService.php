@@ -18,11 +18,16 @@ class PayrollPayslipExportService
         $payslip->load('deductions');
 
         $headers = ['Section', 'Label', 'Amount'];
-        $rows = [
-            ['Earnings', 'Normal shifts ('.$payslip->normal_shifts.')', number_format($payslip->normal_shifts * $payslip->base_shift_rate, 2, '.', '')],
-            ['Earnings', 'Overtime shifts ('.$payslip->overtime_shifts.')', number_format($payslip->overtime_shifts * $payslip->overtime_shift_rate, 2, '.', '')],
-            ['Earnings', 'Gross pay', number_format((float) $payslip->gross_pay, 2, '.', '')],
-        ];
+        $rows = $payslip->isFixedSalary()
+            ? [
+                ['Earnings', 'Monthly salary', number_format((float) $payslip->base_shift_rate, 2, '.', '')],
+                ['Earnings', 'Period gross', number_format((float) $payslip->gross_pay, 2, '.', '')],
+            ]
+            : [
+                ['Earnings', 'Normal shifts ('.$payslip->normal_shifts.')', number_format($payslip->normal_shifts * $payslip->base_shift_rate, 2, '.', '')],
+                ['Earnings', 'Overtime shifts ('.$payslip->overtime_shifts.')', number_format($payslip->overtime_shifts * $payslip->overtime_shift_rate, 2, '.', '')],
+                ['Earnings', 'Gross pay', number_format((float) $payslip->gross_pay, 2, '.', '')],
+            ];
 
         foreach ($payslip->deductions as $deduction) {
             $rows[] = ['Deduction', $deduction->label, number_format((float) $deduction->amount, 2, '.', '')];

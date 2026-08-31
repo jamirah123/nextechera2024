@@ -45,6 +45,7 @@ class GuardFactory extends Factory
             'emergency_contact_phone' => fake()->optional()->e164PhoneNumber(),
             'photo_path' => null,
             'notes' => fake()->optional()->sentence(),
+            'compensation_type' => \App\Enums\CompensationType::Shift,
         ];
     }
 
@@ -67,6 +68,17 @@ class GuardFactory extends Factory
         return $this->state(fn () => [
             'operational_status' => OperationalStatus::Deserted,
             'employment_status' => EmploymentStatus::Suspended,
+        ]);
+    }
+
+    public function salaryStaff(): static
+    {
+        return $this->state(fn () => [
+            'compensation_type' => \App\Enums\CompensationType::Salary,
+            'operational_status' => OperationalStatus::OffDuty,
+            'rank_designation' => fake()->randomElement(['Finance Officer', 'HR Assistant', 'Admin Officer', 'Operations Clerk']),
+            'base_shift_rate' => fake()->randomElement([800000, 1200000, 1500000, 2000000]),
+            'current_site_id' => null,
         ]);
     }
 }

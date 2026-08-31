@@ -36,6 +36,9 @@
                     <button type="submit" class="inline-flex rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-emerald-800">Approve payroll</button>
                 </form>
             @endif
+            @if (\App\Support\Finance\PayrollAccess::canReject(auth()->user(), $run))
+                <x-payroll-reject-action :action="route('payroll.reject', $run)" :reference="$run->reference" />
+            @endif
             @if ($canSubmit && $run->status === \App\Enums\PayrollRunStatus::Approved)
                 <form method="POST" action="{{ route('payroll.pay', $run) }}" class="inline-flex">
                     @csrf
@@ -45,20 +48,20 @@
             @if (\App\Support\Finance\PayrollAccess::canCancel(auth()->user(), $run))
                 @php
                     $cancelLabel = \App\Support\Finance\PayrollAccess::cancelLabel($run->status, auth()->user());
-                    $isReject = str_contains(strtolower($cancelLabel), 'reject');
+                    $isDelete = str_contains(strtolower($cancelLabel), 'delete');
                 @endphp
                 <x-confirm-action
                     :action="route('payroll.cancel', $run)"
-                    :title="$isReject ? 'Reject payroll run' : 'Cancel payroll run'"
+                    :title="$isDelete ? 'Delete payroll run' : 'Cancel payroll run'"
                     :confirm="match ($run->status) {
-                        \App\Enums\PayrollRunStatus::Paid => 'This run was marked as paid. Rejecting it will remove all payslips and restore salary advance balances. Only proceed if this run was created in error.',
-                        \App\Enums\PayrollRunStatus::Approved => 'This will reject the approved payroll run, remove all payslips, and restore salary advance balances. Finance can submit a corrected run for this period.',
-                        \App\Enums\PayrollRunStatus::Submitted => 'Reject this submitted payroll run? Finance will need to recalculate and resubmit.',
-                        \App\Enums\PayrollRunStatus::Calculated => 'This will cancel the payroll run and remove calculated payslips. Salary advance balances will be restored.',
+                        \App\Enums\PayrollRunStatus::Paid => 'This run was marked as paid. Deleting it will remove all payslips, restore salary advance balances, and unlink the payment record. Only proceed if this run was created in error.',
+                        \App\Enums\PayrollRunStatus::Approved => 'This will delete the approved payroll run, remove all payslips, and restore salary advance balances. Finance can submit a corrected run for this period.',
+                        \App\Enums\PayrollRunStatus::Submitted => 'Delete this submitted payroll run? Finance will need to recalculate and resubmit.',
+                        \App\Enums\PayrollRunStatus::Calculated => 'This will delete the payroll run and remove calculated payslips. Salary advance balances will be restored.',
                         default => 'This will cancel the payroll run. You can create a new run for this period if needed.',
                     }"
                     :label="$cancelLabel"
-                    :confirm-label="$isReject ? 'Yes, reject run' : 'Yes, delete run'"
+                    :confirm-label="$isDelete ? 'Yes, delete run' : 'Yes, cancel'"
                     :cancel-label="$run->status === \App\Enums\PayrollRunStatus::Draft ? 'Keep payroll run' : 'Go back'"
                 />
             @endif
@@ -71,18 +74,25 @@
     @error('payroll')
         <p class="form-alert form-alert--error text-sm">{{ $message }}</p>
     @enderror
+    @error('reason')
+        <p class="form-alert form-alert--error text-sm">{{ $message }}</p>
+    @enderror
+
+    @if ($run->status === \App\Enums\PayrollRunStatus::Calculated && $canSubmit && filled($run->notes) && str_contains($run->notes, 'Returned to finance:'))
+        <p class="form-alert form-alert--warning text-sm whitespace-pre-line">{{ $run->notes }}</p>
+    @endif
 
     @if ($run->status === \App\Enums\PayrollRunStatus::Calculated && $canSubmit)
         <p class="form-alert form-alert--info text-sm">Review payslips and deductions, then submit for Managing Director approval.</p>
     @endif
     @if ($run->status === \App\Enums\PayrollRunStatus::Submitted)
-        <p class="form-alert form-alert--warning text-sm">Submitted for Managing Director approval.</p>
+        <p class="form-alert form-alert--warning text-sm">Submitted for Managing Director approval. MD can approve or return to finance for revision.</p>
     @endif
 
     <section class="flex flex-row gap-2 sm:gap-3">
         <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Guards paid</p>
-            <p class="mt-1 text-xl font-semibold">{{ $run->guard_count }}</p>
+            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Payslips</p>
+            <p class="mt-1 text-xl font-semibold">{{ $run->payslipCount() }}</p>
         </div>
         <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Gross</p>
@@ -114,20 +124,21 @@
             </p>
         </div>
         @if ($run->notes)
-            <p class="mt-3 text-sm text-slate-600 dark:text-slate-400">{{ $run->notes }}</p>
+            <p class="mt-3 text-sm text-slate-600 whitespace-pre-line dark:text-slate-400">{{ $run->notes }}</p>
         @endif
     </div>
 
     @if ($run->guard_count === 0)
-        <x-empty-state title="No payslips yet" description="Calculate this run to generate payslips from completed shifts in the period." icon="payroll" />
+        <x-empty-state title="No payslips yet" description="Calculate this run to pull shift-based guards with completed shifts and fixed-salary staff for the period." icon="payroll" />
     @else
         <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <table class="data-table">
                 <thead>
                     <tr>
                         <th class="w-12">#</th>
-                        <th>Guard</th>
-                        <th>Shifts</th>
+                        <th>Employee</th>
+                        <th>Pay type</th>
+                        <th>Shifts / basis</th>
                         <th>Gross</th>
                         <th>Deductions</th>
                         <th>Net pay</th>
@@ -142,7 +153,14 @@
                                 <p class="font-semibold">{{ $payslip->full_name }}</p>
                                 <p class="text-[10px] text-slate-500 font-mono">{{ $payslip->employment_id }}</p>
                             </td>
-                            <td>{{ $payslip->total_shifts }} <span class="text-slate-500">({{ $payslip->normal_shifts }}N / {{ $payslip->overtime_shifts }}OT)</span></td>
+                            <td>{{ $payslip->compensation_type?->shortLabel() ?? 'Shift pay' }}</td>
+                            <td>
+                                @if ($payslip->isFixedSalary())
+                                    <span class="text-slate-600 dark:text-slate-400">Fixed salary</span>
+                                @else
+                                    {{ $payslip->total_shifts }} <span class="text-slate-500">({{ $payslip->normal_shifts }}N / {{ $payslip->overtime_shifts }}OT)</span>
+                                @endif
+                            </td>
                             <td>{{ \App\Support\Money::format($payslip->gross_pay, $run->currency) }}</td>
                             <td>{{ \App\Support\Money::format($payslip->total_deductions, $run->currency) }}</td>
                             <td class="font-semibold">{{ \App\Support\Money::format($payslip->net_pay, $run->currency) }}</td>

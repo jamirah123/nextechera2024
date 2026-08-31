@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CompensationType;
 use App\Enums\EmploymentStatus;
 use App\Enums\GuardGender;
 use App\Enums\OperationalStatus;
@@ -18,6 +19,7 @@ class Guard extends Model
 {
     /** @use HasFactory<GuardFactory> */
     use HasFactory, SoftDeletes, TracksUserChanges;
+    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $fillable = [
         'employment_id',
@@ -28,10 +30,12 @@ class Guard extends Model
         'gender',
         'date_of_birth',
         'phone',
+        'email',
         'alternative_phone',
         'address',
         'national_id',
         'date_employed',
+        'employment_end_date',
         'employment_status',
         'rank_designation',
         'region_id',
@@ -42,6 +46,7 @@ class Guard extends Model
         'emergency_contact_phone',
         'photo_path',
         'notes',
+        'compensation_type',
         'base_shift_rate',
         'overtime_shift_rate',
         'bank_name',
@@ -56,9 +61,11 @@ class Guard extends Model
         return [
             'gender' => GuardGender::class,
             'employment_status' => EmploymentStatus::class,
+            'compensation_type' => CompensationType::class,
             'operational_status' => OperationalStatus::class,
             'date_of_birth' => 'date',
             'date_employed' => 'date',
+            'employment_end_date' => 'date',
             'base_shift_rate' => 'decimal:2',
             'overtime_shift_rate' => 'decimal:2',
         ];
@@ -139,9 +146,48 @@ class Guard extends Model
         return $this->employment_status === EmploymentStatus::Active;
     }
 
+    public function isSalaryStaff(): bool
+    {
+        return $this->compensation_type === CompensationType::Salary;
+    }
+
+    public function isShiftPaid(): bool
+    {
+        return $this->compensation_type === CompensationType::Shift;
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<Guard>  $query
+     */
+    public function scopeOnSalaryPay($query): void
+    {
+        $query->where('compensation_type', CompensationType::Salary);
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<Guard>  $query
+     */
+    public function scopeOnShiftPay($query): void
+    {
+        $query->where('compensation_type', CompensationType::Shift);
+    }
+
     public function scopeActiveEmployment($query)
     {
         return $query->where('employment_status', EmploymentStatus::Active);
+    }
+
+    public function scopeEmployedDuringPeriod($query, $periodStart, $periodEnd)
+    {
+        return $query
+            ->where(function ($q) use ($periodEnd): void {
+                $q->whereNull('date_employed')
+                    ->orWhereDate('date_employed', '<=', $periodEnd);
+            })
+            ->where(function ($q) use ($periodStart): void {
+                $q->whereNull('employment_end_date')
+                    ->orWhereDate('employment_end_date', '>=', $periodStart);
+            });
     }
 
     /**

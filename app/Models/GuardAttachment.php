@@ -66,7 +66,12 @@ class GuardAttachment extends Model
     protected static function booted(): void
     {
         static::deleting(function (GuardAttachment $attachment): void {
+            app(\App\Services\ArchiveService::class)->recordSnapshot($attachment);
             $attachment->deleteFile();
+        });
+
+        static::deleted(function (GuardAttachment $attachment): void {
+            app(\App\Services\ArchiveService::class)->logDeletion($attachment);
         });
     }
 }

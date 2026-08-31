@@ -19,11 +19,18 @@
         <x-form-field label="Date of birth" name="date_of_birth" type="date" :value="old('date_of_birth', optional($guard?->date_of_birth)->format('Y-m-d'))" />
         <x-form-field label="National ID" name="national_id" :value="old('national_id', $guard?->national_id)" />
         <x-form-field label="Phone" name="phone" type="tel" :value="old('phone', $guard?->phone)" />
+        <x-form-field label="Payroll email" name="email" type="email" :value="old('email', $guard?->email)" help="Optional. Payslip PDF is emailed here after MD approval." />
         <x-form-field label="Alt. phone" name="alternative_phone" type="tel" :value="old('alternative_phone', $guard?->alternative_phone)" />
     </x-form-group>
 
     <x-form-group title="Employment">
         <x-form-field label="Date employed" name="date_employed" type="date" :value="old('date_employed', optional($guard?->date_employed)->format('Y-m-d') ?? now()->toDateString())" />
+        <x-form-field label="Last working day" name="employment_end_date" type="date" :value="old('employment_end_date', optional($guard?->employment_end_date)->format('Y-m-d'))" help="Payroll pro-rates to this date. Leave blank for full month while active." />
+        <x-form-field label="Pay type" name="compensation_type" type="select">
+            @foreach (\App\Enums\CompensationType::cases() as $type)
+                <option value="{{ $type->value }}" @selected(old('compensation_type', $guard?->compensation_type?->value ?? 'shift') === $type->value)>{{ $type->label() }}</option>
+            @endforeach
+        </x-form-field>
         <x-form-field label="Rank / designation" name="rank_designation" :value="old('rank_designation', $guard?->rank_designation)" placeholder="e.g. Security Guard" />
         <x-form-field label="Assigned region" name="region_id" type="select">
             <option value="">Unassigned</option>
@@ -61,7 +68,7 @@
 </x-form-group>
 
 <x-form-group title="Payroll & banking">
-    <x-form-field label="Monthly gross salary ({{ config('psg.currency') }})" name="base_shift_rate" type="number" step="0.01" min="0" :value="old('base_shift_rate', $guard?->base_shift_rate ?? config('psg.payroll.default_monthly_gross'))" help="Full-month gross before deductions. Pay per shift ≈ salary ÷ {{ now()->daysInMonth }} days this month." />
+    <x-form-field label="Monthly gross salary ({{ config('psg.currency') }})" name="base_shift_rate" type="number" step="0.01" min="0" :value="old('base_shift_rate', $guard?->base_shift_rate ?? config('psg.payroll.default_monthly_gross'))" help="Full-month gross before deductions. Pay per completed shift ≈ salary ÷ days in the payroll month." />
     <x-form-field label="Overtime rate per shift ({{ config('psg.currency') }})" name="overtime_shift_rate" type="number" step="0.01" min="0" :value="old('overtime_shift_rate', $guard?->overtime_shift_rate)" help="Leave blank to use {{ config('psg.payroll.overtime_multiplier') }}× the normal shift rate." />
     <x-form-field label="Bank name" name="bank_name" :value="old('bank_name', $guard?->bank_name)" />
     <x-form-field label="Bank account" name="bank_account" :value="old('bank_account', $guard?->bank_account)" />

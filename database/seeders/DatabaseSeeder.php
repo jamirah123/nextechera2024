@@ -12,6 +12,7 @@ use App\Models\Leave;
 use App\Models\Region;
 use App\Models\Shift;
 use App\Models\Site;
+use App\Models\Staff;
 use App\Models\Supervisor;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -60,6 +61,7 @@ class DatabaseSeeder extends Seeder
             'Leaves' => Leave::query()->count(),
             'Absences' => Absence::query()->count(),
             'Desertions' => Desertion::query()->count(),
+            'Staff' => Staff::query()->count(),
             'Billing profiles' => BillingProfile::query()->count(),
         ] as $label => $count) {
             $this->command?->info(sprintf('%s: %s', $label, number_format($count)));

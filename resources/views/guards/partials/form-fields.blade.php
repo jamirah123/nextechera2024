@@ -60,4 +60,12 @@
     <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes', $guard?->notes)" class="sm:col-span-2" />
 </x-form-group>
 
+<x-form-group title="Payroll & banking">
+    <x-form-field label="Monthly gross salary ({{ config('psg.currency') }})" name="base_shift_rate" type="number" step="0.01" min="0" :value="old('base_shift_rate', $guard?->base_shift_rate ?? config('psg.payroll.default_monthly_gross'))" help="Full-month gross before deductions. Pay per shift ≈ salary ÷ {{ now()->daysInMonth }} days this month." />
+    <x-form-field label="Overtime rate per shift ({{ config('psg.currency') }})" name="overtime_shift_rate" type="number" step="0.01" min="0" :value="old('overtime_shift_rate', $guard?->overtime_shift_rate)" help="Leave blank to use {{ config('psg.payroll.overtime_multiplier') }}× the normal shift rate." />
+    <x-form-field label="Bank name" name="bank_name" :value="old('bank_name', $guard?->bank_name)" />
+    <x-form-field label="Bank account" name="bank_account" :value="old('bank_account', $guard?->bank_account)" />
+    <x-form-field label="NSSF number" name="nssf_number" :value="old('nssf_number', $guard?->nssf_number)" />
+</x-form-group>
+
 @include('guards.partials.attachment-fields', ['guard' => $guard])

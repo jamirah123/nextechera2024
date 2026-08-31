@@ -28,6 +28,8 @@ class UserAccessService
     public function create(array $data): User
     {
         return DB::transaction(function () use ($data) {
+            $this->assertRoleAssignableBy(auth()->user(), $data['role']);
+
             $user = User::query()->create([
                 'name' => $data['name'],
                 'email' => $data['email'],
@@ -67,6 +69,10 @@ class UserAccessService
     public function update(User $user, array $data): User
     {
         return DB::transaction(function () use ($user, $data) {
+            if (isset($data['role'])) {
+                $this->assertRoleAssignableBy(auth()->user(), $data['role']);
+            }
+
             $this->guardLastSuperAdmin($user, $data);
 
             $before = [
@@ -200,6 +206,26 @@ class UserAccessService
             ->where('role', UserRole::SuperAdmin->value)
             ->where('is_active', true)
             ->count();
+    }
+
+    public function assertRoleAssignableBy(?User $actor, UserRole|string $role): void
+    {
+        $roleValue = $role instanceof UserRole ? $role : UserRole::from((string) $role);
+
+        if ($actor?->isManagingDirector() && $roleValue === UserRole::SuperAdmin) {
+            throw new InvalidArgumentException('Managing Directors cannot create or assign Super Admin accounts.');
+        }
+    }
+
+    /**
+     * @return list<UserRole>
+     */
+    public function assignableRolesFor(?User $actor): array
+    {
+        return collect(UserRole::cases())
+            ->reject(fn (UserRole $role) => $actor?->isManagingDirector() && $role === UserRole::SuperAdmin)
+            ->values()
+            ->all();
     }
 
     /**

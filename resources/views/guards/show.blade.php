@@ -116,6 +116,23 @@
                     @endif
                 </dd>
             </div>
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r xl:border-b xl:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Monthly gross salary</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ \App\Support\Money::format($guard->base_shift_rate) }}</dd>
+            </div>
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r xl:border-b xl:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Bank</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">
+                    {{ $guard->bank_name ?: '—' }}
+                    @if ($guard->bank_account)
+                        <span class="block text-xs font-normal font-mono text-slate-500">{{ $guard->bank_account }}</span>
+                    @endif
+                </dd>
+            </div>
+            <div class="border-b border-slate-100 px-3 py-2.5 xl:border-b">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">NSSF number</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $guard->nssf_number ?: '—' }}</dd>
+            </div>
             <div class="px-3 py-2.5 sm:col-span-2 xl:col-span-3 sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Address</dt>
                 <dd class="mt-1 text-sm text-slate-700">{{ $guard->address ?: '—' }}</dd>
@@ -175,6 +192,8 @@
             </ul>
         @endif
     </section>
+
+    @include('guards.partials.salary-advances', ['guard' => $guard, 'canManageFinance' => $canManageFinance ?? false])
 
     <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
         <div class="border-b border-slate-100 px-3 py-2.5">

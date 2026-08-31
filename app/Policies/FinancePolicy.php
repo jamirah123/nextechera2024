@@ -21,4 +21,9 @@ class FinancePolicy
     {
         return Access::userCan($user, 'finance.manage');
     }
+
+    public function approvePayroll(User $user): bool
+    {
+        return Access::userCan($user, 'finance.payroll.approve');
+    }
 }

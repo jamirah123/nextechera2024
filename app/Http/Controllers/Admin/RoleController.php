@@ -49,7 +49,7 @@ class RoleController extends Controller
             $grants[$permission] = [];
 
             foreach (UserRole::values() as $role) {
-                if ($role === UserRole::SuperAdmin->value) {
+                if (in_array($role, [UserRole::SuperAdmin->value, UserRole::ManagingDirector->value], true)) {
                     continue;
                 }
 
@@ -88,9 +88,9 @@ class RoleController extends Controller
 
         $target = UserRole::from($data['target_role']);
 
-        if ($target === UserRole::SuperAdmin) {
+        if (in_array($target, [UserRole::SuperAdmin, UserRole::ManagingDirector], true)) {
             return back()->withErrors([
-                'target_role' => 'Super Admin always has full access and cannot be used as the clone target.',
+                'target_role' => 'Super Admin and Managing Director always have fixed access and cannot be used as the clone target.',
             ]);
         }
 

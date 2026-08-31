@@ -26,7 +26,8 @@ class SystemSettingsTest extends TestCase
             ->assertSee('Company branding')
             ->assertSee('Theme colors')
             ->assertSee('Email branding')
-            ->assertSee('Finance defaults');
+            ->assertSee('Finance defaults')
+            ->assertSee('Payroll defaults');
 
         $this->actingAs($admin)
             ->put(route('settings.update'), $this->baseSettingsPayload([
@@ -77,6 +78,12 @@ class SystemSettingsTest extends TestCase
                 'currency_label' => 'Ugandan Shillings',
                 'currency_decimals' => 0,
                 'invoice_due_days' => 14,
+                'payroll_default_base_shift_rate' => 25000,
+            'payroll_standard_shifts_per_month' => 30,
+                'payroll_overtime_multiplier' => 1.5,
+                'payroll_paye_rate' => 0,
+                'payroll_nssf_employee_rate' => 5,
+                'payroll_uniform_charge' => 0,
                 'default_day_shift_start' => '06:00',
                 'default_day_shift_end' => '18:00',
                 'default_night_shift_start' => '18:00',
@@ -158,6 +165,12 @@ class SystemSettingsTest extends TestCase
             'currency_label' => 'Ugandan Shillings',
             'currency_decimals' => 0,
             'invoice_due_days' => 14,
+            'payroll_default_base_shift_rate' => 25000,
+            'payroll_standard_shifts_per_month' => 30,
+            'payroll_overtime_multiplier' => 1.5,
+            'payroll_paye_rate' => 0,
+            'payroll_nssf_employee_rate' => 5,
+            'payroll_uniform_charge' => 0,
             'default_day_shift_start' => '06:00',
             'default_day_shift_end' => '18:00',
             'default_night_shift_start' => '18:00',
@@ -199,6 +212,12 @@ class SystemSettingsTest extends TestCase
                 'currency_label' => 'UGX',
                 'currency_decimals' => 0,
                 'invoice_due_days' => 14,
+                'payroll_default_base_shift_rate' => 25000,
+            'payroll_standard_shifts_per_month' => 30,
+                'payroll_overtime_multiplier' => 1.5,
+                'payroll_paye_rate' => 0,
+                'payroll_nssf_employee_rate' => 5,
+                'payroll_uniform_charge' => 0,
                 'default_day_shift_start' => '06:00',
                 'default_day_shift_end' => '18:00',
                 'default_night_shift_start' => '18:00',
@@ -207,6 +226,35 @@ class SystemSettingsTest extends TestCase
                 'backup_path' => 'backups',
             ])
             ->assertForbidden();
+    }
+
+    public function test_super_admin_can_update_payroll_defaults(): void
+    {
+        $admin = User::factory()->role(UserRole::SuperAdmin)->create();
+
+        $this->actingAs($admin)
+            ->put(route('settings.update'), $this->baseSettingsPayload([
+                'payroll_default_base_shift_rate' => 35000,
+                'payroll_overtime_multiplier' => 2,
+                'payroll_paye_rate' => 10,
+                'payroll_nssf_employee_rate' => 6,
+                'payroll_uniform_charge' => 5000,
+            ]))
+            ->assertRedirect(route('settings.index'));
+
+        Cache::forget('system_settings.id');
+        app(\App\Services\SystemSettingService::class)->applyRuntimeConfig();
+
+        $this->assertDatabaseHas('system_settings', [
+            'payroll_default_base_shift_rate' => 35000,
+            'payroll_paye_rate' => 10,
+            'payroll_uniform_charge' => 5000,
+        ]);
+
+        $this->assertSame(35000.0, (float) config('psg.payroll.default_monthly_gross'));
+        $this->assertSame(round(35000 / now()->daysInMonth, 2), (float) config('psg.payroll.default_base_shift_rate'));
+        $this->assertSame(10.0, (float) config('psg.payroll.paye_rate'));
+        $this->assertSame(5000.0, (float) config('psg.payroll.uniform_charge'));
     }
 
     public function test_settings_update_is_audited(): void

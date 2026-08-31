@@ -40,6 +40,7 @@ class NavigationAccess
         'invoices.index' => 'finance.view',
         'payments.index' => 'finance.view',
         'profitability.index' => 'finance.view',
+        'payroll.index' => 'finance.view',
         'reports.index' => 'reporting.view_export',
         'reports.hr' => 'reporting.view_export',
         'reports.monthly-shifts' => 'reporting.view_export',
@@ -85,6 +86,7 @@ class NavigationAccess
         'invoices.*' => ['finance.view'],
         'payments.*' => ['finance.view'],
         'profitability.*' => ['finance.view'],
+        'payroll.*' => ['finance.view', 'finance.manage'],
         'reports.*' => ['reporting.view_export'],
     ];
 

@@ -32,10 +32,12 @@ class PaymentController extends Controller
     {
         Gate::authorize('viewFinance');
 
+        $this->payments->syncMissingPayrollDisbursements();
+
         $scope = $request->string('scope')->toString() === 'month' ? 'month' : 'all';
 
         $payments = Payment::query()
-            ->with(['client:id,name', 'invoice:id,reference', 'recorder:id,name'])
+            ->with(['client:id,name', 'invoice:id,reference', 'payrollRun:id,reference', 'recorder:id,name'])
             ->search($request->string('q')->toString())
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', $request->integer('client_id')))
             ->when($request->filled('date'), fn ($q) => $q->whereDate('payment_date', $request->string('date')))
@@ -53,12 +55,18 @@ class PaymentController extends Controller
             'canManage' => $request->user()->can('manageFinance'),
             'exportQuery' => array_filter($request->only(['q', 'client_id', 'date', 'scope']), fn ($v) => filled($v)),
             'stats' => [
-                'today' => (float) Payment::query()->whereDate('payment_date', now()->toDateString())->sum('amount'),
+                'today' => (float) Payment::query()->collections()->whereDate('payment_date', now()->toDateString())->sum('amount'),
                 'month' => (float) Payment::query()
+                    ->collections()
                     ->whereMonth('payment_date', now()->month)
                     ->whereYear('payment_date', now()->year)
                     ->sum('amount'),
-                'all_time' => (float) Payment::query()->sum('amount'),
+                'disbursements_month' => (float) Payment::query()
+                    ->disbursements()
+                    ->whereMonth('payment_date', now()->month)
+                    ->whereYear('payment_date', now()->year)
+                    ->sum('amount'),
+                'all_time' => (float) Payment::query()->collections()->sum('amount'),
                 'count' => Payment::query()->count(),
             ],
         ]);
@@ -108,7 +116,7 @@ class PaymentController extends Controller
     {
         Gate::authorize('viewFinance');
 
-        $payment->load(['client', 'invoice', 'recorder', 'creator']);
+        $payment->load(['client', 'invoice', 'payrollRun', 'recorder', 'creator']);
 
         return view('finance.payments.show', [
             'payment' => $payment,
@@ -124,7 +132,7 @@ class PaymentController extends Controller
         $scope = $request->string('scope')->toString() === 'month' ? 'month' : 'all';
 
         $rows = Payment::query()
-            ->with(['client:id,name', 'invoice:id,reference'])
+            ->with(['client:id,name', 'invoice:id,reference', 'payrollRun:id,reference'])
             ->search($request->string('q')->toString())
             ->when($request->filled('client_id'), fn ($q) => $q->where('client_id', $request->integer('client_id')))
             ->when($request->filled('date'), fn ($q) => $q->whereDate('payment_date', $request->string('date')))
@@ -133,12 +141,13 @@ class PaymentController extends Controller
             ->limit(5000)
             ->get();
 
-        $headers = ['#', 'Reference', 'Client', 'Invoice', 'Date', 'Amount', 'Method', 'External ref'];
+        $headers = ['#', 'Reference', 'Type', 'Client / payroll', 'Invoice / run', 'Date', 'Amount', 'Method', 'External ref'];
         $data = $rows->values()->map(fn (Payment $p, int $i) => [
             $i + 1,
             $p->reference,
-            $p->client?->name,
-            $p->invoice?->reference,
+            $p->isDisbursement() ? 'Payroll disbursement' : 'Collection',
+            $p->isDisbursement() ? 'Payroll' : $p->client?->name,
+            $p->isDisbursement() ? $p->payrollRun?->reference : $p->invoice?->reference,
             $p->payment_date?->format('Y-m-d'),
             $p->amount,
             $p->method->label(),

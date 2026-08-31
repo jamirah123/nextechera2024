@@ -31,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('viewAuditLogs', [AuditLogPolicy::class, 'viewAny']);
         Gate::define('viewFinance', [FinancePolicy::class, 'viewAny']);
         Gate::define('manageFinance', [FinancePolicy::class, 'manage']);
+        Gate::define('approvePayroll', [FinancePolicy::class, 'approvePayroll']);
 
         try {
             if (Schema::hasTable('system_settings')) {

@@ -37,6 +37,12 @@ class UserSeeder extends Seeder
                 'phone' => '+255700000004',
             ],
             [
+                'name' => 'Managing Director',
+                'email' => 'md@platinumsecurity.local',
+                'role' => UserRole::ManagingDirector,
+                'phone' => '+255700000006',
+            ],
+            [
                 'name' => 'Finance Manager',
                 'email' => 'finance@platinumsecurity.local',
                 'role' => UserRole::FinanceManager,

@@ -13,6 +13,7 @@ use App\Models\Guard;
 use App\Models\Invoice;
 use App\Models\Leave;
 use App\Models\Payment;
+use App\Models\PayrollRun;
 use App\Models\Shift;
 use App\Models\ShiftReplacement;
 use App\Models\User;
@@ -27,7 +28,7 @@ class NotificationFeedService
     public function categoriesFor(User $user): array
     {
         return match ($user->role) {
-            UserRole::SuperAdmin => AuditCategory::cases(),
+            UserRole::SuperAdmin, UserRole::ManagingDirector => AuditCategory::cases(),
             UserRole::OperationsManager => [
                 AuditCategory::Shift,
                 AuditCategory::Deployment,
@@ -141,10 +142,13 @@ class NotificationFeedService
                 Payment::class => Gate::forUser($user)->allows('viewFinance')
                     ? $this->safeRoute('payments.show', $log->subject_id)
                     : null,
+                PayrollRun::class => Gate::forUser($user)->allows('viewFinance')
+                    ? $this->safeRoute('payroll.show', $log->subject_id)
+                    : null,
                 BillingProfile::class => Gate::forUser($user)->allows('viewFinance')
                     ? $this->safeRoute('billing.show', $log->subject_id)
                     : null,
-                User::class => $user->isSuperAdmin()
+                User::class => \App\Support\Access\Access::userCan($user, 'admin.users_manage')
                     ? $this->safeRoute('users.show', $log->subject_id)
                     : null,
                 Leave::class => $this->safeRoute('leaves.show', $log->subject_id),

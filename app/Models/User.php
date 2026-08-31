@@ -75,6 +75,16 @@ class User extends Authenticatable
         return $this->role === UserRole::SuperAdmin;
     }
 
+    public function isManagingDirector(): bool
+    {
+        return $this->role === UserRole::ManagingDirector;
+    }
+
+    public function isExecutive(): bool
+    {
+        return $this->role?->hasImplicitFullAccess() ?? false;
+    }
+
     public function isRegionSupervisor(): bool
     {
         return $this->role === UserRole::RegionSupervisor;

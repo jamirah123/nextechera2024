@@ -13,6 +13,7 @@ class Payment extends Model
 
     protected $fillable = [
         'reference',
+        'payroll_run_id',
         'invoice_id',
         'client_id',
         'amount',
@@ -39,6 +40,11 @@ class Payment extends Model
         return $this->belongsTo(Invoice::class);
     }
 
+    public function payrollRun(): BelongsTo
+    {
+        return $this->belongsTo(PayrollRun::class);
+    }
+
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
@@ -47,6 +53,26 @@ class Payment extends Model
     public function recorder(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    public function isDisbursement(): bool
+    {
+        return $this->payroll_run_id !== null;
+    }
+
+    public function isCollection(): bool
+    {
+        return $this->invoice_id !== null;
+    }
+
+    public function scopeCollections($query)
+    {
+        return $query->whereNotNull('invoice_id');
+    }
+
+    public function scopeDisbursements($query)
+    {
+        return $query->whereNotNull('payroll_run_id');
     }
 
     public function scopeSearch($query, ?string $term)
@@ -62,7 +88,8 @@ class Payment extends Model
                 ->orWhere('external_reference', 'like', $like)
                 ->orWhere('notes', 'like', $like)
                 ->orWhereHas('client', fn ($c) => $c->where('name', 'like', $like))
-                ->orWhereHas('invoice', fn ($i) => $i->where('reference', 'like', $like));
+                ->orWhereHas('invoice', fn ($i) => $i->where('reference', 'like', $like))
+                ->orWhereHas('payrollRun', fn ($r) => $r->where('reference', 'like', $like));
         });
     }
 }

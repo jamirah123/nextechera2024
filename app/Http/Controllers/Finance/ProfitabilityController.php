@@ -42,17 +42,27 @@ class ProfitabilityController extends Controller
         $to = $request->string('to')->toString() ?: now()->endOfMonth()->toDateString();
         $report = $this->profitability->analyze($from, $to);
 
-        $headers = ['Section', 'Name', 'Code', 'Revenue', 'Est. cost', 'Profit', 'Margin %'];
+        $headers = ['Section', 'Name', 'Code', 'Revenue', 'Payroll cost', 'Cost basis', 'Profit', 'Margin %'];
         $data = collect();
 
+        $formatRow = fn (array $row) => [
+            $row['label'],
+            $row['code'] ?? '',
+            $row['revenue'],
+            $row['cost'],
+            $row['cost_source'] === 'actual' ? 'Paid payroll' : 'Estimated',
+            $row['profit'],
+            $row['margin'],
+        ];
+
         foreach ($report['by_client'] as $row) {
-            $data->push(['Client', $row['label'], $row['code'] ?? '', $row['revenue'], $row['cost'], $row['profit'], $row['margin']]);
+            $data->push(array_merge(['Client'], $formatRow($row)));
         }
         foreach ($report['by_site'] as $row) {
-            $data->push(['Site', $row['label'], $row['code'] ?? '', $row['revenue'], $row['cost'], $row['profit'], $row['margin']]);
+            $data->push(array_merge(['Site'], $formatRow($row)));
         }
         foreach ($report['by_region'] as $row) {
-            $data->push(['Region', $row['label'], $row['code'] ?? '', $row['revenue'], $row['cost'], $row['profit'], $row['margin']]);
+            $data->push(array_merge(['Region'], $formatRow($row)));
         }
 
         return $this->exports->downloadCsv('psg-profitability-'.$from.'-'.$to.'.csv', $headers, $data);

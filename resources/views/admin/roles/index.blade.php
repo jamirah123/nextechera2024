@@ -6,7 +6,7 @@
 
 @section('content')
 <div class="space-y-3">
-    <x-page-header title="Roles & permissions" subtitle="Toggle capabilities for each role. Super Admin always has full access. Changes apply immediately across the application.">
+    <x-page-header title="Roles & permissions" subtitle="Toggle capabilities for each role. Super Admin and Managing Director have fixed access. Changes apply immediately across the application.">
         <x-slot:actions>
             <a href="{{ route('users.index') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
                 Manage users
@@ -54,7 +54,7 @@
                 <label for="target_role" class="mb-1 block text-[11px] font-medium text-slate-600">Apply to</label>
                 <select id="target_role" name="target_role" required class="block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs shadow-sm">
                     @foreach ($roles as $role)
-                        @if ($role !== \App\Enums\UserRole::SuperAdmin)
+                        @if (! in_array($role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::ManagingDirector], true))
                             <option value="{{ $role->value }}" @selected(old('target_role') === $role->value)>{{ $role->label() }}</option>
                         @endif
                     @endforeach
@@ -124,6 +124,12 @@
                                     <td class="px-3 py-2 text-center align-middle">
                                         @if ($role === \App\Enums\UserRole::SuperAdmin)
                                             <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-50 text-brand-700" title="Always allowed">✓</span>
+                                        @elseif ($role === \App\Enums\UserRole::ManagingDirector)
+                                            @if (in_array($entry['key'], \App\Enums\UserRole::managingDirectorDeniedPermissions(), true))
+                                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-400" title="Not allowed">—</span>
+                                            @else
+                                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-violet-50 text-violet-700" title="Always allowed">✓</span>
+                                            @endif
                                         @else
                                             @php
                                                 $checked = in_array($role->value, $grants[$entry['key']] ?? [], true);

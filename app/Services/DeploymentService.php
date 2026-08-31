@@ -403,6 +403,10 @@ class DeploymentService
             ->exists();
 
         if (! $hasCurrentDeployment && $guard->operational_status !== OperationalStatus::AwaitingDeployment) {
+            if ($guard->supervisorProfile()->exists()) {
+                return;
+            }
+
             throw new InvalidArgumentException('Only guards awaiting deployment can be posted. HR must update operational status from Training first.');
         }
     }

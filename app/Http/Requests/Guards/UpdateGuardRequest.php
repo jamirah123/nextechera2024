@@ -38,6 +38,11 @@ class UpdateGuardRequest extends FormRequest
             'emergency_contact_name' => ['nullable', 'string', 'max:191'],
             'emergency_contact_phone' => ['nullable', 'string', 'max:30'],
             'notes' => ['nullable', 'string'],
+            'base_shift_rate' => ['nullable', 'numeric', 'min:0'],
+            'overtime_shift_rate' => ['nullable', 'numeric', 'min:0'],
+            'bank_name' => ['nullable', 'string', 'max:120'],
+            'bank_account' => ['nullable', 'string', 'max:64'],
+            'nssf_number' => ['nullable', 'string', 'max:40'],
             'reason' => ['nullable', 'string', 'max:191'],
             ...GuardAttachmentRules::rules(),
         ];

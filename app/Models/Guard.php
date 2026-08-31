@@ -42,6 +42,11 @@ class Guard extends Model
         'emergency_contact_phone',
         'photo_path',
         'notes',
+        'base_shift_rate',
+        'overtime_shift_rate',
+        'bank_name',
+        'bank_account',
+        'nssf_number',
         'created_by',
         'updated_by',
     ];
@@ -54,6 +59,8 @@ class Guard extends Model
             'operational_status' => OperationalStatus::class,
             'date_of_birth' => 'date',
             'date_employed' => 'date',
+            'base_shift_rate' => 'decimal:2',
+            'overtime_shift_rate' => 'decimal:2',
         ];
     }
 
@@ -120,6 +127,11 @@ class Guard extends Model
     public function attendances(): HasMany
     {
         return $this->hasMany(Attendance::class)->latest('occurred_at');
+    }
+
+    public function salaryAdvances(): HasMany
+    {
+        return $this->hasMany(GuardSalaryAdvance::class)->latest('id');
     }
 
     public function isEmploymentActive(): bool

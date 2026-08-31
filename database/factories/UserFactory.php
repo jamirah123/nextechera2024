@@ -58,6 +58,11 @@ class UserFactory extends Factory
         return $this->role(UserRole::SuperAdmin);
     }
 
+    public function managingDirector(): static
+    {
+        return $this->role(UserRole::ManagingDirector);
+    }
+
     public function regionSupervisor(?int $supervisorId = null): static
     {
         return $this->state(function (array $attributes) use ($supervisorId) {

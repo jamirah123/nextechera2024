@@ -173,6 +173,26 @@ Route::middleware('auth')->group(function () {
     Route::get('/profitability', [ProfitabilityController::class, 'index'])->name('profitability.index');
     Route::get('/profitability/export', [ProfitabilityController::class, 'export'])->name('profitability.export');
 
+    Route::get('/payroll', [\App\Http\Controllers\Finance\PayrollRunController::class, 'index'])->name('payroll.index');
+    Route::get('/payroll/create', [\App\Http\Controllers\Finance\PayrollRunController::class, 'create'])->name('payroll.create');
+    Route::post('/payroll', [\App\Http\Controllers\Finance\PayrollRunController::class, 'store'])->name('payroll.store');
+    Route::get('/payroll/{payroll}', [\App\Http\Controllers\Finance\PayrollRunController::class, 'show'])->name('payroll.show');
+    Route::post('/payroll/{payroll}/calculate', [\App\Http\Controllers\Finance\PayrollRunController::class, 'calculate'])->name('payroll.calculate');
+    Route::post('/payroll/{payroll}/submit', [\App\Http\Controllers\Finance\PayrollRunController::class, 'submit'])->name('payroll.submit');
+    Route::post('/payroll/{payroll}/approve', [\App\Http\Controllers\Finance\PayrollRunController::class, 'approve'])->name('payroll.approve');
+    Route::post('/payroll/{payroll}/pay', [\App\Http\Controllers\Finance\PayrollRunController::class, 'pay'])->name('payroll.pay');
+    Route::post('/payroll/{payroll}/cancel', [\App\Http\Controllers\Finance\PayrollRunController::class, 'cancel'])->name('payroll.cancel');
+    Route::get('/payroll/{payroll}/export/bank', [\App\Http\Controllers\Finance\PayrollRunController::class, 'exportBank'])->name('payroll.export.bank');
+    Route::get('/payroll/{payroll}/export/payslips', [\App\Http\Controllers\Finance\PayrollRunController::class, 'exportPayslips'])->name('payroll.export.payslips');
+    Route::get('/payroll/{payroll}/payslips/{payslip}', [\App\Http\Controllers\Finance\PayrollPayslipController::class, 'show'])->name('payroll.payslips.show');
+    Route::get('/payroll/{payroll}/payslips/{payslip}/export', [\App\Http\Controllers\Finance\PayrollPayslipController::class, 'export'])->name('payroll.payslips.export');
+    Route::get('/payroll/{payroll}/payslips/{payslip}/print', [\App\Http\Controllers\Finance\PayrollPayslipController::class, 'print'])->name('payroll.payslips.print');
+    Route::post('/payroll/{payroll}/payslips/{payslip}/deductions', [\App\Http\Controllers\Finance\PayrollPayslipController::class, 'storeDeduction'])->name('payroll.payslips.deductions.store');
+    Route::delete('/payroll/{payroll}/payslips/{payslip}/deductions/{deduction}', [\App\Http\Controllers\Finance\PayrollPayslipController::class, 'destroyDeduction'])->name('payroll.payslips.deductions.destroy');
+
+    Route::post('/guards/{guard}/advances', [\App\Http\Controllers\Finance\GuardAdvanceController::class, 'store'])->name('guards.advances.store');
+    Route::post('/guards/{guard}/advances/{advance}/write-off', [\App\Http\Controllers\Finance\GuardAdvanceController::class, 'writeOff'])->name('guards.advances.write-off');
+
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
     Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit.export');
     Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show'])->name('audit.show');

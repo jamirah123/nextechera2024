@@ -25,6 +25,12 @@ class SystemSetting extends Model
         'currency_label',
         'currency_decimals',
         'invoice_due_days',
+        'payroll_default_base_shift_rate',
+        'payroll_standard_shifts_per_month',
+        'payroll_overtime_multiplier',
+        'payroll_paye_rate',
+        'payroll_nssf_employee_rate',
+        'payroll_uniform_charge',
         'default_day_shift_start',
         'default_day_shift_end',
         'default_night_shift_start',
@@ -40,6 +46,12 @@ class SystemSetting extends Model
             'currency_decimals' => 'integer',
             'invoice_due_days' => 'integer',
             'backup_keep_days' => 'integer',
+            'payroll_default_base_shift_rate' => 'decimal:2',
+            'payroll_standard_shifts_per_month' => 'integer',
+            'payroll_overtime_multiplier' => 'decimal:2',
+            'payroll_paye_rate' => 'decimal:2',
+            'payroll_nssf_employee_rate' => 'decimal:2',
+            'payroll_uniform_charge' => 'decimal:2',
         ];
     }
 

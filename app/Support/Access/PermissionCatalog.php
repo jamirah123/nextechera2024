@@ -35,17 +35,24 @@ class PermissionCatalog
             UserRole::HrManager->value,
         ];
         $admin = [UserRole::SuperAdmin->value];
+        $executiveUsers = [
+            UserRole::SuperAdmin->value,
+            UserRole::ManagingDirector->value,
+        ];
         $audit = [
             UserRole::SuperAdmin->value,
+            UserRole::ManagingDirector->value,
             UserRole::OperationsManager->value,
         ];
         $financeView = [
             UserRole::SuperAdmin->value,
+            UserRole::ManagingDirector->value,
             UserRole::FinanceManager->value,
             UserRole::OperationsManager->value,
         ];
         $financeManage = [
             UserRole::SuperAdmin->value,
+            UserRole::ManagingDirector->value,
             UserRole::FinanceManager->value,
         ];
 
@@ -55,7 +62,7 @@ class PermissionCatalog
                 'group' => 'Administration',
                 'label' => 'Manage users & account access',
                 'description' => 'Create, edit and deactivate system user accounts.',
-                'roles' => $admin,
+                'roles' => $executiveUsers,
             ],
             [
                 'key' => 'admin.roles_manage',
@@ -85,6 +92,7 @@ class PermissionCatalog
                 'description' => 'Create and edit the organization structure.',
                 'roles' => [
                     UserRole::SuperAdmin->value,
+                    UserRole::ManagingDirector->value,
                     UserRole::OperationsManager->value,
                 ],
             ],
@@ -190,6 +198,13 @@ class PermissionCatalog
                 'label' => 'Manage finance records',
                 'description' => 'Create and edit billing, invoices and payments.',
                 'roles' => $financeManage,
+            ],
+            [
+                'key' => 'finance.payroll.approve',
+                'group' => 'Finance',
+                'label' => 'Approve & reject payroll',
+                'description' => 'Executive approval or rejection of submitted payroll runs.',
+                'roles' => $executiveUsers,
             ],
             [
                 'key' => 'reporting.view_export',

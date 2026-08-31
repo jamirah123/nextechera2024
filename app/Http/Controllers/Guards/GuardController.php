@@ -126,12 +126,14 @@ class GuardController extends Controller
             'creator',
             'updater',
             'attachments.uploader',
+            'salaryAdvances',
         ]);
 
         return view('guards.show', [
             'guard' => $guard,
             'currentDeployment' => $guard->currentDeployment,
             'canManage' => request()->user()->can('update', $guard),
+            'canManageFinance' => request()->user()->can('manageFinance'),
             'canDelete' => request()->user()->can('delete', $guard),
             'canDeploy' => request()->user()->can('create', Deployment::class),
         ]);

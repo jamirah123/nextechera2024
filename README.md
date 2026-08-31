@@ -31,6 +31,7 @@ Seeded password for demo users: `Password@123`
 | Role | Email |
 |------|-------|
 | Super Admin | `admin@platinumsecurity.local` |
+| Managing Director | `md@platinumsecurity.local` |
 | Operations Manager | `operations@platinumsecurity.local` |
 | HR Manager | `hr@platinumsecurity.local` |
 | Shift Manager | `shifts@platinumsecurity.local` |
@@ -67,7 +68,7 @@ php artisan schedule:work
 8. Operational dashboards (company → region → site → guard)  
 9. Audit logs & active-user hardening  
 10. Production tooling (backup, checks, deploy docs)  
-11. Finance (UGX billing, headcount invoicing, payments, profitability)  
+11. Finance (UGX billing, headcount invoicing, payments, profitability, payroll)  
 12. Administration (users, roles matrix, system settings)  
 13. Live notifications (role-aware audit feed in the nav bar)
 

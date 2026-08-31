@@ -41,6 +41,15 @@ return [
     'pagination' => [
         'per_page' => (int) env('PSG_PER_PAGE', 25),
     ],
+    'payroll' => [
+        'default_base_shift_rate' => (float) env('PSG_PAYROLL_DEFAULT_SHIFT_RATE', 25000),
+        'default_monthly_gross' => (float) env('PSG_PAYROLL_DEFAULT_MONTHLY_GROSS', 25000),
+        'standard_shifts_per_month' => (int) env('PSG_PAYROLL_STANDARD_SHIFTS', 30),
+        'overtime_multiplier' => (float) env('PSG_PAYROLL_OVERTIME_MULTIPLIER', 1.5),
+        'paye_rate' => (float) env('PSG_PAYROLL_PAYE_RATE', 0),
+        'nssf_employee_rate' => (float) env('PSG_PAYROLL_NSSF_RATE', 5),
+        'uniform_charge' => (float) env('PSG_PAYROLL_UNIFORM_CHARGE', 0),
+    ],
     'seed' => [
         // Approximate operational volume for local/system testing.
         'guards' => (int) env('PSG_SEED_GUARDS', 2500),

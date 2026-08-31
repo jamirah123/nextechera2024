@@ -28,6 +28,10 @@ class RolePermissionService
             return true;
         }
 
+        if ($roleValue === UserRole::ManagingDirector->value) {
+            return ! in_array($permission, UserRole::managingDirectorDeniedPermissions(), true);
+        }
+
         return in_array($roleValue, $this->grantedRoles($permission), true);
     }
 
@@ -92,7 +96,8 @@ class RolePermissionService
             $roles = $grants[$permission] ?? [];
 
             foreach ($roles as $role) {
-                if (! in_array($role, $validRoles, true) || $role === UserRole::SuperAdmin->value) {
+                if (! in_array($role, $validRoles, true)
+                    || in_array($role, [UserRole::SuperAdmin->value, UserRole::ManagingDirector->value], true)) {
                     continue;
                 }
 
@@ -133,7 +138,10 @@ class RolePermissionService
         foreach (PermissionCatalog::definitions() as $definition) {
             $grants[$definition['key']] = array_values(array_filter(
                 $definition['roles'],
-                fn (string $role) => $role !== UserRole::SuperAdmin->value,
+                fn (string $role) => ! in_array($role, [
+                    UserRole::SuperAdmin->value,
+                    UserRole::ManagingDirector->value,
+                ], true),
             ));
         }
 
@@ -145,8 +153,8 @@ class RolePermissionService
         $sourceValue = $source instanceof UserRole ? $source->value : $source;
         $targetValue = $target instanceof UserRole ? $target->value : $target;
 
-        if ($targetValue === UserRole::SuperAdmin->value) {
-            throw new \InvalidArgumentException('Super Admin permissions cannot be cloned.');
+        if (in_array($targetValue, [UserRole::SuperAdmin->value, UserRole::ManagingDirector->value], true)) {
+            throw new \InvalidArgumentException('Super Admin and Managing Director permissions are fixed and cannot be cloned.');
         }
 
         $matrix = $this->matrix();
@@ -158,7 +166,7 @@ class RolePermissionService
                 ->all();
 
             if (in_array($sourceValue, $matrix[$permission] ?? [], true)
-                || $sourceValue === UserRole::SuperAdmin->value) {
+                || in_array($sourceValue, [UserRole::SuperAdmin->value, UserRole::ManagingDirector->value], true)) {
                 $roles[] = $targetValue;
             }
 

@@ -22,6 +22,7 @@ class DashboardController extends Controller
 
         $view = match ($user->role?->value) {
             'super_admin' => 'dashboards.super-admin',
+            'managing_director' => 'dashboards.managing-director',
             'operations_manager' => 'dashboards.operations',
             'hr_manager' => 'dashboards.hr',
             'shift_manager' => 'dashboards.shift',
@@ -30,15 +31,20 @@ class DashboardController extends Controller
             default => 'dashboards.generic',
         };
 
-        $shiftDeskSnapshot = in_array($user->role?->value, ['shift_manager', 'operations_manager'], true)
+        $shiftDeskSnapshot = in_array($user->role?->value, ['shift_manager', 'operations_manager', 'managing_director'], true)
             ? $this->shiftDesk->snapshot($user)
             : null;
 
-        return view($view, [
-            'user' => $user,
-            'kpis' => $shiftDeskSnapshot !== null
+        $kpis = match ($user->role?->value) {
+            'shift_manager', 'operations_manager' => $shiftDeskSnapshot !== null
                 ? $this->shiftDesk->kpis($user)
                 : RoleNavigation::kpis($user),
+            default => RoleNavigation::kpis($user),
+        };
+
+        return view($view, [
+            'user' => $user,
+            'kpis' => $kpis,
             'modules' => RoleNavigation::modules($user),
             'ops' => $this->opsDashboards->landingSnapshot(),
             'shiftDesk' => $shiftDeskSnapshot,

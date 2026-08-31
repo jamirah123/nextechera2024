@@ -35,6 +35,12 @@ class ReportController extends Controller
                     'tone' => 'brand',
                 ],
                 [
+                    'title' => 'Payroll runs',
+                    'description' => 'Calculate, approve and pay guards from completed shifts with payslips and bank export.',
+                    'href' => route('payroll.index'),
+                    'tone' => 'emerald',
+                ],
+                [
                     'title' => 'Daily shifts',
                     'description' => 'Today or any date: scheduled, completed, missed and overtime counts.',
                     'href' => route('reports.daily-shifts'),

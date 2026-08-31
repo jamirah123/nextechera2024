@@ -111,6 +111,64 @@
                 <x-form-field label="Invoice due days" name="invoice_due_days" type="number" :value="old('invoice_due_days', $settings->invoice_due_days)" :required="true" min="1" max="120" />
             </x-form-group>
 
+            <x-form-group title="Payroll defaults" description="Monthly gross salary is divided by the number of calendar days in each payroll month (28, 29, 30, or 31) to calculate pay per shift.">
+                <x-form-field
+                    label="Default monthly gross salary ({{ $settings->currency }})"
+                    name="payroll_default_base_shift_rate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    :value="old('payroll_default_base_shift_rate', $settings->payroll_default_base_shift_rate)"
+                    :required="true"
+                    help="Full-month gross pay before deductions. August uses 31 days, February uses 28 or 29 automatically."
+                    class="sm:col-span-2"
+                />
+                <x-form-field
+                    label="Overtime multiplier"
+                    name="payroll_overtime_multiplier"
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    max="5"
+                    :value="old('payroll_overtime_multiplier', $settings->payroll_overtime_multiplier)"
+                    :required="true"
+                    help="Overtime rate = base shift rate × this multiplier when not set on the guard."
+                />
+                <x-form-field
+                    label="PAYE rate (%)"
+                    name="payroll_paye_rate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    :value="old('payroll_paye_rate', $settings->payroll_paye_rate)"
+                    :required="true"
+                    help="Percentage of gross pay deducted as PAYE. Set to 0 to disable."
+                />
+                <x-form-field
+                    label="NSSF employee rate (%)"
+                    name="payroll_nssf_employee_rate"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    :value="old('payroll_nssf_employee_rate', $settings->payroll_nssf_employee_rate)"
+                    :required="true"
+                    help="Percentage of gross pay deducted for NSSF. Set to 0 to disable."
+                />
+                <x-form-field
+                    label="Uniform charge ({{ $settings->currency }})"
+                    name="payroll_uniform_charge"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    :value="old('payroll_uniform_charge', $settings->payroll_uniform_charge)"
+                    :required="true"
+                    help="Flat monthly uniform deduction per guard payslip. Set to 0 to disable."
+                    class="sm:col-span-2"
+                />
+            </x-form-group>
+
             <x-form-group title="Shift time defaults" description="Pre-fill day and night shift windows when creating new shifts.">
                 <x-form-field label="Day shift start" name="default_day_shift_start" type="time" :value="old('default_day_shift_start', $settings->default_day_shift_start)" :required="true" />
                 <x-form-field label="Day shift end" name="default_day_shift_end" type="time" :value="old('default_day_shift_end', $settings->default_day_shift_end)" :required="true" />

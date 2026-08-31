@@ -4,20 +4,24 @@ namespace App\Services\Finance;
 
 use App\Enums\GuardClassification;
 use App\Enums\InvoiceStatus;
+use App\Enums\PayrollRunStatus;
 use App\Enums\ShiftStatus;
 use App\Models\BillingProfile;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\PayrollPayslip;
+use App\Models\PayrollRun;
 use App\Models\Region;
 use App\Models\Shift;
 use App\Models\Site;
+use Illuminate\Database\Eloquent\Builder;
 
 class ProfitabilityService
 {
     /**
      * @return array{
-     *     totals: array<string, float|int>,
+     *     totals: array<string, float|int|string>,
      *     by_client: list<array<string, mixed>>,
      *     by_site: list<array<string, mixed>>,
      *     by_region: list<array<string, mixed>>
@@ -34,6 +38,7 @@ class ProfitabilityService
             ->sum('total');
 
         $collected = (float) Payment::query()
+            ->collections()
             ->whereBetween('payment_date', [$from, $to])
             ->sum('amount');
 
@@ -55,8 +60,8 @@ class ProfitabilityService
                 ->whereBetween('issue_date', [$from, $to])
                 ->sum('total');
 
-            $cost = $this->estimatedPayrollCost($client->id, null, null, $from, $to);
-            if ($revenue <= 0 && $cost <= 0) {
+            $costRow = $this->payrollCost($client->id, null, null, $from, $to);
+            if ($revenue <= 0 && $costRow['cost'] <= 0) {
                 continue;
             }
 
@@ -64,9 +69,10 @@ class ProfitabilityService
                 'label' => $client->name,
                 'code' => '',
                 'revenue' => $revenue,
-                'cost' => $cost,
-                'profit' => round($revenue - $cost, 2),
-                'margin' => $revenue > 0 ? round((($revenue - $cost) / $revenue) * 100, 1) : null,
+                'cost' => $costRow['cost'],
+                'cost_source' => $costRow['source'],
+                'profit' => round($revenue - $costRow['cost'], 2),
+                'margin' => $revenue > 0 ? round((($revenue - $costRow['cost']) / $revenue) * 100, 1) : null,
             ];
         }
 
@@ -74,28 +80,15 @@ class ProfitabilityService
         $sites = Site::query()->with('client:id,name')->orderBy('name')->get(['id', 'name', 'code', 'client_id', 'region_id']);
 
         foreach ($sites as $site) {
-            $revenue = (float) Invoice::query()
-                ->where(function ($q) use ($site): void {
-                    $q->where('site_id', $site->id)
-                        ->orWhere(function ($inner) use ($site): void {
-                            $inner->whereNull('site_id')->where('client_id', $site->client_id);
-                        });
-                })
-                ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value])
-                ->whereBetween('issue_date', [$from, $to])
-                ->sum('total');
-
-            // Prefer site-specific invoice revenue when present
             $siteRevenue = (float) Invoice::query()
                 ->where('site_id', $site->id)
                 ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value])
                 ->whereBetween('issue_date', [$from, $to])
                 ->sum('total');
 
-            $revenue = $siteRevenue;
-            $cost = $this->estimatedPayrollCost($site->client_id, $site->id, $site->region_id, $from, $to);
+            $costRow = $this->payrollCost($site->client_id, $site->id, $site->region_id, $from, $to);
 
-            if ($revenue <= 0 && $cost <= 0) {
+            if ($siteRevenue <= 0 && $costRow['cost'] <= 0) {
                 continue;
             }
 
@@ -103,10 +96,11 @@ class ProfitabilityService
                 'label' => $site->name,
                 'code' => $site->code,
                 'client' => $site->client?->name,
-                'revenue' => $revenue,
-                'cost' => $cost,
-                'profit' => round($revenue - $cost, 2),
-                'margin' => $revenue > 0 ? round((($revenue - $cost) / $revenue) * 100, 1) : null,
+                'revenue' => $siteRevenue,
+                'cost' => $costRow['cost'],
+                'cost_source' => $costRow['source'],
+                'profit' => round($siteRevenue - $costRow['cost'], 2),
+                'margin' => $siteRevenue > 0 ? round((($siteRevenue - $costRow['cost']) / $siteRevenue) * 100, 1) : null,
             ];
         }
 
@@ -119,8 +113,8 @@ class ProfitabilityService
                 ->whereBetween('issue_date', [$from, $to])
                 ->sum('total');
 
-            $cost = $this->estimatedPayrollCost(null, null, $region->id, $from, $to);
-            if ($revenue <= 0 && $cost <= 0) {
+            $costRow = $this->payrollCost(null, null, $region->id, $from, $to);
+            if ($revenue <= 0 && $costRow['cost'] <= 0) {
                 continue;
             }
 
@@ -128,11 +122,14 @@ class ProfitabilityService
                 'label' => $region->name,
                 'code' => $region->code,
                 'revenue' => $revenue,
-                'cost' => $cost,
-                'profit' => round($revenue - $cost, 2),
-                'margin' => $revenue > 0 ? round((($revenue - $cost) / $revenue) * 100, 1) : null,
+                'cost' => $costRow['cost'],
+                'cost_source' => $costRow['source'],
+                'profit' => round($revenue - $costRow['cost'], 2),
+                'margin' => $revenue > 0 ? round((($revenue - $costRow['cost']) / $revenue) * 100, 1) : null,
             ];
         }
+
+        $payrollTotals = $this->aggregatePayrollCosts($from, $to, $byClient);
 
         return [
             'from' => $from,
@@ -142,7 +139,8 @@ class ProfitabilityService
                 'collected' => $collected,
                 'outstanding' => $outstanding,
                 'overdue' => $overdue,
-                'estimated_payroll' => array_sum(array_column($byClient, 'cost')),
+                'payroll_cost' => $payrollTotals['cost'],
+                'payroll_cost_source' => $payrollTotals['source'],
             ],
             'by_client' => $byClient,
             'by_site' => $bySite,
@@ -162,7 +160,7 @@ class ProfitabilityService
             'invoiced_total' => (float) Invoice::query()
                 ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value])
                 ->sum('total'),
-            'collected_total' => (float) Payment::query()->sum('amount'),
+            'collected_total' => (float) Payment::query()->collections()->sum('amount'),
             'outstanding' => (float) Invoice::query()->open()->sum('balance'),
             'overdue_count' => Invoice::query()->where('status', InvoiceStatus::Overdue->value)->count(),
             'overdue_amount' => (float) Invoice::query()->where('status', InvoiceStatus::Overdue->value)->sum('balance'),
@@ -171,9 +169,115 @@ class ProfitabilityService
                 ->whereBetween('issue_date', [$monthStart, $monthEnd])
                 ->sum('total'),
             'month_collected' => (float) Payment::query()
+                ->collections()
                 ->whereBetween('payment_date', [$monthStart, $monthEnd])
                 ->sum('amount'),
         ];
+    }
+
+    /**
+     * @return array{cost: float, source: 'actual'|'estimated'|'mixed'}
+     */
+    private function payrollCost(?int $clientId, ?int $siteId, ?int $regionId, string $from, string $to): array
+    {
+        $actual = $this->actualPayrollCost($clientId, $siteId, $regionId, $from, $to);
+        if ($actual > 0) {
+            return ['cost' => $actual, 'source' => 'actual'];
+        }
+
+        $estimated = $this->estimatedPayrollCost($clientId, $siteId, $regionId, $from, $to);
+
+        return ['cost' => $estimated, 'source' => 'estimated'];
+    }
+
+    private function actualPayrollCost(?int $clientId, ?int $siteId, ?int $regionId, string $from, string $to): float
+    {
+        if ($siteId) {
+            $siteRunTotal = (float) $this->paidRunsInPeriod($from, $to)
+                ->where('site_id', $siteId)
+                ->sum('gross_total');
+
+            if ($siteRunTotal > 0) {
+                return round($siteRunTotal, 2);
+            }
+        }
+
+        if ($regionId && ! $siteId) {
+            $siteIds = Site::query()->where('region_id', $regionId)->pluck('id');
+
+            $regionTotal = (float) $this->paidRunsInPeriod($from, $to)
+                ->where(function (Builder $query) use ($regionId, $siteIds): void {
+                    $query->where(function (Builder $scoped) use ($regionId): void {
+                        $scoped->where('region_id', $regionId)->whereNull('site_id');
+                    })->orWhereIn('site_id', $siteIds);
+                })
+                ->sum('gross_total');
+
+            if ($regionTotal > 0) {
+                return round($regionTotal, 2);
+            }
+        }
+
+        $allocated = $this->allocatedPayslipGross($from, $to, $clientId, $siteId, $regionId);
+
+        return $allocated > 0 ? round($allocated, 2) : 0.0;
+    }
+
+    private function allocatedPayslipGross(string $from, string $to, ?int $clientId, ?int $siteId, ?int $regionId): float
+    {
+        return (float) PayrollPayslip::query()
+            ->whereHas('run', fn (Builder $query) => $this->applyPeriodOverlap(
+                $query->where('status', PayrollRunStatus::Paid->value),
+                $from,
+                $to,
+            ))
+            ->whereHas('shifts.site', function (Builder $query) use ($clientId, $siteId, $regionId): void {
+                if ($clientId) {
+                    $query->where('client_id', $clientId);
+                }
+                if ($siteId) {
+                    $query->where('sites.id', $siteId);
+                }
+                if ($regionId) {
+                    $query->where('region_id', $regionId);
+                }
+            })
+            ->sum('gross_pay');
+    }
+
+    private function paidRunsInPeriod(string $from, string $to): Builder
+    {
+        return PayrollRun::query()->where(function (Builder $query) use ($from, $to): void {
+            $this->applyPeriodOverlap($query, $from, $to);
+        });
+    }
+
+    private function applyPeriodOverlap(Builder $query, string $from, string $to): Builder
+    {
+        return $query->where(function (Builder $period) use ($from, $to): void {
+            $period->whereBetween('period_start', [$from, $to])
+                ->orWhereBetween('period_end', [$from, $to])
+                ->orWhere(function (Builder $enclosing) use ($from, $to): void {
+                    $enclosing->where('period_start', '<=', $from)
+                        ->where('period_end', '>=', $to);
+                });
+        });
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $byClient
+     * @return array{cost: float, source: 'actual'|'estimated'|'mixed'}
+     */
+    private function aggregatePayrollCosts(string $from, string $to, array $byClient): array
+    {
+        $paidTotal = (float) $this->paidRunsInPeriod($from, $to)->sum('gross_total');
+        if ($paidTotal > 0) {
+            return ['cost' => round($paidTotal, 2), 'source' => 'actual'];
+        }
+
+        $estimatedTotal = round(array_sum(array_column($byClient, 'cost')), 2);
+
+        return ['cost' => $estimatedTotal, 'source' => 'estimated'];
     }
 
     private function estimatedPayrollCost(?int $clientId, ?int $siteId, ?int $regionId, string $from, string $to): float

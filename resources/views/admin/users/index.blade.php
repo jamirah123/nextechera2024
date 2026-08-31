@@ -8,9 +8,11 @@
 <div class="space-y-3">
     <x-page-header title="Users" subtitle="Create accounts, assign roles, and activate or deactivate access.">
         <x-slot:actions>
-            <a href="{{ route('roles.index') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-                Roles & permissions
-            </a>
+            @can('manageAccess', App\Models\User::class)
+                <a href="{{ route('roles.index') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    Roles & permissions
+                </a>
+            @endcan
             <a href="{{ route('users.create') }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">
                 <x-icon name="plus" class="h-3.5 w-3.5" /> New user
             </a>

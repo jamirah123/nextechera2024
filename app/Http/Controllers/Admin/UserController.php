@@ -65,7 +65,7 @@ class UserController extends Controller
         $this->authorize('create', User::class);
 
         return view('admin.users.create', [
-            'roles' => UserRole::cases(),
+            'roles' => $this->users->assignableRolesFor(request()->user()),
             'supervisors' => Supervisor::query()->with('region:id,name')->orderBy('name')->get(['id', 'name', 'supervisor_code', 'region_id']),
         ]);
     }
@@ -74,11 +74,15 @@ class UserController extends Controller
     {
         $this->authorize('create', User::class);
 
+        $assignableRoles = collect($this->users->assignableRolesFor($request->user()))
+            ->map(fn (UserRole $role) => $role->value)
+            ->all();
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', 'unique:users,email'],
             'phone' => ['nullable', 'string', 'max:40'],
-            'role' => ['required', Rule::in(UserRole::values())],
+            'role' => ['required', Rule::in($assignableRoles)],
             'supervisor_id' => [
                 Rule::requiredIf(fn () => $request->input('role') === UserRole::RegionSupervisor->value),
                 'nullable',
@@ -119,7 +123,7 @@ class UserController extends Controller
 
         return view('admin.users.edit', [
             'user' => $user->load(['supervisorProfile.region', 'attachments.uploader']),
-            'roles' => UserRole::cases(),
+            'roles' => $this->users->assignableRolesFor(request()->user()),
             'supervisors' => Supervisor::query()->with('region:id,name')->orderBy('name')->get(['id', 'name', 'supervisor_code', 'region_id']),
             'isSelf' => request()->user()->id === $user->id,
         ]);
@@ -129,11 +133,20 @@ class UserController extends Controller
     {
         $this->authorize('update', $user);
 
+        $assignableRoles = collect($this->users->assignableRolesFor($request->user()))
+            ->map(fn (UserRole $role) => $role->value)
+            ->all();
+
+        if ($user->isSuperAdmin()) {
+            $assignableRoles[] = UserRole::SuperAdmin->value;
+            $assignableRoles = array_values(array_unique($assignableRoles));
+        }
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
             'phone' => ['nullable', 'string', 'max:40'],
-            'role' => ['required', Rule::in(UserRole::values())],
+            'role' => ['required', Rule::in($assignableRoles)],
             'supervisor_id' => [
                 Rule::requiredIf(fn () => $request->input('role') === UserRole::RegionSupervisor->value),
                 'nullable',

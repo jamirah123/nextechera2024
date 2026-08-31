@@ -15,6 +15,7 @@ class DashboardTest extends TestCase
     {
         $cases = [
             [UserRole::SuperAdmin, 'Super Admin Dashboard'],
+            [UserRole::ManagingDirector, 'Managing Director Dashboard'],
             [UserRole::OperationsManager, 'Operations Dashboard'],
             [UserRole::HrManager, 'HR Dashboard'],
             [UserRole::ShiftManager, 'Shift Manager Dashboard'],

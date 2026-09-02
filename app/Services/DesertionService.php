@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Enums\DesertionHrStatus;
+use App\Enums\AuditCategory;
+use App\Enums\AuditSeverity;
 use App\Enums\OperationalStatus;
 use App\Models\Deployment;
 use App\Models\Desertion;
@@ -15,6 +17,7 @@ class DesertionService
     public function __construct(
         private GuardService $guards,
         private DeploymentService $deployments,
+        private AuditService $audit,
     ) {
     }
 
@@ -64,7 +67,22 @@ class DesertionService
                 'operational_status' => OperationalStatus::Deserted->value,
             ], 'desertion_reported');
 
-            return $desertion->fresh(['assignedGuard', 'lastKnownSite']);
+            $desertion->load(['assignedGuard:id,full_name,employment_id', 'lastKnownSite:id,name']);
+
+            $this->audit->log(
+                action: 'desertion.reported',
+                summary: 'Desertion reported for '.$guard->full_name.' — HR follow-up required.',
+                category: AuditCategory::Hr,
+                severity: AuditSeverity::Warning,
+                subject: $desertion,
+                context: [
+                    'dedup_key' => 'desertion-reported-'.$desertion->id,
+                    'guard_id' => $guard->id,
+                    'site_id' => $desertion->last_known_site_id,
+                ],
+            );
+
+            return $desertion;
         });
     }
 

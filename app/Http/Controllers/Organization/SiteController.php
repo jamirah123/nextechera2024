@@ -11,6 +11,8 @@ use App\Models\Deployment;
 use App\Models\Region;
 use App\Models\Site;
 use App\Models\Supervisor;
+use App\Services\EntityRelatedRecordsService;
+use App\Services\EntityTimelineService;
 use App\Services\ManpowerService;
 use App\Services\OrganizationService;
 use Illuminate\Http\RedirectResponse;
@@ -23,6 +25,8 @@ class SiteController extends Controller
     public function __construct(
         private OrganizationService $organization,
         private ManpowerService $manpower,
+        private EntityTimelineService $timeline,
+        private EntityRelatedRecordsService $relatedRecords,
     ) {
     }
 
@@ -108,12 +112,32 @@ class SiteController extends Controller
             'updater',
         ]);
 
+        $manpower = $this->manpower->forSite($site);
+
         return view('organization.sites.show', [
             'site' => $site,
-            'manpower' => $this->manpower->forSite($site),
+            'manpower' => $manpower,
             'canManage' => request()->user()->can('update', $site),
             'canDelete' => request()->user()->can('delete', $site),
             'canDeploy' => request()->user()->can('create', Deployment::class),
+            'timeline' => $this->timeline->for($site, request()->user()),
+            'relatedPanels' => $this->relatedRecords->for($site),
+            'lifecycle' => [
+                'steps' => [
+                    ['label' => 'Pending'],
+                    ['label' => 'Active operations'],
+                    ['label' => 'Fully staffed'],
+                ],
+                'current' => match ($site->status) {
+                    SiteStatus::Pending => 0,
+                    SiteStatus::Active => $manpower['shortage'] > 0 ? 1 : 2,
+                    default => 2,
+                },
+                'terminal' => in_array($site->status, [SiteStatus::Closed, SiteStatus::ContractExpired, SiteStatus::Suspended], true)
+                    ? $site->status->label()
+                    : null,
+                'terminal_tone' => $site->status->tone(),
+            ],
         ]);
     }
 

@@ -115,8 +115,10 @@
                             <th>Site</th>
                             <th>Region</th>
                             <th class="text-right">Required</th>
+                            <th class="text-right">Contracted</th>
                             <th class="text-right">Deployed</th>
                             <th class="text-right">Shortage</th>
+                            <th class="text-right">SLA gap</th>
                             <th class="text-right">Coverage</th>
                             <th>Status</th>
                         </tr>
@@ -141,8 +143,12 @@
                                     {{ $site->region?->name ?? '—' }}
                                 </td>
                                 <td class="text-right font-medium text-slate-900">{{ $mp['required'] }}</td>
+                                <td class="text-right text-slate-700">{{ $mp['contracted'] > 0 ? $mp['contracted'] : '—' }}</td>
                                 <td class="text-right text-slate-700">{{ $mp['deployed'] }}</td>
                                 <td class="text-right font-medium text-rose-700">{{ $mp['shortage'] }}</td>
+                                <td class="text-right font-medium {{ ($mp['sla_shortage'] ?? 0) > 0 ? 'text-rose-700' : 'text-slate-500' }}">
+                                    {{ ($mp['contracted'] ?? 0) > 0 ? $mp['sla_shortage'] : '—' }}
+                                </td>
                                 <td class="text-right font-semibold text-slate-900">{{ $mp['coverage_percent'] }}%</td>
                                 <td>
                                     <x-status-badge :tone="$mp['status']->tone()" :label="$mp['status']->label()" />

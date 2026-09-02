@@ -20,27 +20,19 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
-            <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{{ $stats['total'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Active</p>
-            <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{{ $stats['active'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-sky-700">On leave</p>
-            <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{{ $stats['on_leave'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-amber-800">Absent</p>
-            <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{{ $stats['absent'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-rose-700">Deserted</p>
-            <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-900">{{ $stats['deserted'] }}</p>
-        </div>
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 lg:gap-3">
+        @foreach ([
+            ['Total', number_format($stats['total']), 'text-slate-500'],
+            ['Active', number_format($stats['active']), 'text-emerald-700'],
+            ['On leave', number_format($stats['on_leave']), 'text-sky-700'],
+            ['Absent', number_format($stats['absent']), 'text-amber-800'],
+            ['Deserted', number_format($stats['deserted']), 'text-rose-700'],
+        ] as [$label, $value, $tone])
+            <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
+            </div>
+        @endforeach
     </section>
 
     <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">

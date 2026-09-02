@@ -40,6 +40,33 @@ enum InvoiceStatus: string
         return in_array($this, [self::Issued, self::PartiallyPaid, self::Overdue], true);
     }
 
+    /** @return list<array{value: string, label: string}> */
+    public static function lifecycleSteps(): array
+    {
+        return [
+            ['value' => self::Draft->value, 'label' => 'Draft'],
+            ['value' => self::Issued->value, 'label' => 'Issued'],
+            ['value' => self::PartiallyPaid->value, 'label' => 'Partially paid'],
+            ['value' => self::Paid->value, 'label' => 'Paid'],
+        ];
+    }
+
+    public function lifecycleStep(): int
+    {
+        return match ($this) {
+            self::Draft => 0,
+            self::Issued, self::Overdue => 1,
+            self::PartiallyPaid => 2,
+            self::Paid => 3,
+            self::Cancelled => -1,
+        };
+    }
+
+    public function isTerminalLifecycle(): bool
+    {
+        return in_array($this, [self::Paid, self::Cancelled], true);
+    }
+
     /** @return list<string> */
     public static function values(): array
     {

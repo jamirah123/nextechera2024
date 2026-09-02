@@ -107,6 +107,20 @@ class RolePermissionsTest extends TestCase
         $this->assertFalse(app(RolePermissionService::class)->roleCan(UserRole::ShiftManager, 'guards.manage'));
     }
 
+    public function test_revoked_permission_does_not_fall_back_to_catalog_defaults(): void
+    {
+        $service = app(RolePermissionService::class);
+        $matrix = $service->matrix();
+        $matrix['guards.manage'] = [];
+        $service->sync($matrix);
+        $service->flushCache();
+
+        $reloaded = $service->matrix();
+
+        $this->assertSame([], $reloaded['guards.manage']);
+        $this->assertFalse($service->roleCan(UserRole::HrManager, 'guards.manage'));
+    }
+
     public function test_non_super_admin_cannot_manage_role_permissions(): void
     {
         $ops = User::factory()->role(UserRole::OperationsManager)->create();

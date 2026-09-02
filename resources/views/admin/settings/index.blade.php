@@ -6,10 +6,6 @@
 
 @section('content')
 <div class="form-page">
-    @if (session('status'))
-        <p class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{{ session('status') }}</p>
-    @endif
-
     @if ($settings->updater)
         <p class="mb-3 text-xs text-slate-500">Last updated by {{ $settings->updater->name }} · {{ $settings->updated_at->timezone(config('app.timezone'))->format('d M Y H:i T') }}</p>
     @endif
@@ -21,6 +17,7 @@
         <x-form-panel title="Platform settings" subtitle="Configure company branding, billing defaults, shift templates and database backups for each deployment.">
             <x-slot:actions>
                 <a href="{{ route('roles.index') }}" class="btn btn-secondary">Roles matrix</a>
+                <a href="{{ route('data-import.index') }}" class="btn btn-secondary">Bulk import / export</a>
             </x-slot:actions>
 
             <x-form-group title="Company branding" description="Logo, name and tagline appear on sign-in, the sidebar, invoices and printed reports.">
@@ -105,6 +102,14 @@
                         help="Sends email to active system users with the right permissions when payroll is submitted, approved, returned, paid, leave is requested or decided, and invoices are issued. Uses each user's login email address."
                     />
                 </div>
+                <div class="sm:col-span-2">
+                    <x-form-checkbox
+                        name="notify_proactive_alerts"
+                        label="Proactive alerts (understaffed sites, missed shifts, pending leave, overdue invoices, expiring documents)"
+                        :checked="old('notify_proactive_alerts', $settings->notify_proactive_alerts ?? true)"
+                        help="Runs hourly scans and daily invoice checks. Creates in-app bell notifications and emails the right roles when issues need attention — without waiting for someone to open a screen."
+                    />
+                </div>
             </x-form-group>
 
             <x-form-group title="Contact details" description="Support contacts shown on invoices, finance documents and help surfaces.">
@@ -117,6 +122,17 @@
                 <x-form-field label="Currency label" name="currency_label" :value="old('currency_label', $settings->currency_label)" :required="true" />
                 <x-form-field label="Decimal places" name="currency_decimals" type="number" :value="old('currency_decimals', $settings->currency_decimals)" :required="true" min="0" max="4" />
                 <x-form-field label="Invoice due days" name="invoice_due_days" type="number" :value="old('invoice_due_days', $settings->invoice_due_days)" :required="true" min="1" max="120" />
+                <x-form-field label="Company bank name" name="company_bank_name" :value="old('company_bank_name', $settings->company_bank_name)" help="Shown on invoice PDFs for client payments." />
+                <x-form-field label="Bank branch" name="company_bank_branch" :value="old('company_bank_branch', $settings->company_bank_branch)" />
+                <x-form-field label="Company bank account" name="company_bank_account" :value="old('company_bank_account', $settings->company_bank_account)" />
+                <x-form-field
+                    label="Invoice payment terms"
+                    name="invoice_payment_terms"
+                    type="textarea"
+                    :value="old('invoice_payment_terms', $settings->invoice_payment_terms)"
+                    help="Optional custom text on invoice PDFs. Leave blank to use the default due-date wording."
+                    class="sm:col-span-2"
+                />
             </x-form-group>
 
             <x-form-group title="Payroll defaults" description="Rates and rules applied when calculating guard and staff payslips.">
@@ -128,18 +144,8 @@
                     min="0"
                     :value="old('payroll_default_base_shift_rate', $settings->payroll_default_base_shift_rate)"
                     :required="true"
-                    help="Full-month gross pay before deductions. Used as the default when a guard has no salary set."
+                    help="Full-month gross pay before deductions. Per-shift rate = this amount ÷ days in the payroll month (28–31)."
                     class="sm:col-span-2"
-                />
-                <x-form-field
-                    label="Standard shifts per month"
-                    name="payroll_standard_shifts_per_month"
-                    type="number"
-                    step="1"
-                    min="0"
-                    max="31"
-                    :value="old('payroll_standard_shifts_per_month', $settings->payroll_standard_shifts_per_month ?? 0)"
-                    help="Divide monthly salary by this number to get the per-shift rate. Set to 0 to use calendar days in each payroll month (28–31)."
                 />
                 <x-form-field
                     label="Overtime multiplier"
@@ -215,14 +221,6 @@
                     <option value="centenary" @selected(old('payroll_bank_export_format', $settings->payroll_bank_export_format ?? 'generic') === 'centenary')>Centenary Bank</option>
                     <option value="stanbic" @selected(old('payroll_bank_export_format', $settings->payroll_bank_export_format ?? 'generic') === 'stanbic')>Stanbic Bank</option>
                 </x-form-field>
-                <div class="sm:col-span-2">
-                    <x-form-checkbox
-                        name="payroll_send_payslip_email_on_approve"
-                        label="Email payslips when payroll is approved"
-                        :checked="old('payroll_send_payslip_email_on_approve', $settings->payroll_send_payslip_email_on_approve ?? true)"
-                        help="Sends PDF payslips to each employee's payroll email after the MD approves a run."
-                    />
-                </div>
             </x-form-group>
 
             <x-form-group title="Shift time defaults" description="Pre-fill day and night shift windows when creating new shifts.">

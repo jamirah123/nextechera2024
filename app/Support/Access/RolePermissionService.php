@@ -54,9 +54,7 @@ class RolePermissionService
 
             foreach (PermissionCatalog::definitions() as $definition) {
                 if ($hasConfiguredRows) {
-                    $matrix[$definition['key']] = array_key_exists($definition['key'], $stored)
-                        ? $stored[$definition['key']]
-                        : $definition['roles'];
+                    $matrix[$definition['key']] = $stored[$definition['key']] ?? [];
                 } else {
                     $matrix[$definition['key']] = $definition['roles'];
                 }
@@ -148,6 +146,43 @@ class RolePermissionService
         }
 
         $this->sync($grants);
+    }
+
+    /** Grant catalog defaults for permissions that have never been stored yet. */
+    public function mergeMissingPermissions(): int
+    {
+        if (! DB::getSchemaBuilder()->hasTable('role_permissions')) {
+            return 0;
+        }
+
+        $added = 0;
+        $now = now();
+
+        foreach (PermissionCatalog::definitions() as $definition) {
+            if (DB::table('role_permissions')->where('permission', $definition['key'])->exists()) {
+                continue;
+            }
+
+            foreach ($definition['roles'] as $role) {
+                if (in_array($role, [UserRole::SuperAdmin->value, UserRole::ManagingDirector->value], true)) {
+                    continue;
+                }
+
+                DB::table('role_permissions')->insert([
+                    'role' => $role,
+                    'permission' => $definition['key'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $added++;
+            }
+        }
+
+        if ($added > 0) {
+            $this->flushCache();
+        }
+
+        return $added;
     }
 
     public function cloneRole(UserRole|string $source, UserRole|string $target): void

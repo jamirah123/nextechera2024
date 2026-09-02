@@ -5,4 +5,6 @@
 
 @section('content')
     @include('dashboards.partials.shell', ['kpis' => $kpis])
+
+    @include('dashboards.partials.statistics-charts-section', ['charts' => $charts ?? []])
 @endsection

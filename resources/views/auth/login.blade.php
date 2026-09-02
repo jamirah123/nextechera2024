@@ -23,16 +23,16 @@
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-300">Authorized Access</p>
                         <p class="text-xl font-semibold tracking-tight">{{ $brand['name'] ?? config('psg.company') }}</p>
+                        @if (filled($brand['tagline'] ?? config('psg.tagline')))
+                            <p class="mt-0.5 text-sm text-slate-400">{{ $brand['tagline'] ?? config('psg.tagline') }}</p>
+                        @endif
                     </div>
                 </div>
 
                 <div class="mt-16 max-w-lg">
                     <h1 class="text-3xl font-semibold tracking-tight text-white xl:text-4xl xl:leading-tight">
-                        {{ ($brand['tagline'] ?? config('psg.tagline')) ?: 'Guard Shift, Deployment & Operations' }}
+                        {{ config('psg.login_headline') }}
                     </h1>
-                    <p class="mt-4 text-base leading-relaxed text-slate-300">
-                        {{ $brand['subtitle'] ?? config('psg.system_subtitle', 'Operations System') }} — deployments, shift scheduling, manpower coverage and management reporting.
-                    </p>
                 </div>
 
                 <ul class="mt-12 max-w-md space-y-4 text-sm text-slate-300">
@@ -40,19 +40,19 @@
                         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-brand-300">
                             <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg>
                         </span>
-                        <span>Live visibility of on-duty, leave, absence and coverage status</span>
+                        <span>Live manpower coverage, proactive understaffing alerts, and site occurrence book</span>
                     </li>
                     <li class="flex gap-3">
                         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-brand-300">
                             <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg>
                         </span>
-                        <span>Shift Manager workflows with conflict detection and audit trails</span>
+                        <span>Deployments, shifts, leave, absences and HR workflows with immutable audit trails</span>
                     </li>
                     <li class="flex gap-3">
                         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-brand-300">
                             <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg>
                         </span>
-                        <span>Role-based access for Operations, HR, Shift and Finance teams</span>
+                        <span>Client billing, payroll, payslips and role-based access for Operations, HR and Finance</span>
                     </li>
                 </ul>
             </div>
@@ -160,25 +160,6 @@
                             </div>
                         </div>
 
-                        <div class="flex flex-wrap items-center justify-between gap-3">
-                            <label class="inline-flex items-center gap-2 text-sm text-slate-600">
-                                <input
-                                    type="checkbox"
-                                    name="remember"
-                                    value="1"
-                                    class="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                                    @checked(old('remember'))
-                                >
-                                Remember this device
-                            </label>
-                            <span class="inline-flex items-center gap-1.5 text-xs text-slate-400">
-                                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                    <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd"/>
-                                </svg>
-                                Encrypted session
-                            </span>
-                        </div>
-
                         <button
                             type="submit"
                             class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
@@ -195,7 +176,7 @@
 
                 <p class="mt-6 px-1 text-center text-xs leading-relaxed text-slate-500">
                     &copy; {{ date('Y') }} {{ config('psg.company') }}.
-                    Guard Shift, Deployment &amp; Operations Management.
+                    {{ config('psg.system_subtitle', 'Operations System') }} — {{ config('psg.tagline') }}.
                 </p>
             </div>
         </div>

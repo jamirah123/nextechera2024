@@ -42,7 +42,12 @@ class ProductionCheckCommand extends Command
                 $this->warn('[WARN] Prefer SESSION_SECURE_COOKIE=true behind HTTPS.');
             }
             if (config('queue.default') === 'sync') {
-                $this->warn('[WARN] QUEUE_CONNECTION=sync is not ideal for production workloads.');
+                $this->warn('[WARN] QUEUE_CONNECTION=sync runs jobs inline. Use database or redis in production with php artisan queue:work.');
+            } elseif (\Illuminate\Support\Facades\Schema::hasTable('failed_jobs')) {
+                $failedJobs = (int) \Illuminate\Support\Facades\DB::table('failed_jobs')->count();
+                if ($failedJobs > 0) {
+                    $this->warn("[WARN] {$failedJobs} failed queue job(s). Run php artisan queue:failed");
+                }
             }
             if (config('mail.default') === 'log') {
                 $this->warn('[WARN] MAIL_MAILER=log will not deliver password reset emails to users.');

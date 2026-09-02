@@ -8,4 +8,6 @@
     @include('dashboards.partials.shell', ['kpis' => $kpis])
 
     @include('dashboards.partials.ops-pulse', ['ops' => $ops])
+
+    @include('dashboards.partials.statistics-charts-section', ['charts' => $charts ?? []])
 @endsection

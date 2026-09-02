@@ -68,6 +68,33 @@ class BillingProfile extends Model
         return $this->belongsTo(Site::class);
     }
 
+    public static function activeForSite(Site $site): ?self
+    {
+        $today = now()->toDateString();
+
+        $siteProfile = static::query()
+            ->active()
+            ->where('client_id', $site->client_id)
+            ->where('site_id', $site->id)
+            ->whereDate('effective_from', '<=', $today)
+            ->where(fn ($q) => $q->whereNull('effective_to')->orWhereDate('effective_to', '>=', $today))
+            ->orderByDesc('effective_from')
+            ->first();
+
+        if ($siteProfile !== null) {
+            return $siteProfile;
+        }
+
+        return static::query()
+            ->active()
+            ->where('client_id', $site->client_id)
+            ->whereNull('site_id')
+            ->whereDate('effective_from', '<=', $today)
+            ->where(fn ($q) => $q->whereNull('effective_to')->orWhereDate('effective_to', '>=', $today))
+            ->orderByDesc('effective_from')
+            ->first();
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);

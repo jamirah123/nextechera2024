@@ -19,11 +19,11 @@
 
     <div class="report-print-area space-y-3">
         <x-print.report-header title="Audit logs" subtitle="Append-only security and operations trail." />
-        <section class="flex flex-row gap-2 sm:gap-3">
+        <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
             @foreach ([['Total','total','text-slate-700'],['Today','today','text-brand-800'],['Overrides','overrides','text-rose-700'],['Critical','critical','text-amber-800']] as [$label,$key,$tone])
-                <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                    <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }} sm:text-[11px]">{{ $label }}</p>
-                    <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats[$key]) }}</p>
+                <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                    <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ number_format($stats[$key]) }}</p>
                 </div>
             @endforeach
         </section>

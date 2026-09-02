@@ -11,6 +11,7 @@ use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Models\Guard;
 use App\Models\GuardSalaryAdvance;
+use App\Models\GuardAssetRecovery;
 use App\Models\PayrollDeduction;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollRun;
@@ -286,6 +287,7 @@ class PayrollCalculationService
 
         $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true);
         $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
+        $this->applyAssetRecoveryDeductions($payslip, guardId: $guard->id);
         $this->linkShifts($payslip, $guard->id, $start, $effectiveEnd, $run);
 
         return $payslip->refresh();
@@ -319,6 +321,7 @@ class PayrollCalculationService
 
         $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true);
         $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
+        $this->applyAssetRecoveryDeductions($payslip, guardId: $guard->id);
 
         return $payslip->refresh();
     }
@@ -436,9 +439,72 @@ class PayrollCalculationService
         $this->recalculatePayslipTotals($payslip);
     }
 
+    private function applyAssetRecoveryDeductions(PayrollPayslip $payslip, ?int $guardId = null): void
+    {
+        if ($guardId === null) {
+            return;
+        }
+
+        $available = max(0, round((float) $payslip->gross_pay - (float) $payslip->deductions()->sum('amount'), 2));
+
+        if ($available <= 0) {
+            return;
+        }
+
+        $recoveries = GuardAssetRecovery::query()
+            ->where('guard_id', $guardId)
+            ->where('is_active', true)
+            ->where('balance_remaining', '>', 0)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($recoveries as $recovery) {
+            if ($available <= 0) {
+                break;
+            }
+
+            $installment = $recovery->monthly_installment !== null
+                ? (float) $recovery->monthly_installment
+                : (float) $recovery->balance_remaining;
+
+            $amount = min((float) $recovery->balance_remaining, $installment, $available);
+
+            if ($amount <= 0) {
+                continue;
+            }
+
+            PayrollDeduction::query()->create([
+                'payroll_payslip_id' => $payslip->id,
+                'type' => PayrollDeductionType::AssetRecovery,
+                'label' => $recovery->label.' (asset recovery)',
+                'amount' => round($amount, 2),
+                'is_statutory' => false,
+                'guard_asset_recovery_id' => $recovery->id,
+            ]);
+
+            $newBalance = max(0, round((float) $recovery->balance_remaining - $amount, 2));
+            $recovery->update([
+                'balance_remaining' => $newBalance,
+                'is_active' => $newBalance > 0,
+            ]);
+
+            if ($recovery->line) {
+                $line = $recovery->line;
+                $line->update([
+                    'recovered_amount' => round((float) $line->recovered_amount + $amount, 2),
+                ]);
+            }
+
+            $available = round($available - $amount, 2);
+        }
+
+        $this->recalculatePayslipTotals($payslip);
+    }
+
     public function clearPayslips(PayrollRun $run): void
     {
         $this->restoreAdvanceBalancesForRun($run);
+        $this->restoreAssetRecoveryBalancesForRun($run);
 
         $payslipIds = $run->payslips()->pluck('id');
 
@@ -481,6 +547,33 @@ class PayrollCalculationService
                     'balance_remaining' => round((float) $advance->balance_remaining + (float) $deduction->amount, 2),
                     'is_active' => true,
                 ]);
+            });
+    }
+
+    private function restoreAssetRecoveryBalancesForRun(PayrollRun $run): void
+    {
+        PayrollDeduction::query()
+            ->whereNotNull('guard_asset_recovery_id')
+            ->whereHas('payslip', fn ($query) => $query->where('payroll_run_id', $run->id))
+            ->with(['guardAssetRecovery.line'])
+            ->get()
+            ->each(function (PayrollDeduction $deduction): void {
+                $recovery = $deduction->guardAssetRecovery;
+
+                if ($recovery === null) {
+                    return;
+                }
+
+                $recovery->update([
+                    'balance_remaining' => round((float) $recovery->balance_remaining + (float) $deduction->amount, 2),
+                    'is_active' => true,
+                ]);
+
+                if ($recovery->line) {
+                    $recovery->line->update([
+                        'recovered_amount' => max(0, round((float) $recovery->line->recovered_amount - (float) $deduction->amount, 2)),
+                    ]);
+                }
             });
     }
 

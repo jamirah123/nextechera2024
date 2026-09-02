@@ -72,18 +72,16 @@
     </section>
 
     <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
-        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Active deployments</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats['deployed']) }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-700 sm:text-[11px]">Need allocation</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats['needs_allocation']) }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-brand-700 sm:text-[11px]">Shifts on this date</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats['scheduled_today']) }}</p>
-        </div>
+        @foreach ([
+            ['Active', number_format($stats['deployed']), 'text-emerald-700'],
+            ['Need allocation', number_format($stats['needs_allocation']), 'text-amber-700'],
+            ['On this date', number_format($stats['scheduled_today']), 'text-brand-700'],
+        ] as [$label, $value, $tone])
+            <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
+            </div>
+        @endforeach
     </section>
 
     <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm">

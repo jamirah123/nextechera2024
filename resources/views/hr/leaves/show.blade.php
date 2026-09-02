@@ -9,6 +9,12 @@
     <x-page-header :title="$leave->assignedGuard?->full_name ?? 'Leave'" :subtitle="$leave->leave_type->label().' · '.$leave->start_date->format('d M Y').' – '.$leave->end_date->format('d M Y')" :back="route('leaves.index')">
         <x-slot:actions>
             <x-status-badge :tone="$leave->status->tone()" :label="$leave->status->label()" />
+            @if (in_array($leave->status->value, ['approved', 'completed'], true))
+                <a href="{{ route('leaves.letter', $leave) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    <x-icon name="download" class="h-3.5 w-3.5" />
+                    Approval letter (PDF)
+                </a>
+            @endif
         </x-slot:actions>
     </x-page-header>
 

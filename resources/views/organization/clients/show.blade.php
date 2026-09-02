@@ -32,6 +32,9 @@
         </x-slot:actions>
     </x-page-header>
 
+    <div class="grid gap-4 xl:grid-cols-3">
+        <div class="space-y-3 xl:col-span-2">
+
     <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
         <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2.5">
             <h2 class="text-base font-semibold text-slate-900">Client & contract</h2>
@@ -114,5 +117,14 @@
             </ul>
         @endif
     </section>
+
+        </div>
+
+        <div class="space-y-3">
+            @include('entity.partials.sidebar', ['lifecycle' => $lifecycle ?? null, 'relatedPanels' => $relatedPanels ?? []])
+        </div>
+    </div>
+
+    <x-entity.activity-timeline :entries="$timeline" />
 </div>
 @endsection

@@ -22,13 +22,7 @@ class PayrollRates
 
     public static function periodDays(PayrollRun $run): int
     {
-        $standard = (int) config('psg.payroll.standard_shifts_per_month', 0);
-
-        if ($standard > 0) {
-            return $standard;
-        }
-
-        return max(1, $run->period_start->diffInDays($run->period_end) + 1);
+        return self::calendarDays($run);
     }
 
     public static function calendarDays(PayrollRun $run): int
@@ -40,8 +34,8 @@ class PayrollRates
     public static function perShiftRate(Guard $guard, ?PayrollRun $run = null): float
     {
         $divisor = $run !== null
-            ? self::periodDays($run)
-            : max(1, (int) config('psg.payroll.standard_shifts_per_month', 0) ?: now()->daysInMonth);
+            ? self::calendarDays($run)
+            : max(1, now()->daysInMonth);
 
         return round(self::monthlyGross($guard) / $divisor, 2);
     }

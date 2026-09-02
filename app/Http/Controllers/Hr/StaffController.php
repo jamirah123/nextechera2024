@@ -43,6 +43,15 @@ class StaffController extends Controller
             'stats' => [
                 'total' => Staff::query()->count(),
                 'active' => Staff::query()->activeEmployment()->count(),
+                'inactive' => Staff::query()->whereIn('employment_status', [
+                    EmploymentStatus::Inactive,
+                    EmploymentStatus::Suspended,
+                ])->count(),
+                'left' => Staff::query()->whereIn('employment_status', [
+                    EmploymentStatus::Terminated,
+                    EmploymentStatus::Resigned,
+                    EmploymentStatus::Retired,
+                ])->count(),
             ],
         ]);
     }

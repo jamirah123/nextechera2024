@@ -166,20 +166,7 @@
             </header>
 
             <main class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2 sm:px-4 sm:py-3 lg:px-5">
-                @if (session('status'))
-                    <div
-                        x-data="{ show: true }"
-                        x-init="setTimeout(() => show = false, 3000)"
-                        x-show="show"
-                        x-transition:leave="transition ease-in duration-200"
-                        x-transition:leave-start="opacity-100 translate-y-0"
-                        x-transition:leave-end="opacity-0 -translate-y-1"
-                        class="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200"
-                        role="status"
-                    >
-                        {{ session('status') }}
-                    </div>
-                @endif
+                <x-flash-status />
 
                 @if ($errors->any())
                     <div class="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300" role="alert">

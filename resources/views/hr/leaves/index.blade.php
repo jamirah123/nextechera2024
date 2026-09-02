@@ -16,11 +16,16 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="flex flex-row gap-2 sm:gap-3">
-        @foreach ([['Pending','pending','text-amber-800'],['Approved','approved','text-emerald-700'],['Completed','completed','text-sky-700'],['Conflicts','conflicts','text-rose-700']] as [$label,$key,$tone])
-            <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }} sm:text-[11px]">{{ $label }}</p>
-                <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats[$key] }}</p>
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        @foreach ([
+            ['Pending', number_format($stats['pending']), 'text-amber-800'],
+            ['Approved', number_format($stats['approved']), 'text-emerald-700'],
+            ['Completed', number_format($stats['completed']), 'text-sky-700'],
+            ['Conflicts', number_format($stats['conflicts']), 'text-rose-700'],
+        ] as [$label, $value, $tone])
+            <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
             </div>
         @endforeach
     </section>

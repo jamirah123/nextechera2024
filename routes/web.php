@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\DataImportController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Admin\UserController;
@@ -23,8 +24,11 @@ use App\Http\Controllers\Organization\RegionController;
 use App\Http\Controllers\Organization\SiteController;
 use App\Http\Controllers\Organization\SupervisorController;
 use App\Http\Controllers\Hr\AbsenceController;
+use App\Http\Controllers\Hr\GuardAssetController;
 use App\Http\Controllers\Hr\AttendanceController;
 use App\Http\Controllers\Hr\DesertionController;
+use App\Http\Controllers\Operations\IncidentController;
+use App\Http\Controllers\Operations\WorkOrderController;
 use App\Http\Controllers\Hr\LeaveController;
 use App\Http\Controllers\Hr\StaffController;
 use App\Http\Controllers\Dashboards\OperationalDashboardController;
@@ -76,6 +80,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/guards/{guard}/attachments/{attachment}', [GuardController::class, 'showAttachment'])->name('guards.attachments.show');
     Route::get('/guards/{guard}/attachments/{attachment}/stream', [GuardController::class, 'streamAttachment'])->name('guards.attachments.stream');
     Route::get('/guards/{guard}/attachments/{attachment}/download', [GuardController::class, 'downloadAttachment'])->name('guards.attachments.download');
+    Route::get('/guards/{guard}/termination-letter', [GuardController::class, 'downloadTerminationLetter'])->name('guards.termination-letter');
+    Route::patch('/guards/{guard}/attachments/{attachment}', [GuardController::class, 'updateAttachment'])->name('guards.attachments.update');
     Route::delete('/guards/{guard}/attachments/{attachment}', [GuardController::class, 'destroyAttachment'])->name('guards.attachments.destroy');
 
     Route::resource('staff', StaffController::class);
@@ -88,7 +94,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/deployments/create', [DeploymentController::class, 'create'])->name('deployments.create');
     Route::post('/deployments', [DeploymentController::class, 'store'])->name('deployments.store');
     Route::get('/deployments/{deployment}', [DeploymentController::class, 'show'])->name('deployments.show');
+    Route::get('/deployments/{deployment}/letter', [DeploymentController::class, 'downloadLetter'])->name('deployments.letter');
     Route::get('/deployments/{deployment}/transfer', [DeploymentController::class, 'transferForm'])->name('deployments.transfer');
+    Route::get('/deployments/transfers/{transfer}/letter', [DeploymentController::class, 'downloadTransferLetter'])->name('deployments.transfers.letter');
     Route::post('/deployments/{deployment}/transfer', [DeploymentController::class, 'transfer'])->name('deployments.transfer.store');
     Route::post('/deployments/{deployment}/end', [DeploymentController::class, 'end'])->name('deployments.end');
 
@@ -114,6 +122,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/leaves', [LeaveController::class, 'index'])->name('leaves.index');
     Route::get('/leaves/create', [LeaveController::class, 'create'])->name('leaves.create');
     Route::post('/leaves', [LeaveController::class, 'store'])->name('leaves.store');
+    Route::get('/leaves/{leave}/letter', [LeaveController::class, 'downloadLetter'])->name('leaves.letter');
     Route::get('/leaves/{leave}', [LeaveController::class, 'show'])->name('leaves.show');
     Route::post('/leaves/{leave}/approve', [LeaveController::class, 'approve'])->name('leaves.approve');
     Route::post('/leaves/{leave}/reject', [LeaveController::class, 'reject'])->name('leaves.reject');
@@ -126,11 +135,39 @@ Route::middleware('auth')->group(function () {
     Route::get('/absences/{absence}', [AbsenceController::class, 'show'])->name('absences.show');
     Route::post('/absences/{absence}/clear', [AbsenceController::class, 'clear'])->name('absences.clear');
 
+    Route::get('/assets', [GuardAssetController::class, 'index'])->name('assets.index');
+    Route::get('/assets/create', [GuardAssetController::class, 'create'])->name('assets.create');
+    Route::post('/assets', [GuardAssetController::class, 'store'])->name('assets.store');
+    Route::get('/assets/{asset}', [GuardAssetController::class, 'show'])->name('assets.show');
+    Route::get('/assets/{asset}/edit', [GuardAssetController::class, 'edit'])->name('assets.edit');
+    Route::put('/assets/{asset}', [GuardAssetController::class, 'update'])->name('assets.update');
+    Route::delete('/assets/{asset}', [GuardAssetController::class, 'destroy'])->name('assets.destroy');
+    Route::post('/assets/{asset}/return', [GuardAssetController::class, 'returnItems'])->name('assets.return');
+
     Route::get('/desertions', [DesertionController::class, 'index'])->name('desertions.index');
     Route::get('/desertions/create', [DesertionController::class, 'create'])->name('desertions.create');
     Route::post('/desertions', [DesertionController::class, 'store'])->name('desertions.store');
     Route::get('/desertions/{desertion}', [DesertionController::class, 'show'])->name('desertions.show');
     Route::post('/desertions/{desertion}/status', [DesertionController::class, 'updateStatus'])->name('desertions.status');
+
+    Route::get('/incidents', [IncidentController::class, 'index'])->name('incidents.index');
+    Route::get('/incidents/create', [IncidentController::class, 'create'])->name('incidents.create');
+    Route::post('/incidents', [IncidentController::class, 'store'])->name('incidents.store');
+    Route::get('/incidents/export', [IncidentController::class, 'export'])->name('incidents.export');
+    Route::get('/incidents/daily-report/pdf', [IncidentController::class, 'exportDailyPdf'])->name('incidents.export-daily');
+    Route::get('/incidents/{incident}', [IncidentController::class, 'show'])->name('incidents.show');
+    Route::put('/incidents/{incident}', [IncidentController::class, 'update'])->name('incidents.update');
+    Route::get('/incidents/{incident}/attachments/{attachment}/stream', [IncidentController::class, 'streamAttachment'])->name('incidents.attachments.stream');
+    Route::get('/incidents/{incident}/attachments/{attachment}/download', [IncidentController::class, 'downloadAttachment'])->name('incidents.attachments.download');
+    Route::delete('/incidents/{incident}/attachments/{attachment}', [IncidentController::class, 'destroyAttachment'])->name('incidents.attachments.destroy');
+
+    Route::get('/work-orders', [WorkOrderController::class, 'index'])->name('work-orders.index');
+    Route::get('/work-orders/create', [WorkOrderController::class, 'create'])->name('work-orders.create');
+    Route::post('/work-orders', [WorkOrderController::class, 'store'])->name('work-orders.store');
+    Route::get('/work-orders/{workOrder}', [WorkOrderController::class, 'show'])->name('work-orders.show');
+    Route::put('/work-orders/{workOrder}', [WorkOrderController::class, 'update'])->name('work-orders.update');
+    Route::post('/work-orders/{workOrder}/complete', [WorkOrderController::class, 'complete'])->name('work-orders.complete');
+    Route::post('/work-orders/{workOrder}/cancel', [WorkOrderController::class, 'cancel'])->name('work-orders.cancel');
 
     Route::get('/attendances', [AttendanceController::class, 'index'])->name('attendances.index');
     Route::get('/attendances/create', [AttendanceController::class, 'create'])->name('attendances.create');
@@ -163,6 +200,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('invoices.create');
     Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+    Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
     Route::get('/invoices/{invoice}/export', [InvoiceController::class, 'exportDocument'])->name('invoices.export-document');
     Route::get('/invoices/{invoice}/edit', [InvoiceController::class, 'edit'])->name('invoices.edit');
     Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
@@ -231,6 +269,15 @@ Route::middleware('auth')->group(function () {
     Route::delete('/settings/favicon', [SystemSettingController::class, 'removeFavicon'])->name('settings.favicon.remove');
     Route::post('/settings/backup', [SystemSettingController::class, 'backup'])->name('settings.backup');
     Route::post('/settings/production-check', [SystemSettingController::class, 'productionCheck'])->name('settings.production-check');
+
+    Route::get('/data-import', [DataImportController::class, 'index'])->name('data-import.index');
+    Route::get('/data-import/templates/{type}', [DataImportController::class, 'template'])->name('data-import.template');
+    Route::post('/data-import/guards', [DataImportController::class, 'importGuards'])->name('data-import.guards');
+    Route::post('/data-import/sites', [DataImportController::class, 'importSites'])->name('data-import.sites');
+    Route::post('/data-import/opening-balances', [DataImportController::class, 'importOpeningBalances'])->name('data-import.opening-balances');
+    Route::put('/data-import/accounting-export', [DataImportController::class, 'updateAccountingExport'])->name('data-import.accounting-export');
+    Route::post('/data-import/accounting-export/run', [DataImportController::class, 'runAccountingExport'])->name('data-import.accounting-export.run');
+    Route::get('/data-import/exports/{file}', [DataImportController::class, 'downloadExport'])->name('data-import.exports.download');
 
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');

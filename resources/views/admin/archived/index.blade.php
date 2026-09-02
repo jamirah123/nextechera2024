@@ -6,10 +6,6 @@
 
 @section('content')
 <div class="mx-auto w-full max-w-4xl space-y-2">
-    @if (session('status'))
-        <p class="form-alert form-alert--success text-xs">{{ session('status') }}</p>
-    @endif
-
     <div class="flex flex-wrap items-end justify-between gap-2">
         <div>
             <h1 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Archived records</h1>

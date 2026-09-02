@@ -49,6 +49,7 @@ class AbsenceController extends Controller
                 'today' => (clone $statsBase)->whereDate('absence_date', now()->toDateString())->count(),
                 'month' => (clone $statsBase)->whereMonth('absence_date', now()->month)->whereYear('absence_date', now()->year)->count(),
                 'replacement' => (clone $statsBase)->where('replacement_required', true)->count(),
+                'covered' => (clone $statsBase)->whereNotNull('replacement_guard_id')->count(),
             ],
         ]);
     }

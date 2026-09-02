@@ -24,11 +24,11 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
-        <x-kpi-card label="Regions" :value="$stats['regions']" :hint="$stats['active_regions'].' active'" tone="brand" />
-        <x-kpi-card label="Supervisors" :value="$stats['supervisors']" :hint="$stats['active_supervisors'].' active'" tone="indigo" />
-        <x-kpi-card label="Clients" :value="$stats['clients']" :hint="$stats['active_clients'].' active contracts'" tone="sky" />
-        <x-kpi-card label="Sites" :value="$stats['sites']" :hint="$stats['active_sites'].' active'" tone="emerald" />
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        <x-kpi-card label="Regions" :value="number_format($stats['regions'])" :hint="$stats['active_regions'].' active'" tone="brand" />
+        <x-kpi-card label="Supervisors" :value="number_format($stats['supervisors'])" :hint="$stats['active_supervisors'].' active'" tone="indigo" />
+        <x-kpi-card label="Clients" :value="number_format($stats['clients'])" :hint="$stats['active_clients'].' active contracts'" tone="sky" />
+        <x-kpi-card label="Sites" :value="number_format($stats['sites'])" :hint="$stats['active_sites'].' active'" tone="emerald" />
     </section>
 
     <section class="grid gap-4 lg:grid-cols-3">

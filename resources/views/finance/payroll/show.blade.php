@@ -68,9 +68,6 @@
         </x-slot:actions>
     </x-page-header>
 
-    @if (session('status'))
-        <p class="form-alert form-alert--success text-sm">{{ session('status') }}</p>
-    @endif
     @error('payroll')
         <p class="form-alert form-alert--error text-sm">{{ $message }}</p>
     @enderror
@@ -89,23 +86,22 @@
         <p class="form-alert form-alert--warning text-sm">Submitted for Managing Director approval. MD can approve or return to finance for revision.</p>
     @endif
 
-    <section class="flex flex-row gap-2 sm:gap-3">
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Payslips</p>
-            <p class="mt-1 text-xl font-semibold">{{ $run->payslipCount() }}</p>
-        </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Gross</p>
-            <p class="mt-1 text-xl font-semibold">{{ \App\Support\Money::format($run->gross_total, $run->currency) }}</p>
-        </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Deductions</p>
-            <p class="mt-1 text-xl font-semibold">{{ \App\Support\Money::format($run->deductions_total, $run->currency) }}</p>
-        </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-brand-700">Net pay</p>
-            <p class="mt-1 text-xl font-semibold">{{ \App\Support\Money::format($run->net_total, $run->currency) }}</p>
-        </div>
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        @foreach ([
+            ['Payslips', number_format($run->payslipCount()), 'text-slate-500', false],
+            ['Gross', \App\Support\Money::format($run->gross_total, $run->currency), 'text-emerald-700', true],
+            ['Deductions', \App\Support\Money::format($run->deductions_total, $run->currency), 'text-amber-700', true],
+            ['Net pay', \App\Support\Money::format($run->net_total, $run->currency), 'text-brand-700', true],
+        ] as [$label, $value, $tone, $isMoney])
+            <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                <p @class([
+                    'mt-0.5 font-semibold tabular-nums text-slate-900 dark:text-slate-100',
+                    'break-words text-xs leading-snug sm:text-sm' => $isMoney,
+                    'text-base' => ! $isMoney,
+                ])>{{ $value }}</p>
+            </div>
+        @endforeach
     </section>
 
     <div class="form-card">

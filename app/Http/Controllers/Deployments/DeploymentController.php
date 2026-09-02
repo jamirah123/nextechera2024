@@ -7,6 +7,7 @@ use App\Enums\DeploymentStatus;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftPeriod;
 use App\Enums\SiteStatus;
+use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Deployments\StoreDeploymentRequest;
 use App\Http\Requests\Deployments\TransferDeploymentRequest;
@@ -14,7 +15,9 @@ use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Region;
 use App\Models\Site;
+use App\Models\DeploymentTransfer;
 use App\Services\AbsenceService;
+use App\Services\Documents\LetterPdfService;
 use App\Services\DeploymentService;
 use App\Services\Deployments\BulkDeploymentService;
 use App\Services\Shifts\BulkShiftAllocationService;
@@ -22,16 +25,20 @@ use App\Support\Deployments\DeploymentShiftSchedule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 use InvalidArgumentException;
 
 class DeploymentController extends Controller
 {
+    use ServesPdfDownload;
+
     public function __construct(
         private DeploymentService $deployments,
         private BulkDeploymentService $bulkDeployments,
         private BulkShiftAllocationService $bulkAllocation,
         private AbsenceService $absences,
+        private LetterPdfService $letters,
     ) {
     }
 
@@ -142,6 +149,10 @@ class DeploymentController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'region_id']);
 
+        $activeDeployments = Deployment::query()
+            ->current()
+            ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId));
+
         return view('deployments.board', [
             'guards' => $guards,
             'sites' => $sites,
@@ -153,10 +164,9 @@ class DeploymentController extends Controller
             'shiftWindows' => $shiftSchedule->labels(),
             'stats' => [
                 'awaiting' => (clone $this->boardGuardQuery($request, $user, applyRegionFilter: false))->count(),
-                'active' => Deployment::query()
-                    ->current()
-                    ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
-                    ->count(),
+                'active' => (clone $activeDeployments)->count(),
+                'day' => (clone $activeDeployments)->where('shift_type', DeploymentShiftType::Day)->count(),
+                'night' => (clone $activeDeployments)->where('shift_type', DeploymentShiftType::Night)->count(),
             ],
         ]);
     }
@@ -396,5 +406,32 @@ class DeploymentController extends Controller
                 ? ShiftPeriod::Night
                 : ShiftPeriod::Day,
         };
+    }
+
+    public function downloadLetter(Deployment $deployment): Response
+    {
+        $this->authorize('view', $deployment);
+
+        $reference = 'DEP-'.str_pad((string) $deployment->id, 5, '0', STR_PAD_LEFT);
+
+        return $this->pdfDownload(
+            $this->letters->deployment($deployment),
+            'deployment-letter-'.$reference.'.pdf',
+        );
+    }
+
+    public function downloadTransferLetter(DeploymentTransfer $transfer): Response
+    {
+        $deployment = $transfer->fromDeployment ?? $transfer->toDeployment;
+        abort_unless($deployment !== null, 404);
+
+        $this->authorize('view', $deployment);
+
+        $reference = 'TRF-'.str_pad((string) $transfer->id, 5, '0', STR_PAD_LEFT);
+
+        return $this->pdfDownload(
+            $this->letters->transfer($transfer),
+            'transfer-letter-'.$reference.'.pdf',
+        );
     }
 }

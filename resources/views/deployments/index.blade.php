@@ -23,23 +23,18 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="grid grid-cols-4 gap-2 sm:gap-3">
-        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Active</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['active'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-800 sm:text-[11px]">Day</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['day'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-indigo-700 sm:text-[11px]">Night</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['night'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-sky-700 sm:text-[11px]">Transfers</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['transferred'] }}</p>
-        </div>
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        @foreach ([
+            ['Active', number_format($stats['active']), 'text-emerald-700'],
+            ['Day', number_format($stats['day']), 'text-amber-800'],
+            ['Night', number_format($stats['night']), 'text-indigo-700'],
+            ['Transfers', number_format($stats['transferred']), 'text-sky-700'],
+        ] as [$label, $value, $tone])
+            <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
+            </div>
+        @endforeach
     </section>
 
     <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm">

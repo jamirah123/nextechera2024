@@ -33,19 +33,19 @@
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
                     <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Armed — monthly bill</dt>
-                    <dd class="mt-1 text-xl font-semibold text-slate-900">
-                        {{ \App\Support\Money::format($profile->monthly_rate_per_armed_guard, $profile->currency) }}
+                    <dd class="mt-1">
+                        <x-money-stat>{{ \App\Support\Money::format($profile->monthly_rate_per_armed_guard, $profile->currency) }}</x-money-stat>
                     </dd>
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
                     <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Unarmed — monthly bill</dt>
-                    <dd class="mt-1 text-xl font-semibold text-slate-900">
-                        {{ \App\Support\Money::format($profile->monthly_rate_per_unarmed_guard, $profile->currency) }}
+                    <dd class="mt-1">
+                        <x-money-stat>{{ \App\Support\Money::format($profile->monthly_rate_per_unarmed_guard, $profile->currency) }}</x-money-stat>
                     </dd>
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
                     <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Monthly site fee</dt>
-                    <dd class="mt-1 text-xl font-semibold text-slate-900">{{ \App\Support\Money::format($profile->monthly_site_fee, $profile->currency) }}</dd>
+                    <dd class="mt-1"><x-money-stat>{{ \App\Support\Money::format($profile->monthly_site_fee, $profile->currency) }}</x-money-stat></dd>
                 </div>
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4 sm:col-span-2 lg:col-span-3">
                     <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Effective period</dt>

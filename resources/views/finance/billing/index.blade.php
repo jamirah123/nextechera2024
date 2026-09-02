@@ -21,15 +21,18 @@
 
     <div class="report-print-area space-y-3">
         <x-print.report-header title="Client billing register" subtitle="Contracted rates and site fees." />
-        <section class="flex flex-row gap-2 sm:gap-3">
-            <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Active profiles</p>
-                <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['active'] }}</p>
-            </div>
-            <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-[11px]">All time</p>
-                <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['total'] }}</p>
-            </div>
+        <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+            @foreach ([
+                ['Active profiles', number_format($stats['active']), 'text-emerald-700'],
+                ['Inactive profiles', number_format($stats['inactive']), 'text-amber-800'],
+                ['Clients billed', number_format($stats['clients']), 'text-sky-700'],
+                ['All time', number_format($stats['total']), 'text-slate-600'],
+            ] as [$label, $value, $tone])
+                <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                    <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
+                </div>
+            @endforeach
         </section>
 
         <section class="filter-bar no-print rounded-lg border border-slate-200 bg-white p-3 shadow-sm">

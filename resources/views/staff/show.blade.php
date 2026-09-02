@@ -28,10 +28,6 @@
         </div>
     </div>
 
-    @if (session('status'))
-        <p class="form-alert form-alert--success text-xs">{{ session('status') }}</p>
-    @endif
-
     <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div class="border-b border-slate-100 bg-gradient-to-r from-steel-950 to-brand-800 px-3 py-2.5 text-white dark:border-slate-700 sm:px-4">
             <div class="flex items-center justify-between gap-2">

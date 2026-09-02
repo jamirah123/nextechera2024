@@ -51,13 +51,14 @@ class ReplacementController extends Controller
             'canManage' => $request->user()->can('create', ShiftReplacement::class),
             'stats' => [
                 'today' => ShiftReplacement::query()->whereDate('replaced_at', now()->toDateString())->count(),
+                'week' => ShiftReplacement::query()
+                    ->whereBetween('replaced_at', [now()->copy()->startOfWeek(), now()->copy()->endOfWeek()])
+                    ->count(),
                 'month' => ShiftReplacement::query()
                     ->whereMonth('replaced_at', now()->month)
                     ->whereYear('replaced_at', now()->year)
                     ->count(),
-                'week' => ShiftReplacement::query()
-                    ->whereBetween('replaced_at', [now()->copy()->startOfWeek(), now()->copy()->endOfWeek()])
-                    ->count(),
+                'total' => ShiftReplacement::query()->count(),
             ],
         ]);
     }

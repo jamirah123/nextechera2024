@@ -18,12 +18,12 @@ class WorkflowMailTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_managing_director_receives_email_when_payroll_is_submitted(): void
+    public function test_leadership_roles_receive_email_when_payroll_is_submitted(): void
     {
         Mail::fake();
 
-        $finance = User::factory()->role(UserRole::FinanceManager)->create();
-        $director = User::factory()->managingDirector()->create(['email' => 'md@company.test']);
+        $leadership = $this->leadershipUsers();
+        $finance = $leadership['finance'];
 
         $run = $this->samplePayrollRun();
 
@@ -31,20 +31,20 @@ class WorkflowMailTest extends TestCase
             ->post(route('payroll.submit', $run))
             ->assertRedirect();
 
-        Mail::assertSent(WorkflowActionMail::class, function (WorkflowActionMail $mail) use ($director) {
-            return $mail->hasTo($director->email)
-                && str_contains($mail->headline, 'approval');
-        });
+        foreach (['admin', 'director', 'ops', 'hr'] as $key) {
+            Mail::assertQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($leadership[$key]->email));
+        }
 
-        Mail::assertNotSent(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($finance->email));
+        Mail::assertNotQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($finance->email));
     }
 
-    public function test_finance_receives_email_when_payroll_is_rejected_with_reason(): void
+    public function test_leadership_roles_receive_email_when_payroll_is_rejected_with_reason(): void
     {
         Mail::fake();
 
-        $finance = User::factory()->role(UserRole::FinanceManager)->create(['email' => 'finance@company.test']);
-        $director = User::factory()->managingDirector()->create(['email' => 'md@company.test']);
+        $leadership = $this->leadershipUsers();
+        $finance = $leadership['finance'];
+        $director = $leadership['director'];
 
         $run = $this->samplePayrollRun();
         $run->update([
@@ -57,10 +57,74 @@ class WorkflowMailTest extends TestCase
             ->post(route('payroll.reject', $run), ['reason' => 'Recheck NSSF deductions'])
             ->assertRedirect();
 
-        Mail::assertSent(WorkflowActionMail::class, function (WorkflowActionMail $mail) use ($finance) {
+        foreach (['admin', 'finance', 'ops', 'hr'] as $key) {
+            Mail::assertQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($leadership[$key]->email));
+        }
+
+        Mail::assertQueued(WorkflowActionMail::class, function (WorkflowActionMail $mail) use ($finance) {
             return $mail->hasTo($finance->email)
                 && in_array('Reason: Recheck NSSF deductions', $mail->details, true);
         });
+
+        Mail::assertNotQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($leadership['director']->email));
+    }
+
+    public function test_leadership_roles_receive_email_when_payroll_is_approved(): void
+    {
+        Mail::fake();
+
+        $leadership = $this->leadershipUsers();
+        $finance = $leadership['finance'];
+        $director = $leadership['director'];
+
+        $run = $this->samplePayrollRun();
+        $run->update([
+            'status' => PayrollRunStatus::Submitted,
+            'submitted_at' => now(),
+            'submitted_by' => $finance->id,
+            'deductions_total' => 274.16,
+        ]);
+
+        $this->actingAs($director)
+            ->post(route('payroll.approve', $run))
+            ->assertRedirect();
+
+        foreach (['admin', 'finance', 'ops', 'hr'] as $key) {
+            Mail::assertQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($leadership[$key]->email));
+        }
+
+        Mail::assertQueued(WorkflowActionMail::class, function (WorkflowActionMail $mail) use ($finance) {
+            return $mail->hasTo($finance->email)
+                && in_array('Payslips: 1', $mail->details, true)
+                && collect($mail->details)->contains(fn (string $line) => str_contains($line, 'Individual payslip emails are not sent'));
+        });
+
+        Mail::assertNotQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($director->email));
+    }
+
+    public function test_leadership_roles_receive_email_when_payroll_is_marked_paid(): void
+    {
+        Mail::fake();
+
+        $leadership = $this->leadershipUsers();
+        $finance = $leadership['finance'];
+
+        $run = $this->samplePayrollRun();
+        $run->update([
+            'status' => PayrollRunStatus::Approved,
+            'approved_at' => now(),
+            'approved_by' => $leadership['director']->id,
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.pay', $run))
+            ->assertRedirect();
+
+        foreach (['admin', 'director', 'ops', 'hr'] as $key) {
+            Mail::assertQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($leadership[$key]->email));
+        }
+
+        Mail::assertNotQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($finance->email));
     }
 
     public function test_hr_approver_receives_email_when_leave_is_requested(): void
@@ -81,8 +145,8 @@ class WorkflowMailTest extends TestCase
             ])
             ->assertRedirect();
 
-        Mail::assertSent(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($hr->email));
-        Mail::assertNotSent(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($ops->email));
+        Mail::assertQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($hr->email));
+        Mail::assertNotQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($ops->email));
     }
 
     public function test_leave_requester_receives_email_when_leave_is_rejected(): void
@@ -106,7 +170,7 @@ class WorkflowMailTest extends TestCase
             ->post(route('leaves.reject', $leave), ['notes' => 'Insufficient cover'])
             ->assertRedirect();
 
-        Mail::assertSent(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($requester->email));
+        Mail::assertQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($requester->email));
     }
 
     public function test_workflow_emails_are_skipped_when_disabled_in_settings(): void
@@ -151,5 +215,17 @@ class WorkflowMailTest extends TestCase
         ]);
 
         return $run;
+    }
+
+    /** @return array{admin: User, director: User, ops: User, hr: User, finance: User} */
+    private function leadershipUsers(): array
+    {
+        return [
+            'admin' => User::factory()->role(UserRole::SuperAdmin)->create(['email' => 'admin@company.test']),
+            'director' => User::factory()->managingDirector()->create(['email' => 'md@company.test']),
+            'ops' => User::factory()->role(UserRole::OperationsManager)->create(['email' => 'ops@company.test']),
+            'hr' => User::factory()->role(UserRole::HrManager)->create(['email' => 'hr@company.test']),
+            'finance' => User::factory()->role(UserRole::FinanceManager)->create(['email' => 'finance@company.test']),
+        ];
     }
 }

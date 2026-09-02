@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Models\Absence;
 use App\Models\AuditLog;
 use App\Models\BillingProfile;
+use App\Models\Client;
 use App\Models\Deployment;
 use App\Models\Desertion;
 use App\Models\Guard;
@@ -15,8 +16,10 @@ use App\Models\Leave;
 use App\Models\Payment;
 use App\Models\PayrollRun;
 use App\Models\Shift;
+use App\Models\Site;
 use App\Models\ShiftReplacement;
 use App\Models\User;
+use App\Models\WorkOrder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 
@@ -155,6 +158,9 @@ class NotificationFeedService
                 Absence::class => $this->safeRoute('absences.show', $log->subject_id),
                 Desertion::class => $this->safeRoute('desertions.show', $log->subject_id),
                 Guard::class => $this->safeRoute('guards.show', $log->subject_id),
+                Site::class => $this->safeRoute('sites.show', $log->subject_id),
+                Client::class => $this->safeRoute('clients.show', $log->subject_id),
+                WorkOrder::class => $this->safeRoute('work-orders.show', $log->subject_id),
                 default => null,
             };
 

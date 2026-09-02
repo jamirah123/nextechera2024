@@ -23,11 +23,17 @@
 
     <div class="report-print-area space-y-3">
         <x-print.report-header title="Invoices register" subtitle="Draft, issued, overdue and paid invoice summary." />
-        <section class="flex flex-row gap-2 sm:gap-3">
-            @foreach ([['Draft','draft','text-slate-600'],['Open','open','text-sky-700'],['Overdue','overdue','text-rose-700'],['Paid','paid','text-emerald-700'],['All time','all_time','text-indigo-700']] as [$label,$key,$tone])
-                <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                    <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }} sm:text-[11px]">{{ $label }}</p>
-                    <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats[$key] }}</p>
+        <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 lg:gap-3">
+            @foreach ([
+                ['Draft', number_format($stats['draft']), 'text-slate-600'],
+                ['Open', number_format($stats['open']), 'text-sky-700'],
+                ['Overdue', number_format($stats['overdue']), 'text-rose-700'],
+                ['Paid', number_format($stats['paid']), 'text-emerald-700'],
+                ['All time', number_format($stats['all_time']), 'text-indigo-700'],
+            ] as [$label, $value, $tone])
+                <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                    <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
                 </div>
             @endforeach
         </section>

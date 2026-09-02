@@ -26,7 +26,7 @@
 
         <p class="text-sm text-slate-500 dark:text-slate-400">Period: <span class="font-semibold text-slate-800 dark:text-slate-200">{{ \Carbon\Carbon::parse($report['from'])->format('d M Y') }} – {{ \Carbon\Carbon::parse($report['to'])->format('d M Y') }}</span></p>
 
-        <section class="flex flex-row gap-2 sm:gap-3">
+        <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 lg:gap-3">
             @foreach ([
                 ['Invoiced', $report['totals']['invoiced'], 'text-sky-700 dark:text-sky-400'],
                 ['Collected', $report['totals']['collected'], 'text-emerald-700 dark:text-emerald-400'],
@@ -34,9 +34,9 @@
                 ['Outstanding', $report['totals']['outstanding'], 'text-amber-800 dark:text-amber-400'],
                 ['Overdue', $report['totals']['overdue'], 'text-rose-700 dark:text-rose-400'],
             ] as [$label, $value, $tone])
-                <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4 dark:border-slate-700 dark:bg-slate-900">
-                    <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }} sm:text-[11px]">{{ $label }}</p>
-                    <p class="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100 sm:text-lg">{{ \App\Support\Money::format($value) }}</p>
+                <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                    <p class="mt-0.5 break-words text-xs font-semibold tabular-nums leading-snug text-slate-900 dark:text-slate-100 sm:text-sm">{{ \App\Support\Money::format($value) }}</p>
                 </div>
             @endforeach
         </section>

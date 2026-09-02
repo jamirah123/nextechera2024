@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Enums\PayrollRunStatus;
+use App\Jobs\CalculatePayrollRunJob;
 use App\Http\Controllers\Controller;
 use App\Models\PayrollRun;
 use App\Models\Region;
@@ -41,7 +42,7 @@ class PayrollRunController extends Controller
             ->latest('period_year')
             ->latest('period_month')
             ->latest('id')
-            ->paginate(table_per_page())
+            ->paginate(25)
             ->withQueryString();
 
         return view('finance.payroll.index', [
@@ -122,7 +123,7 @@ class PayrollRunController extends Controller
 
         $payslips = $payroll->payslips()
             ->orderBy('employment_id')
-            ->paginate(table_per_page())
+            ->paginate(25)
             ->withQueryString();
 
         return view('finance.payroll.show', [
@@ -138,12 +139,20 @@ class PayrollRunController extends Controller
         Gate::authorize('manageFinance');
 
         try {
-            $this->payroll->calculate($payroll);
+            if (config('queue.default') === 'sync') {
+                $this->payroll->calculate($payroll);
+            } else {
+                CalculatePayrollRunJob::dispatch($payroll->id);
+            }
         } catch (InvalidArgumentException $e) {
             return back()->withErrors(['payroll' => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Payroll calculated. Review payslips and submit for approval when ready.');
+        $message = config('queue.default') === 'sync'
+            ? 'Payroll calculated. Review payslips and submit for approval when ready.'
+            : 'Payroll calculation queued. Refresh this page in a moment.';
+
+        return back()->with('status', $message);
     }
 
     public function submit(PayrollRun $payroll): RedirectResponse

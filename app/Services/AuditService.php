@@ -52,6 +52,14 @@ class AuditService
 
         app(WorkflowMailService::class)->notifyFromAudit($entry);
 
+        if (config('psg.work_orders.auto_create_from_alerts', true)) {
+            try {
+                app(WorkOrderService::class)->maybeCreateFromAudit($entry);
+            } catch (\Throwable) {
+                // Never block audit logging if task creation fails.
+            }
+        }
+
         return $entry;
     }
 

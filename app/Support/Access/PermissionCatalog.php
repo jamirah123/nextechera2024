@@ -79,6 +79,19 @@ class PermissionCatalog
                 'roles' => $admin,
             ],
             [
+                'key' => 'admin.data_import',
+                'group' => 'Administration',
+                'label' => 'Bulk data import & accounting exports',
+                'description' => 'CSV import for guards, sites and opening balances. Scheduled accounting journal exports.',
+                'roles' => [
+                    UserRole::SuperAdmin->value,
+                    UserRole::ManagingDirector->value,
+                    UserRole::HrManager->value,
+                    UserRole::OperationsManager->value,
+                    UserRole::FinanceManager->value,
+                ],
+            ],
+            [
                 'key' => 'admin.audit_view',
                 'group' => 'Administration',
                 'label' => 'View audit logs',
@@ -174,6 +187,20 @@ class PermissionCatalog
                 'roles' => $ops,
             ],
             [
+                'key' => 'operations.incidents_manage',
+                'group' => 'Operations',
+                'label' => 'Log & manage occurrence book',
+                'description' => 'Record site incidents, attach photos and assign follow-up. Region supervisors are region-scoped.',
+                'roles' => $hrOps,
+            ],
+            [
+                'key' => 'operations.work_orders_manage',
+                'group' => 'Operations',
+                'label' => 'Manage work orders & tasks',
+                'description' => 'Assign and complete tasks created from proactive alerts or manual follow-ups.',
+                'roles' => $hrOps,
+            ],
+            [
                 'key' => 'hr.leaves_manage',
                 'group' => 'HR',
                 'label' => 'Create & update leave requests',
@@ -205,6 +232,18 @@ class PermissionCatalog
                 'label' => 'Manage desertions',
                 'description' => 'Record and follow up desertion cases. Region supervisors are region-scoped.',
                 'roles' => $hrOps,
+            ],
+            [
+                'key' => 'hr.assets_manage',
+                'group' => 'HR',
+                'label' => 'Issue & return assets / uniforms',
+                'description' => 'Track uniforms, radios, boots and weapons issued to guards. Record returns and replacement cost recovery.',
+                'roles' => [
+                    UserRole::SuperAdmin->value,
+                    UserRole::HrManager->value,
+                    UserRole::FinanceManager->value,
+                    UserRole::OperationsManager->value,
+                ],
             ],
             [
                 'key' => 'finance.view',

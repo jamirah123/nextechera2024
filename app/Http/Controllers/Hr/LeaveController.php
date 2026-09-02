@@ -4,20 +4,27 @@ namespace App\Http\Controllers\Hr;
 
 use App\Enums\LeaveStatus;
 use App\Enums\LeaveType;
+use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
 use App\Models\Guard;
 use App\Models\Leave;
+use App\Services\Documents\LetterPdfService;
 use App\Services\LeaveService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 use InvalidArgumentException;
 
 class LeaveController extends Controller
 {
-    public function __construct(private LeaveService $leaves)
-    {
+    use ServesPdfDownload;
+
+    public function __construct(
+        private LeaveService $leaves,
+        private LetterPdfService $letters,
+    ) {
     }
 
     public function index(Request $request): View
@@ -151,5 +158,20 @@ class LeaveController extends Controller
         }
 
         return back()->with('status', 'Leave marked completed. Guard status restored.');
+    }
+
+    public function downloadLetter(Leave $leave): Response
+    {
+        $this->authorize('view', $leave);
+
+        try {
+            $binary = $this->letters->leaveApproval($leave);
+        } catch (InvalidArgumentException $e) {
+            abort(403, $e->getMessage());
+        }
+
+        $reference = 'LVE-'.str_pad((string) $leave->id, 5, '0', STR_PAD_LEFT);
+
+        return $this->pdfDownload($binary, 'leave-approval-'.$reference.'.pdf');
     }
 }

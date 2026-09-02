@@ -44,9 +44,11 @@
                         {{ $payment->isDisbursement() ? 'Amount disbursed' : 'Amount received' }}
                     </dt>
                     <dd @class([
-                        'mt-1 text-xl font-bold text-emerald-900 dark:text-emerald-100' => $payment->isDisbursement(),
-                        'mt-2 text-3xl font-bold text-emerald-900 dark:text-emerald-100' => ! $payment->isDisbursement(),
-                    ])>{{ \App\Support\Money::format($payment->amount) }}</dd>
+                        'mt-1' => $payment->isDisbursement(),
+                        'mt-2' => ! $payment->isDisbursement(),
+                    ])>
+                        <x-money-stat class="text-emerald-900 dark:text-emerald-100">{{ \App\Support\Money::format($payment->amount) }}</x-money-stat>
+                    </dd>
                     <dd class="mt-0.5 text-xs text-emerald-800 dark:text-emerald-300">{{ $payment->payment_date->format('d M Y') }}</dd>
                 </div>
                 <div @class([

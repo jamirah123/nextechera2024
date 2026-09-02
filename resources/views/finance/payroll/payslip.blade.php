@@ -30,9 +30,6 @@
         </x-slot:actions>
     </x-page-header>
 
-    @if (session('status'))
-        <p class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{{ session('status') }}</p>
-    @endif
     @error('deduction')
         <p class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{{ $message }}</p>
     @enderror

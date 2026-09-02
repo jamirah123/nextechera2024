@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\GuardDocumentType;
 use App\Support\Attachments\AttachmentPreview;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,6 +15,8 @@ class GuardAttachment extends Model
     protected $fillable = [
         'guard_id',
         'label',
+        'document_type',
+        'expires_at',
         'original_name',
         'path',
         'mime_type',
@@ -25,6 +28,8 @@ class GuardAttachment extends Model
     {
         return [
             'size' => 'integer',
+            'expires_at' => 'date',
+            'document_type' => GuardDocumentType::class,
         ];
     }
 
@@ -56,6 +61,20 @@ class GuardAttachment extends Model
         }
 
         return $bytes.' B';
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    public function isExpiringSoon(int $withinDays = 30): bool
+    {
+        if ($this->expires_at === null || $this->isExpired()) {
+            return false;
+        }
+
+        return $this->expires_at->lte(now()->addDays($withinDays)->startOfDay());
     }
 
     public function deleteFile(): void

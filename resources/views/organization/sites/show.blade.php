@@ -39,6 +39,9 @@
         </x-slot:actions>
     </x-page-header>
 
+    <div class="grid gap-4 xl:grid-cols-3">
+        <div class="space-y-3 xl:col-span-2">
+
     <section class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4 sm:gap-4">
         <x-kpi-card label="Required" :value="$manpower['required']" tone="brand" />
         <x-kpi-card label="Deployed" :value="$manpower['deployed']" tone="emerald" />
@@ -217,5 +220,14 @@
             </div>
         @endif
     </section>
+
+        </div>
+
+        <div class="space-y-3">
+            @include('entity.partials.sidebar', ['lifecycle' => $lifecycle ?? null, 'relatedPanels' => $relatedPanels ?? []])
+        </div>
+    </div>
+
+    <x-entity.activity-timeline :entries="$timeline" />
 </div>
 @endsection

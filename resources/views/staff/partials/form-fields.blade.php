@@ -19,7 +19,7 @@
         <x-form-field label="Date of birth" name="date_of_birth" type="date" :value="old('date_of_birth', optional($staff?->date_of_birth)->format('Y-m-d'))" />
         <x-form-field label="National ID" name="national_id" :value="old('national_id', $staff?->national_id)" />
         <x-form-field label="Phone" name="phone" type="tel" :value="old('phone', $staff?->phone)" />
-        <x-form-field label="Payroll email" name="email" type="email" :value="old('email', $staff?->email)" help="Optional. Payslip PDF is emailed here after MD approval." />
+        <x-form-field label="Payroll email" name="email" type="email" :value="old('email', $staff?->email)" help="Optional contact email for payroll records." />
         <x-form-field label="Alt. phone" name="alternative_phone" type="tel" :value="old('alternative_phone', $staff?->alternative_phone)" />
     </x-form-group>
 

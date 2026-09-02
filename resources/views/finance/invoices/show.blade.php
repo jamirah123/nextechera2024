@@ -7,7 +7,12 @@
 <div class="space-y-3">
     <x-page-header :title="$invoice->reference" :subtitle="$invoice->client?->name" :back="route('invoices.index')">
         <x-slot:actions>
-            <x-report-actions :csv="route('invoices.export-document', $invoice)" />
+            <x-report-actions :csv="route('invoices.export-document', $invoice)">
+                <a href="{{ route('invoices.pdf', $invoice) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    <x-icon name="download" class="h-3.5 w-3.5" />
+                    Download PDF
+                </a>
+            </x-report-actions>
             @if ($canManage && $invoice->isEditable())
                 <a href="{{ route('invoices.edit', $invoice) }}" class="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Edit draft</a>
                 <form method="POST" action="{{ route('invoices.issue', $invoice) }}">@csrf<button class="inline-flex rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800">Issue invoice</button></form>
@@ -24,6 +29,17 @@
     @error('invoice')
         <p class="no-print rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ $message }}</p>
     @enderror
+
+    <div class="grid gap-4 xl:grid-cols-3">
+        <div class="space-y-3 xl:col-span-2">
+
+    <x-entity.status-lifecycle
+        class="no-print"
+        :steps="$lifecycle['steps']"
+        :current-step="$lifecycle['current']"
+        :terminal-label="$lifecycle['terminal'] ?? null"
+        :terminal-tone="$lifecycle['terminal_tone'] ?? 'slate'"
+    />
 
     <div class="report-print-area space-y-3">
         <x-finance.document
@@ -141,6 +157,13 @@
         @endif
     </div>
 
-    <x-finance.history-timeline :logs="$history" class="no-print" />
+        </div>
+
+        <div class="no-print space-y-3">
+            <x-entity.related-records :panels="$relatedPanels" />
+        </div>
+    </div>
+
+    <x-entity.activity-timeline :entries="$timeline" class="no-print" title="Invoice activity" />
 </div>
 @endsection

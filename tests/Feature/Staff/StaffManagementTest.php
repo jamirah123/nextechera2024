@@ -50,10 +50,29 @@ class StaffManagementTest extends TestCase
             ->get(route('staff.index'))
             ->assertOk()
             ->assertSee('Office Clerk')
+            ->assertSee('Inactive', false)
+            ->assertSee('Left', false)
             ->assertDontSee('Register staff', false);
 
         $this->actingAs($finance)
             ->get(route('staff.create'))
             ->assertForbidden();
+    }
+
+    public function test_staff_index_shows_employment_summary_cards(): void
+    {
+        $hr = User::factory()->role(UserRole::HrManager)->create();
+
+        Staff::factory()->create(['employment_status' => EmploymentStatus::Active]);
+        Staff::factory()->create(['employment_status' => EmploymentStatus::Suspended]);
+        Staff::factory()->create(['employment_status' => EmploymentStatus::Resigned]);
+
+        $this->actingAs($hr)
+            ->get(route('staff.index'))
+            ->assertOk()
+            ->assertSee('Total', false)
+            ->assertSee('Active', false)
+            ->assertSee('Inactive', false)
+            ->assertSee('Left', false);
     }
 }

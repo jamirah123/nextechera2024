@@ -22,6 +22,18 @@ Schedule::command('psg:sync-shift-statuses')
     ->everyFifteenMinutes()
     ->withoutOverlapping();
 
+Schedule::command('psg:scan-proactive-alerts')
+    ->hourly()
+    ->withoutOverlapping();
+
+Schedule::command('psg:export-accounting')
+    ->dailyAt('02:00')
+    ->withoutOverlapping();
+
+Schedule::command('psg:queue-health')
+    ->hourly()
+    ->withoutOverlapping();
+
 Schedule::command('psg:release-shift-window-guards')
     ->dailyAt('06:00')
     ->withoutOverlapping();

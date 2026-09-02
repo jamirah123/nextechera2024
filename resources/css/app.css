@@ -389,6 +389,10 @@
     @apply relative w-full;
 }
 
+.field .ts-wrapper.single .ts-control {
+    @apply min-h-[calc(1.5rem+0.75rem+2px)] px-2 py-1.5;
+}
+
 .ts-wrapper.single .ts-control {
     @apply flex min-h-[30px] w-full cursor-text items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs shadow-sm transition dark:border-slate-600 dark:bg-slate-900;
 }

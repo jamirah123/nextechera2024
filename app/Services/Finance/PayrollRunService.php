@@ -19,7 +19,6 @@ class PayrollRunService
         private PayrollCalculationService $calculator,
         private PaymentService $payments,
         private AuditService $audit,
-        private PayrollPayslipNotificationService $payslipNotifications,
     ) {
     }
 
@@ -118,7 +117,6 @@ class PayrollRunService
         );
 
         $run = $run->fresh(['payslips', 'approver']);
-        $this->payslipNotifications->sendForRun($run);
 
         return $run;
     }

@@ -10,6 +10,7 @@ use App\Models\BillingProfile;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Services\AuditService;
+use App\Services\ProactiveAlertService;
 use App\Support\Money;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -264,12 +265,23 @@ class InvoiceService
 
     public function markOverdueInvoices(): int
     {
-        return Invoice::query()
+        $invoices = Invoice::query()
             ->whereIn('status', [InvoiceStatus::Issued->value, InvoiceStatus::PartiallyPaid->value])
             ->whereNotNull('due_date')
             ->whereDate('due_date', '<', now()->toDateString())
             ->where('balance', '>', 0)
-            ->update(['status' => InvoiceStatus::Overdue->value]);
+            ->get();
+
+        $alerts = app(ProactiveAlertService::class);
+        $count = 0;
+
+        foreach ($invoices as $invoice) {
+            $invoice->update(['status' => InvoiceStatus::Overdue->value]);
+            $alerts->alertInvoiceOverdue($invoice);
+            $count++;
+        }
+
+        return $count;
     }
 
     /**

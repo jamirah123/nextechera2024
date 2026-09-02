@@ -2,16 +2,21 @@
 {{-- Header --}}
 <x-slot:header>
 <x-mail::header :url="config('app.url')">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 16px;">
+<tr>
+<td style="height: 4px; background: linear-gradient(90deg, #1E5D48 0%, #1E5D48 70%, #8B1E1E 100%); border-radius: 999px; font-size: 0; line-height: 0;">&nbsp;</td>
+</tr>
+</table>
 @if (config('psg.logo_url'))
 <span style="display: block; text-align: center;">
-<img src="{{ config('psg.logo_url') }}" alt="{{ config('psg.company') }}" style="height: 52px; width: auto; margin-bottom: 8px;">
+<img src="{{ config('psg.logo_url') }}" alt="{{ config('psg.company') }}" style="height: 56px; width: auto; margin-bottom: 10px;">
 </span>
 @endif
-<span style="display: block; text-align: center; font-size: 18px; font-weight: 700; color: #0f172a;">
+<span style="display: block; text-align: center; font-size: 19px; font-weight: 700; color: #0f172a; letter-spacing: -0.01em;">
 {{ config('psg.company', config('app.name')) }}
 </span>
 @if (filled(config('psg.tagline')))
-<span style="display: block; text-align: center; font-size: 12px; color: #64748b; margin-top: 4px;">
+<span style="display: block; text-align: center; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #8B1E1E; margin-top: 6px;">
 {{ config('psg.tagline') }}
 </span>
 @endif

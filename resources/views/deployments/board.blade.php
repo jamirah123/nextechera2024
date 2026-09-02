@@ -47,15 +47,18 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="grid grid-cols-2 gap-2 sm:gap-3">
-        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-700 sm:text-[11px]">Awaiting deployment</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats['awaiting']) }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Active deployments</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ number_format($stats['active']) }}</p>
-        </div>
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        @foreach ([
+            ['Awaiting', number_format($stats['awaiting']), 'text-amber-700'],
+            ['Active', number_format($stats['active']), 'text-emerald-700'],
+            ['Day', number_format($stats['day']), 'text-amber-800'],
+            ['Night', number_format($stats['night']), 'text-indigo-700'],
+        ] as [$label, $value, $tone])
+            <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
+            </div>
+        @endforeach
     </section>
 
     @if ($regions->count() > 1)

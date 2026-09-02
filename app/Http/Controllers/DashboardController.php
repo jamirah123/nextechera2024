@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Compliance\ComplianceSnapshotService;
+use App\Services\Dashboards\DashboardStatisticsService;
 use App\Services\Dashboards\OperationalDashboardService;
 use App\Services\Dashboards\ShiftDeskService;
 use App\Support\Navigation\RoleNavigation;
@@ -13,6 +15,8 @@ class DashboardController extends Controller
     public function __construct(
         private OperationalDashboardService $opsDashboards,
         private ShiftDeskService $shiftDesk,
+        private ComplianceSnapshotService $compliance,
+        private DashboardStatisticsService $statistics,
     ) {
     }
 
@@ -47,7 +51,9 @@ class DashboardController extends Controller
             'kpis' => $kpis,
             'modules' => RoleNavigation::modules($user),
             'ops' => $this->opsDashboards->landingSnapshot(),
+            'compliance' => $this->compliance->snapshot(),
             'shiftDesk' => $shiftDeskSnapshot,
+            'charts' => $this->statistics->for($user),
         ]);
     }
 }

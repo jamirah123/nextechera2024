@@ -57,6 +57,8 @@ class BillingController extends Controller
             'exportQuery' => array_filter($request->only(['q', 'client_id', 'status', 'scope']), fn ($v) => filled($v)),
             'stats' => [
                 'active' => BillingProfile::query()->where('is_active', true)->count(),
+                'inactive' => BillingProfile::query()->where('is_active', false)->count(),
+                'clients' => BillingProfile::query()->distinct('client_id')->count('client_id'),
                 'total' => BillingProfile::query()->count(),
             ],
         ]);

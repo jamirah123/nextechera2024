@@ -141,6 +141,16 @@ class Guard extends Model
         return $this->hasMany(GuardSalaryAdvance::class)->latest('id');
     }
 
+    public function assetIssuances(): HasMany
+    {
+        return $this->hasMany(GuardAssetIssuance::class)->latest('issued_at');
+    }
+
+    public function assetRecoveries(): HasMany
+    {
+        return $this->hasMany(GuardAssetRecovery::class)->latest('id');
+    }
+
     public function isEmploymentActive(): bool
     {
         return $this->employment_status === EmploymentStatus::Active;

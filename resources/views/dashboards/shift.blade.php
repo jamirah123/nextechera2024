@@ -15,4 +15,6 @@
         'ops' => $ops,
         'understaffedAction' => 'allocate',
     ])
+
+    @include('dashboards.partials.statistics-charts-section', ['charts' => $charts ?? []])
 @endsection

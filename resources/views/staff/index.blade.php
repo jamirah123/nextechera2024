@@ -17,15 +17,18 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="grid grid-cols-2 gap-3 sm:max-w-md">
-        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total</p>
-            <p class="mt-1 text-2xl font-semibold">{{ $stats['total'] }}</p>
-        </div>
-        <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Active</p>
-            <p class="mt-1 text-2xl font-semibold">{{ $stats['active'] }}</p>
-        </div>
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        @foreach ([
+            ['Total', $stats['total'], 'text-slate-500'],
+            ['Active', $stats['active'], 'text-emerald-700'],
+            ['Inactive', $stats['inactive'], 'text-amber-800'],
+            ['Left', $stats['left'], 'text-rose-700'],
+        ] as [$label, $value, $tone])
+            <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
+            </div>
+        @endforeach
     </section>
 
     <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">

@@ -1,10 +1,12 @@
 import Alpine from 'alpinejs';
 import './searchable-selects';
 import { initAppearance } from './theme';
+import { registerDashboardCharts } from './charts';
 
 window.Alpine = Alpine;
 
 initAppearance();
+registerDashboardCharts();
 
 Alpine.data('idleSession', (config = {}) => ({
     idleMinutes: Math.max(1, Number(config.idleMinutes || 30)),

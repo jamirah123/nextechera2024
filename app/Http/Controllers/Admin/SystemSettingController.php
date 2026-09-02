@@ -50,21 +50,24 @@ class SystemSettingController extends Controller
             'theme_sidebar' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'email_footer_text' => ['nullable', 'string', 'max:500'],
             'notify_workflow_actions_by_email' => ['nullable', 'boolean'],
+            'notify_proactive_alerts' => ['nullable', 'boolean'],
             'support_email' => ['nullable', 'email', 'max:190'],
             'support_phone' => ['nullable', 'string', 'max:40'],
             'currency' => ['required', 'string', 'max:8'],
             'currency_label' => ['required', 'string', 'max:80'],
             'currency_decimals' => ['required', 'integer', 'min:0', 'max:4'],
             'invoice_due_days' => ['required', 'integer', 'min:1', 'max:120'],
+            'company_bank_name' => ['nullable', 'string', 'max:120'],
+            'company_bank_account' => ['nullable', 'string', 'max:80'],
+            'company_bank_branch' => ['nullable', 'string', 'max:120'],
+            'invoice_payment_terms' => ['nullable', 'string', 'max:1000'],
             'payroll_default_base_shift_rate' => ['required', 'numeric', 'min:0'],
-            'payroll_standard_shifts_per_month' => ['nullable', 'integer', 'min:0', 'max:31'],
             'payroll_overtime_multiplier' => ['required', 'numeric', 'min:1', 'max:5'],
             'payroll_paye_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'payroll_use_progressive_paye' => ['nullable', 'boolean'],
             'payroll_nssf_employee_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'payroll_uniform_charge' => ['required', 'numeric', 'min:0'],
             'payroll_bank_export_format' => ['required', 'string', 'in:generic,centenary,stanbic'],
-            'payroll_send_payslip_email_on_approve' => ['nullable', 'boolean'],
             'default_day_shift_start' => ['required', 'date_format:H:i'],
             'default_day_shift_end' => ['required', 'date_format:H:i'],
             'default_night_shift_start' => ['required', 'date_format:H:i'],
@@ -78,9 +81,8 @@ class SystemSettingController extends Controller
         unset($data['logo'], $data['favicon']);
 
         $data['payroll_use_progressive_paye'] = $request->boolean('payroll_use_progressive_paye');
-        $data['payroll_send_payslip_email_on_approve'] = $request->boolean('payroll_send_payslip_email_on_approve');
         $data['notify_workflow_actions_by_email'] = $request->boolean('notify_workflow_actions_by_email');
-        $data['payroll_standard_shifts_per_month'] = (int) ($data['payroll_standard_shifts_per_month'] ?? 0);
+        $data['notify_proactive_alerts'] = $request->boolean('notify_proactive_alerts');
 
         $this->settings->update($data, $logo, $favicon);
 

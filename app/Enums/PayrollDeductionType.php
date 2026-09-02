@@ -8,6 +8,7 @@ enum PayrollDeductionType: string
     case Nssf = 'nssf';
     case Advance = 'advance';
     case Uniform = 'uniform';
+    case AssetRecovery = 'asset_recovery';
     case Penalty = 'penalty';
     case Other = 'other';
 
@@ -18,6 +19,7 @@ enum PayrollDeductionType: string
             self::Nssf => 'NSSF',
             self::Advance => 'Salary advance',
             self::Uniform => 'Uniform charge',
+            self::AssetRecovery => 'Asset replacement',
             self::Penalty => 'Penalty',
             self::Other => 'Other deduction',
         };

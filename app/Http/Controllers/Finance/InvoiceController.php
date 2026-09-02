@@ -3,27 +3,37 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Enums\InvoiceStatus;
+use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Site;
+use App\Services\EntityRelatedRecordsService;
+use App\Services\EntityTimelineService;
 use App\Services\Finance\FinanceHistoryService;
+use App\Services\Finance\InvoicePdfService;
 use App\Services\Finance\InvoiceService;
 use App\Services\ReportExportService;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class InvoiceController extends Controller
 {
+    use ServesPdfDownload;
+
     public function __construct(
         private InvoiceService $invoices,
         private FinanceHistoryService $history,
+        private EntityTimelineService $timeline,
+        private EntityRelatedRecordsService $relatedRecords,
         private ReportExportService $exports,
+        private InvoicePdfService $pdf,
     ) {
     }
 
@@ -120,6 +130,14 @@ class InvoiceController extends Controller
             'canManage' => request()->user()->can('manageFinance'),
             'history' => $this->history->forSubject($invoice),
             'recordMeta' => $this->history->recordMeta($invoice),
+            'timeline' => $this->timeline->for($invoice, request()->user()),
+            'relatedPanels' => $this->relatedRecords->for($invoice),
+            'lifecycle' => [
+                'steps' => InvoiceStatus::lifecycleSteps(),
+                'current' => max(0, $invoice->status->lifecycleStep()),
+                'terminal' => $invoice->status === InvoiceStatus::Cancelled ? 'Cancelled' : ($invoice->status === InvoiceStatus::Overdue ? 'Overdue' : null),
+                'terminal_tone' => $invoice->status === InvoiceStatus::Overdue ? 'rose' : 'slate',
+            ],
         ]);
     }
 
@@ -255,5 +273,17 @@ class InvoiceController extends Controller
         ]);
 
         return $this->exports->downloadCsv('psg-invoice-'.$invoice->reference.'.csv', $headers, $data);
+    }
+
+    public function downloadPdf(Invoice $invoice): Response
+    {
+        Gate::authorize('viewFinance');
+
+        $invoice->load(['client', 'site', 'lines']);
+
+        return $this->pdfDownload(
+            $this->pdf->renderBinary($invoice),
+            $this->pdf->filename($invoice),
+        );
     }
 }

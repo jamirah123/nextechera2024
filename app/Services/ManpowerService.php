@@ -25,7 +25,11 @@ class ManpowerService
      *     shortage_day: int,
      *     shortage_night: int,
      *     coverage_percent: float,
-     *     status: CoverageStatus
+     *     status: CoverageStatus,
+     *     contracted: int,
+     *     sla_shortage: int,
+     *     sla_percent: float|null,
+     *     billing_profile: \App\Models\BillingProfile|null
      * }
      */
     public function forSite(Site $site): array
@@ -44,6 +48,11 @@ class ManpowerService
         $surplus = max(0, $deployed - $required);
         $coverage = $required > 0 ? round(($deployed / $required) * 100, 1) : 0.0;
 
+        $billingProfile = \App\Models\BillingProfile::activeForSite($site);
+        $contracted = $billingProfile?->contractedGuardTotal() ?? 0;
+        $slaShortage = $contracted > 0 ? max(0, $contracted - $deployed) : 0;
+        $slaPercent = $contracted > 0 ? round(($deployed / $contracted) * 100, 1) : null;
+
         return [
             'required' => $required,
             'required_day' => $requiredDay,
@@ -59,6 +68,10 @@ class ManpowerService
             'shortage_night' => max(0, $requiredNight - $deployedNight),
             'coverage_percent' => $coverage,
             'status' => $this->coverageStatus($required, $deployed),
+            'contracted' => $contracted,
+            'sla_shortage' => $slaShortage,
+            'sla_percent' => $slaPercent,
+            'billing_profile' => $billingProfile,
         ];
     }
 

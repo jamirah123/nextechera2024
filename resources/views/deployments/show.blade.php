@@ -12,6 +12,10 @@
         :back="route('deployments.index')"
     >
         <x-slot:actions>
+            <a href="{{ route('deployments.letter', $deployment) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                <x-icon name="download" class="h-3.5 w-3.5" />
+                Deployment letter (PDF)
+            </a>
             @can('create', App\Models\Shift::class)
                 @if ($deployment->isActive() && $deployment->assignedGuard)
                     <a href="{{ route('shifts.create', ['guard_id' => $deployment->guard_id, 'site_id' => $deployment->site_id]) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">
@@ -129,6 +133,10 @@
                             @if ($transfer->transferrer)
                                 <p class="mt-1 text-xs text-slate-400">By {{ $transfer->transferrer->name }}</p>
                             @endif
+                            <a href="{{ route('deployments.transfers.letter', $transfer) }}" class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800">
+                                <x-icon name="download" class="h-3.5 w-3.5" />
+                                Transfer letter (PDF)
+                            </a>
                         </div>
                     </li>
                 @endforeach

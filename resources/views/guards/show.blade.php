@@ -30,6 +30,12 @@
                     Edit profile
                 </a>
             @endif
+            @if ($canDownloadTerminationLetter ?? false)
+                <a href="{{ route('guards.termination-letter', $guard) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    <x-icon name="download" class="h-3.5 w-3.5" />
+                    Termination letter (PDF)
+                </a>
+            @endif
             @if ($canDelete ?? false)
                 <x-delete-button
                     :action="route('guards.destroy', $guard)"
@@ -41,51 +47,56 @@
         </x-slot:actions>
     </x-page-header>
 
+    <div class="grid gap-4 lg:grid-cols-5">
+        <div class="space-y-3 lg:col-span-3">
+
     <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div class="flex flex-col gap-4 border-b border-slate-100 bg-gradient-to-r from-steel-950 via-brand-950 to-brand-800 px-5 py-5 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div class="flex items-center gap-4">
-                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 text-lg font-bold ring-1 ring-white/15">
+        <div class="flex flex-col gap-2 border-b border-slate-100 bg-gradient-to-r from-steel-950 via-brand-950 to-brand-800 px-3 py-3 text-white sm:flex-row sm:items-center sm:justify-between sm:px-4">
+            <div class="flex items-center gap-2.5">
+                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-xs font-bold ring-1 ring-white/15">
                     {{ collect(explode(' ', $guard->full_name))->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('') }}
                 </div>
                 <div>
-                    <p class="text-lg font-semibold">{{ $guard->full_name }}</p>
-                    <p class="mt-0.5 text-sm text-slate-300">{{ $guard->employment_id }} · {{ $guard->region?->name ?? 'No region' }}</p>
+                    <p class="text-sm font-semibold leading-tight">{{ $guard->full_name }}</p>
+                    <p class="mt-0.5 text-[11px] text-slate-300">{{ $guard->employment_id }} · {{ $guard->region?->name ?? 'No region' }}</p>
                 </div>
             </div>
-            <div class="flex flex-wrap gap-2">
+            <div class="flex flex-wrap gap-1.5">
                 <x-status-badge :tone="$guard->employment_status->tone()" :label="$guard->employment_status->label()" />
                 <x-status-badge :tone="$guard->operational_status->tone()" :label="$guard->operational_status->label()" />
             </div>
         </div>
 
-        <dl class="grid gap-0 sm:grid-cols-2 xl:grid-cols-3">
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Gender</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $guard->gender?->label() ?? '—' }}</dd>
+        <dl class="grid gap-0 sm:grid-cols-2">
+            <div class="border-b border-slate-100 px-3 py-2 sm:border-r">
+                <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Phone</dt>
+                <dd class="mt-0.5 text-xs font-medium text-slate-900">{{ $guard->phone ?: '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r xl:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Date of birth</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($guard->date_of_birth)->format('d M Y') ?: '—' }}</dd>
+            <div class="border-b border-slate-100 px-3 py-2">
+                <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">National ID</dt>
+                <dd class="mt-0.5 text-xs font-medium text-slate-900">{{ $guard->national_id ?: '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">National ID</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $guard->national_id ?: '—' }}</dd>
+            @if ($guard->gender || $guard->date_of_birth)
+                <div class="border-b border-slate-100 px-3 py-2 sm:border-r">
+                    <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Gender</dt>
+                    <dd class="mt-0.5 text-xs font-medium text-slate-900">{{ $guard->gender?->label() ?? '—' }}</dd>
+                </div>
+                <div class="border-b border-slate-100 px-3 py-2">
+                    <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Date of birth</dt>
+                    <dd class="mt-0.5 text-xs font-medium text-slate-900">{{ optional($guard->date_of_birth)->format('d M Y') ?: '—' }}</dd>
+                </div>
+            @endif
+            <div class="border-b border-slate-100 px-3 py-2 sm:border-r">
+                <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Date employed</dt>
+                <dd class="mt-0.5 text-xs font-medium text-slate-900">{{ optional($guard->date_employed)->format('d M Y') ?: '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Phone</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $guard->phone ?: '—' }}</dd>
+            <div class="border-b border-slate-100 px-3 py-2">
+                <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Monthly gross</dt>
+                <dd class="mt-0.5 text-xs font-medium text-slate-900">{{ \App\Support\Money::format($guard->base_shift_rate) }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r xl:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Alt. phone</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $guard->alternative_phone ?: '—' }}</dd>
-            </div>
-            <div class="border-b border-slate-100 px-3 py-2.5">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Date employed</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($guard->date_employed)->format('d M Y') ?: '—' }}</dd>
-            </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6 xl:border-b">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Current site</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">
+            <div class="border-b border-slate-100 px-3 py-2 sm:border-r">
+                <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Current site</dt>
+                <dd class="mt-0.5 text-xs font-medium text-slate-900">
                     @if ($guard->currentSite)
                         <a href="{{ route('sites.show', $guard->currentSite) }}" class="text-brand-700 hover:text-brand-800">
                             {{ $guard->currentSite->name }}
@@ -95,59 +106,46 @@
                     @endif
                 </dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r xl:border-b xl:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Current supervisor</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">
-                    @if ($guard->currentSupervisor)
+            @if ($guard->currentSupervisor)
+                <div class="border-b border-slate-100 px-3 py-2">
+                    <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Supervisor</dt>
+                    <dd class="mt-0.5 text-xs font-medium text-slate-900">
                         <a href="{{ route('supervisors.show', $guard->currentSupervisor) }}" class="text-brand-700 hover:text-brand-800">
                             {{ $guard->currentSupervisor->name }}
                         </a>
-                    @else
-                        —
-                    @endif
-                </dd>
-            </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 xl:border-b">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Emergency contact</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">
-                    {{ $guard->emergency_contact_name ?: '—' }}
-                    @if ($guard->emergency_contact_phone)
-                        <span class="block text-xs font-normal text-slate-500">{{ $guard->emergency_contact_phone }}</span>
-                    @endif
-                </dd>
-            </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r xl:border-b xl:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Monthly gross salary</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ \App\Support\Money::format($guard->base_shift_rate) }}</dd>
-            </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r xl:border-b xl:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Bank</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">
-                    {{ $guard->bank_name ?: '—' }}
-                    @if ($guard->bank_account)
-                        <span class="block text-xs font-normal font-mono text-slate-500">{{ $guard->bank_account }}</span>
-                    @endif
-                </dd>
-            </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 xl:border-b">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">NSSF number</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $guard->nssf_number ?: '—' }}</dd>
-            </div>
-            <div class="px-3 py-2.5 sm:col-span-2 xl:col-span-3 sm:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Address</dt>
-                <dd class="mt-1 text-sm text-slate-700">{{ $guard->address ?: '—' }}</dd>
-                @if ($guard->notes)
-                    <dt class="mt-4 text-xs font-medium uppercase tracking-wide text-slate-500">Notes</dt>
-                    <dd class="mt-1 text-sm text-slate-700">{{ $guard->notes }}</dd>
-                @endif
-            </div>
+                    </dd>
+                </div>
+            @elseif ($guard->employment_end_date)
+                <div class="border-b border-slate-100 px-3 py-2">
+                    <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Contract end</dt>
+                    <dd class="mt-0.5 text-xs font-medium">
+                        <span @class([
+                            'text-slate-900',
+                            'text-rose-700' => $guard->employment_end_date->isPast(),
+                            'text-amber-700' => ! $guard->employment_end_date->isPast() && $guard->employment_end_date->lte(now()->addDays(30)),
+                        ])>
+                            {{ $guard->employment_end_date->format('d M Y') }}
+                        </span>
+                    </dd>
+                </div>
+            @endif
         </dl>
     </section>
 
-    <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-100 px-3 py-2.5">
-            <h2 class="text-base font-semibold text-slate-900">Documents</h2>
-            <p class="mt-0.5 text-sm text-slate-500">HR files uploaded during registration or profile updates.</p>
+        </div>
+
+        <div class="space-y-3 lg:col-span-2">
+            @include('entity.partials.sidebar', ['lifecycle' => $lifecycle ?? null, 'relatedPanels' => $relatedPanels ?? []])
+            @include('guards.partials.profile-sidebar', ['guard' => $guard])
+        </div>
+    </div>
+
+    <section class="w-full rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
+            <h2 class="text-sm font-semibold text-slate-900">Documents</h2>
+            @if ($canManage)
+                <a href="{{ route('guards.edit', $guard) }}" class="text-xs font-semibold text-brand-700 hover:text-brand-800">Upload via edit</a>
+            @endif
         </div>
 
         @if ($guard->attachments->isEmpty())
@@ -157,19 +155,47 @@
         @else
             <ul class="divide-y divide-slate-100">
                 @foreach ($guard->attachments as $attachment)
-                    <li class="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5">
-                        <div class="min-w-0">
+                    <li class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="min-w-0 flex-1">
                             <p class="text-sm font-semibold text-slate-900">{{ $attachment->displayName() }}</p>
                             <p class="mt-0.5 text-xs text-slate-500">
                                 {{ $attachment->original_name }}
                                 · {{ $attachment->humanSize() }}
                                 · {{ optional($attachment->created_at)->format('d M Y') }}
+                                @if ($attachment->document_type)
+                                    · {{ $attachment->document_type->label() }}
+                                @endif
+                                @if ($attachment->expires_at)
+                                    · Expires {{ $attachment->expires_at->format('d M Y') }}
+                                @endif
                                 @if ($attachment->uploader)
                                     · {{ $attachment->uploader->name }}
                                 @endif
                             </p>
+                            @if ($attachment->isExpired())
+                                <p class="mt-1 text-xs font-semibold text-rose-600">Expired</p>
+                            @elseif ($attachment->isExpiringSoon())
+                                <p class="mt-1 text-xs font-semibold text-amber-600">Expiring soon</p>
+                            @endif
+                            @if ($canManage)
+                                <form method="POST" action="{{ route('guards.attachments.update', [$guard, $attachment]) }}" class="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                                    @csrf
+                                    @method('PATCH')
+                                    <x-form-field label="Label" name="label" :value="$attachment->label" />
+                                    <x-form-field label="Document type" name="document_type" type="select">
+                                        <option value="">—</option>
+                                        @foreach (\App\Enums\GuardDocumentType::cases() as $type)
+                                            <option value="{{ $type->value }}" @selected(old('document_type', $attachment->document_type?->value) === $type->value)>{{ $type->label() }}</option>
+                                        @endforeach
+                                    </x-form-field>
+                                    <x-form-field label="Expiry date" name="expires_at" type="date" :value="old('expires_at', optional($attachment->expires_at)->format('Y-m-d'))" />
+                                    <div class="sm:col-span-3 lg:col-span-4">
+                                        <button type="submit" class="btn btn-secondary text-xs">Save document details</button>
+                                    </div>
+                                </form>
+                            @endif
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex shrink-0 items-center gap-2 sm:pl-4">
                             <x-guard-attachment-view-button :guard="$guard" :attachment="$attachment" />
                             <a
                                 href="{{ route('guards.attachments.download', [$guard, $attachment]) }}"
@@ -195,58 +221,8 @@
 
     @include('guards.partials.salary-advances', ['guard' => $guard, 'canManageFinance' => $canManageFinance ?? false])
 
-    <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-100 px-3 py-2.5">
-            <h2 class="text-base font-semibold text-slate-900">Status history</h2>
-            <p class="mt-0.5 text-sm text-slate-500">Employment and operational changes are never overwritten silently.</p>
-        </div>
+    @include('guards.partials.assets', ['guard' => $guard, 'canManageAssets' => $canManageAssets ?? false])
 
-        @if ($guard->statusHistories->isEmpty())
-            <div class="p-5 sm:p-6">
-                <x-empty-state title="No status history" description="Status changes will appear on this timeline." icon="swap" />
-            </div>
-        @else
-            <ol class="space-y-0 px-5 py-5 sm:px-6">
-                @foreach ($guard->statusHistories as $history)
-                    <li class="relative flex gap-4 pb-6 last:pb-0">
-                        <div class="relative flex flex-col items-center">
-                            <span @class([
-                                'mt-1 h-2.5 w-2.5 shrink-0 rounded-full ring-4',
-                                'bg-brand-600 ring-brand-50' => $history->status_type === 'employment',
-                                'bg-emerald-600 ring-emerald-50' => $history->status_type === 'operational',
-                            ])></span>
-                            @if (! $loop->last)
-                                <span class="mt-1 w-px flex-1 bg-slate-200"></span>
-                            @endif
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                                    {{ $history->statusTypeLabel() }}
-                                </span>
-                                <span class="text-xs text-slate-500">
-                                    {{ optional($history->effective_at)->format('d M Y, H:i') }}
-                                </span>
-                            </div>
-                            <p class="mt-1.5 text-sm font-semibold text-slate-900">
-                                {{ $history->previousStatusLabel() }}
-                                <span class="font-normal text-slate-400">→</span>
-                                {{ $history->newStatusLabel() }}
-                            </p>
-                            @if ($history->reason)
-                                <p class="mt-1 text-xs text-slate-500">Reason: {{ str_replace('_', ' ', $history->reason) }}</p>
-                            @endif
-                            @if ($history->notes)
-                                <p class="mt-1 text-xs text-slate-500">{{ $history->notes }}</p>
-                            @endif
-                            @if ($history->changer)
-                                <p class="mt-1 text-xs text-slate-400">By {{ $history->changer->name }}</p>
-                            @endif
-                        </div>
-                    </li>
-                @endforeach
-            </ol>
-        @endif
-    </section>
+    <x-entity.activity-timeline :entries="$timeline" class="no-print" />
 </div>
 @endsection

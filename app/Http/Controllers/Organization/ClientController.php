@@ -7,12 +7,20 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\StoreClientRequest;
 use App\Http\Requests\Organization\UpdateClientRequest;
 use App\Models\Client;
+use App\Services\EntityRelatedRecordsService;
+use App\Services\EntityTimelineService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class ClientController extends Controller
 {
+    public function __construct(
+        private EntityTimelineService $timeline,
+        private EntityRelatedRecordsService $relatedRecords,
+    ) {
+    }
+
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Client::class);
@@ -66,6 +74,23 @@ class ClientController extends Controller
             'client' => $client,
             'canManage' => request()->user()->can('update', $client),
             'canDelete' => request()->user()->can('delete', $client),
+            'timeline' => $this->timeline->for($client, request()->user()),
+            'relatedPanels' => $this->relatedRecords->for($client),
+            'lifecycle' => [
+                'steps' => [
+                    ['label' => 'Pending'],
+                    ['label' => 'Active'],
+                    ['label' => 'Renewal / review'],
+                ],
+                'current' => match ($client->contract_status) {
+                    ContractStatus::Pending => 0,
+                    ContractStatus::Active => 1,
+                    ContractStatus::Expired, ContractStatus::Suspended => 2,
+                    default => 2,
+                },
+                'terminal' => $client->contract_status === ContractStatus::Terminated ? 'Terminated' : null,
+                'terminal_tone' => 'rose',
+            ],
         ]);
     }
 

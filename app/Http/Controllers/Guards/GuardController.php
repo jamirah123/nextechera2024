@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Guards;
 use App\Enums\EmploymentStatus;
 use App\Enums\GuardGender;
 use App\Enums\OperationalStatus;
+use App\Enums\GuardDocumentType;
+use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Guards\StoreGuardRequest;
 use App\Http\Requests\Guards\UpdateGuardRequest;
@@ -13,6 +15,9 @@ use App\Models\Guard;
 use App\Models\GuardAttachment;
 use App\Models\Region;
 use App\Services\DeploymentService;
+use App\Services\Documents\LetterPdfService;
+use App\Services\EntityRelatedRecordsService;
+use App\Services\EntityTimelineService;
 use App\Services\GuardAttachmentService;
 use App\Services\GuardService;
 use App\Support\Attachments\InlineAttachmentResponse;
@@ -25,9 +30,14 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class GuardController extends Controller
 {
+    use ServesPdfDownload;
+
     public function __construct(
         private GuardService $guards,
         private GuardAttachmentService $attachments,
+        private EntityTimelineService $timeline,
+        private EntityRelatedRecordsService $relatedRecords,
+        private LetterPdfService $letters,
     ) {
     }
 
@@ -100,6 +110,8 @@ class GuardController extends Controller
                 $guard,
                 $request->file('attachments'),
                 $request->input('attachment_labels', []),
+                $request->input('attachment_document_types', []),
+                $request->input('attachment_expires_at', []),
             );
         }
 
@@ -127,15 +139,44 @@ class GuardController extends Controller
             'updater',
             'attachments.uploader',
             'salaryAdvances',
+            'assetIssuances.lines',
+            'assetRecoveries',
         ]);
 
         return view('guards.show', [
             'guard' => $guard,
             'currentDeployment' => $guard->currentDeployment,
             'canManage' => request()->user()->can('update', $guard),
+            'canManageAssets' => request()->user()->can('create', \App\Models\GuardAssetIssuance::class),
             'canManageFinance' => request()->user()->can('manageFinance'),
             'canDelete' => request()->user()->can('delete', $guard),
             'canDeploy' => request()->user()->can('create', Deployment::class),
+            'canDownloadTerminationLetter' => in_array($guard->employment_status, [
+                EmploymentStatus::Terminated,
+                EmploymentStatus::Resigned,
+                EmploymentStatus::Retired,
+            ], true),
+            'timeline' => $this->timeline->for($guard, request()->user()),
+            'relatedPanels' => $this->relatedRecords->for($guard),
+            'lifecycle' => [
+                'steps' => [
+                    ['label' => 'Training'],
+                    ['label' => 'Awaiting deployment'],
+                    ['label' => 'On duty'],
+                ],
+                'current' => match ($guard->operational_status) {
+                    OperationalStatus::Training => 0,
+                    OperationalStatus::AwaitingDeployment => 1,
+                    OperationalStatus::OnDuty, OperationalStatus::OffDuty => 2,
+                    default => 1,
+                },
+                'terminal' => in_array($guard->employment_status, [
+                    EmploymentStatus::Terminated,
+                    EmploymentStatus::Resigned,
+                    EmploymentStatus::Retired,
+                ], true) ? $guard->employment_status->label() : null,
+                'terminal_tone' => $guard->employment_status->tone(),
+            ],
         ]);
     }
 
@@ -165,6 +206,8 @@ class GuardController extends Controller
                 $guard,
                 $request->file('attachments'),
                 $request->input('attachment_labels', []),
+                $request->input('attachment_document_types', []),
+                $request->input('attachment_expires_at', []),
             );
         }
 
@@ -205,6 +248,22 @@ class GuardController extends Controller
         return Storage::disk('local')->download($attachment->path, $attachment->original_name);
     }
 
+    public function updateAttachment(Request $request, Guard $guard, GuardAttachment $attachment): RedirectResponse
+    {
+        $this->authorize('update', $guard);
+        abort_unless($attachment->guard_id === $guard->id, 404);
+
+        $data = $request->validate([
+            'label' => ['nullable', 'string', 'max:120'],
+            'document_type' => ['nullable', 'string', 'in:'.implode(',', GuardDocumentType::values())],
+            'expires_at' => ['nullable', 'date'],
+        ]);
+
+        $this->attachments->updateMetadata($attachment, $data);
+
+        return back()->with('status', 'Document details updated.');
+    }
+
     public function destroyAttachment(Guard $guard, GuardAttachment $attachment): RedirectResponse
     {
         $this->authorize('update', $guard);
@@ -232,5 +291,18 @@ class GuardController extends Controller
         return redirect()
             ->route('guards.index')
             ->with('status', 'Guard archived successfully.');
+    }
+
+    public function downloadTerminationLetter(Guard $guard): Response
+    {
+        $this->authorize('view', $guard);
+
+        try {
+            $binary = $this->letters->termination($guard);
+        } catch (\InvalidArgumentException $e) {
+            abort(403, $e->getMessage());
+        }
+
+        return $this->pdfDownload($binary, 'termination-letter-'.$guard->employment_id.'.pdf');
     }
 }

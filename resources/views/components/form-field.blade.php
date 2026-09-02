@@ -11,6 +11,14 @@
 @php
     $fieldValue = old($name, $value);
     $hasError = $errors->has($name);
+
+    $isGuardSelect = in_array($name, ['guard_id', 'replacement_guard_id'], true)
+        || str_ends_with($name, '_guard_id');
+
+    $selectAttributes = $attributes->except('class');
+    if ($type === 'select' && ! $selectAttributes->has('data-searchable') && $isGuardSelect) {
+        $selectAttributes = $selectAttributes->merge(['data-searchable' => 'true']);
+    }
 @endphp
 
 <div {{ $attributes->only('class')->class(['field']) }}>
@@ -36,7 +44,7 @@
             id="{{ $name }}"
             name="{{ $name }}"
             @if ($required) required @endif
-            {{ $attributes->except('class') }}
+            {{ $selectAttributes }}
             @class(['field__control', 'field__control--select', 'field__control--error' => $hasError])
         >
             {{ $slot }}

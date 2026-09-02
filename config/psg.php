@@ -7,6 +7,7 @@ return [
     'fallback_favicon' => env('PSG_FAVICON', 'favicon.ico'),
     'tagline' => env('PSG_TAGLINE', 'New Age Security and Protection'),
     'system_subtitle' => env('PSG_SYSTEM_SUBTITLE', 'Operations System'),
+    'login_headline' => env('PSG_LOGIN_HEADLINE', 'Guards, sites, shifts, billing and payroll — one platform'),
     'theme' => [
         'primary' => env('PSG_THEME_PRIMARY', '#1845de'),
         'sidebar' => env('PSG_THEME_SIDEBAR', '#070d18'),
@@ -15,6 +16,10 @@ return [
     'currency_label' => env('PSG_CURRENCY_LABEL', 'Ugandan Shillings'),
     'currency_decimals' => (int) env('PSG_CURRENCY_DECIMALS', 0),
     'invoice_due_days' => (int) env('PSG_INVOICE_DUE_DAYS', 14),
+    'company_bank_name' => env('PSG_COMPANY_BANK_NAME'),
+    'company_bank_account' => env('PSG_COMPANY_BANK_ACCOUNT'),
+    'company_bank_branch' => env('PSG_COMPANY_BANK_BRANCH'),
+    'invoice_payment_terms' => env('PSG_INVOICE_PAYMENT_TERMS'),
     'shift_defaults' => [
         'day' => [
             'start' => env('PSG_DAY_SHIFT_START', '06:00'),
@@ -32,6 +37,16 @@ return [
     'notifications' => [
         'poll_seconds' => (int) env('PSG_NOTIFICATIONS_POLL_SECONDS', 30),
         'workflow_email_enabled' => filter_var(env('PSG_WORKFLOW_EMAIL_NOTIFICATIONS', true), FILTER_VALIDATE_BOOL),
+        'proactive_alerts_enabled' => filter_var(env('PSG_PROACTIVE_ALERTS', true), FILTER_VALIDATE_BOOL),
+        'document_expiry_warning_days' => (int) env('PSG_DOCUMENT_EXPIRY_WARNING_DAYS', 30),
+        'leave_pending_reminder_days' => (int) env('PSG_LEAVE_PENDING_REMINDER_DAYS', 2),
+    ],
+    'compliance' => [
+        'contract_renewal_reminder_days' => (int) env('PSG_CONTRACT_RENEWAL_REMINDER_DAYS', 30),
+    ],
+    'work_orders' => [
+        'auto_create_from_alerts' => filter_var(env('PSG_WORK_ORDERS_AUTO_CREATE', true), FILTER_VALIDATE_BOOL),
+        'default_due_days' => (int) env('PSG_WORK_ORDERS_DEFAULT_DUE_DAYS', 3),
     ],
     'session' => [
         // Minutes without real user activity before automatic sign-out.
@@ -52,7 +67,6 @@ return [
         'nssf_employee_rate' => (float) env('PSG_PAYROLL_NSSF_RATE', 5),
         'uniform_charge' => (float) env('PSG_PAYROLL_UNIFORM_CHARGE', 0),
         'bank_export_format' => env('PSG_PAYROLL_BANK_FORMAT', 'generic'),
-        'send_payslip_email_on_approve' => filter_var(env('PSG_PAYROLL_EMAIL_ON_APPROVE', true), FILTER_VALIDATE_BOOL),
     ],
     'seed' => [
         // Approximate operational volume for local/system testing.

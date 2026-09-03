@@ -3,12 +3,16 @@
 namespace App\Services\Finance;
 
 use App\Models\Invoice;
+use App\Services\SystemSettingService;
 use App\Support\Documents\DompdfRenderer;
+use Illuminate\Support\Facades\Storage;
 
 class InvoicePdfService
 {
-    public function __construct(private DompdfRenderer $pdf)
-    {
+    public function __construct(
+        private DompdfRenderer $pdf,
+        private SystemSettingService $settings,
+    ) {
     }
 
     public function renderBinary(Invoice $invoice): string
@@ -19,6 +23,7 @@ class InvoicePdfService
             'invoice' => $invoice,
             'paymentTerms' => $this->paymentTerms($invoice),
             'bankDetails' => $this->bankDetails(),
+            'companyLogo' => $this->companyLogoDataUri(),
         ]);
     }
 
@@ -49,5 +54,41 @@ class InvoicePdfService
         ]);
 
         return $parts === [] ? null : implode(' · ', $parts);
+    }
+
+    private function companyLogoDataUri(): ?string
+    {
+        $absolutePath = $this->companyLogoAbsolutePath();
+
+        if ($absolutePath === null || ! is_readable($absolutePath)) {
+            return null;
+        }
+
+        $binary = @file_get_contents($absolutePath);
+
+        if ($binary === false || $binary === '') {
+            return null;
+        }
+
+        $mime = @mime_content_type($absolutePath) ?: 'image/jpeg';
+
+        if (! str_starts_with($mime, 'image/')) {
+            $mime = 'image/jpeg';
+        }
+
+        return 'data:'.$mime.';base64,'.base64_encode($binary);
+    }
+
+    private function companyLogoAbsolutePath(): ?string
+    {
+        $settings = $this->settings->current();
+
+        if (filled($settings->logo_path) && Storage::disk('public')->exists($settings->logo_path)) {
+            return Storage::disk('public')->path($settings->logo_path);
+        }
+
+        $fallback = public_path(config('psg.fallback_logo', 'images/logo.jpeg'));
+
+        return is_file($fallback) ? $fallback : null;
     }
 }

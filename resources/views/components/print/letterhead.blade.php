@@ -27,11 +27,12 @@
                     'text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100' => $compact,
                     'text-base font-bold tracking-tight text-slate-900 sm:text-lg dark:text-slate-100' => ! $compact,
                 ])>{{ $company }}</p>
-                @unless ($compact)
-                    <p class="mt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8B1E1E]">
-                        {{ config('psg.tagline', 'New Age Security and Protection') }}
-                    </p>
-                @endunless
+                <p @class([
+                    'mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8B1E1E]' => $compact,
+                    'mt-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8B1E1E]' => ! $compact,
+                ])>
+                    {{ config('psg.tagline', 'New Age Security and Protection') }}
+                </p>
                 @if (! $compact && (filled($email) || filled($phone)))
                     <p class="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                         @if (filled($email))

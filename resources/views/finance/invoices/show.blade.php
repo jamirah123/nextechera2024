@@ -40,6 +40,7 @@
 
     <div class="report-print-area space-y-3">
         <x-finance.document
+            compact
             :title="((float) $invoice->tax_amount > 0) ? 'Tax Invoice' : 'Invoice'"
             :reference="$invoice->reference"
             :subtitle="$invoice->client?->name . ($invoice->site ? ' · '.$invoice->site->name : '')"
@@ -54,74 +55,74 @@
                 ? 'Please settle the balance due by the stated due date. Bank transfers should reference this tax invoice number.'
                 : 'Please settle the balance due by the stated due date. Bank transfers should reference this invoice number.'"
         >
-            <div class="mb-6 grid gap-4 sm:grid-cols-2">
-                <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+            <div class="mb-4 grid gap-3 sm:grid-cols-2">
+                <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
                     <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Bill to</p>
-                    <p class="mt-1 font-semibold text-slate-900">{{ $invoice->client?->name }}</p>
+                    <p class="mt-0.5 text-xs font-semibold text-slate-900">{{ $invoice->client?->name }}</p>
                     @if ($invoice->client?->contact_person)
-                        <p class="text-sm text-slate-600">{{ $invoice->client->contact_person }}</p>
+                        <p class="text-[11px] text-slate-600">{{ $invoice->client->contact_person }}</p>
                     @endif
                     @if ($invoice->client?->email)
-                        <p class="text-sm text-slate-600">{{ $invoice->client->email }}</p>
+                        <p class="text-[11px] text-slate-600">{{ $invoice->client->email }}</p>
                     @endif
                 </div>
-                <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                <div class="rounded-lg border border-slate-100 bg-slate-50 p-3">
                     <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Service location</p>
-                    <p class="mt-1 font-semibold text-slate-900">{{ $invoice->site?->name ?? 'All client sites' }}</p>
+                    <p class="mt-0.5 text-xs font-semibold text-slate-900">{{ $invoice->site?->name ?? 'All client sites' }}</p>
                     @if ($invoice->site?->code)
-                        <p class="text-sm text-slate-600">{{ $invoice->site->code }}</p>
+                        <p class="text-[11px] text-slate-600">{{ $invoice->site->code }}</p>
                     @endif
                 </div>
             </div>
 
-            <div class="overflow-hidden rounded-xl border border-slate-200">
-                <table class="min-w-full divide-y divide-slate-100 text-sm">
+            <div class="overflow-hidden rounded-lg border border-slate-200">
+                <table class="min-w-full divide-y divide-slate-100 text-xs">
                     <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
-                            <th class="px-4 py-3 text-left">#</th>
-                            <th class="px-4 py-3 text-left">Description</th>
-                            <th class="px-4 py-3 text-right">Qty</th>
-                            <th class="px-4 py-3 text-right">Unit</th>
-                            <th class="px-4 py-3 text-right">Amount</th>
+                            <th class="px-3 py-2 text-left">#</th>
+                            <th class="px-3 py-2 text-left">Description</th>
+                            <th class="px-3 py-2 text-right">Qty</th>
+                            <th class="px-3 py-2 text-right">Unit</th>
+                            <th class="px-3 py-2 text-right">Amount</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @forelse ($invoice->lines as $line)
                             <tr>
-                                <td class="px-4 py-3.5 text-slate-500">{{ $loop->iteration }}</td>
-                                <td class="px-4 py-3.5 font-medium text-slate-900">{{ $line->description }}</td>
-                                <td class="px-4 py-3.5 text-right text-slate-700">{{ number_format((float) $line->quantity, 2) }}</td>
-                                <td class="px-4 py-3.5 text-right text-slate-700">{{ \App\Support\Money::format($line->unit_price, $invoice->currency) }}</td>
-                                <td class="px-4 py-3.5 text-right font-semibold text-slate-900">{{ \App\Support\Money::format($line->line_total, $invoice->currency) }}</td>
+                                <td class="px-3 py-2 text-slate-500">{{ $loop->iteration }}</td>
+                                <td class="px-3 py-2 font-medium text-slate-900">{{ $line->description }}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">{{ number_format((float) $line->quantity, 2) }}</td>
+                                <td class="px-3 py-2 text-right text-slate-700">{{ \App\Support\Money::format($line->unit_price, $invoice->currency) }}</td>
+                                <td class="px-3 py-2 text-right font-semibold text-slate-900">{{ \App\Support\Money::format($line->line_total, $invoice->currency) }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-4 py-8 text-center text-slate-500">No line items on this invoice.</td></tr>
+                            <tr><td colspan="5" class="px-3 py-6 text-center text-slate-500">No line items on this invoice.</td></tr>
                         @endforelse
                     </tbody>
-                    <tfoot class="bg-slate-50/80 text-sm">
-                        <tr><td colspan="4" class="px-4 py-2 text-right text-slate-600">Subtotal</td><td class="px-4 py-2 text-right font-medium">{{ \App\Support\Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>
-                        <tr><td colspan="4" class="px-4 py-2 text-right text-slate-600">VAT</td><td class="px-4 py-2 text-right font-medium">{{ \App\Support\Money::format($invoice->tax_amount, $invoice->currency) }}</td></tr>
-                        <tr><td colspan="4" class="px-4 py-3 text-right font-semibold text-slate-900">Total</td><td class="px-4 py-3 text-right text-lg font-bold text-brand-800">{{ \App\Support\Money::format($invoice->total, $invoice->currency) }}</td></tr>
-                        <tr><td colspan="4" class="px-4 py-2 text-right text-emerald-700">Paid</td><td class="px-4 py-2 text-right font-medium text-emerald-800">{{ \App\Support\Money::format($invoice->amount_paid, $invoice->currency) }}</td></tr>
-                        <tr><td colspan="4" class="px-4 py-3 text-right font-semibold text-rose-800">Balance due</td><td class="px-4 py-3 text-right text-lg font-bold text-rose-700">{{ \App\Support\Money::format($invoice->balance, $invoice->currency) }}</td></tr>
+                    <tfoot class="bg-slate-50/80 text-xs">
+                        <tr><td colspan="4" class="px-3 py-1.5 text-right text-slate-600">Subtotal</td><td class="px-3 py-1.5 text-right font-medium">{{ \App\Support\Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>
+                        <tr><td colspan="4" class="px-3 py-1.5 text-right text-slate-600">VAT</td><td class="px-3 py-1.5 text-right font-medium">{{ \App\Support\Money::format($invoice->tax_amount, $invoice->currency) }}</td></tr>
+                        <tr><td colspan="4" class="px-3 py-2 text-right font-semibold text-slate-900">Total</td><td class="px-3 py-2 text-right text-sm font-semibold text-brand-800">{{ \App\Support\Money::format($invoice->total, $invoice->currency) }}</td></tr>
+                        <tr><td colspan="4" class="px-3 py-1.5 text-right text-emerald-700">Paid</td><td class="px-3 py-1.5 text-right font-medium text-emerald-800">{{ \App\Support\Money::format($invoice->amount_paid, $invoice->currency) }}</td></tr>
+                        <tr><td colspan="4" class="px-3 py-2 text-right font-semibold text-rose-800">Balance due</td><td class="px-3 py-2 text-right text-sm font-semibold text-rose-700">{{ \App\Support\Money::format($invoice->balance, $invoice->currency) }}</td></tr>
                     </tfoot>
                 </table>
             </div>
 
             @if ($invoice->notes)
-                <p class="mt-5 text-sm text-slate-600"><span class="font-semibold text-slate-800">Notes:</span> {{ $invoice->notes }}</p>
+                <p class="mt-4 text-xs text-slate-600"><span class="font-semibold text-slate-800">Notes:</span> {{ $invoice->notes }}</p>
             @endif
 
-            <div class="mt-10 grid gap-8 sm:grid-cols-2">
+            <div class="mt-8 grid gap-6 sm:grid-cols-2">
                 <div>
                     <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Prepared by</p>
-                    <div class="mt-8 border-b border-slate-300"></div>
-                    <p class="mt-2 text-xs text-slate-500">Authorized signature · {{ config('psg.company') }}</p>
+                    <div class="mt-6 border-b border-slate-300"></div>
+                    <p class="mt-1.5 text-[11px] text-slate-500">Authorized signature · {{ config('psg.company') }}</p>
                 </div>
                 <div>
                     <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Client acknowledgment</p>
-                    <div class="mt-8 border-b border-slate-300"></div>
-                    <p class="mt-2 text-xs text-slate-500">Name / signature / date</p>
+                    <div class="mt-6 border-b border-slate-300"></div>
+                    <p class="mt-1.5 text-[11px] text-slate-500">Name / signature / date</p>
                 </div>
             </div>
         </x-finance.document>
@@ -129,10 +130,10 @@
         @if ($invoice->payments->isNotEmpty())
             <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div class="border-b border-slate-100 px-3 py-2.5">
-                    <h2 class="text-base font-semibold text-slate-900">Payment history</h2>
-                    <p class="mt-0.5 text-sm text-slate-500">All collections applied to this invoice.</p>
+                    <h2 class="text-sm font-semibold text-slate-900">Payment history</h2>
+                    <p class="mt-0.5 text-xs text-slate-500">All collections applied to this invoice.</p>
                 </div>
-                <table class="min-w-full divide-y divide-slate-100 text-sm">
+                <table class="min-w-full divide-y divide-slate-100 text-xs">
                     <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
                             <th class="px-3 py-2 text-left">Reference</th>

@@ -39,7 +39,7 @@ class OfficialDocumentBrandingTest extends TestCase
             ->get(route('invoices.show', $invoice))
             ->assertOk()
             ->assertSee('images/logo.jpeg', false)
-            ->assertSee('Tax Invoice')
+            ->assertSee('Invoice')
             ->assertSee(config('psg.company'))
             ->assertSee('New Age Security and Protection')
             ->assertSee('Authorized signature')

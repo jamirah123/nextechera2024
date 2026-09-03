@@ -44,6 +44,16 @@ class Client extends Model
         return $this->hasMany(Site::class);
     }
 
+    public function billingProfiles(): HasMany
+    {
+        return $this->hasMany(BillingProfile::class);
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
     public function isContractActive(): bool
     {
         return $this->contract_status === ContractStatus::Active;

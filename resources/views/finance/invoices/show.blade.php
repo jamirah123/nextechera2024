@@ -30,9 +30,6 @@
         <p class="no-print rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ $message }}</p>
     @enderror
 
-    <div class="grid gap-4 xl:grid-cols-3">
-        <div class="space-y-3 xl:col-span-2">
-
     <x-entity.status-lifecycle
         class="no-print"
         :steps="$lifecycle['steps']"
@@ -43,7 +40,7 @@
 
     <div class="report-print-area space-y-3">
         <x-finance.document
-            :title="'Tax Invoice'"
+            :title="((float) $invoice->tax_amount > 0) ? 'Tax Invoice' : 'Invoice'"
             :reference="$invoice->reference"
             :subtitle="$invoice->client?->name . ($invoice->site ? ' · '.$invoice->site->name : '')"
             :status-tone="$invoice->status->tone()"
@@ -53,7 +50,9 @@
                 'value' => $invoice->period_start->format('d M Y').' – '.$invoice->period_end->format('d M Y'),
                 'hint' => $invoice->due_date ? 'Due '.$invoice->due_date->format('d M Y') : null,
             ]])"
-            footer-note="Please settle the balance due by the stated due date. Bank transfers should reference this invoice number."
+            :footer-note="((float) $invoice->tax_amount > 0)
+                ? 'Please settle the balance due by the stated due date. Bank transfers should reference this tax invoice number.'
+                : 'Please settle the balance due by the stated due date. Bank transfers should reference this invoice number.'"
         >
             <div class="mb-6 grid gap-4 sm:grid-cols-2">
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
@@ -101,7 +100,7 @@
                     </tbody>
                     <tfoot class="bg-slate-50/80 text-sm">
                         <tr><td colspan="4" class="px-4 py-2 text-right text-slate-600">Subtotal</td><td class="px-4 py-2 text-right font-medium">{{ \App\Support\Money::format($invoice->subtotal, $invoice->currency) }}</td></tr>
-                        <tr><td colspan="4" class="px-4 py-2 text-right text-slate-600">Tax</td><td class="px-4 py-2 text-right font-medium">{{ \App\Support\Money::format($invoice->tax_amount, $invoice->currency) }}</td></tr>
+                        <tr><td colspan="4" class="px-4 py-2 text-right text-slate-600">VAT</td><td class="px-4 py-2 text-right font-medium">{{ \App\Support\Money::format($invoice->tax_amount, $invoice->currency) }}</td></tr>
                         <tr><td colspan="4" class="px-4 py-3 text-right font-semibold text-slate-900">Total</td><td class="px-4 py-3 text-right text-lg font-bold text-brand-800">{{ \App\Support\Money::format($invoice->total, $invoice->currency) }}</td></tr>
                         <tr><td colspan="4" class="px-4 py-2 text-right text-emerald-700">Paid</td><td class="px-4 py-2 text-right font-medium text-emerald-800">{{ \App\Support\Money::format($invoice->amount_paid, $invoice->currency) }}</td></tr>
                         <tr><td colspan="4" class="px-4 py-3 text-right font-semibold text-rose-800">Balance due</td><td class="px-4 py-3 text-right text-lg font-bold text-rose-700">{{ \App\Support\Money::format($invoice->balance, $invoice->currency) }}</td></tr>
@@ -155,13 +154,6 @@
                 </table>
             </section>
         @endif
-    </div>
-
-        </div>
-
-        <div class="no-print space-y-3">
-            <x-entity.related-records :panels="$relatedPanels" />
-        </div>
     </div>
 
     <x-entity.activity-timeline :entries="$timeline" class="no-print" title="Invoice activity" />

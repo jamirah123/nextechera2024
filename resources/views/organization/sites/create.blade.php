@@ -18,13 +18,21 @@
         x-data="{
             regionId: @js((string) $initialRegion),
             supervisorId: @js((string) $initialSupervisor),
-            dayGuards: @js((int) old('required_day_guards', 0)),
-            nightGuards: @js((int) old('required_night_guards', 0)),
+            dayArmed: @js((int) old('required_day_armed_guards', 0)),
+            dayUnarmed: @js((int) old('required_day_unarmed_guards', 0)),
+            nightArmed: @js((int) old('required_night_armed_guards', 0)),
+            nightUnarmed: @js((int) old('required_night_unarmed_guards', 0)),
+            dayGuards() {
+                return Number(this.dayArmed || 0) + Number(this.dayUnarmed || 0);
+            },
+            nightGuards() {
+                return Number(this.nightArmed || 0) + Number(this.nightUnarmed || 0);
+            },
             totalGuards() {
-                return Number(this.dayGuards || 0) + Number(this.nightGuards || 0);
+                return this.dayGuards() + this.nightGuards();
             },
             postCount() {
-                return Math.max(Number(this.dayGuards || 0), Number(this.nightGuards || 0));
+                return Math.max(this.dayGuards(), this.nightGuards());
             },
             onRegionChange() {
                 if (! this.supervisorId || ! this.regionId) return;
@@ -122,9 +130,27 @@
                     <x-form-field label="Contract end" name="contract_end_date" type="date" :value="old('contract_end_date')" />
                 </x-form-group>
 
-                <x-form-group title="Manpower requirements" description="Total guards and posts update automatically.">
-                    <x-form-field label="Day guards" name="required_day_guards" type="number" min="0" :required="true" x-model.number="dayGuards" />
-                    <x-form-field label="Night guards" name="required_night_guards" type="number" min="0" :required="true" x-model.number="nightGuards" />
+                <x-form-group title="Manpower requirements" description="Enter armed and unarmed guards needed on each shift. Totals update automatically.">
+                    <div class="sm:col-span-2 grid gap-3 sm:grid-cols-2">
+                        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Day shift</p>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <x-form-field label="Armed" name="required_day_armed_guards" type="number" min="0" :required="true" x-model.number="dayArmed" />
+                                <x-form-field label="Unarmed" name="required_day_unarmed_guards" type="number" min="0" :required="true" x-model.number="dayUnarmed" />
+                            </div>
+                            <p class="mt-2 text-xs text-slate-500">Day total: <span class="font-semibold" x-text="dayGuards()">0</span></p>
+                            <input type="hidden" name="required_day_guards" :value="dayGuards()">
+                        </div>
+                        <div class="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+                            <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Night shift</p>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <x-form-field label="Armed" name="required_night_armed_guards" type="number" min="0" :required="true" x-model.number="nightArmed" />
+                                <x-form-field label="Unarmed" name="required_night_unarmed_guards" type="number" min="0" :required="true" x-model.number="nightUnarmed" />
+                            </div>
+                            <p class="mt-2 text-xs text-slate-500">Night total: <span class="font-semibold" x-text="nightGuards()">0</span></p>
+                            <input type="hidden" name="required_night_guards" :value="nightGuards()">
+                        </div>
+                    </div>
                     @include('organization.sites.partials.manpower-calculated-fields')
                     <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes')" class="sm:col-span-2" />
                 </x-form-group>

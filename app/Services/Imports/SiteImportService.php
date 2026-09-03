@@ -32,8 +32,10 @@ class SiteImportService
             'region_code',
             'supervisor_code',
             'physical_location',
-            'required_day_guards',
-            'required_night_guards',
+            'required_day_armed_guards',
+            'required_day_unarmed_guards',
+            'required_night_armed_guards',
+            'required_night_unarmed_guards',
             'status',
             'contract_start_date',
             'contract_end_date',
@@ -156,8 +158,26 @@ class SiteImportService
         }
 
         $status = $this->csv->parseEnum($row['status'] ?? null, SiteStatus::class, SiteStatus::Active);
-        $day = max(0, (int) ($row['required_day_guards'] ?? 0));
-        $night = max(0, (int) ($row['required_night_guards'] ?? 0));
+
+        $hasBreakdown = array_key_exists('required_day_armed_guards', $row)
+            || array_key_exists('required_day_unarmed_guards', $row)
+            || array_key_exists('required_night_armed_guards', $row)
+            || array_key_exists('required_night_unarmed_guards', $row);
+
+        if ($hasBreakdown) {
+            $dayArmed = max(0, (int) ($row['required_day_armed_guards'] ?? 0));
+            $dayUnarmed = max(0, (int) ($row['required_day_unarmed_guards'] ?? 0));
+            $nightArmed = max(0, (int) ($row['required_night_armed_guards'] ?? 0));
+            $nightUnarmed = max(0, (int) ($row['required_night_unarmed_guards'] ?? 0));
+        } else {
+            $dayArmed = 0;
+            $dayUnarmed = max(0, (int) ($row['required_day_guards'] ?? 0));
+            $nightArmed = 0;
+            $nightUnarmed = max(0, (int) ($row['required_night_guards'] ?? 0));
+        }
+
+        $day = $dayArmed + $dayUnarmed;
+        $night = $nightArmed + $nightUnarmed;
 
         return [
             'name' => $row['name'] ?? null,
@@ -166,6 +186,10 @@ class SiteImportService
             'region_id' => $regionId,
             'supervisor_id' => $supervisorId,
             'physical_location' => $row['physical_location'] ?? null,
+            'required_day_armed_guards' => $dayArmed,
+            'required_day_unarmed_guards' => $dayUnarmed,
+            'required_night_armed_guards' => $nightArmed,
+            'required_night_unarmed_guards' => $nightUnarmed,
             'required_day_guards' => $day,
             'required_night_guards' => $night,
             'required_guards' => $day + $night,
@@ -189,6 +213,10 @@ class SiteImportService
             'region_id' => ['required', 'exists:regions,id'],
             'supervisor_id' => ['nullable', 'exists:supervisors,id'],
             'physical_location' => ['nullable', 'string', 'max:191'],
+            'required_day_armed_guards' => ['required', 'integer', 'min:0', 'max:500'],
+            'required_day_unarmed_guards' => ['required', 'integer', 'min:0', 'max:500'],
+            'required_night_armed_guards' => ['required', 'integer', 'min:0', 'max:500'],
+            'required_night_unarmed_guards' => ['required', 'integer', 'min:0', 'max:500'],
             'required_day_guards' => ['required', 'integer', 'min:0', 'max:500'],
             'required_night_guards' => ['required', 'integer', 'min:0', 'max:500'],
             'required_guards' => ['required', 'integer', 'min:0', 'max:500'],

@@ -36,7 +36,7 @@
                     <x-form-field label="Period start" name="period_start" type="date" :value="old('period_start', $invoice->period_start->toDateString())" :required="true" />
                     <x-form-field label="Period end" name="period_end" type="date" :value="old('period_end', $invoice->period_end->toDateString())" :required="true" />
                     <x-form-field label="Due date" name="due_date" type="date" :value="old('due_date', $invoice->due_date?->toDateString())" />
-                    <x-form-field label="Tax amount" name="tax_amount" type="number" :value="old('tax_amount', $invoice->tax_amount)" step="0.01" min="0" />
+                    <x-form-field label="VAT amount" name="tax_amount" type="number" :value="old('tax_amount', $invoice->tax_amount)" step="0.01" min="0" />
                 </x-form-group>
             </div>
 

@@ -16,8 +16,12 @@ class SiteFactory extends Factory
 
     public function definition(): array
     {
-        $day = fake()->numberBetween(2, 8);
-        $night = fake()->numberBetween(2, 8);
+        $dayArmed = fake()->numberBetween(0, 3);
+        $dayUnarmed = fake()->numberBetween(1, 5);
+        $nightArmed = fake()->numberBetween(0, 3);
+        $nightUnarmed = fake()->numberBetween(1, 5);
+        $day = $dayArmed + $dayUnarmed;
+        $night = $nightArmed + $nightUnarmed;
 
         return [
             'name' => fake()->unique()->company().' Site',
@@ -34,8 +38,12 @@ class SiteFactory extends Factory
             'contract_end_date' => now()->addMonths(10)->toDateString(),
             'required_guards' => $day + $night,
             'required_day_guards' => $day,
+            'required_day_armed_guards' => $dayArmed,
+            'required_day_unarmed_guards' => $dayUnarmed,
             'required_night_guards' => $night,
-            'number_of_posts' => fake()->numberBetween(1, 6),
+            'required_night_armed_guards' => $nightArmed,
+            'required_night_unarmed_guards' => $nightUnarmed,
+            'number_of_posts' => max($day, $night),
             'status' => SiteStatus::Active,
             'notes' => fake()->optional()->sentence(),
         ];

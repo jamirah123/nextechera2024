@@ -19,21 +19,25 @@ class FinanceManagementTest extends TestCase
     {
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $client = Client::factory()->create();
+        \App\Models\Site::factory()->create([
+            'client_id' => $client->id,
+            'required_day_armed_guards' => 10,
+            'required_day_unarmed_guards' => 20,
+            'required_night_armed_guards' => 15,
+            'required_night_unarmed_guards' => 20,
+            'required_day_guards' => 30,
+            'required_night_guards' => 35,
+            'required_guards' => 65,
+            'number_of_posts' => 35,
+        ]);
 
         $this->actingAs($finance)
             ->post(route('billing.store'), [
                 'client_id' => $client->id,
-                'contracted_armed_guards' => 30,
-                'contracted_unarmed_guards' => 35,
+                'billing_mode' => 'monthly',
                 'monthly_rate_per_armed_guard' => 650000,
                 'monthly_rate_per_unarmed_guard' => 450000,
-                'monthly_cost_per_armed_guard' => 380000,
-                'monthly_cost_per_unarmed_guard' => 280000,
-                'monthly_site_fee' => 1500000,
-                'rate_per_armed_shift' => 0,
-                'rate_per_unarmed_shift' => 0,
-                'cost_per_armed_shift' => 0,
-                'cost_per_unarmed_shift' => 0,
+                'monthly_site_fee' => 0,
                 'effective_from' => now()->startOfMonth()->toDateString(),
                 'is_active' => true,
             ])
@@ -41,7 +45,11 @@ class FinanceManagementTest extends TestCase
 
         $this->assertDatabaseHas('billing_profiles', [
             'client_id' => $client->id,
-            'monthly_site_fee' => 1500000,
+            'contracted_day_armed_guards' => 10,
+            'contracted_day_unarmed_guards' => 20,
+            'contracted_night_armed_guards' => 15,
+            'contracted_night_unarmed_guards' => 20,
+            'monthly_site_fee' => 0,
         ]);
 
         $this->actingAs($finance)
@@ -145,12 +153,18 @@ class FinanceManagementTest extends TestCase
         BillingProfile::query()->create([
             'client_id' => $client->id,
             'currency' => 'UGX',
+            'contracted_day_armed_guards' => 30,
+            'contracted_day_unarmed_guards' => 0,
+            'contracted_night_armed_guards' => 0,
+            'contracted_night_unarmed_guards' => 0,
             'contracted_armed_guards' => 30,
             'contracted_unarmed_guards' => 0,
             'monthly_rate_per_armed_guard' => 650000,
             'monthly_rate_per_unarmed_guard' => 0,
-            'monthly_cost_per_armed_guard' => 380000,
-            'monthly_cost_per_unarmed_guard' => 0,
+            'monthly_rate_per_armed_day_guard' => 650000,
+            'monthly_rate_per_unarmed_day_guard' => 0,
+            'monthly_rate_per_armed_night_guard' => 650000,
+            'monthly_rate_per_unarmed_night_guard' => 0,
             'monthly_site_fee' => 0,
             'effective_from' => now()->startOfMonth()->toDateString(),
             'is_active' => true,
@@ -168,8 +182,8 @@ class FinanceManagementTest extends TestCase
         $invoice = Invoice::query()->where('client_id', $client->id)->firstOrFail();
         $descriptions = $invoice->lines()->pluck('description')->all();
 
-        $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Armed guard coverage') && str_contains($line, '30 guards')));
-        $this->assertFalse(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Unarmed guard coverage')));
+        $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Day armed security posts') && str_contains($line, '30 posts')));
+        $this->assertFalse(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Night')));
         $this->assertSame(19500000.0, (float) $invoice->total);
     }
 
@@ -181,19 +195,20 @@ class FinanceManagementTest extends TestCase
         BillingProfile::query()->create([
             'client_id' => $client->id,
             'currency' => 'UGX',
-            'contracted_armed_guards' => 30,
+            'billing_mode' => 'monthly',
+            'contracted_day_armed_guards' => 10,
+            'contracted_day_unarmed_guards' => 20,
+            'contracted_night_armed_guards' => 5,
+            'contracted_night_unarmed_guards' => 15,
+            'contracted_armed_guards' => 15,
             'contracted_unarmed_guards' => 35,
             'monthly_rate_per_armed_guard' => 650000,
             'monthly_rate_per_unarmed_guard' => 450000,
-            'monthly_cost_per_armed_guard' => 380000,
-            'monthly_cost_per_unarmed_guard' => 280000,
+            'monthly_rate_per_armed_day_guard' => 650000,
+            'monthly_rate_per_unarmed_day_guard' => 450000,
+            'monthly_rate_per_armed_night_guard' => 650000,
+            'monthly_rate_per_unarmed_night_guard' => 450000,
             'monthly_site_fee' => 0,
-            'rate_per_armed_shift' => 0,
-            'rate_per_unarmed_shift' => 0,
-            'rate_per_guard_shift' => 0,
-            'cost_per_armed_shift' => 0,
-            'cost_per_unarmed_shift' => 0,
-            'cost_per_guard_shift' => 0,
             'effective_from' => now()->startOfMonth()->toDateString(),
             'is_active' => true,
         ]);
@@ -210,22 +225,36 @@ class FinanceManagementTest extends TestCase
         $invoice = Invoice::query()->where('client_id', $client->id)->firstOrFail();
         $descriptions = $invoice->lines()->pluck('description')->all();
 
-        $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Armed guard coverage') && str_contains($line, '30 guards')));
-        $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Unarmed guard coverage') && str_contains($line, '35 guards')));
-        $this->assertSame(35250000.0, (float) $invoice->total);
+        $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Day armed security posts') && str_contains($line, '10 posts')));
+        $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Day unarmed security posts') && str_contains($line, '20 posts')));
+        $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Night armed security posts') && str_contains($line, '5 posts')));
+        $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Night unarmed security posts') && str_contains($line, '15 posts')));
+        // (10+5)*650000 + (20+15)*450000 = 9750000 + 15750000 = 25500000
+        $this->assertSame(25500000.0, (float) $invoice->total);
     }
 
-    public function test_billing_profile_accepts_unarmed_only_contract(): void
+    public function test_billing_profile_accepts_night_only_manpower(): void
     {
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $client = Client::factory()->create();
+        \App\Models\Site::factory()->create([
+            'client_id' => $client->id,
+            'required_day_armed_guards' => 0,
+            'required_day_unarmed_guards' => 0,
+            'required_night_armed_guards' => 10,
+            'required_night_unarmed_guards' => 30,
+            'required_day_guards' => 0,
+            'required_night_guards' => 40,
+            'required_guards' => 40,
+            'number_of_posts' => 40,
+        ]);
 
         $this->actingAs($finance)
             ->post(route('billing.store'), [
                 'client_id' => $client->id,
-                'contracted_unarmed_guards' => 40,
-                'monthly_rate_per_unarmed_guard' => 420000,
-                'monthly_cost_per_unarmed_guard' => 260000,
+                'billing_mode' => 'monthly',
+                'monthly_rate_per_armed_guard' => 420000,
+                'monthly_rate_per_unarmed_guard' => 400000,
                 'monthly_site_fee' => 0,
                 'effective_from' => now()->startOfMonth()->toDateString(),
                 'is_active' => true,
@@ -234,8 +263,73 @@ class FinanceManagementTest extends TestCase
 
         $this->assertDatabaseHas('billing_profiles', [
             'client_id' => $client->id,
-            'contracted_armed_guards' => 0,
-            'contracted_unarmed_guards' => 40,
+            'contracted_day_armed_guards' => 0,
+            'contracted_day_unarmed_guards' => 0,
+            'contracted_night_armed_guards' => 10,
+            'contracted_night_unarmed_guards' => 30,
         ]);
+    }
+
+    public function test_per_shift_billing_generates_lines_from_completed_shifts(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $client = Client::factory()->create();
+        $site = \App\Models\Site::factory()->create(['client_id' => $client->id]);
+        $guard = \App\Models\Guard::factory()->create();
+
+        BillingProfile::query()->create([
+            'client_id' => $client->id,
+            'site_id' => $site->id,
+            'currency' => 'UGX',
+            'billing_mode' => 'per_shift',
+            'cash_no_tax' => true,
+            'monthly_site_fee' => 0,
+            'rate_per_armed_day_shift' => 50000,
+            'rate_per_armed_night_shift' => 60000,
+            'rate_per_unarmed_day_shift' => 40000,
+            'rate_per_unarmed_night_shift' => 45000,
+            'effective_from' => now()->startOfMonth()->toDateString(),
+            'is_active' => true,
+        ]);
+
+        \App\Models\Shift::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'shift_date' => now()->startOfMonth()->toDateString(),
+            'period' => \App\Enums\ShiftPeriod::Day,
+            'guard_classification' => \App\Enums\GuardClassification::Armed,
+            'status' => \App\Enums\ShiftStatus::Completed,
+            'shift_type' => \App\Enums\ShiftType::Normal,
+        ]);
+
+        \App\Models\Shift::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'shift_date' => now()->startOfMonth()->addDay()->toDateString(),
+            'period' => \App\Enums\ShiftPeriod::Night,
+            'guard_classification' => \App\Enums\GuardClassification::Armed,
+            'status' => \App\Enums\ShiftStatus::Completed,
+            'shift_type' => \App\Enums\ShiftType::Normal,
+            'is_overnight' => true,
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('invoices.store'), [
+                'client_id' => $client->id,
+                'site_id' => $site->id,
+                'period_start' => now()->startOfMonth()->toDateString(),
+                'period_end' => now()->endOfMonth()->toDateString(),
+                'auto_generate' => true,
+            ])
+            ->assertRedirect();
+
+        $invoice = Invoice::query()->where('client_id', $client->id)->firstOrFail();
+        $this->assertSame(0.0, (float) $invoice->tax_amount);
+        $this->assertSame(110000.0, (float) $invoice->total);
+        $this->assertStringContainsString('cash basis', strtolower((string) $invoice->notes));
+        $this->assertTrue($invoice->lines()->where('description', 'like', '%Day Armed shifts%')->exists());
+        $this->assertTrue($invoice->lines()->where('description', 'like', '%Night Armed shifts%')->exists());
     }
 }

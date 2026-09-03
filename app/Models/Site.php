@@ -34,7 +34,11 @@ class Site extends Model
         'contract_end_date',
         'required_guards',
         'required_day_guards',
+        'required_day_armed_guards',
+        'required_day_unarmed_guards',
         'required_night_guards',
+        'required_night_armed_guards',
+        'required_night_unarmed_guards',
         'number_of_posts',
         'status',
         'notes',
@@ -52,7 +56,11 @@ class Site extends Model
             'longitude' => 'decimal:7',
             'required_guards' => 'integer',
             'required_day_guards' => 'integer',
+            'required_day_armed_guards' => 'integer',
+            'required_day_unarmed_guards' => 'integer',
             'required_night_guards' => 'integer',
+            'required_night_armed_guards' => 'integer',
+            'required_night_unarmed_guards' => 'integer',
             'number_of_posts' => 'integer',
         ];
     }

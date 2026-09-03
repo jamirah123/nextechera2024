@@ -5,7 +5,7 @@
 
 @section('content')
 <div class="space-y-3">
-    <x-page-header title="Client billing" subtitle="Rates and site fees — current profiles and full history.">
+    <x-page-header title="Client billing" subtitle="Negotiated rates per client — monthly posts, per-shift day/night, or cash/no-tax.">
         <x-slot:actions>
             <x-finance.scope-tabs
                 :current-url="route('billing.index', request()->except('scope', 'page'))"
@@ -20,7 +20,7 @@
     </x-page-header>
 
     <div class="report-print-area space-y-3">
-        <x-print.report-header title="Client billing register" subtitle="Contracted rates and site fees." />
+        <x-print.report-header title="Client billing register" subtitle="Negotiated post rates and billing modes." />
         <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
             @foreach ([
                 ['Active profiles', number_format($stats['active']), 'text-emerald-700'],
@@ -65,8 +65,9 @@
                         <tr>
                             <th class="w-14 px-3 py-2">#</th>
                             <th class="px-3 py-2">Client / site</th>
+                            <th class="px-3 py-2">Mode</th>
                             <th class="px-3 py-2">Guards (armed / unarmed)</th>
-                            <th class="px-3 py-2">Monthly coverage</th>
+                            <th class="px-3 py-2">Negotiated rates</th>
                             <th class="px-3 py-2">Effective</th>
                             <th class="px-3 py-2">Status</th>
                             <th class="px-3 py-2 text-right">Actions</th>
@@ -81,14 +82,24 @@
                                     <p class="text-xs text-slate-500">{{ $profile->site?->name ?? 'Client-wide default' }}</p>
                                 </td>
                                 <td class="px-3 py-2">
-                                    <p class="font-semibold">{{ $profile->contracted_armed_guards }} armed · {{ $profile->contracted_unarmed_guards }} unarmed</p>
-                                    <p class="text-xs text-slate-500">{{ $profile->contractedGuardTotal() }} total guards</p>
+                                    <x-status-badge :tone="$profile->billing_mode?->tone() ?? 'brand'" :label="$profile->billing_mode?->label() ?? 'Monthly'" />
+                                    @if ($profile->cash_no_tax)
+                                        <p class="mt-1"><x-status-badge tone="amber" label="Cash / no VAT" /></p>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-2">
-                                    <p>Armed {{ \App\Support\Money::format($profile->monthly_rate_per_armed_guard, $profile->currency) }}/guard</p>
-                                    <p>Unarmed {{ \App\Support\Money::format($profile->monthly_rate_per_unarmed_guard, $profile->currency) }}/guard</p>
-                                    @if ((float) $profile->monthly_site_fee > 0)
-                                        <p class="text-xs text-slate-500">Site fee {{ \App\Support\Money::format($profile->monthly_site_fee, $profile->currency) }}</p>
+                                    <p class="font-semibold">{{ $profile->contractedGuardTotal() }} posts</p>
+                                    <p class="text-xs text-slate-500">
+                                        Day {{ (int) $profile->contracted_day_armed_guards }}A/{{ (int) $profile->contracted_day_unarmed_guards }}U
+                                        · Night {{ (int) $profile->contracted_night_armed_guards }}A/{{ (int) $profile->contracted_night_unarmed_guards }}U
+                                    </p>
+                                </td>
+                                <td class="px-3 py-2">
+                                    @if (($profile->billing_mode?->usesMonthlyRates() ?? true))
+                                        <p class="text-xs font-semibold text-slate-600">Total {{ \App\Support\Money::format($profile->estimatedMonthlyTotal(), $profile->currency) }}/mo</p>
+                                    @endif
+                                    @if ($profile->billing_mode?->usesShiftRates())
+                                        <p class="text-xs text-slate-500">Shift rates set</p>
                                     @endif
                                 </td>
                                 <td class="px-3 py-2 text-xs text-slate-600">

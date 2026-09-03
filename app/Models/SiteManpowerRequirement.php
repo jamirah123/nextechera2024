@@ -11,7 +11,11 @@ class SiteManpowerRequirement extends Model
         'site_id',
         'required_total',
         'required_day',
+        'required_day_armed',
+        'required_day_unarmed',
         'required_night',
+        'required_night_armed',
+        'required_night_unarmed',
         'effective_from',
         'effective_to',
         'is_current',
@@ -27,7 +31,11 @@ class SiteManpowerRequirement extends Model
             'is_current' => 'boolean',
             'required_total' => 'integer',
             'required_day' => 'integer',
+            'required_day_armed' => 'integer',
+            'required_day_unarmed' => 'integer',
             'required_night' => 'integer',
+            'required_night_armed' => 'integer',
+            'required_night_unarmed' => 'integer',
         ];
     }
 

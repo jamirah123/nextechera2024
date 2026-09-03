@@ -4,15 +4,22 @@ namespace App\Services\Finance;
 
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
+use App\Enums\BillingMode;
 use App\Enums\GuardClassification;
 use App\Enums\InvoiceStatus;
+use App\Enums\ShiftPeriod;
+use App\Enums\ShiftStatus;
+use App\Enums\ShiftType;
 use App\Models\BillingProfile;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
+use App\Models\Shift;
+use App\Models\Site;
 use App\Services\AuditService;
 use App\Services\ProactiveAlertService;
 use App\Support\Money;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -45,6 +52,18 @@ class InvoiceService
                 throw new InvalidArgumentException('Period end must be on or after period start.');
             }
 
+            $profiles = $this->profilesFor($data['client_id'], $data['site_id'] ?? null, $periodStart, $periodEnd);
+            $cashNoTax = $profiles->contains(fn (BillingProfile $profile) => $profile->cash_no_tax);
+            $taxAmount = (float) ($data['tax_amount'] ?? 0);
+            if ($cashNoTax && ! array_key_exists('tax_amount', $data)) {
+                $taxAmount = 0.0;
+            }
+
+            $notes = $data['notes'] ?? null;
+            if ($cashNoTax && blank($notes)) {
+                $notes = 'Settled on a cash basis — no VAT charged.';
+            }
+
             $invoice = Invoice::query()->create([
                 'reference' => $this->nextReference($periodStart),
                 'client_id' => $data['client_id'],
@@ -54,18 +73,23 @@ class InvoiceService
                 'period_end' => $periodEnd,
                 'due_date' => $data['due_date'] ?? Carbon::parse($periodEnd)->addDays((int) config('psg.invoice_due_days', 14))->toDateString(),
                 'currency' => Money::currency(),
-                'tax_amount' => $data['tax_amount'] ?? 0,
-                'notes' => $data['notes'] ?? null,
+                'tax_amount' => $taxAmount,
+                'notes' => $notes,
             ]);
 
             $lines = $data['lines'] ?? [];
             if (($data['auto_generate'] ?? false) === true) {
-                $lines = array_merge($lines, $this->suggestLines(
-                    (int) $data['client_id'],
-                    $data['site_id'] ?? null,
+                $lines = array_merge($lines, $this->suggestLinesFromProfiles(
+                    $profiles,
                     $periodStart,
                     $periodEnd,
                 ));
+
+                if ($lines === []) {
+                    throw new InvalidArgumentException(
+                        'No billable lines found for this period. Check the client billing profile, contracted posts/rates, or completed shifts.'
+                    );
+                }
             }
 
             foreach ($lines as $index => $line) {
@@ -168,6 +192,10 @@ class InvoiceService
 
             $this->recalculate($invoice);
             $invoice->refresh();
+
+            if ($invoice->lines()->count() === 0) {
+                throw new InvalidArgumentException('Cannot issue an invoice with no line items.');
+            }
 
             if ((float) $invoice->total <= 0) {
                 throw new InvalidArgumentException('Cannot issue an invoice with zero total.');
@@ -289,52 +317,240 @@ class InvoiceService
      */
     public function suggestLines(int $clientId, ?int $siteId, string $periodStart, string $periodEnd): array
     {
+        return $this->suggestLinesFromProfiles(
+            $this->profilesFor($clientId, $siteId, $periodStart, $periodEnd),
+            $periodStart,
+            $periodEnd,
+        );
+    }
+
+    /**
+     * @param  Collection<int, BillingProfile>  $profiles
+     * @return list<array{description: string, quantity: float, unit_price: float, site_id: int|null}>
+     */
+    public function suggestLinesFromProfiles(Collection $profiles, string $periodStart, string $periodEnd): array
+    {
         $lines = [];
 
-        $profiles = BillingProfile::query()
-            ->active()
-            ->where('client_id', $clientId)
-            ->when($siteId, fn ($q) => $q->where(fn ($inner) => $inner->whereNull('site_id')->orWhere('site_id', $siteId)))
-            ->whereDate('effective_from', '<=', $periodEnd)
-            ->where(fn ($q) => $q->whereNull('effective_to')->orWhereDate('effective_to', '>=', $periodStart))
-            ->with('site:id,name,code')
-            ->get();
-
         foreach ($profiles as $profile) {
-            $siteName = $profile->site?->name ?? 'all sites';
+            $mode = $profile->billing_mode ?? BillingMode::Monthly;
 
-            if ((float) $profile->monthly_site_fee > 0) {
-                $label = $profile->site
-                    ? 'Monthly site fee — '.$profile->site->name
-                    : 'Monthly client service fee';
-                $lines[] = [
-                    'description' => $label.' ('.$periodStart.' to '.$periodEnd.')',
-                    'quantity' => 1,
-                    'unit_price' => (float) $profile->monthly_site_fee,
-                    'site_id' => $profile->site_id,
-                ];
+            if ($mode->usesMonthlyRates()) {
+                $lines = array_merge($lines, $this->monthlyLinesForProfile($profile, $periodStart, $periodEnd));
             }
 
-            foreach (GuardClassification::cases() as $classification) {
-                $count = $classification === GuardClassification::Armed
-                    ? (int) $profile->contracted_armed_guards
-                    : (int) $profile->contracted_unarmed_guards;
-                $monthlyRate = $classification === GuardClassification::Armed
-                    ? (float) $profile->monthly_rate_per_armed_guard
-                    : (float) $profile->monthly_rate_per_unarmed_guard;
-
-                if ($count > 0 && $monthlyRate > 0) {
-                    $lines[] = [
-                        'description' => 'Monthly '.$classification->label().' guard coverage — '.$siteName.' ('.$count.' guards, '.$periodStart.' to '.$periodEnd.')',
-                        'quantity' => $count,
-                        'unit_price' => $monthlyRate,
-                        'site_id' => $profile->site_id,
-                    ];
-                }
+            if ($mode->usesShiftRates()) {
+                $lines = array_merge(
+                    $lines,
+                    $this->shiftLinesForProfile(
+                        $profile,
+                        $periodStart,
+                        $periodEnd,
+                        extrasOnly: $mode === BillingMode::Hybrid,
+                    ),
+                );
             }
         }
 
         return $lines;
+    }
+
+    /**
+     * Resolve billing profiles without double-counting client-wide + site rates.
+     *
+     * Site invoice: site profile if present, otherwise client-wide.
+     * Client-wide invoice: client-wide profile if present, otherwise one profile per site.
+     *
+     * @return Collection<int, BillingProfile>
+     */
+    private function profilesFor(int $clientId, ?int $siteId, string $periodStart, string $periodEnd): Collection
+    {
+        $base = BillingProfile::query()
+            ->active()
+            ->where('client_id', $clientId)
+            ->whereDate('effective_from', '<=', $periodEnd)
+            ->where(fn ($q) => $q->whereNull('effective_to')->orWhereDate('effective_to', '>=', $periodStart))
+            ->with('site:id,name,code,client_id');
+
+        if ($siteId) {
+            $siteProfile = (clone $base)
+                ->where('site_id', $siteId)
+                ->orderByDesc('effective_from')
+                ->orderByDesc('id')
+                ->first();
+
+            if ($siteProfile) {
+                return collect([$siteProfile]);
+            }
+
+            $clientWide = (clone $base)
+                ->whereNull('site_id')
+                ->orderByDesc('effective_from')
+                ->orderByDesc('id')
+                ->first();
+
+            return $clientWide ? collect([$clientWide]) : collect();
+        }
+
+        $clientWide = (clone $base)
+            ->whereNull('site_id')
+            ->orderByDesc('effective_from')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($clientWide) {
+            return collect([$clientWide]);
+        }
+
+        return (clone $base)
+            ->whereNotNull('site_id')
+            ->orderBy('site_id')
+            ->orderByDesc('effective_from')
+            ->orderByDesc('id')
+            ->get()
+            ->unique('site_id')
+            ->values();
+    }
+
+    /**
+     * @return list<array{description: string, quantity: float, unit_price: float, site_id: int|null}>
+     */
+    private function monthlyLinesForProfile(BillingProfile $profile, string $periodStart, string $periodEnd): array
+    {
+        $lines = [];
+        $siteName = $profile->site?->name ?? 'all sites';
+        $periodLabel = $this->periodLabel($periodStart, $periodEnd);
+
+        $armedRate = $profile->monthlyArmedRate();
+        $unarmedRate = $profile->monthlyUnarmedRate();
+
+        foreach ([
+            [
+                'label' => 'Day armed',
+                'count' => (int) $profile->contracted_day_armed_guards,
+                'rate' => $armedRate,
+            ],
+            [
+                'label' => 'Day unarmed',
+                'count' => (int) $profile->contracted_day_unarmed_guards,
+                'rate' => $unarmedRate,
+            ],
+            [
+                'label' => 'Night armed',
+                'count' => (int) $profile->contracted_night_armed_guards,
+                'rate' => $armedRate,
+            ],
+            [
+                'label' => 'Night unarmed',
+                'count' => (int) $profile->contracted_night_unarmed_guards,
+                'rate' => $unarmedRate,
+            ],
+        ] as $row) {
+            if ($row['count'] > 0 && $row['rate'] > 0) {
+                $lines[] = [
+                    'description' => $row['label'].' security posts — '.$siteName
+                        .' ('.$row['count'].' posts, '.$periodLabel.')',
+                    'quantity' => (float) $row['count'],
+                    'unit_price' => $row['rate'],
+                    'site_id' => $profile->site_id,
+                ];
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @return list<array{description: string, quantity: float, unit_price: float, site_id: int|null}>
+     */
+    private function shiftLinesForProfile(
+        BillingProfile $profile,
+        string $periodStart,
+        string $periodEnd,
+        bool $extrasOnly = false,
+    ): array {
+        $siteIds = $this->siteIdsForProfile($profile);
+
+        if ($siteIds === []) {
+            return [];
+        }
+
+        $query = Shift::query()
+            ->whereIn('site_id', $siteIds)
+            ->where('status', ShiftStatus::Completed)
+            ->whereDate('shift_date', '>=', $periodStart)
+            ->whereDate('shift_date', '<=', $periodEnd);
+
+        if ($extrasOnly) {
+            $query->whereIn('shift_type', [
+                ShiftType::Overtime->value,
+                ShiftType::SpecialDuty->value,
+            ]);
+        } else {
+            $query->whereIn('shift_type', array_map(
+                static fn (ShiftType $type) => $type->value,
+                array_filter(ShiftType::cases(), static fn (ShiftType $type) => $type->countsAsWorked()),
+            ));
+        }
+
+        $shifts = $query->get(['id', 'site_id', 'period', 'guard_classification', 'shift_type']);
+
+        if ($shifts->isEmpty()) {
+            return [];
+        }
+
+        $grouped = $shifts->groupBy(function (Shift $shift) {
+            $classification = ($shift->guard_classification ?? GuardClassification::Unarmed)->value;
+            $period = ($shift->period ?? ShiftPeriod::Day)->value;
+
+            return $classification.'|'.$period.'|'.($shift->site_id ?? 0);
+        });
+
+        $lines = [];
+        $siteName = $profile->site?->name ?? 'client sites';
+        $periodLabel = $this->periodLabel($periodStart, $periodEnd);
+
+        foreach ($grouped as $key => $bucket) {
+            [$classificationValue, $periodValue, $bucketSiteId] = explode('|', $key);
+            $classification = GuardClassification::from($classificationValue);
+            $period = ShiftPeriod::from($periodValue);
+            $rate = $profile->shiftBillRateFor($classification, $period);
+
+            if ($rate <= 0) {
+                continue;
+            }
+
+            $qty = (float) $bucket->count();
+            $prefix = $extrasOnly ? 'Extra duty — ' : '';
+            $lines[] = [
+                'description' => $prefix.$period->label().' '.$classification->label()
+                    .' shifts — '.$siteName.' ('.$periodLabel.')',
+                'quantity' => $qty,
+                'unit_price' => $rate,
+                'site_id' => $profile->site_id ?? ((int) $bucketSiteId ?: null),
+            ];
+        }
+
+        return $lines;
+    }
+
+    private function periodLabel(string $periodStart, string $periodEnd): string
+    {
+        return Carbon::parse($periodStart)->format('d M Y').' – '.Carbon::parse($periodEnd)->format('d M Y');
+    }
+
+    /** @return list<int> */
+    private function siteIdsForProfile(BillingProfile $profile): array
+    {
+        if ($profile->site_id) {
+            return [(int) $profile->site_id];
+        }
+
+        return Site::query()
+            ->where('client_id', $profile->client_id)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     public function nextReference(string $periodStart): string

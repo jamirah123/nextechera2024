@@ -161,13 +161,21 @@ class SiteController extends Controller
                 'required_guards' => (int) $site->required_guards,
                 'required_day_guards' => (int) $site->required_day_guards,
                 'required_night_guards' => (int) $site->required_night_guards,
+                'required_day_armed_guards' => (int) $site->required_day_armed_guards,
+                'required_day_unarmed_guards' => (int) $site->required_day_unarmed_guards,
+                'required_night_armed_guards' => (int) $site->required_night_armed_guards,
+                'required_night_unarmed_guards' => (int) $site->required_night_unarmed_guards,
             ];
 
             $site->update($request->validated());
 
             $changed = $before['required_guards'] !== (int) $site->required_guards
                 || $before['required_day_guards'] !== (int) $site->required_day_guards
-                || $before['required_night_guards'] !== (int) $site->required_night_guards;
+                || $before['required_night_guards'] !== (int) $site->required_night_guards
+                || $before['required_day_armed_guards'] !== (int) $site->required_day_armed_guards
+                || $before['required_day_unarmed_guards'] !== (int) $site->required_day_unarmed_guards
+                || $before['required_night_armed_guards'] !== (int) $site->required_night_armed_guards
+                || $before['required_night_unarmed_guards'] !== (int) $site->required_night_unarmed_guards;
 
             if ($changed) {
                 $this->organization->syncSiteManpower($site, 'Manpower requirement updated');

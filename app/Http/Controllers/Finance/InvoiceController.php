@@ -8,7 +8,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Site;
-use App\Services\EntityRelatedRecordsService;
 use App\Services\EntityTimelineService;
 use App\Services\Finance\FinanceHistoryService;
 use App\Services\Finance\InvoicePdfService;
@@ -19,6 +18,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -31,7 +31,6 @@ class InvoiceController extends Controller
         private InvoiceService $invoices,
         private FinanceHistoryService $history,
         private EntityTimelineService $timeline,
-        private EntityRelatedRecordsService $relatedRecords,
         private ReportExportService $exports,
         private InvoicePdfService $pdf,
     ) {
@@ -80,10 +79,26 @@ class InvoiceController extends Controller
     {
         Gate::authorize('manageFinance');
 
+        $clients = Client::query()
+            ->with(['billingProfiles' => fn ($q) => $q->active()->latest('effective_from')])
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return view('finance.invoices.create', [
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
+            'clients' => $clients,
             'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code', 'client_id']),
             'currency' => Money::currency(),
+            'clientBillingHints' => $clients->mapWithKeys(function (Client $client) {
+                $profile = $client->billingProfiles->first();
+
+                return [
+                    $client->id => [
+                        'cash_no_tax' => (bool) ($profile?->cash_no_tax ?? false),
+                        'billing_mode' => $profile?->billing_mode?->value ?? 'monthly',
+                        'billing_mode_label' => $profile?->billing_mode?->label() ?? 'Monthly contracted posts',
+                    ],
+                ];
+            }),
         ]);
     }
 
@@ -91,9 +106,16 @@ class InvoiceController extends Controller
     {
         Gate::authorize('manageFinance');
 
+        $request->merge([
+            'site_id' => $request->filled('site_id') ? $request->input('site_id') : null,
+        ]);
+
         $data = $request->validate([
             'client_id' => ['required', 'exists:clients,id'],
-            'site_id' => ['nullable', 'exists:sites,id'],
+            'site_id' => [
+                'nullable',
+                Rule::exists('sites', 'id')->where(fn ($q) => $q->where('client_id', $request->integer('client_id'))),
+            ],
             'period_start' => ['required', 'date'],
             'period_end' => ['required', 'date', 'after_or_equal:period_start'],
             'due_date' => ['nullable', 'date'],
@@ -131,7 +153,6 @@ class InvoiceController extends Controller
             'history' => $this->history->forSubject($invoice),
             'recordMeta' => $this->history->recordMeta($invoice),
             'timeline' => $this->timeline->for($invoice, request()->user()),
-            'relatedPanels' => $this->relatedRecords->for($invoice),
             'lifecycle' => [
                 'steps' => InvoiceStatus::lifecycleSteps(),
                 'current' => max(0, $invoice->status->lifecycleStep()),
@@ -163,9 +184,16 @@ class InvoiceController extends Controller
     {
         Gate::authorize('manageFinance');
 
+        $request->merge([
+            'site_id' => $request->filled('site_id') ? $request->input('site_id') : null,
+        ]);
+
         $data = $request->validate([
             'client_id' => ['required', 'exists:clients,id'],
-            'site_id' => ['nullable', 'exists:sites,id'],
+            'site_id' => [
+                'nullable',
+                Rule::exists('sites', 'id')->where(fn ($q) => $q->where('client_id', $request->integer('client_id'))),
+            ],
             'period_start' => ['required', 'date'],
             'period_end' => ['required', 'date', 'after_or_equal:period_start'],
             'due_date' => ['nullable', 'date'],

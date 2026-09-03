@@ -7,7 +7,7 @@
 </head>
 <body>
     @include('documents.pdf.partials.letterhead', [
-        'documentTitle' => 'Tax Invoice',
+        'documentTitle' => ((float) $invoice->tax_amount > 0) ? 'Tax Invoice' : 'Invoice',
         'documentReference' => $invoice->reference,
         'documentDate' => $invoice->issue_date?->format('d M Y'),
     ])
@@ -76,7 +76,7 @@
                 <td class="text-right">{{ \App\Support\Money::format($invoice->subtotal, $invoice->currency) }}</td>
             </tr>
             <tr>
-                <td colspan="4" class="text-right text-muted">Tax</td>
+                <td colspan="4" class="text-right text-muted">VAT</td>
                 <td class="text-right">{{ \App\Support\Money::format($invoice->tax_amount, $invoice->currency) }}</td>
             </tr>
             <tr>
@@ -102,6 +102,9 @@
     <div class="payment-box">
         <p class="section-title" style="margin-top: 0;">Payment terms &amp; bank details</p>
         <p class="body-text">{{ $paymentTerms }}</p>
+        @if ((float) $invoice->tax_amount <= 0)
+            <p class="body-text">No VAT charged on this invoice. Settle the full balance due.</p>
+        @endif
         @if ($bankDetails)
             <p class="body-text" style="margin-bottom: 0;"><strong>Bank:</strong> {{ $bankDetails }}</p>
         @endif
@@ -122,6 +125,6 @@
         </tr>
     </table>
 
-    <p class="footer-note">{{ config('psg.email_footer') ?: 'This is a computer-generated tax invoice.' }}</p>
+    <p class="footer-note">{{ config('psg.email_footer') ?: (((float) $invoice->tax_amount > 0) ? 'This is a computer-generated tax invoice.' : 'This is a computer-generated invoice.') }}</p>
 </body>
 </html>

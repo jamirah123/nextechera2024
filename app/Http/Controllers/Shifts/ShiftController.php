@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Shifts;
 
+use App\Enums\DeploymentShiftType;
 use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
@@ -43,10 +44,17 @@ class ShiftController extends Controller
 
         $this->lifecycle->sync();
 
-        $date = $request->input('date', now()->toDateString());
+        $date = $request->filled('date')
+            ? $request->string('date')->toString()
+            : now()->toDateString();
 
         $shifts = Shift::query()
-            ->with(['assignedGuard:id,employment_id,full_name', 'site:id,name,code', 'region:id,name', 'supervisor:id,name'])
+            ->with([
+                'assignedGuard:id,employment_id,full_name',
+                'site:id,name,code,required_day_guards,required_night_guards,required_guards',
+                'region:id,name',
+                'supervisor:id,name',
+            ])
             ->search($request->string('q')->toString())
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('period'), fn ($q) => $q->where('period', $request->string('period')))
@@ -57,6 +65,80 @@ class ShiftController extends Controller
             ->orderBy('starts_at')
             ->paginate(table_per_page())
             ->withQueryString();
+
+        // Overstaff flags follow current site postings (same rules as deployment capacity),
+        // not shift row counts — ending a deployment clears surplus even if a shift remains.
+        $shiftSiteIds = Shift::query()
+            ->forDate($date)
+            ->blocking()
+            ->distinct()
+            ->pluck('site_id')
+            ->all();
+
+        $deploymentPeriodCounts = collect();
+        $overstaffedSites = [];
+
+        if ($shiftSiteIds !== []) {
+            $rawDeploymentCounts = Deployment::query()
+                ->current()
+                ->whereIn('site_id', $shiftSiteIds)
+                ->selectRaw('site_id, shift_type, count(*) as deployed')
+                ->groupBy('site_id', 'shift_type')
+                ->get()
+                ->groupBy('site_id');
+
+            $deploymentPeriodCounts = $rawDeploymentCounts->map(function ($rows) {
+                $byType = $rows->mapWithKeys(function ($row) {
+                    $type = $row->shift_type instanceof DeploymentShiftType
+                        ? $row->shift_type->value
+                        : (string) $row->getRawOriginal('shift_type');
+
+                    return [$type => (int) $row->deployed];
+                });
+
+                $rotating = (int) ($byType[DeploymentShiftType::Rotating->value] ?? 0);
+
+                return [
+                    ShiftPeriod::Day->value => (int) ($byType[DeploymentShiftType::Day->value] ?? 0) + $rotating,
+                    ShiftPeriod::Night->value => (int) ($byType[DeploymentShiftType::Night->value] ?? 0) + $rotating,
+                ];
+            });
+
+            $sitesForCoverage = Site::query()
+                ->whereIn('id', $shiftSiteIds)
+                ->get(['id', 'name', 'required_day_guards', 'required_night_guards', 'required_guards'])
+                ->keyBy('id');
+
+            foreach ($shiftSiteIds as $siteId) {
+                $site = $sitesForCoverage->get($siteId);
+                if (! $site) {
+                    continue;
+                }
+
+                $byPeriod = $deploymentPeriodCounts->get($siteId, [
+                    ShiftPeriod::Day->value => 0,
+                    ShiftPeriod::Night->value => 0,
+                ]);
+
+                foreach ([ShiftPeriod::Day->value, ShiftPeriod::Night->value] as $periodValue) {
+                    $deployed = (int) ($byPeriod[$periodValue] ?? 0);
+                    $required = $periodValue === ShiftPeriod::Night->value
+                        ? (int) $site->required_night_guards
+                        : (int) $site->required_day_guards;
+                    if ($required <= 0) {
+                        $required = (int) $site->required_guards;
+                    }
+                    if ($required > 0 && $deployed > $required) {
+                        $overstaffedSites[] = [
+                            'site' => $site->name,
+                            'period' => ShiftPeriod::from($periodValue)->label(),
+                            'deployed' => $deployed,
+                            'required' => $required,
+                        ];
+                    }
+                }
+            }
+        }
 
         $statsBase = Shift::query()->forDate($date);
 
@@ -70,12 +152,16 @@ class ShiftController extends Controller
             'shiftTypes' => ShiftType::cases(),
             'filters' => $request->only(['q', 'date', 'status', 'period', 'shift_type', 'region_id', 'site_id', 'all_dates']),
             'canManage' => $request->user()->can('create', Shift::class),
+            'deploymentPeriodCounts' => $deploymentPeriodCounts,
+            'overstaffedSites' => $overstaffedSites,
             'stats' => [
                 'scheduled' => (clone $statsBase)->where('status', ShiftStatus::Scheduled)->count(),
+                'recorded' => (clone $statsBase)->where('status', ShiftStatus::Recorded)->count(),
                 'confirmed' => (clone $statsBase)->where('status', ShiftStatus::Confirmed)->count(),
                 'in_progress' => (clone $statsBase)->where('status', ShiftStatus::InProgress)->count(),
                 'completed' => (clone $statsBase)->where('status', ShiftStatus::Completed)->count(),
                 'missed' => (clone $statsBase)->where('status', ShiftStatus::Missed)->count(),
+                'incomplete' => (clone $statsBase)->where('status', ShiftStatus::Incomplete)->count(),
                 'cancelled' => (clone $statsBase)->where('status', ShiftStatus::Cancelled)->count(),
             ],
         ]);
@@ -128,14 +214,16 @@ class ShiftController extends Controller
         $this->authorize('create', Shift::class);
 
         $user = $request->user();
-        $date = $request->input('date', now()->toDateString());
+        $date = $request->filled('date')
+            ? $request->string('date')->toString()
+            : now()->toDateString();
         $regionId = $user->regionId();
         $showAll = $request->boolean('show_all');
 
         $deployments = Deployment::query()
             ->current()
             ->with([
-                'assignedGuard:id,employment_id,full_name,operational_status',
+                'assignedGuard:id,employment_id,full_name,operational_status,guard_classification',
                 'site:id,name,code,region_id',
                 'region:id,name,code',
             ])
@@ -189,6 +277,7 @@ class ShiftController extends Controller
                 ->get(['id', 'name', 'code', 'region_id']),
             'periods' => ShiftPeriod::cases(),
             'shiftTypes' => ShiftType::cases(),
+            'classifications' => GuardClassification::cases(),
             'filters' => $request->only(['q', 'date', 'region_id', 'site_id', 'show_all']),
             'showAll' => $showAll,
             'stats' => [
@@ -230,6 +319,7 @@ class ShiftController extends Controller
         foreach ($selectedIds as $deploymentId) {
             $rowRules["rows.{$deploymentId}.period"] = ['required', Rule::in(ShiftPeriod::values())];
             $rowRules["rows.{$deploymentId}.shift_type"] = ['required', Rule::in(ShiftType::values())];
+            $rowRules["rows.{$deploymentId}.guard_classification"] = ['required', Rule::in(GuardClassification::values())];
         }
 
         $data = array_merge($data, $request->validate($rowRules));
@@ -252,7 +342,7 @@ class ShiftController extends Controller
                 'deployment_id' => (int) $deploymentId,
                 'period' => $row['period'],
                 'shift_type' => $row['shift_type'],
-                'guard_classification' => GuardClassification::Unarmed->value,
+                'guard_classification' => $row['guard_classification'],
             ];
         }
 
@@ -282,7 +372,7 @@ class ShiftController extends Controller
 
         return redirect()
             ->route('shifts.show', $shift)
-            ->with('status', 'Shift scheduled successfully.');
+            ->with('status', 'Shift recorded successfully.');
     }
 
     public function show(Shift $shift): View
@@ -299,6 +389,7 @@ class ShiftController extends Controller
             'supervisor',
             'deployment',
             'creator',
+            'updater',
             'approver',
             'overrideBy',
             'replacedShift.assignedGuard',
@@ -317,7 +408,7 @@ class ShiftController extends Controller
     {
         $this->authorize('update', $shift);
 
-        return view('shifts.edit', array_merge($this->formData(request()), [
+        return view('shifts.edit', array_merge($this->formData(request(), $shift), [
             'shift' => $shift,
         ]));
     }
@@ -409,23 +500,46 @@ class ShiftController extends Controller
     }
 
     /** @return array<string, mixed> */
-    private function formData(Request $request): array
+    private function formData(Request $request, ?Shift $shift = null): array
     {
-        $deployedGuards = Guard::query()
+        $user = $request->user();
+        $regionId = $user?->regionId();
+
+        // Create/allocate: prefer currently deployed guards.
+        // Edit/correct: allow any active guard so wrong-guard records can be fixed.
+        $guardsQuery = Guard::query()
             ->activeEmployment()
-            ->whereHas('deployments', fn ($q) => $q->current())
+            ->when($user?->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
             ->with(['currentSite:id,name,code', 'currentSupervisor:id,name'])
-            ->orderBy('full_name')
-            ->get(['id', 'employment_id', 'full_name', 'current_site_id', 'region_id', 'operational_status']);
+            ->orderBy('full_name');
+
+        if (! $shift) {
+            $guardsQuery->whereHas('deployments', fn ($q) => $q->current());
+        }
+
+        $guards = $guardsQuery->get([
+            'id', 'employment_id', 'full_name', 'current_site_id', 'region_id', 'operational_status',
+        ]);
+
+        if ($shift?->assignedGuard && ! $guards->contains('id', $shift->guard_id)) {
+            $guards->prepend($shift->assignedGuard);
+        }
 
         return [
-            'guards' => $deployedGuards,
-            'sites' => Site::query()->active()->with('region:id,name')->orderBy('name')->get(['id', 'name', 'code', 'region_id', 'supervisor_id']),
+            'guards' => $guards,
+            'sites' => Site::query()
+                ->active()
+                ->when($user?->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+                ->with('region:id,name')
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'region_id', 'supervisor_id']),
             'periods' => ShiftPeriod::cases(),
             'shiftTypes' => ShiftType::cases(),
             'selectedGuardId' => $request->integer('guard_id') ?: null,
             'selectedSiteId' => $request->integer('site_id') ?: null,
-            'selectedDate' => $request->input('date', now()->toDateString()),
+            'selectedDate' => $request->filled('date')
+                ? $request->string('date')->toString()
+                : now()->toDateString(),
             'defaultDayStart' => config('psg.shift_defaults.day.start', '06:00'),
             'defaultDayEnd' => config('psg.shift_defaults.day.end', '18:00'),
             'defaultNightStart' => config('psg.shift_defaults.night.start', '18:00'),

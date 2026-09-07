@@ -10,8 +10,8 @@
         @csrf
 
         <x-form-panel
-            title="Deploy guard"
-            subtitle="Create an active deployment. Transfers will preserve this record as history."
+            title="Post guard to site"
+            subtitle="Creates the site posting and records each duty as Shift recorded. Set Completed or another outcome later if needed."
             :back="route('deployments.index')"
         >
             <div class="form-grid">
@@ -33,13 +33,32 @@
                     @endforeach
                 </x-form-field>
 
-                <x-form-field label="Shift type" name="shift_type" type="select" :required="true">
+                <x-form-field label="Posting type" name="shift_type" type="select" :required="true">
                     @foreach ($shiftTypes as $type)
                         <option value="{{ $type->value }}" @selected(old('shift_type', 'day') === $type->value)>{{ $type->label() }}</option>
                     @endforeach
                 </x-form-field>
 
-                <x-form-field label="Start date" name="start_date" type="date" :value="old('start_date', now()->toDateString())" />
+                <x-form-field label="Duty type" name="duty_type" type="select" :required="true">
+                    <option value="{{ \App\Enums\ShiftType::Normal->value }}" @selected(old('duty_type', 'normal') === 'normal')">Normal</option>
+                    <option value="{{ \App\Enums\ShiftType::Overtime->value }}" @selected(old('duty_type') === 'overtime')">Overtime</option>
+                </x-form-field>
+
+                <x-form-field
+                    label="Shift date"
+                    name="start_date"
+                    type="date"
+                    :value="old('start_date', now()->toDateString())"
+                    :required="true"
+                    help="Date the guard actually worked this duty (can be a past missed day). Entry time is stored separately."
+                />
+                <x-form-field
+                    label="Through date (optional)"
+                    name="duty_date_to"
+                    type="date"
+                    :value="old('duty_date_to')"
+                    help="Backfill several days (max 31). Each day keeps its own shift date; created-at stays when you save."
+                />
                 <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes')" class="sm:col-span-2" />
             </div>
 

@@ -10,6 +10,39 @@ use Illuminate\Support\Facades\DB;
 
 class OrganizationService
 {
+    /**
+     * Seeded sites often only set required_day_guards / required_night_guards.
+     * Billing and the client list read the armed/unarmed day/night columns.
+     */
+    public function ensureArmedUnarmedBreakdown(Site $site): Site
+    {
+        $day = (int) $site->required_day_guards;
+        $night = (int) $site->required_night_guards;
+        $breakdown = (int) $site->required_day_armed_guards
+            + (int) $site->required_day_unarmed_guards
+            + (int) $site->required_night_armed_guards
+            + (int) $site->required_night_unarmed_guards;
+
+        if ($breakdown > 0 || ($day + $night) <= 0) {
+            return $site;
+        }
+
+        $dayArmed = (int) floor($day * 0.3);
+        $nightArmed = (int) floor($night * 0.3);
+
+        $site->update([
+            'required_day_armed_guards' => $dayArmed,
+            'required_day_unarmed_guards' => $day - $dayArmed,
+            'required_night_armed_guards' => $nightArmed,
+            'required_night_unarmed_guards' => $night - $nightArmed,
+            'required_guards' => $day + $night,
+        ]);
+
+        $this->syncSiteManpower($site->fresh(), 'Armed/unarmed split from day/night totals');
+
+        return $site->fresh();
+    }
+
     public function syncSiteManpower(Site $site, ?string $notes = null): SiteManpowerRequirement
     {
         return DB::transaction(function () use ($site, $notes) {

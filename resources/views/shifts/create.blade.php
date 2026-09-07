@@ -59,7 +59,14 @@
                     @endforeach
                 </x-form-field>
 
-                <x-form-field label="Date" name="shift_date" type="date" :value="old('shift_date', $selectedDate)" :required="true" />
+                <x-form-field
+                    label="Shift date"
+                    name="shift_date"
+                    type="date"
+                    :value="old('shift_date', $selectedDate)"
+                    :required="true"
+                    help="Date the guard actually belongs to this duty. Use a past date to enter a missed shift — entry time is stored separately."
+                />
 
                 <x-form-field label="Period" name="period" type="select" :required="true" x-model="period" x-on:change="applyPeriod()">
                     @foreach ($periods as $period)
@@ -77,9 +84,16 @@
                     <p class="mt-0.5 text-[10px] text-slate-500">If end is earlier than start, the shift spans overnight.</p>
                 </div>
 
-                <x-form-field label="Shift type" name="shift_type" type="select" :required="true" class="sm:col-span-2">
+                <x-form-field label="Shift type" name="shift_type" type="select" :required="true">
                     @foreach ($shiftTypes as $type)
                         <option value="{{ $type->value }}" @selected(old('shift_type', 'normal') === $type->value)>{{ $type->label() }}</option>
+                    @endforeach
+                </x-form-field>
+                <x-form-field label="Classification" name="guard_classification" type="select" :required="true">
+                    @foreach (\App\Enums\GuardClassification::cases() as $classification)
+                        <option value="{{ $classification->value }}" @selected(old('guard_classification', 'unarmed') === $classification->value)>
+                            {{ $classification->label() }}
+                        </option>
                     @endforeach
                 </x-form-field>
                 <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes')" class="sm:col-span-2" />

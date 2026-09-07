@@ -21,7 +21,7 @@ class ManpowerCoverageReportService
     {
         return $this->baseQuery($request)
             ->get()
-            ->map(fn (Site $site) => $this->mapRow($site));
+            ->map(fn (Site $site) => $this->mapRow($site, $request));
     }
 
     /**
@@ -34,7 +34,7 @@ class ManpowerCoverageReportService
         return $this->baseQuery($request)
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (Site $site) => $this->mapRow($site));
+            ->through(fn (Site $site) => $this->mapRow($site, $request));
     }
 
     /**
@@ -60,19 +60,48 @@ class ManpowerCoverageReportService
     /**
      * @return array{site: Site, manpower: array<string, mixed>}
      */
-    private function mapRow(Site $site): array
+    private function mapRow(Site $site, Request $request): array
     {
+        $date = $request->filled('date') ? (string) $request->string('date') : null;
+
         return [
             'site' => $site,
-            'manpower' => $this->manpower->forSite($site),
+            'manpower' => $date
+                ? $this->manpower->forSiteOnDate($site, $date)
+                : $this->manpower->forSite($site),
         ];
     }
 
     /**
      * @return list<string>
      */
-    public function headers(): array
+    public function headers(Request $request): array
     {
+        if ($request->filled('date')) {
+            return [
+                '#',
+                'Site Code',
+                'Site Name',
+                'Client',
+                'Region',
+                'Coverage Date',
+                'Required',
+                'Required Day',
+                'Required Night',
+                'Deployed',
+                'Allocated',
+                'Allocated Day',
+                'Allocated Night',
+                'Deploy Shortage',
+                'Allocation Shortage',
+                'Deploy Coverage %',
+                'Allocation Coverage %',
+                'Deploy Status',
+                'Allocation Status',
+                'Generated At',
+            ];
+        }
+
         return [
             '#',
             'Site Code',
@@ -99,13 +128,39 @@ class ManpowerCoverageReportService
      * @param  Collection<int, array{site: Site, manpower: array<string, mixed>}>  $rows
      * @return list<list<string|int|float>>
      */
-    public function exportRows(Collection $rows): array
+    public function exportRows(Collection $rows, Request $request): array
     {
         $generatedAt = now()->timezone(config('app.timezone'))->format('Y-m-d H:i');
+        $dateMode = $request->filled('date');
 
-        return $rows->values()->map(function (array $row, int $index) use ($generatedAt) {
+        return $rows->values()->map(function (array $row, int $index) use ($generatedAt, $dateMode, $request) {
             $site = $row['site'];
             $mp = $row['manpower'];
+
+            if ($dateMode) {
+                return [
+                    $index + 1,
+                    $site->code,
+                    $site->name,
+                    $site->client?->name ?? '',
+                    $site->region?->name ?? '',
+                    (string) $request->string('date'),
+                    $mp['required'],
+                    $mp['required_day'],
+                    $mp['required_night'],
+                    $mp['deployed'],
+                    $mp['allocated'],
+                    $mp['allocated_day'],
+                    $mp['allocated_night'],
+                    $mp['shortage'],
+                    $mp['allocation_shortage'],
+                    $mp['coverage_percent'],
+                    $mp['allocation_coverage_percent'],
+                    $mp['status']->label(),
+                    $mp['allocation_status']->label(),
+                    $generatedAt,
+                ];
+            }
 
             return [
                 $index + 1,
@@ -133,6 +188,10 @@ class ManpowerCoverageReportService
     public function filename(Request $request, string $extension): string
     {
         $parts = ['psg-manpower-coverage', now()->format('Ymd-His')];
+
+        if ($request->filled('date')) {
+            $parts[] = 'date-'.str_replace('-', '', (string) $request->string('date'));
+        }
 
         if ($request->filled('region_id')) {
             $parts[] = 'region-'.$request->integer('region_id');

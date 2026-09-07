@@ -27,18 +27,32 @@ class ManpowerCoverageController extends Controller
         $this->authorize('viewAny', Site::class);
 
         $user = $request->user();
+        $date = $request->filled('date') ? (string) $request->string('date') : null;
         $rows = $this->report->paginate($request);
+        $regionFilter = $request->filled('region_id') ? $request->integer('region_id') : null;
+
+        $summary = $date
+            ? $this->manpower->forCompanyOnDate(
+                $date,
+                $user->mustStayInOwnRegion() ? $user->regionId() : $regionFilter,
+            )
+            : $this->manpower->forCompany();
 
         return view('organization.manpower.index', [
             'rows' => $rows,
-            'company' => $this->manpower->forCompany(),
+            'company' => $summary,
+            'dateMode' => filled($date),
+            'coverageDate' => $date,
             'regions' => Region::query()
                 ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('id', $user->regionId()))
                 ->orderBy('name')
                 ->get(['id', 'name', 'code']),
-            'filters' => $request->only(['region_id', 'status']),
+            'filters' => $request->only(['region_id', 'status', 'date']),
             'statuses' => SiteStatus::cases(),
-            'exportQuery' => array_filter($request->only(['region_id', 'status']), fn ($v) => $v !== null && $v !== ''),
+            'exportQuery' => array_filter(
+                $request->only(['region_id', 'status', 'date']),
+                fn ($v) => $v !== null && $v !== ''
+            ),
         ]);
     }
 
@@ -50,8 +64,8 @@ class ManpowerCoverageController extends Controller
 
         return $this->exporter->downloadCsv(
             $this->report->filename($request, 'csv'),
-            $this->report->headers(),
-            $this->report->exportRows($rows),
+            $this->report->headers($request),
+            $this->report->exportRows($rows, $request),
         );
     }
 }

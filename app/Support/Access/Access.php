@@ -16,4 +16,12 @@ class Access
     {
         return app(RolePermissionService::class)->roleCan($role, $permission);
     }
+
+    /**
+     * Operations managers may create/edit but must not permanently delete records.
+     */
+    public static function userCanDelete(User $user): bool
+    {
+        return $user->role !== UserRole::OperationsManager;
+    }
 }

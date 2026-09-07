@@ -4,10 +4,12 @@ namespace App\Services\Finance;
 
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
+use App\Enums\GlJournalSource;
 use App\Enums\PayrollRunStatus;
 use App\Models\PayrollRun;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\Finance\Ledger\LedgerPostingService;
 use App\Support\Money;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -19,6 +21,7 @@ class PayrollRunService
         private PayrollCalculationService $calculator,
         private PaymentService $payments,
         private AuditService $audit,
+        private LedgerPostingService $ledger,
     ) {
     }
 
@@ -117,6 +120,7 @@ class PayrollRunService
         );
 
         $run = $run->fresh(['payslips', 'approver']);
+        $this->ledger->postPayrollAccrual($run, $actor);
 
         return $run;
     }
@@ -197,6 +201,7 @@ class PayrollRunService
             ]);
 
             $this->payments->recordPayrollDisbursement($run->fresh(), $actor);
+            $this->ledger->postPayrollPayment($run->fresh(), $actor);
 
             $this->audit->log(
                 action: 'payroll.paid',
@@ -221,6 +226,11 @@ class PayrollRunService
 
             if ($previousStatus === PayrollRunStatus::Paid) {
                 $this->payments->removePayrollDisbursement($run);
+                $this->ledger->reverseForDocument(GlJournalSource::PayrollPayment, $run, auth()->user(), 'Payroll cancelled');
+            }
+
+            if (in_array($previousStatus, [PayrollRunStatus::Approved, PayrollRunStatus::Paid], true)) {
+                $this->ledger->reverseForDocument(GlJournalSource::PayrollAccrual, $run, auth()->user(), 'Payroll cancelled');
             }
 
             if ($run->payslips()->exists()) {

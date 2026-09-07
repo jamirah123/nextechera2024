@@ -9,7 +9,7 @@ class SyncShiftStatusesCommand extends Command
 {
     protected $signature = 'psg:sync-shift-statuses';
 
-    protected $description = 'Promote active shifts to in progress, complete finished duty, and mark no-shows as missed';
+    protected $description = 'Promote active shifts to in progress and complete finished duty windows';
 
     public function handle(ShiftLifecycleService $lifecycle): int
     {

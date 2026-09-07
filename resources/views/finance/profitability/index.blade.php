@@ -52,23 +52,21 @@
             </span>
         </p>
 
-        @foreach ([
-            ['By client', $report['by_client']],
-            ['By site', $report['by_site']],
-            ['By region', $report['by_region']],
-        ] as [$title, $rows])
+        @foreach ($tables as $table)
+            @php $rows = $table['rows']; @endphp
             <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-                <div class="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-3 py-2.5 dark:border-slate-700 dark:from-slate-800 dark:to-slate-900">
-                    <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ $title }}</h2>
+                <div class="border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white px-3 py-2 dark:border-slate-700 dark:from-slate-800 dark:to-slate-900">
+                    <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">{{ $table['title'] }}</h2>
                 </div>
-                @if (empty($rows))
-                    <p class="px-5 py-6 text-sm text-slate-500 dark:text-slate-400">No activity in this period.</p>
+                @if ($rows->isEmpty())
+                    <p class="px-3 py-4 text-xs text-slate-500 dark:text-slate-400">No activity in this period.</p>
                 @else
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-100 text-sm dark:divide-slate-700">
+                        <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-700">
                             <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                                 <tr>
-                                    <th class="px-3 py-2 text-left">Name</th>
+                                    <th class="w-14 px-3 py-2">#</th>
+                                    <th class="px-3 py-2">Name</th>
                                     <th class="px-3 py-2 text-right">Revenue</th>
                                     <th class="px-3 py-2 text-right">Payroll cost</th>
                                     <th class="px-3 py-2 text-right">Profit</th>
@@ -78,22 +76,24 @@
                             <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                                 @foreach ($rows as $row)
                                     <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
+                                        <td class="px-3 py-2"><x-table-serial :paginator="$rows" :index="$loop->index" /></td>
                                         <td class="px-3 py-2">
                                             <p class="font-semibold text-slate-900 dark:text-slate-100">{{ $row['label'] }}</p>
-                                            <p class="text-xs text-slate-500 dark:text-slate-400">{{ $row['code'] ?? '' }}{{ isset($row['client']) ? ' · '.$row['client'] : '' }}</p>
+                                            <p class="text-[11px] text-slate-500 dark:text-slate-400">{{ $row['code'] ?? '' }}{{ isset($row['client']) ? ' · '.$row['client'] : '' }}</p>
                                         </td>
-                                        <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">{{ \App\Support\Money::format($row['revenue']) }}</td>
-                                        <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                                        <td class="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100">{{ \App\Support\Money::format($row['revenue']) }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100">
                                             {{ \App\Support\Money::format($row['cost']) }}
                                             <span class="block text-[10px] font-normal text-slate-500 dark:text-slate-400">{{ ($row['cost_source'] ?? 'estimated') === 'actual' ? 'Paid' : 'Est.' }}</span>
                                         </td>
-                                        <td class="px-3 py-2 text-right font-semibold @if($row['profit'] >= 0) text-emerald-700 dark:text-emerald-400 @else text-rose-700 dark:text-rose-400 @endif">{{ \App\Support\Money::format($row['profit']) }}</td>
-                                        <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">{{ $row['margin'] !== null ? $row['margin'].'%' : '—' }}</td>
+                                        <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums @if($row['profit'] >= 0) text-emerald-700 dark:text-emerald-400 @else text-rose-700 dark:text-rose-400 @endif">{{ \App\Support\Money::format($row['profit']) }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100">{{ $row['margin'] !== null ? $row['margin'].'%' : '—' }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
+                    <div class="no-print">{{ $rows->links() }}</div>
                 @endif
             </section>
         @endforeach

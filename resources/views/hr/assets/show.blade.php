@@ -17,6 +17,8 @@
                     <x-icon name="pencil" class="h-3.5 w-3.5" />
                     Edit
                 </a>
+            @endif
+            @if (($canDelete ?? false) && $canModify)
                 <x-delete-button
                     :action="route('assets.destroy', $issuance)"
                     label="Delete"

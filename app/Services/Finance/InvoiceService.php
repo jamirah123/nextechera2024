@@ -6,6 +6,7 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Enums\BillingMode;
 use App\Enums\GuardClassification;
+use App\Enums\GlJournalSource;
 use App\Enums\InvoiceStatus;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
@@ -16,6 +17,7 @@ use App\Models\InvoiceLine;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Services\AuditService;
+use App\Services\Finance\Ledger\LedgerPostingService;
 use App\Services\ProactiveAlertService;
 use App\Support\Money;
 use Carbon\Carbon;
@@ -25,8 +27,10 @@ use InvalidArgumentException;
 
 class InvoiceService
 {
-    public function __construct(private AuditService $audit)
-    {
+    public function __construct(
+        private AuditService $audit,
+        private LedgerPostingService $ledger,
+    ) {
     }
 
     /**
@@ -216,7 +220,10 @@ class InvoiceService
                 subject: $invoice,
             );
 
-            return $invoice->fresh(['client', 'site', 'lines', 'approver']);
+            $fresh = $invoice->fresh(['client', 'site', 'lines', 'approver']);
+            $this->ledger->postInvoice($fresh, auth()->user());
+
+            return $fresh;
         });
     }
 
@@ -232,6 +239,13 @@ class InvoiceService
             }
 
             $invoice->update(['status' => InvoiceStatus::Cancelled]);
+
+            $this->ledger->reverseForDocument(
+                GlJournalSource::Invoice,
+                $invoice,
+                auth()->user(),
+                'Invoice cancelled'
+            );
 
             $this->audit->log(
                 action: 'finance.invoice_cancelled',

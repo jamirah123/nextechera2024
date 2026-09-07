@@ -40,7 +40,7 @@
                     <option value="{{ $reason->value }}" @selected(($filters['reason'] ?? '') === $reason->value)>{{ $reason->label() }}</option>
                 @endforeach
             </x-form-field>
-            <x-form-field label="Site" name="site_id" type="select" data-searchable="true" x-on:change="$refs.filterForm.requestSubmit()">
+            <x-form-field label="Site" name="site_id" type="select" data-searchable="true" class="sm:col-span-2 xl:col-span-2" x-on:change="$refs.filterForm.requestSubmit()">
                 <option value="">All sites</option>
                 @foreach ($sites as $site)
                     <option value="{{ $site->id }}" @selected((string) ($filters['site_id'] ?? '') === (string) $site->id)>{{ $site->code }} — {{ $site->name }}</option>

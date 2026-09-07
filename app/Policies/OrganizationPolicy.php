@@ -30,7 +30,8 @@ class OrganizationPolicy
 
     public function deleteAny(User $user): bool
     {
-        return Access::userCan($user, 'organization.manage');
+        return Access::userCanDelete($user)
+            && Access::userCan($user, 'organization.manage');
     }
 
     public function delete(User $user, Model $model): bool

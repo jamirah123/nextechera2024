@@ -195,7 +195,7 @@ class BillingController extends Controller
         $data['is_active'] = $request->boolean('is_active', true);
         $data['cash_no_tax'] = $request->boolean('cash_no_tax');
 
-        $manpower = $this->manpowerFor(
+        $manpower = $this->billing->manpowerFor(
             (int) $data['client_id'],
             isset($data['site_id']) ? (int) $data['site_id'] : null,
         );
@@ -241,34 +241,6 @@ class BillingController extends Controller
         }
 
         return $data;
-    }
-
-    /**
-     * @return array{day_armed: int, day_unarmed: int, night_armed: int, night_unarmed: int}
-     */
-    private function manpowerFor(int $clientId, ?int $siteId): array
-    {
-        $query = Site::query()->where('client_id', $clientId);
-
-        if ($siteId) {
-            $query->where('id', $siteId);
-        }
-
-        $row = $query
-            ->selectRaw('
-                COALESCE(SUM(required_day_armed_guards), 0) as day_armed,
-                COALESCE(SUM(required_day_unarmed_guards), 0) as day_unarmed,
-                COALESCE(SUM(required_night_armed_guards), 0) as night_armed,
-                COALESCE(SUM(required_night_unarmed_guards), 0) as night_unarmed
-            ')
-            ->first();
-
-        return [
-            'day_armed' => (int) ($row->day_armed ?? 0),
-            'day_unarmed' => (int) ($row->day_unarmed ?? 0),
-            'night_armed' => (int) ($row->night_armed ?? 0),
-            'night_unarmed' => (int) ($row->night_unarmed ?? 0),
-        ];
     }
 
     /** @return array<string, mixed> */

@@ -17,7 +17,7 @@ class GlobalSearchController extends Controller
 
         return response()->json([
             'query' => $query,
-            'results' => $search->search($query),
+            'results' => $search->search($query, $request->user()),
         ]);
     }
 }

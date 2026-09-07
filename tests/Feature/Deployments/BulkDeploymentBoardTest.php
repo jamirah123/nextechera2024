@@ -7,6 +7,7 @@ use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftStatus;
+use App\Enums\ShiftType;
 use App\Enums\UserRole;
 use App\Models\Deployment;
 use App\Models\Guard;
@@ -206,7 +207,8 @@ class BulkDeploymentBoardTest extends TestCase
         $this->assertDatabaseHas('shifts', [
             'guard_id' => $guard->id,
             'site_id' => $site->id,
-            'status' => ShiftStatus::Scheduled->value,
+            'status' => ShiftStatus::Recorded->value,
+            'shift_type' => ShiftType::Normal->value,
         ]);
 
         $this->assertSame(1, \App\Models\Shift::query()

@@ -32,6 +32,13 @@
             @endforeach
         </x-form-field>
         <x-form-field label="Rank / designation" name="rank_designation" :value="old('rank_designation', $guard?->rank_designation)" placeholder="e.g. Security Guard" />
+        <x-form-field label="Classification" name="guard_classification" type="select" :required="true" help="Armed posts require an armed-classified guard.">
+            @foreach (\App\Enums\GuardClassification::cases() as $classification)
+                <option value="{{ $classification->value }}" @selected(old('guard_classification', $guard?->guard_classification?->value ?? 'unarmed') === $classification->value)>
+                    {{ $classification->label() }}
+                </option>
+            @endforeach
+        </x-form-field>
         <x-form-field label="Assigned region" name="region_id" type="select">
             <option value="">Unassigned</option>
             @foreach ($regions as $region)

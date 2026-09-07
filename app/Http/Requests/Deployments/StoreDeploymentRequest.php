@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Deployments;
 
 use App\Enums\DeploymentShiftType;
+use App\Enums\ShiftType;
 use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Site;
@@ -24,7 +25,9 @@ class StoreDeploymentRequest extends FormRequest
             'guard_id' => ['required', 'exists:guards,id'],
             'site_id' => ['required', 'exists:sites,id'],
             'shift_type' => ['required', Rule::in(DeploymentShiftType::values())],
-            'start_date' => ['nullable', 'date'],
+            'duty_type' => ['nullable', Rule::in([ShiftType::Normal->value, ShiftType::Overtime->value])],
+            'start_date' => ['required', 'date'],
+            'duty_date_to' => ['nullable', 'date', 'after_or_equal:start_date'],
             'notes' => ['nullable', 'string'],
         ];
     }

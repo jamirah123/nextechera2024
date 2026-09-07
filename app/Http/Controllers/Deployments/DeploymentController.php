@@ -11,16 +11,18 @@ use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Deployments\StoreDeploymentRequest;
 use App\Http\Requests\Deployments\TransferDeploymentRequest;
+use App\Http\Requests\Deployments\UpdateDeploymentRequest;
 use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Region;
 use App\Models\Site;
 use App\Models\DeploymentTransfer;
 use App\Services\AbsenceService;
-use App\Services\Documents\LetterPdfService;
 use App\Services\DeploymentService;
+use App\Services\Documents\LetterPdfService;
 use App\Services\Deployments\BulkDeploymentService;
 use App\Services\Shifts\BulkShiftAllocationService;
+use App\Services\Shifts\ShiftLifecycleService;
 use App\Support\Deployments\DeploymentShiftSchedule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,6 +41,7 @@ class DeploymentController extends Controller
         private BulkShiftAllocationService $bulkAllocation,
         private AbsenceService $absences,
         private LetterPdfService $letters,
+        private ShiftLifecycleService $shiftLifecycle,
     ) {
     }
 
@@ -48,6 +51,9 @@ class DeploymentController extends Controller
 
         $user = $request->user();
         $regionId = $user->regionId();
+        $asOfDate = $request->filled('date')
+            ? $request->date('date')->toDateString()
+            : null;
 
         $deployments = Deployment::query()
             ->with(['assignedGuard:id,employment_id,full_name', 'site:id,name,code', 'region:id,name,code', 'supervisor:id,name'])
@@ -57,13 +63,25 @@ class DeploymentController extends Controller
             ->when($request->filled('region_id') && ! $user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $request->integer('region_id')))
             ->when($request->filled('site_id'), fn ($q) => $q->where('site_id', $request->integer('site_id')))
             ->when($request->filled('shift_type'), fn ($q) => $q->where('shift_type', $request->string('shift_type')))
-            ->when($request->boolean('current_only', true) && ! $request->filled('status'), fn ($q) => $q->current())
+            ->when(
+                $asOfDate !== null,
+                fn ($q) => $q->withDutyOnDate($asOfDate),
+                fn ($q) => $q->when(
+                    $request->boolean('current_only', true) && ! $request->filled('status'),
+                    fn ($inner) => $inner->current(),
+                ),
+            )
             ->latest('start_date')
             ->paginate(table_per_page())
             ->withQueryString();
 
         $statsBase = Deployment::query()
-            ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId));
+            ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+            ->when(
+                $asOfDate !== null,
+                fn ($q) => $q->withDutyOnDate($asOfDate),
+                fn ($q) => $q->current(),
+            );
 
         return view('deployments.index', [
             'deployments' => $deployments,
@@ -77,12 +95,13 @@ class DeploymentController extends Controller
                 ->get(['id', 'name', 'code', 'region_id']),
             'statuses' => DeploymentStatus::cases(),
             'shiftTypes' => DeploymentShiftType::cases(),
-            'filters' => $request->only(['q', 'status', 'region_id', 'site_id', 'shift_type', 'current_only']),
+            'asOfDate' => $asOfDate,
+            'filters' => $request->only(['q', 'status', 'region_id', 'site_id', 'shift_type', 'current_only', 'date']),
             'canManage' => $user->can('create', Deployment::class),
             'stats' => [
-                'active' => (clone $statsBase)->current()->count(),
-                'day' => (clone $statsBase)->current()->where('shift_type', DeploymentShiftType::Day)->count(),
-                'night' => (clone $statsBase)->current()->where('shift_type', DeploymentShiftType::Night)->count(),
+                'active' => (clone $statsBase)->count(),
+                'day' => (clone $statsBase)->where('shift_type', DeploymentShiftType::Day)->count(),
+                'night' => (clone $statsBase)->where('shift_type', DeploymentShiftType::Night)->count(),
                 'transferred' => (clone $statsBase)->where('status', DeploymentStatus::Transferred)->count(),
             ],
         ]);
@@ -144,10 +163,13 @@ class DeploymentController extends Controller
 
         $sites = Site::query()
             ->where('status', SiteStatus::Active)
+            ->with('region:id,name,code')
             ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
             ->when($request->filled('region_id') && ! $user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $request->integer('region_id')))
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'region_id']);
+
+        $sitesByRegion = $sites->groupBy(fn (Site $site) => (int) $site->region_id);
 
         $activeDeployments = Deployment::query()
             ->current()
@@ -156,7 +178,7 @@ class DeploymentController extends Controller
         return view('deployments.board', [
             'guards' => $guards,
             'sites' => $sites,
-            'sitesByRegion' => $sites->groupBy('region_id'),
+            'sitesByRegion' => $sitesByRegion,
             'regions' => $regions,
             'regionCounts' => $regionCounts,
             'shiftTypes' => DeploymentShiftType::cases(),
@@ -181,9 +203,8 @@ class DeploymentController extends Controller
             'selected' => ['required', 'array', 'min:1'],
             'selected.*' => ['integer', 'exists:guards,id'],
             'rows' => ['required', 'array'],
-            'start_date' => ['nullable', 'date'],
-            'allocate_shifts' => ['sometimes', 'boolean'],
-            'shift_date' => ['nullable', 'date', 'required_if:allocate_shifts,1,true'],
+            'start_date' => ['required', 'date'],
+            'duty_date_to' => ['nullable', 'date', 'after_or_equal:start_date'],
         ]);
 
         $selectedIds = collect($data['selected'])->map(fn ($id) => (int) $id)->unique()->values();
@@ -192,6 +213,10 @@ class DeploymentController extends Controller
         foreach ($selectedIds as $guardId) {
             $rowRules["rows.{$guardId}.site_id"] = ['required', 'exists:sites,id'];
             $rowRules["rows.{$guardId}.shift_type"] = ['required', Rule::in(DeploymentShiftType::values())];
+            $rowRules["rows.{$guardId}.duty_type"] = ['nullable', Rule::in([
+                \App\Enums\ShiftType::Normal->value,
+                \App\Enums\ShiftType::Overtime->value,
+            ])];
         }
 
         $data = array_merge($data, $request->validate($rowRules));
@@ -220,7 +245,9 @@ class DeploymentController extends Controller
                 'guard_id' => (int) $guardId,
                 'site_id' => (int) $site->id,
                 'shift_type' => $row['shift_type'],
-                'start_date' => $data['start_date'] ?? now()->toDateString(),
+                'duty_type' => $row['duty_type'] ?? \App\Enums\ShiftType::Normal->value,
+                'start_date' => $data['start_date'],
+                'duty_date_to' => $data['duty_date_to'] ?? null,
             ];
         }
 
@@ -234,38 +261,17 @@ class DeploymentController extends Controller
             $user->mustStayInOwnRegion() ? $user->regionId() : null,
         );
 
-        $message = "Deployed {$result['created']} guard(s).";
+        $message = "Posted {$result['created']} guard(s). Shift recorded for the duty date(s).";
         $errors = $result['errors'];
-
-        if ($request->boolean('allocate_shifts') && $result['deployed_guard_ids'] !== []) {
-            $shiftDate = $data['shift_date'] ?? $data['start_date'] ?? now()->toDateString();
-            $deployments = Deployment::query()
-                ->current()
-                ->whereIn('guard_id', $result['deployed_guard_ids'])
-                ->get();
-
-            $allocRows = $deployments->map(fn (Deployment $deployment) => [
-                'deployment_id' => $deployment->id,
-                'period' => $this->periodForDeployment($deployment)->value,
-            ])->all();
-
-            $allocResult = $this->bulkAllocation->allocate($shiftDate, $allocRows);
-            $message .= " Allocated {$allocResult['created']} shift(s).";
-
-            if ($allocResult['skipped'] > 0) {
-                $message .= " Skipped {$allocResult['skipped']} allocation(s).";
-            }
-
-            $errors = array_merge($errors, $allocResult['errors']);
-        }
 
         if ($result['skipped'] > 0) {
             $message .= " Skipped {$result['skipped']}.";
         }
 
-        return back()
+        return redirect()
+            ->route('deployments.board', $request->only(['q', 'region_id']))
             ->with('status', $message)
-            ->with('deployment_errors', array_slice($errors, 0, 12));
+            ->with('deployment_errors', $errors !== [] ? array_slice($errors, 0, 12) : null);
     }
 
     public function store(StoreDeploymentRequest $request): RedirectResponse
@@ -281,7 +287,7 @@ class DeploymentController extends Controller
 
         return redirect()
             ->route('deployments.show', $deployment)
-            ->with('status', 'Guard deployed successfully.');
+            ->with('status', 'Guard posted. Shift recorded for the duty date(s).');
     }
 
     public function show(Deployment $deployment): View
@@ -312,6 +318,49 @@ class DeploymentController extends Controller
             'canTransfer' => request()->user()->can('transfer', $deployment) && $deployment->isActive(),
             'canEnd' => request()->user()->can('end', $deployment) && $deployment->isActive(),
         ]);
+    }
+
+    public function edit(Deployment $deployment): View
+    {
+        $this->authorize('update', $deployment);
+
+        $user = request()->user();
+        $regionId = $user->regionId();
+
+        $guards = Guard::query()
+            ->activeEmployment()
+            ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+            ->orderBy('full_name')
+            ->get(['id', 'employment_id', 'full_name', 'region_id', 'operational_status']);
+
+        if ($deployment->assignedGuard && ! $guards->contains('id', $deployment->guard_id)) {
+            $guards->prepend($deployment->assignedGuard);
+        }
+
+        return view('deployments.edit', [
+            'deployment' => $deployment->load(['assignedGuard', 'site', 'region']),
+            'guards' => $guards,
+            'sites' => Site::query()
+                ->where('status', SiteStatus::Active)
+                ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+                ->with('region:id,name')
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'region_id']),
+            'shiftTypes' => DeploymentShiftType::cases(),
+        ]);
+    }
+
+    public function update(UpdateDeploymentRequest $request, Deployment $deployment): RedirectResponse
+    {
+        try {
+            $this->deployments->correct($deployment, $request->validated());
+        } catch (InvalidArgumentException $e) {
+            return back()->withInput()->withErrors(['deployment' => $e->getMessage()]);
+        }
+
+        return redirect()
+            ->route('deployments.show', $deployment)
+            ->with('status', 'Deployment corrected successfully.');
     }
 
     public function transferForm(Deployment $deployment): View
@@ -385,12 +434,16 @@ class DeploymentController extends Controller
                 });
             })
             ->availableForDeployment()
-            ->orderBy('region_id')
-            ->orderBy('full_name');
+            ->when(
+                $applyRegionFilter && $request->filled('region_id'),
+                fn ($q) => $q->orderBy('full_name'),
+                fn ($q) => $q->orderBy('full_name')->orderBy('region_id'),
+            );
     }
 
     private function releaseBoardPoolGuards(\App\Models\User $user): void
     {
+        $this->shiftLifecycle->sync();
         $this->absences->releaseEligibleAbsentGuards();
         $this->deployments->releaseGuardsAfterShiftWindow(
             $user->mustStayInOwnRegion() ? $user->regionId() : null,

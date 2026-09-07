@@ -5,6 +5,7 @@ namespace Tests\Feature\Shifts;
 use App\Enums\DeploymentShiftType;
 use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
+use App\Enums\GuardClassification;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
@@ -45,7 +46,7 @@ class BulkShiftAllocationTest extends TestCase
             ->get(route('shifts.allocate'))
             ->assertOk()
             ->assertSee($guard->full_name, false)
-            ->assertSee('Allocate selected', false);
+            ->assertSee('Confirm roster', false);
     }
 
     public function test_shift_manager_can_bulk_allocate_shifts(): void
@@ -78,6 +79,7 @@ class BulkShiftAllocationTest extends TestCase
                     $deployment->id => [
                         'period' => ShiftPeriod::Day->value,
                         'shift_type' => ShiftType::Normal->value,
+                        'guard_classification' => GuardClassification::Unarmed->value,
                     ],
                 ],
             ])
@@ -135,6 +137,7 @@ class BulkShiftAllocationTest extends TestCase
                     $deployment->id => [
                         'period' => ShiftPeriod::Day->value,
                         'shift_type' => ShiftType::Normal->value,
+                        'guard_classification' => GuardClassification::Unarmed->value,
                     ],
                 ],
             ])
@@ -144,6 +147,48 @@ class BulkShiftAllocationTest extends TestCase
             'guard_id' => $guard->id,
             'period' => ShiftPeriod::Day->value,
             'shift_type' => ShiftType::Overtime->value,
+        ]);
+    }
+
+    public function test_unarmed_guard_cannot_be_allocated_to_armed_shift(): void
+    {
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $site = Site::factory()->create();
+        $guard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OffDuty,
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+            'guard_classification' => GuardClassification::Unarmed,
+        ]);
+        $deployment = Deployment::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'shift_type' => DeploymentShiftType::Day,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('shifts.allocate.store'), [
+                'shift_date' => now()->toDateString(),
+                'selected' => [$deployment->id],
+                'rows' => [
+                    $deployment->id => [
+                        'period' => ShiftPeriod::Day->value,
+                        'shift_type' => ShiftType::Normal->value,
+                        'guard_classification' => GuardClassification::Armed->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('allocation_errors');
+
+        $this->assertDatabaseMissing('shifts', [
+            'guard_id' => $guard->id,
+            'guard_classification' => GuardClassification::Armed->value,
         ]);
     }
 

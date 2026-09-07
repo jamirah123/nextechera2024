@@ -90,11 +90,11 @@ class MaintenanceScheduleTest extends TestCase
         ]);
 
         $this->artisan('psg:sync-shift-statuses')
-            ->expectsOutputToContain('1 started, 1 completed, 1 marked missed.')
+            ->expectsOutputToContain('1 started, 2 completed, 0 marked missed.')
             ->assertSuccessful();
 
         $this->assertSame(ShiftStatus::InProgress, $active->fresh()->status);
-        $this->assertSame(ShiftStatus::Missed, $elapsed->fresh()->status);
+        $this->assertSame(ShiftStatus::Completed, $elapsed->fresh()->status);
         $this->assertSame(ShiftStatus::Completed, $finished->fresh()->status);
         $this->assertSame(ShiftStatus::Scheduled, $future->fresh()->status);
 

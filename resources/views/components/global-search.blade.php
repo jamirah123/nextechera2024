@@ -21,7 +21,7 @@
             x-on:keydown.arrow-down.prevent="move(1)"
             x-on:keydown.arrow-up.prevent="move(-1)"
             x-on:keydown.enter.prevent="go()"
-            placeholder="Search guards, sites, clients, regions…"
+            placeholder="Search invoices, payroll, guards, sites…"
             autocomplete="off"
             aria-label="Search"
             class="h-8 w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 transition hover:bg-slate-50 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:bg-slate-800 dark:focus:bg-slate-800"

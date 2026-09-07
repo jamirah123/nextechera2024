@@ -8,12 +8,14 @@ use App\Enums\EmploymentStatus;
 use App\Enums\GuardClassification;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftPeriod;
+use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Models\Deployment;
 use App\Models\DeploymentTransfer;
 use App\Models\Guard;
+use App\Models\Shift;
 use App\Models\Site;
 use App\Models\Supervisor;
 use App\Support\Deployments\DeploymentShiftSchedule;
@@ -45,6 +47,9 @@ class DeploymentService
             $site = Site::query()->with('supervisor')->findOrFail($data['site_id']);
 
             $this->assertGuardDeployable($guard);
+            $this->assertSameRegion($guard, $site);
+            $shiftType = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
+                ?? DeploymentShiftType::Day;
 
             $existing = Deployment::query()
                 ->current()
@@ -55,31 +60,67 @@ class DeploymentService
                 return $this->redeployExisting($existing, $guard, $site, $data);
             }
 
+            $historicalOnly = $this->isHistoricalPostingOnly($data);
+            $dutyFrom = (string) ($data['start_date'] ?? now()->toDateString());
+            $dutyTo = $data['duty_date_to'] ?? null;
+
+            if (! $historicalOnly) {
+                $this->assertSiteHasPostingCapacity($site, $shiftType);
+            }
+
+            $this->assertNoSameShiftDutyElsewhere(
+                $guard,
+                $site,
+                ShiftDutyTypeResolver::workPeriodFor($shiftType),
+                $dutyFrom,
+                $dutyTo,
+            );
+
+            $lastDutyDate = $dutyTo
+                ? \Illuminate\Support\Carbon::parse((string) $dutyTo)->toDateString()
+                : $dutyFrom;
+
             $deployment = Deployment::query()->create([
                 'guard_id' => $guard->id,
                 'site_id' => $site->id,
                 'region_id' => $site->region_id,
                 'supervisor_id' => $site->supervisor_id,
-                'shift_type' => $data['shift_type'] ?? DeploymentShiftType::Day->value,
-                'status' => DeploymentStatus::Active,
-                'start_date' => $data['start_date'] ?? now()->toDateString(),
-                'end_date' => null,
-                'is_current' => true,
-                'notes' => $data['notes'] ?? null,
+                'shift_type' => $shiftType->value,
+                'status' => $historicalOnly ? DeploymentStatus::Ended->value : DeploymentStatus::Active->value,
+                'start_date' => $dutyFrom,
+                'end_date' => $historicalOnly ? $lastDutyDate : null,
+                'is_current' => ! $historicalOnly,
+                'notes' => $data['notes'] ?? ($historicalOnly
+                    ? 'Historical posting recorded after the duty date.'
+                    : null),
             ]);
 
-            $this->syncGuardAssignment($guard, $site, OperationalStatus::OnDuty);
+            // Past-date history must not flip current operational status to On Duty.
+            if (! $historicalOnly) {
+                $this->syncGuardAssignment($guard, $site, OperationalStatus::OnDuty);
+            }
+
+            // Every posting records a Shift recorded duty for the duty date(s).
+            $this->recordDutiesForPosting($guard, $site, $data, $shiftType, $shiftType);
 
             $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
             $this->audit->log(
-                action: 'deployment.created',
-                summary: 'Guard '.$guard->employment_id.' deployed to '.$site->name.'.',
+                action: $historicalOnly ? 'deployment.historical_recorded' : 'deployment.created',
+                summary: $historicalOnly
+                    ? 'Historical posting for '.$guard->employment_id.' at '.$site->name
+                        .' ('.$shiftType->label().') on '.$dutyFrom
+                        .($dutyTo ? '–'.$dutyTo : '').' — shift recorded; operational status unchanged.'
+                    : 'Guard '.$guard->employment_id.' posted to '.$site->name.' ('.$shiftType->label().') — shift recorded.',
                 category: AuditCategory::Deployment,
                 severity: AuditSeverity::Notice,
                 subject: $fresh,
                 context: [
                     'guard_id' => $guard->id,
                     'site_id' => $site->id,
+                    'shift_type' => $shiftType->value,
+                    'duty_date' => $dutyFrom,
+                    'duty_date_to' => $dutyTo,
+                    'historical_only' => $historicalOnly,
                 ],
             );
 
@@ -126,9 +167,10 @@ class DeploymentService
     }
 
     /**
-     * Schedule the first cover shift for a deployment (normal or overtime).
+     * Record shift-taken duty(ies) for a site posting.
+     * Duty date is the actual assignment date (may be historical). Past windows → Completed.
      *
-     * @param  array{start_date?: string, notes?: string|null}  $data
+     * @param  array{start_date?: string, duty_date_to?: string|null, notes?: string|null}  $data
      */
     public function scheduleCoverShift(
         Guard $guard,
@@ -137,6 +179,20 @@ class DeploymentService
         DeploymentShiftType $normalPosting,
         DeploymentShiftType $workPosting,
     ): void {
+        $this->recordDutiesForPosting($guard, $site, $data, $normalPosting, $workPosting);
+    }
+
+    /**
+     * @param  array{start_date?: string, duty_date_to?: string|null, notes?: string|null}  $data
+     * @return int Number of duty records created
+     */
+    public function recordDutiesForPosting(
+        Guard $guard,
+        Site $site,
+        array $data,
+        DeploymentShiftType $normalPosting,
+        DeploymentShiftType $workPosting,
+    ): int {
         if ($normalPosting === DeploymentShiftType::Rotating && $workPosting === DeploymentShiftType::Rotating) {
             $normalPosting = DeploymentShiftType::Day;
             $workPosting = DeploymentShiftType::Day;
@@ -147,27 +203,98 @@ class DeploymentService
         }
 
         $workPeriod = ShiftDutyTypeResolver::workPeriodFor($workPosting);
-        $shiftType = ShiftDutyTypeResolver::resolve($normalPosting, $workPeriod);
+        $explicitDutyType = ShiftType::tryFrom((string) ($data['duty_type'] ?? ''));
+        $shiftType = ShiftDutyTypeResolver::resolve($normalPosting, $workPeriod, $explicitDutyType);
         [$start, $end] = $this->shiftTimesFor($workPeriod);
 
-        try {
-            app(ShiftService::class)->create([
-                'guard_id' => $guard->id,
-                'site_id' => $site->id,
-                'shift_date' => $data['start_date'] ?? now()->toDateString(),
-                'start_time' => $start,
-                'end_time' => $end,
-                'period' => $workPeriod->value,
-                'shift_type' => $shiftType->value,
-                'guard_classification' => GuardClassification::Unarmed->value,
-                'acknowledge_warnings' => true,
-                'notes' => $shiftType === ShiftType::Overtime
-                    ? 'Supervisor cover overtime — normal posting is '.$normalPosting->label().'.'
-                    : 'Supervisor cover shift scheduled automatically on deployment.',
-            ]);
-        } catch (InvalidArgumentException) {
-            // Deployment still succeeds if shift validation rejects a duplicate window.
+        $toExplicit = ! empty($data['duty_date_to']);
+        $from = \Illuminate\Support\Carbon::parse($data['start_date'] ?? now()->toDateString())->startOfDay();
+        $to = $toExplicit
+            ? \Illuminate\Support\Carbon::parse((string) $data['duty_date_to'])->startOfDay()
+            : $from->copy();
+
+        // Overnight: before dawn, "today" still means the night that started yesterday.
+        if ($workPeriod === ShiftPeriod::Night) {
+            $from = $this->alignNightDutyDate($from);
+            $to = $toExplicit ? $this->alignNightDutyDate($to) : $from->copy();
         }
+
+        if ($to->lt($from)) {
+            $to = $from->copy();
+        }
+
+        // Guardrail: max 31 duty days per posting action (e.g. backfill a month week-by-week).
+        if ($from->diffInDays($to) > 30) {
+            throw new InvalidArgumentException('Duty date range cannot exceed 31 days in one posting.');
+        }
+
+        $shifts = app(ShiftService::class);
+        $created = 0;
+        $isSupervisorNote = str_contains((string) ($data['notes'] ?? ''), 'Supervisor');
+
+        $this->assertNoSameShiftDutyElsewhere(
+            $guard,
+            $site,
+            $workPeriod,
+            $from->toDateString(),
+            $to->toDateString(),
+        );
+
+        for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
+            [$startsAt, $endsAt] = array_slice($shifts->resolveWindow($day->toDateString(), $start, $end), 0, 2);
+            // Every posting duty is "Shift recorded". Managers set Completed / Absent / etc. if needed.
+            $status = ShiftStatus::Recorded;
+
+            try {
+                $shifts->create([
+                    'guard_id' => $guard->id,
+                    'site_id' => $site->id,
+                    'shift_date' => $day->toDateString(),
+                    'start_time' => $start,
+                    'end_time' => $end,
+                    'period' => $workPeriod->value,
+                    'shift_type' => $shiftType->value,
+                    'guard_classification' => GuardClassification::Unarmed->value,
+                    'status' => $status->value,
+                    'acknowledge_warnings' => true,
+                    'is_correction' => true,
+                    'notes' => $this->postingDutyNotes(
+                        $shiftType,
+                        $normalPosting,
+                        $day->toDateString(),
+                        $isSupervisorNote,
+                    ),
+                ]);
+                $created++;
+            } catch (InvalidArgumentException $e) {
+                // Same-shift site conflicts must never be swallowed.
+                if (str_contains($e->getMessage(), 'Deployment Conflict:')) {
+                    throw $e;
+                }
+                // Posting still succeeds if a duty for this window already exists.
+            }
+        }
+
+        return $created;
+    }
+
+    private function postingDutyNotes(
+        ShiftType $shiftType,
+        DeploymentShiftType $normalPosting,
+        string $dutyDate,
+        bool $isSupervisorNote,
+    ): string {
+        if ($shiftType === ShiftType::Overtime) {
+            return $isSupervisorNote
+                ? 'Supervisor cover overtime — normal posting is '.$normalPosting->label().'.'
+                : 'Overtime shift recorded on '.$normalPosting->label().' site posting (duty date '.$dutyDate.').';
+        }
+
+        if ($isSupervisorNote) {
+            return 'Supervisor cover duty recorded on posting.';
+        }
+
+        return 'Shift recorded from site posting (duty date '.$dutyDate.').';
     }
 
     /**
@@ -193,6 +320,12 @@ class DeploymentService
                 throw new InvalidArgumentException('Choose a different site for the transfer.');
             }
 
+            $this->assertSameRegion($guard, $toSite);
+
+            $incomingShiftType = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
+                ?? $deployment->shift_type;
+            $this->assertSiteHasPostingCapacity($toSite, $incomingShiftType);
+
             $effectiveDate = $data['effective_date'] ?? now()->toDateString();
 
             $deployment->update([
@@ -206,7 +339,7 @@ class DeploymentService
                 'site_id' => $toSite->id,
                 'region_id' => $toSite->region_id,
                 'supervisor_id' => $toSite->supervisor_id,
-                'shift_type' => $data['shift_type'] ?? $deployment->shift_type->value,
+                'shift_type' => $incomingShiftType->value,
                 'status' => DeploymentStatus::Active,
                 'start_date' => $effectiveDate,
                 'end_date' => null,
@@ -253,14 +386,18 @@ class DeploymentService
                 throw new InvalidArgumentException('Only active deployments can be ended.');
             }
 
+            $resolvedEndDate = $endDate ?? now()->toDateString();
+
             $deployment->update([
                 'status' => DeploymentStatus::Ended,
                 'is_current' => false,
-                'end_date' => $endDate ?? now()->toDateString(),
+                'end_date' => $resolvedEndDate,
                 'notes' => $notes ?: $deployment->notes,
             ]);
 
             $guard = $deployment->assignedGuard()->with('supervisorProfile')->firstOrFail();
+
+            $this->withdrawOpenShiftsForEndedDeployment($deployment, $resolvedEndDate);
 
             $this->guards->updateGuard($guard, [
                 'current_site_id' => null,
@@ -283,22 +420,239 @@ class DeploymentService
         });
     }
 
-    public function releaseGuardAfterDuty(Guard $guard, ?string $endDate = null, ?string $reason = null): void
+    /**
+     * Correct miss-entered deployment details (wrong guard/site/type/dates).
+     *
+     * @param  array{
+     *     guard_id: int,
+     *     site_id: int,
+     *     shift_type?: string,
+     *     start_date?: string|null,
+     *     end_date?: string|null,
+     *     notes?: string|null,
+     *     correction_reason?: string|null
+     * }  $data
+     */
+    public function correct(Deployment $deployment, array $data): Deployment
     {
-        Deployment::query()
+        return DB::transaction(function () use ($deployment, $data) {
+            $fromGuard = $deployment->assignedGuard()->with('supervisorProfile')->firstOrFail();
+            $toGuard = Guard::query()->with('supervisorProfile')->findOrFail((int) $data['guard_id']);
+            $toSite = Site::query()->with('supervisor')->findOrFail((int) $data['site_id']);
+            $shiftType = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
+                ?? $deployment->shift_type;
+
+            $this->assertSameRegion($toGuard, $toSite);
+
+            $guardChanged = (int) $fromGuard->id !== (int) $toGuard->id;
+            $siteChanged = (int) $deployment->site_id !== (int) $toSite->id;
+            $typeChanged = $deployment->shift_type !== $shiftType;
+            $fromSiteId = (int) $deployment->site_id;
+
+            if ($deployment->isActive() && ($siteChanged || $typeChanged || $guardChanged)) {
+                $this->assertSiteHasPostingCapacityForCorrection($toSite, $shiftType, $deployment);
+            }
+
+            if ($deployment->isActive() && $guardChanged) {
+                $existingCurrent = Deployment::query()
+                    ->current()
+                    ->where('guard_id', $toGuard->id)
+                    ->where('id', '!=', $deployment->id)
+                    ->exists();
+
+                if ($existingCurrent) {
+                    throw new InvalidArgumentException(
+                        'The selected guard already has an active deployment. End or transfer that posting first.'
+                    );
+                }
+
+                $this->assertGuardDeployableForCorrection($toGuard);
+            }
+
+            $reason = trim((string) ($data['correction_reason'] ?? ''));
+            $notes = array_key_exists('notes', $data) ? $data['notes'] : $deployment->notes;
+            if ($reason !== '') {
+                $notes = trim(($notes ? rtrim((string) $notes)."\n" : '').'Correction: '.$reason);
+            }
+
+            $deployment->update([
+                'guard_id' => $toGuard->id,
+                'site_id' => $toSite->id,
+                'region_id' => $toSite->region_id,
+                'supervisor_id' => $toSite->supervisor_id,
+                'shift_type' => $shiftType->value,
+                'start_date' => $data['start_date'] ?? $deployment->start_date,
+                'end_date' => array_key_exists('end_date', $data) ? $data['end_date'] : $deployment->end_date,
+                'notes' => $notes,
+            ]);
+
+            if ($deployment->isActive()) {
+                if ($guardChanged) {
+                    $this->guards->updateGuard($fromGuard, [
+                        'current_site_id' => null,
+                        'current_supervisor_id' => null,
+                        'operational_status' => $this->postDeploymentStatus($fromGuard)->value,
+                        'region_id' => $fromGuard->region_id,
+                    ], 'deployment_corrected_off');
+                }
+
+                $this->syncGuardAssignment($toGuard, $toSite, OperationalStatus::OnDuty);
+            }
+
+            $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+            $this->audit->log(
+                action: 'deployment.corrected',
+                summary: 'Deployment corrected'
+                    .($guardChanged ? ' (guard '.$fromGuard->employment_id.' → '.$toGuard->employment_id.')' : '')
+                    .($siteChanged ? ' (site → '.$toSite->name.')' : '')
+                    .'.',
+                category: AuditCategory::Deployment,
+                severity: AuditSeverity::Warning,
+                subject: $fresh,
+                context: [
+                    'from_guard_id' => $fromGuard->id,
+                    'to_guard_id' => $toGuard->id,
+                    'from_site_id' => $fromSiteId,
+                    'to_site_id' => $toSite->id,
+                    'reason' => $reason !== '' ? $reason : null,
+                ],
+            );
+
+            return $fresh;
+        });
+    }
+
+    private function assertSiteHasPostingCapacityForCorrection(
+        Site $site,
+        DeploymentShiftType $shiftType,
+        Deployment $excluding,
+    ): void {
+        if ($shiftType === DeploymentShiftType::Rotating) {
+            $this->assertPeriodPostingCapacityExcluding($site, DeploymentShiftType::Day, $excluding);
+            $this->assertPeriodPostingCapacityExcluding($site, DeploymentShiftType::Night, $excluding);
+
+            return;
+        }
+
+        $this->assertPeriodPostingCapacityExcluding($site, $shiftType, $excluding);
+    }
+
+    private function assertPeriodPostingCapacityExcluding(
+        Site $site,
+        DeploymentShiftType $periodType,
+        Deployment $excluding,
+    ): void {
+        $required = $periodType === DeploymentShiftType::Night
+            ? (int) $site->required_night_guards
+            : (int) $site->required_day_guards;
+
+        if ($required <= 0) {
+            return;
+        }
+
+        $current = Deployment::query()
             ->current()
-            ->where('guard_id', $guard->id)
-            ->each(function (Deployment $deployment) use ($endDate, $reason): void {
-                $this->end(
-                    $deployment,
-                    $endDate ?? now()->toDateString(),
-                    $reason ?? 'Deployment ended after shift duty.',
+            ->where('site_id', $site->id)
+            ->where('id', '!=', $excluding->id)
+            ->where(function ($q) use ($periodType): void {
+                $q->where('shift_type', $periodType)
+                    ->orWhere('shift_type', DeploymentShiftType::Rotating);
+            })
+            ->count();
+
+        if ($current >= $required) {
+            throw new InvalidArgumentException(
+                'Site '.$periodType->label().' posting capacity is full ('
+                .$current.'/'.$required.'). End or transfer another '.$periodType->label()
+                .' posting first, or raise the site '.$periodType->label().' manpower requirement.'
+            );
+        }
+    }
+
+    private function assertGuardDeployableForCorrection(Guard $guard): void
+    {
+        if ($guard->employment_status !== EmploymentStatus::Active) {
+            throw new InvalidArgumentException('Only active employment guards can be assigned to a deployment.');
+        }
+
+        if (in_array($guard->operational_status, [
+            OperationalStatus::Deserted,
+            OperationalStatus::Suspended,
+        ], true)) {
+            throw new InvalidArgumentException('This guard is not operationally available for deployment.');
+        }
+    }
+
+    /**
+     * Cancel open/upcoming shifts at the ended posting so they leave today's active shift list.
+     */
+    private function withdrawOpenShiftsForEndedDeployment(Deployment $deployment, string $asOfDate): void
+    {
+        Shift::query()
+            ->where('guard_id', $deployment->guard_id)
+            ->where('site_id', $deployment->site_id)
+            ->whereIn('status', [
+                ShiftStatus::Scheduled->value,
+                ShiftStatus::Confirmed->value,
+                ShiftStatus::InProgress->value,
+            ])
+            ->whereDate('shift_date', '>=', $asOfDate)
+            ->orderBy('id')
+            ->each(function (Shift $shift) use ($deployment): void {
+                $withdrawalNote = 'Withdrawn — deployment ended.';
+                $shift->update([
+                    'status' => ShiftStatus::Cancelled,
+                    'notes' => trim(($shift->notes ? rtrim((string) $shift->notes)."\n" : '').$withdrawalNote),
+                ]);
+
+                $this->audit->log(
+                    action: 'shift.withdrawn_on_deployment_end',
+                    summary: 'Shift '.$shift->reference.' cancelled because the site deployment ended.',
+                    category: AuditCategory::Shift,
+                    severity: AuditSeverity::Notice,
+                    subject: $shift->fresh(),
+                    context: [
+                        'deployment_id' => $deployment->id,
+                        'guard_id' => $deployment->guard_id,
+                        'site_id' => $deployment->site_id,
+                    ],
                 );
             });
     }
 
     /**
-     * Return day/night posted guards to the deployment board once their shift window ends.
+     * Clear on-duty status after a shift ends without tearing down the site posting.
+     * Standing deployments (especially rotating) remain active so ops can allocate future shifts.
+     */
+    public function releaseGuardAfterDuty(Guard $guard, ?string $endDate = null, ?string $reason = null): void
+    {
+        $hasCurrentDeployment = Deployment::query()
+            ->current()
+            ->where('guard_id', $guard->id)
+            ->exists();
+
+        if ($hasCurrentDeployment) {
+            if ($guard->operational_status === OperationalStatus::OnDuty) {
+                $this->guards->updateGuard($guard, [
+                    'operational_status' => OperationalStatus::OffDuty->value,
+                ], 'shift_duty_ended');
+            }
+
+            return;
+        }
+
+        if ($guard->operational_status === OperationalStatus::OnDuty) {
+            $this->guards->updateGuard($guard, [
+                'operational_status' => OperationalStatus::AwaitingDeployment->value,
+                'current_site_id' => null,
+                'current_supervisor_id' => null,
+            ], 'shift_duty_ended_no_deployment');
+        }
+    }
+
+    /**
+     * Return idle day/night cover postings to the board once their window ends.
+     * Skips guards who still have open or upcoming shifts at that site.
      */
     public function releaseGuardsAfterShiftWindow(?int $regionId = null): int
     {
@@ -318,6 +672,16 @@ class DeploymentService
                     return;
                 }
 
+                // Night posted during the day must stay until that night's window finishes
+                // (otherwise daytime posting is immediately auto-ended).
+                if (! $this->coverWindowHasCompletedSinceStart($deployment)) {
+                    return;
+                }
+
+                if ($this->deploymentHasOpenOrUpcomingShifts($deployment)) {
+                    return;
+                }
+
                 $this->end(
                     $deployment,
                     now()->toDateString(),
@@ -327,6 +691,71 @@ class DeploymentService
             });
 
         return $released;
+    }
+
+    /**
+     * Day cover dated D ends at day-end on D.
+     * Night cover dated D normally ends at night-end on D+1; if posted before dawn on D,
+     * it is treated as the overnight that ends at dawn on D.
+     */
+    private function coverWindowHasCompletedSinceStart(Deployment $deployment): bool
+    {
+        $start = optional($deployment->start_date)?->copy()?->startOfDay();
+        if ($start === null) {
+            return true;
+        }
+
+        $now = now();
+        if ($now->copy()->startOfDay()->lt($start)) {
+            return false;
+        }
+
+        return match ($deployment->shift_type) {
+            DeploymentShiftType::Day => $now->greaterThanOrEqualTo(
+                $start->copy()->setTimeFromTimeString((string) config('psg.shift_defaults.day.end', '18:00'))
+            ),
+            DeploymentShiftType::Night => $this->nightCoverHasCompleted($deployment, $start, $now),
+            default => true,
+        };
+    }
+
+    private function nightCoverHasCompleted(
+        Deployment $deployment,
+        \Illuminate\Support\Carbon $startDay,
+        \Illuminate\Support\Carbon $now,
+    ): bool {
+        $nightEnd = (string) config('psg.shift_defaults.night.end', '06:00');
+        $dawnOnStartDay = $startDay->copy()->setTimeFromTimeString($nightEnd);
+        $created = ($deployment->created_at ?? $now)->copy();
+
+        // Posted in the early hours of the start date — belongs to the overnight ending at dawn.
+        if ($created->lt($dawnOnStartDay) && $created->isSameDay($startDay)) {
+            return $now->greaterThanOrEqualTo($dawnOnStartDay);
+        }
+
+        // Otherwise the first night runs start-date evening → next morning.
+        return $now->greaterThanOrEqualTo(
+            $startDay->copy()->addDay()->setTimeFromTimeString($nightEnd)
+        );
+    }
+
+    private function deploymentHasOpenOrUpcomingShifts(Deployment $deployment): bool
+    {
+        // A duty that already ended must not keep the standing posting locked —
+        // even if lifecycle has not yet flipped In Progress → Completed.
+        return Shift::query()
+            ->where('guard_id', $deployment->guard_id)
+            ->where('site_id', $deployment->site_id)
+            ->whereIn('status', [
+                ShiftStatus::Scheduled->value,
+                ShiftStatus::Confirmed->value,
+                ShiftStatus::InProgress->value,
+            ])
+            ->where(function ($query): void {
+                $query->where('ends_at', '>', now())
+                    ->orWhereDate('shift_date', '>', now()->toDateString());
+            })
+            ->exists();
     }
 
     /**
@@ -380,6 +809,49 @@ class DeploymentService
             ->count();
     }
 
+    private function assertSameRegion(Guard $guard, Site $site): void
+    {
+        if ($guard->region_id === null) {
+            throw new InvalidArgumentException('Guard must be assigned to a region before deployment.');
+        }
+
+        if ((int) $guard->region_id !== (int) $site->region_id) {
+            throw new InvalidArgumentException('Guard and site must be in the same region.');
+        }
+    }
+
+    private function assertSiteHasPostingCapacity(Site $site, DeploymentShiftType $shiftType): void
+    {
+        if ($shiftType === DeploymentShiftType::Rotating) {
+            $this->assertPeriodPostingCapacity($site, DeploymentShiftType::Day);
+            $this->assertPeriodPostingCapacity($site, DeploymentShiftType::Night);
+
+            return;
+        }
+
+        $this->assertPeriodPostingCapacity($site, $shiftType);
+    }
+
+    private function assertPeriodPostingCapacity(Site $site, DeploymentShiftType $periodType): void
+    {
+        $required = $periodType === DeploymentShiftType::Night
+            ? (int) $site->required_night_guards
+            : (int) $site->required_day_guards;
+
+        if ($required <= 0) {
+            return;
+        }
+
+        $current = $this->activeCountForSiteByShift($site, $periodType);
+        if ($current >= $required) {
+            throw new InvalidArgumentException(
+                'Site '.$periodType->label().' posting capacity is full ('
+                .$current.'/'.$required.'). End or transfer a '.$periodType->label()
+                .' posting first, or raise the site '.$periodType->label().' manpower requirement.'
+            );
+        }
+    }
+
     private function assertGuardDeployable(Guard $guard): void
     {
         if ($guard->employment_status !== EmploymentStatus::Active) {
@@ -422,33 +894,108 @@ class DeploymentService
      */
     private function redeployExisting(Deployment $existing, Guard $guard, Site $site, array $data): Deployment
     {
-        $onShift = DeploymentShiftSchedule::isOnShift($existing->shift_type);
         $notes = $data['notes'] ?? null;
-
-        if ($onShift && ! $notes) {
-            $notes = 'Client-requested guard switch from deployment board';
-        }
+        $workPosting = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
+            ?? $existing->shift_type;
 
         if ((int) $existing->site_id === (int) $site->id) {
             $fresh = $this->reassignShiftPosting($existing, $guard, $site, [
                 ...$data,
                 'notes' => $notes,
             ]);
-        } else {
-            $fresh = $this->transfer($existing, [
-                'site_id' => $site->id,
-                'shift_type' => $existing->shift_type->value,
-                'effective_date' => $data['start_date'] ?? now()->toDateString(),
-                'notes' => $notes,
-                'reason' => $onShift ? 'client_guard_switch' : 'shift_reassignment',
-            ]);
+            $this->recordDutiesForPosting($guard, $site, $data, $existing->shift_type, $workPosting);
+
+            return $fresh;
         }
 
-        $workPosting = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
-            ?? $existing->shift_type;
-        $this->scheduleWorkShift($guard, $site, $data, $existing->shift_type, $workPosting);
+        $existingPeriod = ShiftDutyTypeResolver::workPeriodFor($existing->shift_type);
+        $incomingPeriod = ShiftDutyTypeResolver::workPeriodFor($workPosting);
 
-        return $fresh;
+        if ($existingPeriod === $incomingPeriod) {
+            throw new InvalidArgumentException(
+                'Deployment Conflict: Guard '.$guard->employment_id
+                .' is already deployed at '.$existing->site?->name
+                .' for this shift. The guard cannot be deployed to another site during the same shift.'
+            );
+        }
+
+        // Opposite period at another site: record the duty only; keep the standing posting.
+        $this->assertNoSameShiftDutyElsewhere(
+            $guard,
+            $site,
+            $incomingPeriod,
+            (string) ($data['start_date'] ?? now()->toDateString()),
+            $data['duty_date_to'] ?? null,
+        );
+        $this->recordDutiesForPosting($guard, $site, $data, $existing->shift_type, $workPosting);
+
+        return $existing->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+    }
+
+    /**
+     * Block posting the same guard to a second site for the same duty date + Day/Night period.
+     */
+    public function assertNoSameShiftDutyElsewhere(
+        Guard $guard,
+        Site $site,
+        ShiftPeriod $period,
+        string $fromDate,
+        ?string $toDate = null,
+    ): void {
+        $from = \Illuminate\Support\Carbon::parse($fromDate)->startOfDay();
+        $to = $toDate
+            ? \Illuminate\Support\Carbon::parse($toDate)->startOfDay()
+            : $from->copy();
+
+        if ($period === ShiftPeriod::Night) {
+            // Align overnight “today” the same way duty recording does.
+            $dayStart = (string) config('psg.shift_defaults.day.start', '06:00');
+            if ($from->isSameDay(now()) && now()->lt(now()->copy()->setTimeFromTimeString($dayStart))) {
+                $from = $from->copy()->subDay()->startOfDay();
+            }
+            if (! $toDate) {
+                $to = $from->copy();
+            }
+        }
+
+        for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
+            $existing = Shift::query()
+                ->blocking()
+                ->with('site:id,name')
+                ->where('guard_id', $guard->id)
+                ->whereDate('shift_date', $day->toDateString())
+                ->where('period', $period->value)
+                ->where('site_id', '!=', $site->id)
+                ->first();
+
+            if ($existing) {
+                throw new InvalidArgumentException(
+                    'Deployment Conflict: Guard '.$guard->employment_id
+                    .' is already deployed at '.$existing->site?->name
+                    .' for this shift. The guard cannot be deployed to another site during the same shift.'
+                );
+            }
+
+            // Standing posting only blocks same-period cover for today/future — not past backfills.
+            if ($day->lt(now()->copy()->startOfDay())) {
+                continue;
+            }
+
+            $standing = Deployment::query()
+                ->current()
+                ->with('site:id,name')
+                ->where('guard_id', $guard->id)
+                ->where('site_id', '!=', $site->id)
+                ->first();
+
+            if ($standing && ShiftDutyTypeResolver::workPeriodFor($standing->shift_type) === $period) {
+                throw new InvalidArgumentException(
+                    'Deployment Conflict: Guard '.$guard->employment_id
+                    .' is already deployed at '.$standing->site?->name
+                    .' for this shift. The guard cannot be deployed to another site during the same shift.'
+                );
+            }
+        }
     }
 
     /**
@@ -466,7 +1013,10 @@ class DeploymentService
             'notes' => $data['notes'] ?? $deployment->notes,
         ]);
 
-        $this->syncGuardAssignment($guard, $site, OperationalStatus::OnDuty);
+        // Only refresh On Duty when this standing posting is current and covers today/future.
+        if ($deployment->is_current && ! $this->isHistoricalPostingOnly($data)) {
+            $this->syncGuardAssignment($guard, $site, OperationalStatus::OnDuty);
+        }
 
         $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
         $this->audit->log(
@@ -483,6 +1033,25 @@ class DeploymentService
         );
 
         return $fresh;
+    }
+
+    /**
+     * True when every duty date in the posting is strictly before today.
+     *
+     * @param  array{start_date?: string, duty_date_to?: string|null}  $data
+     */
+    private function isHistoricalPostingOnly(array $data): bool
+    {
+        $from = \Illuminate\Support\Carbon::parse($data['start_date'] ?? now()->toDateString())->startOfDay();
+        $to = ! empty($data['duty_date_to'])
+            ? \Illuminate\Support\Carbon::parse((string) $data['duty_date_to'])->startOfDay()
+            : $from->copy();
+
+        if ($to->lt($from)) {
+            $to = $from->copy();
+        }
+
+        return $to->lt(now()->copy()->startOfDay());
     }
 
     /**
@@ -518,11 +1087,15 @@ class DeploymentService
                 'end_time' => $end,
                 'period' => $workPeriod->value,
                 'shift_type' => $shiftType->value,
-                'guard_classification' => GuardClassification::Unarmed->value,
+                'guard_classification' => $data['guard_classification']
+                    ?? $guard->guard_classification?->value
+                    ?? GuardClassification::Unarmed->value,
+                'status' => ShiftStatus::Recorded->value,
                 'acknowledge_warnings' => true,
+                'is_correction' => true,
                 'notes' => $shiftType === ShiftType::Overtime
                     ? 'Overtime — normal posting is '.$normalPosting->label()
-                    : 'Scheduled from deployment board',
+                    : 'Shift recorded from site posting',
             ]);
         } catch (InvalidArgumentException) {
             // Deployment still succeeds if shift validation rejects a duplicate window.
@@ -543,6 +1116,23 @@ class DeploymentService
             config('psg.shift_defaults.day.start', '06:00'),
             config('psg.shift_defaults.day.end', '18:00'),
         ];
+    }
+
+    /**
+     * Night duty date is the evening the night starts. Between midnight and day start,
+     * selecting "today" still refers to last night's in-progress duty.
+     */
+    private function alignNightDutyDate(\Illuminate\Support\Carbon $date): \Illuminate\Support\Carbon
+    {
+        $now = now();
+        $dayStart = (string) config('psg.shift_defaults.day.start', '06:00');
+        $dawn = $now->copy()->setTimeFromTimeString($dayStart);
+
+        if ($date->isSameDay($now) && $now->lt($dawn)) {
+            return $date->copy()->subDay()->startOfDay();
+        }
+
+        return $date->copy()->startOfDay();
     }
 
     private function syncGuardAssignment(Guard $guard, Site $site, OperationalStatus $operationalStatus): void

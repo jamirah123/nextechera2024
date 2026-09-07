@@ -249,14 +249,14 @@ class PermissionCatalog
                 'key' => 'finance.view',
                 'group' => 'Finance',
                 'label' => 'View finance module',
-                'description' => 'Billing, invoices, payments and profitability reports.',
+                'description' => 'Billing, invoices, payments, payroll, ledger and profitability reports.',
                 'roles' => $financeView,
             ],
             [
                 'key' => 'finance.manage',
                 'group' => 'Finance',
                 'label' => 'Manage finance records',
-                'description' => 'Create and edit billing, invoices and payments.',
+                'description' => 'Create and edit billing, invoices, payments, GL accounts, bank reconciliation and period close.',
                 'roles' => $financeManage,
             ],
             [

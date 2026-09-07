@@ -6,6 +6,7 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Enums\BillingMode;
 use App\Models\BillingProfile;
+use App\Models\Site;
 use App\Services\AuditService;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
@@ -70,10 +71,11 @@ class BillingService
         $armedCostShift = (float) ($data['cost_per_armed_shift'] ?? $profile?->cost_per_armed_shift ?? 0);
         $unarmedCostShift = (float) ($data['cost_per_unarmed_shift'] ?? $profile?->cost_per_unarmed_shift ?? 0);
 
-        $dayArmedCount = (int) ($data['contracted_day_armed_guards'] ?? $profile?->contracted_day_armed_guards ?? 0);
-        $dayUnarmedCount = (int) ($data['contracted_day_unarmed_guards'] ?? $profile?->contracted_day_unarmed_guards ?? 0);
-        $nightArmedCount = (int) ($data['contracted_night_armed_guards'] ?? $profile?->contracted_night_armed_guards ?? 0);
-        $nightUnarmedCount = (int) ($data['contracted_night_unarmed_guards'] ?? $profile?->contracted_night_unarmed_guards ?? 0);
+        $counts = $this->contractedCountsFrom($data, $profile);
+        $dayArmedCount = $counts['day_armed'];
+        $dayUnarmedCount = $counts['day_unarmed'];
+        $nightArmedCount = $counts['night_armed'];
+        $nightUnarmedCount = $counts['night_unarmed'];
 
         $rateArmed = (float) ($data['monthly_rate_per_armed_guard']
             ?? $profile?->monthly_rate_per_armed_guard
@@ -126,6 +128,77 @@ class BillingService
             'effective_to' => array_key_exists('effective_to', $data) ? $data['effective_to'] : $profile?->effective_to,
             'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : ($profile?->is_active ?? true),
             'notes' => array_key_exists('notes', $data) ? $data['notes'] : $profile?->notes,
+        ];
+    }
+
+    /**
+     * @return array{day_armed: int, day_unarmed: int, night_armed: int, night_unarmed: int}
+     */
+    public function manpowerFor(int $clientId, ?int $siteId): array
+    {
+        $query = Site::query()->where('client_id', $clientId);
+
+        if ($siteId) {
+            $query->where('id', $siteId);
+        }
+
+        $row = $query
+            ->selectRaw('
+                COALESCE(SUM(required_day_armed_guards), 0) as day_armed,
+                COALESCE(SUM(required_day_unarmed_guards), 0) as day_unarmed,
+                COALESCE(SUM(required_night_armed_guards), 0) as night_armed,
+                COALESCE(SUM(required_night_unarmed_guards), 0) as night_unarmed
+            ')
+            ->first();
+
+        return [
+            'day_armed' => (int) ($row->day_armed ?? 0),
+            'day_unarmed' => (int) ($row->day_unarmed ?? 0),
+            'night_armed' => (int) ($row->night_armed ?? 0),
+            'night_unarmed' => (int) ($row->night_unarmed ?? 0),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{day_armed: int, day_unarmed: int, night_armed: int, night_unarmed: int}
+     */
+    private function contractedCountsFrom(array $data, ?BillingProfile $profile): array
+    {
+        $hasExplicit = array_key_exists('contracted_day_armed_guards', $data)
+            || array_key_exists('contracted_day_unarmed_guards', $data)
+            || array_key_exists('contracted_night_armed_guards', $data)
+            || array_key_exists('contracted_night_unarmed_guards', $data);
+
+        if ($hasExplicit) {
+            return [
+                'day_armed' => (int) ($data['contracted_day_armed_guards'] ?? $profile?->contracted_day_armed_guards ?? 0),
+                'day_unarmed' => (int) ($data['contracted_day_unarmed_guards'] ?? $profile?->contracted_day_unarmed_guards ?? 0),
+                'night_armed' => (int) ($data['contracted_night_armed_guards'] ?? $profile?->contracted_night_armed_guards ?? 0),
+                'night_unarmed' => (int) ($data['contracted_night_unarmed_guards'] ?? $profile?->contracted_night_unarmed_guards ?? 0),
+            ];
+        }
+
+        $clientId = (int) ($data['client_id'] ?? $profile?->client_id ?? 0);
+        $siteId = array_key_exists('site_id', $data)
+            ? ($data['site_id'] !== null ? (int) $data['site_id'] : null)
+            : ($profile?->site_id !== null ? (int) $profile->site_id : null);
+
+        if ($clientId > 0) {
+            $fromSites = $this->manpowerFor($clientId, $siteId);
+            if (array_sum($fromSites) > 0) {
+                return $fromSites;
+            }
+        }
+
+        $armed = (int) ($data['contracted_armed_guards'] ?? $profile?->contracted_armed_guards ?? 0);
+        $unarmed = (int) ($data['contracted_unarmed_guards'] ?? $profile?->contracted_unarmed_guards ?? 0);
+
+        return [
+            'day_armed' => $armed,
+            'day_unarmed' => $unarmed,
+            'night_armed' => 0,
+            'night_unarmed' => 0,
         ];
     }
 }

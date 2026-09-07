@@ -1,47 +1,45 @@
 @extends('layouts.app')
 
-@section('title', 'Shifts')
-@section('page-title', 'Shifts')
-@section('page-subtitle', 'Daily schedules, validation and status tracking')
+@section('title', 'Duty register')
+@section('page-title', 'Duty register')
+@section('page-subtitle', 'Daily duties for payroll — Shift recorded duties count on the monthly shift report')
 
 @section('content')
 <div class="space-y-3">
     <x-page-header
-        title="Today's shifts"
-        :subtitle="'Schedule for '. \Illuminate\Support\Carbon::parse($date)->format('d M Y')"
+        title="Duty register"
+        :subtitle="'Duties for '. \Illuminate\Support\Carbon::parse($date)->format('d M Y')"
     >
         <x-slot:actions>
-            <a href="{{ route('shifts.calendar') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+            <a href="{{ route('shifts.calendar') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
                 <x-icon name="calendar" class="h-3.5 w-3.5" />
                 Calendar
             </a>
             @if ($canManage)
                 <a href="{{ route('shifts.allocate', ['date' => $date]) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">
                     <x-icon name="plus" class="h-3.5 w-3.5" />
-                    Allocate board
+                    Duty roster
                 </a>
-                <a href="{{ route('shifts.recurring.create') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                <a href="{{ route('shifts.recurring.create') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
                     Recurring
                 </a>
-                <a href="{{ route('shifts.create', ['date' => $date]) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-                    Single form
+                <a href="{{ route('shifts.create', ['date' => $date]) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                    Single duty
                 </a>
             @endif
         </x-slot:actions>
     </x-page-header>
 
-    <section class="grid grid-cols-6 gap-2 sm:gap-3">
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         @foreach ([
-            ['label' => 'Scheduled', 'key' => 'scheduled', 'tone' => 'text-slate-600'],
-            ['label' => 'Confirmed', 'key' => 'confirmed', 'tone' => 'text-sky-700'],
-            ['label' => 'In progress', 'key' => 'in_progress', 'tone' => 'text-brand-700'],
-            ['label' => 'Completed', 'key' => 'completed', 'tone' => 'text-emerald-700'],
-            ['label' => 'Missed', 'key' => 'missed', 'tone' => 'text-amber-800'],
-            ['label' => 'Cancelled', 'key' => 'cancelled', 'tone' => 'text-rose-700'],
+            ['label' => \App\Enums\ShiftStatus::Recorded->label(), 'key' => 'recorded', 'tone' => 'text-sky-700'],
+            ['label' => \App\Enums\ShiftStatus::Missed->label(), 'key' => 'missed', 'tone' => 'text-amber-800'],
+            ['label' => \App\Enums\ShiftStatus::Incomplete->label(), 'key' => 'incomplete', 'tone' => 'text-violet-700'],
+            ['label' => \App\Enums\ShiftStatus::Cancelled->label(), 'key' => 'cancelled', 'tone' => 'text-rose-700'],
         ] as $card)
             <div class="min-w-0 rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
-                <p class="truncate text-[9px] font-semibold uppercase tracking-wide {{ $card['tone'] }} sm:text-[11px]">{{ $card['label'] }}</p>
-                <p class="mt-1 text-lg font-semibold text-slate-900 sm:text-lg">{{ $stats[$card['key']] }}</p>
+                <p class="truncate text-[9px] font-semibold uppercase tracking-wide {{ $card['tone'] }} sm:text-[11px]" title="{{ $card['label'] }}">{{ $card['label'] }}</p>
+                <p class="mt-1 text-lg font-semibold text-slate-900 sm:text-lg">{{ $stats[$card['key']] ?? 0 }}</p>
             </div>
         @endforeach
     </section>
@@ -82,18 +80,29 @@
     </section>
 
     @if ($shifts->isEmpty())
-        <x-empty-state title="No shifts for this date" description="Create a shift for a deployed guard to begin the daily schedule." icon="calendar">
+        <x-empty-state title="No duties for this date" description="Post guards on the Site Posting Board for this duty date — posting records the shift taken." icon="calendar">
             @if ($canManage)
                 <x-slot:actions>
-                    <a href="{{ route('shifts.create', ['date' => $date]) }}" class="btn btn-primary">Create shift</a>
+                    <a href="{{ route('deployments.board', ['date' => $date]) }}" class="btn btn-primary">Site posting board</a>
                 </x-slot:actions>
             @endif
         </x-empty-state>
     @else
         @if ($canManage)
             <div class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 sm:px-5">
-                Shifts move to <strong class="font-semibold text-slate-800">In progress</strong> at start time and are <strong class="font-semibold text-slate-800">completed automatically</strong> when the window ends.
-                Use each shift’s detail page to mark <strong class="font-semibold text-slate-800">Cancelled</strong> or <strong class="font-semibold text-slate-800">Missed</strong> when needed.
+                Posting creates the duty as <strong class="font-semibold text-slate-800 dark:text-slate-200">Shift recorded</strong> (counts for payroll).
+                If the guard did not finish, change the outcome — <strong class="font-semibold text-slate-800 dark:text-slate-200">Absent / No-show</strong>, <strong class="font-semibold text-slate-800 dark:text-slate-200">Incomplete</strong>, or <strong class="font-semibold text-slate-800 dark:text-slate-200">Cancelled</strong> — so it no longer pays. Do not delete historical records.
+            </div>
+        @endif
+
+        @if (($overstaffedSites ?? []) !== [])
+            <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900 sm:px-5">
+                <p class="font-semibold">Overstaffed for {{ \Illuminate\Support\Carbon::parse($date)->format('d M Y') }}</p>
+                <ul class="mt-1 list-disc space-y-0.5 pl-4">
+                    @foreach ($overstaffedSites as $row)
+                        <li>{{ $row['site'] }} — {{ $row['period'] }}: {{ $row['deployed'] }}/{{ $row['required'] }} deployed</li>
+                    @endforeach
+                </ul>
             </div>
         @endif
 
@@ -113,7 +122,17 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($shifts as $shift)
-                            <tr class="hover:bg-slate-50/80">
+                            @php
+                                $requiredForPeriod = $shift->period === \App\Enums\ShiftPeriod::Night
+                                    ? (int) ($shift->site?->required_night_guards ?? 0)
+                                    : (int) ($shift->site?->required_day_guards ?? 0);
+                                if ($requiredForPeriod <= 0) {
+                                    $requiredForPeriod = (int) ($shift->site?->required_guards ?? 0);
+                                }
+                                $deployedForPeriod = (int) (($deploymentPeriodCounts[$shift->site_id][$shift->period->value] ?? 0));
+                                $isOverstaffed = $requiredForPeriod > 0 && $deployedForPeriod > $requiredForPeriod;
+                            @endphp
+                            <tr @class(['hover:bg-slate-50/80', 'bg-rose-50/60' => $isOverstaffed])>
                                 <td class="px-3 py-2"><x-table-serial :paginator="$shifts" :index="$loop->index" /></td>
                                 <td class="px-3 py-2">
                                     <a href="{{ route('shifts.show', $shift) }}" class="font-semibold text-slate-900 hover:text-brand-700">{{ $shift->assignedGuard?->full_name }}</a>
@@ -122,17 +141,29 @@
                                 <td class="px-3 py-2 text-slate-700">
                                     <p>{{ $shift->site?->name }}</p>
                                     <p class="text-xs text-slate-500">{{ $shift->region?->name }}</p>
+                                    @if ($isOverstaffed)
+                                        <p class="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-700">
+                                            Overstaffed {{ $deployedForPeriod }}/{{ $requiredForPeriod }} {{ $shift->period->label() }}
+                                        </p>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-2 text-slate-700">
                                     <p>{{ $shift->timeLabel() }}</p>
                                     <p class="text-xs text-slate-500">{{ $shift->period->label() }}@if ($shift->is_overnight) · overnight @endif</p>
                                 </td>
                                 <td class="px-3 py-2"><x-status-badge :tone="$shift->shift_type->tone()" :label="$shift->shift_type->label()" /></td>
-                                <td class="px-3 py-2"><x-status-badge :tone="$shift->status->tone()" :label="$shift->status->label()" /></td>
+                                <td class="px-3 py-2">
+                                    <x-status-badge :tone="$shift->status->tone()" :label="$shift->status->label()" />
+                                    @if ($isOverstaffed)
+                                        <div class="mt-1">
+                                            <x-status-badge tone="rose" label="Overstaffed" />
+                                        </div>
+                                    @endif
+                                </td>
                                 <td class="px-3 py-2">
                                     <div class="flex flex-wrap items-center justify-end gap-2.5">
                                         <x-action-icon :href="route('shifts.show', $shift)" label="View" icon="eye" tone="brand" />
-                                        @if ($canManage && ! in_array($shift->status->value, ['cancelled', 'completed', 'replaced'], true))
+                                        @if ($canManage && $shift->status->value !== 'replaced')
                                             <x-action-icon :href="route('shifts.edit', $shift)" label="Edit" icon="pencil" tone="slate" />
                                         @endif
                                     </div>

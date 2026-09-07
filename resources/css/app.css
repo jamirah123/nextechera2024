@@ -172,6 +172,90 @@
         @apply mt-0.5 text-[10px];
     }
 
+    .status-badge {
+        @apply inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1;
+    }
+
+    .status-badge--emerald {
+        @apply bg-emerald-100 text-emerald-950 ring-emerald-300;
+    }
+
+    .status-badge--amber {
+        @apply bg-amber-100 text-amber-950 ring-amber-300;
+    }
+
+    .status-badge--rose {
+        @apply bg-rose-100 text-rose-950 ring-rose-300;
+    }
+
+    .status-badge--sky {
+        @apply bg-sky-100 text-sky-950 ring-sky-300;
+    }
+
+    .status-badge--indigo {
+        @apply bg-indigo-100 text-indigo-950 ring-indigo-300;
+    }
+
+    .status-badge--brand {
+        @apply bg-brand-100 text-brand-950 ring-brand-300;
+    }
+
+    .status-badge--slate {
+        @apply bg-slate-200 text-slate-900 ring-slate-300;
+    }
+
+    .status-badge--violet {
+        @apply bg-violet-100 text-violet-950 ring-violet-300;
+    }
+
+    html.dark .status-badge--emerald {
+        background-color: #065f46;
+        color: #ecfdf5;
+        --tw-ring-color: #34d399;
+    }
+
+    html.dark .status-badge--amber {
+        background-color: #92400e;
+        color: #fffbeb;
+        --tw-ring-color: #fbbf24;
+    }
+
+    html.dark .status-badge--rose {
+        background-color: #9f1239;
+        color: #fff1f2;
+        --tw-ring-color: #fb7185;
+    }
+
+    html.dark .status-badge--sky {
+        background-color: #075985;
+        color: #f0f9ff;
+        --tw-ring-color: #38bdf8;
+    }
+
+    html.dark .status-badge--indigo {
+        background-color: #3730a3;
+        color: #eef2ff;
+        --tw-ring-color: #818cf8;
+    }
+
+    html.dark .status-badge--brand {
+        background-color: #1845de;
+        color: #ffffff;
+        --tw-ring-color: #8ec2ff;
+    }
+
+    html.dark .status-badge--slate {
+        background-color: #475569;
+        color: #ffffff;
+        --tw-ring-color: #94a3b8;
+    }
+
+    html.dark .status-badge--violet {
+        background-color: #6d28d9;
+        color: #f5f3ff;
+        --tw-ring-color: #a78bfa;
+    }
+
     .data-table-shell {
         @apply overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800;
     }
@@ -328,7 +412,8 @@
 
 .dark main :is(.rounded-lg, .rounded-2xl).border.border-slate-200.bg-white,
 .dark main .overflow-hidden.rounded-lg.border.border-slate-200.bg-white,
-.dark main .rounded-2xl.border.border-slate-200.bg-white {
+.dark main .rounded-2xl.border.border-slate-200.bg-white,
+.dark main .rounded-lg.border.border-emerald-200.bg-white {
     @apply border-slate-700 bg-slate-800;
 }
 
@@ -340,7 +425,8 @@
     @apply bg-slate-700/40;
 }
 
-.dark main thead.bg-slate-50 {
+.dark main thead.bg-slate-50,
+.dark main thead.bg-slate-50\/90 {
     @apply bg-slate-900/50 text-slate-400;
 }
 
@@ -378,28 +464,38 @@
 }
 
 .filter-bar .ts-wrapper.single .ts-control {
-    @apply min-h-[30px] rounded-md px-2 py-1 text-[11px];
+    @apply min-h-[1.875rem] rounded-md px-2 py-1 text-[11px];
 }
 
 .filter-bar .ts-wrapper.single .ts-control .item,
 .filter-bar .ts-wrapper .ts-control > input {
-    @apply text-[11px];
+    @apply text-[11px] leading-tight;
 }
+
 .ts-wrapper {
     @apply relative w-full;
 }
 
+.ts-wrapper.field__control,
+.ts-wrapper.field__control--select {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+}
+
 .field .ts-wrapper.single .ts-control {
-    @apply min-h-[calc(1.5rem+0.75rem+2px)] px-2 py-1.5;
+    @apply min-h-[1.875rem] px-2 py-1;
 }
 
 .ts-wrapper.single .ts-control {
-    @apply flex min-h-[30px] w-full cursor-text items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs shadow-sm transition dark:border-slate-600 dark:bg-slate-900;
+    @apply relative flex min-h-[1.875rem] w-full cursor-pointer items-center gap-1 overflow-hidden rounded-md border border-slate-300 bg-white py-1 pl-2 pr-12 text-[11px] leading-tight shadow-sm transition dark:border-slate-600 dark:bg-slate-900;
 }
 
 .ts-wrapper.focus .ts-control,
 .ts-wrapper.dropdown-active .ts-control {
-    @apply border-brand-500 outline-none ring-2 ring-brand-500/20;
+    @apply cursor-text border-brand-500 outline-none ring-1 ring-brand-500/20;
 }
 
 .ts-wrapper.disabled .ts-control {
@@ -407,57 +503,78 @@
 }
 
 .ts-wrapper .ts-control > input {
-    @apply m-0 min-w-[4rem] flex-1 border-0 bg-transparent p-0 text-xs text-slate-900 shadow-none outline-none ring-0 focus:outline-none focus:ring-0 dark:text-slate-100;
+    @apply m-0 min-w-[2.5rem] flex-1 border-0 bg-transparent p-0 text-[11px] leading-tight text-slate-900 shadow-none outline-none ring-0 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-slate-100 dark:placeholder:text-slate-500;
 }
 
 .ts-wrapper.single .ts-control .item {
-    @apply mr-2 truncate text-xs text-slate-900 dark:text-slate-100;
+    @apply mr-0 flex min-w-0 flex-1 items-baseline gap-1 truncate text-[11px] leading-tight text-slate-900 dark:text-slate-100;
+}
+
+.ts-wrapper.single .ts-control .item--placeholder {
+    @apply text-slate-400 dark:text-slate-500;
+}
+
+.ts-wrapper.single .ts-control .item__code {
+    @apply shrink-0 font-semibold text-slate-700 dark:text-slate-200;
+}
+
+.ts-wrapper.single .ts-control .item__name {
+    @apply truncate font-normal text-slate-500 dark:text-slate-400;
 }
 
 .ts-wrapper .clear-button {
-    @apply absolute right-8 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700;
+    @apply absolute right-6 top-1/2 z-10 -translate-y-1/2 rounded p-0.5 text-[10px] leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200;
 }
 
 .ts-wrapper .ts-control::after {
     content: '';
-    @apply pointer-events-none absolute right-3.5 top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 border-b-2 border-r-2 border-slate-400;
+    @apply pointer-events-none absolute right-2 top-1/2 h-1.5 w-1.5 -translate-y-[40%] rotate-45 border-b-2 border-r-2 border-slate-400 dark:border-slate-500;
 }
 
 .ts-dropdown {
-    @apply z-50 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-800;
+    @apply z-[80] mt-1 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-900;
 }
 
 .ts-dropdown .ts-dropdown-content {
-    @apply max-h-60 overflow-y-auto p-1;
-}
-
-.ts-dropdown .dropdown-input-wrap {
-    @apply border-b border-slate-100 p-2 dark:border-slate-700;
-}
-
-.ts-dropdown .dropdown-input {
-    @apply w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100;
+    @apply max-h-56 overflow-y-auto p-0.5;
 }
 
 .ts-dropdown .option {
-    @apply cursor-pointer rounded-md px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200;
+    @apply flex cursor-pointer items-baseline gap-1.5 rounded px-2 py-1 text-[11px] leading-snug text-slate-700 dark:text-slate-200;
+}
+
+.ts-dropdown .option__code {
+    @apply shrink-0 font-semibold text-slate-800 dark:text-slate-100;
+}
+
+.ts-dropdown .option__name {
+    @apply min-w-0 truncate text-slate-500 dark:text-slate-400;
+}
+
+.ts-dropdown .option--all {
+    @apply font-medium text-slate-600 dark:text-slate-300;
 }
 
 .ts-dropdown .option:hover,
 .ts-dropdown .option.active {
-    @apply bg-brand-50 text-brand-800 dark:bg-brand-950/60 dark:text-brand-200;
+    @apply bg-brand-50 text-brand-900 dark:bg-brand-950/50 dark:text-brand-100;
+}
+
+.ts-dropdown .option:hover .option__name,
+.ts-dropdown .option.active .option__name {
+    @apply text-brand-700 dark:text-brand-200;
 }
 
 .ts-dropdown .option.selected {
-    @apply bg-brand-100 font-medium text-brand-900 dark:bg-brand-900/50 dark:text-brand-100;
+    @apply bg-brand-100 font-medium text-brand-900 dark:bg-brand-900/40 dark:text-brand-50;
 }
 
 .ts-dropdown .no-results {
-    @apply px-3 py-2 text-sm text-slate-500;
+    @apply px-2.5 py-2 text-[11px] text-slate-500 dark:text-slate-400;
 }
 
 .ts-hidden-accessible {
-    @apply !absolute !left-0 !top-0 !-z-10 !h-px !w-px !overflow-hidden !opacity-0;
+    @apply !absolute !left-0 !top-0 !-z-10 !h-px !w-px !overflow-hidden !border-0 !p-0 !opacity-0;
 }
 
 select.ts-hidden-accessible + .ts-wrapper {
@@ -490,14 +607,23 @@ select.ts-hidden-accessible + .ts-wrapper {
     }
 
     .report-print-area,
-    .finance-document {
-        break-inside: avoid;
+    .finance-document,
+    .invoice-doc {
+        break-inside: auto;
     }
 
     .finance-document {
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
+    }
+
+    .invoice-doc .items thead th,
+    .invoice-doc .totals tr.total td,
+    .invoice-doc .totals tr.due td,
+    .invoice-doc .brand-bar {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
     .finance-document > div {

@@ -36,7 +36,7 @@ class BulkShiftAllocationService
         $deploymentIds = collect($rows)->pluck('deployment_id')->unique()->filter()->all();
         $deployments = Deployment::query()
             ->current()
-            ->with(['site:id,name,region_id,supervisor_id', 'assignedGuard:id,employment_id,full_name'])
+            ->with(['site:id,name,region_id,supervisor_id', 'assignedGuard:id,employment_id,full_name,guard_classification'])
             ->whereIn('id', $deploymentIds)
             ->get()
             ->keyBy('id');
@@ -58,9 +58,12 @@ class BulkShiftAllocationService
                 $period,
                 $requestedType,
             );
+            $classification = GuardClassification::tryFrom((string) ($row['guard_classification'] ?? ''))
+                ?? $deployment->assignedGuard?->guard_classification
+                ?? GuardClassification::Unarmed;
 
             try {
-                DB::transaction(function () use ($deployment, $shiftDate, $period, $start, $end, $shiftType): void {
+                DB::transaction(function () use ($deployment, $shiftDate, $period, $start, $end, $shiftType, $classification): void {
                     $this->shifts->create([
                         'guard_id' => $deployment->guard_id,
                         'site_id' => $deployment->site_id,
@@ -69,9 +72,10 @@ class BulkShiftAllocationService
                         'end_time' => $end,
                         'period' => $period->value,
                         'shift_type' => $shiftType->value,
-                        'guard_classification' => GuardClassification::Unarmed->value,
+                        'guard_classification' => $classification->value,
+                        'status' => \App\Enums\ShiftStatus::Recorded->value,
                         'acknowledge_warnings' => true,
-                        'notes' => 'Allocated from shift board',
+                        'notes' => 'Shift recorded from duty roster',
                     ]);
                 });
                 $created++;

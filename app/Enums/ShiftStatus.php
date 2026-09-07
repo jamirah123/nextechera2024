@@ -7,9 +7,11 @@ enum ShiftStatus: string
     case Scheduled = 'scheduled';
     case Confirmed = 'confirmed';
     case InProgress = 'in_progress';
+    case Recorded = 'recorded';
     case Completed = 'completed';
     case Cancelled = 'cancelled';
     case Missed = 'missed';
+    case Incomplete = 'incomplete';
     case Replaced = 'replaced';
 
     public function label(): string
@@ -18,9 +20,11 @@ enum ShiftStatus: string
             self::Scheduled => 'Scheduled',
             self::Confirmed => 'Confirmed',
             self::InProgress => 'In Progress',
+            self::Recorded => 'Shift recorded',
             self::Completed => 'Completed',
             self::Cancelled => 'Cancelled',
-            self::Missed => 'Missed',
+            self::Missed => 'Absent / No-show',
+            self::Incomplete => 'Incomplete',
             self::Replaced => 'Replaced',
         };
     }
@@ -31,9 +35,11 @@ enum ShiftStatus: string
             self::Scheduled => 'slate',
             self::Confirmed => 'sky',
             self::InProgress => 'brand',
+            self::Recorded => 'sky',
             self::Completed => 'emerald',
             self::Cancelled => 'rose',
             self::Missed => 'amber',
+            self::Incomplete => 'violet',
             self::Replaced => 'indigo',
         };
     }
@@ -44,13 +50,26 @@ enum ShiftStatus: string
             self::Scheduled,
             self::Confirmed,
             self::InProgress,
+            self::Recorded,
             self::Completed,
         ], true);
     }
 
     public function countsAsWorked(): bool
     {
-        return $this === self::Completed;
+        return $this === self::Recorded;
+    }
+
+    /** Statuses that count toward payroll / monthly shift totals. */
+    public static function payable(): array
+    {
+        return [self::Recorded];
+    }
+
+    /** @return list<string> */
+    public static function payableValues(): array
+    {
+        return array_map(static fn (self $status) => $status->value, self::payable());
     }
 
     /** Shift already allocated for the date — hide from the allocation board. */
@@ -66,6 +85,7 @@ enum ShiftStatus: string
             self::Scheduled,
             self::Confirmed,
             self::InProgress,
+            self::Recorded,
             self::Completed,
         ];
     }
@@ -82,13 +102,17 @@ enum ShiftStatus: string
         return array_column(self::cases(), 'value');
     }
 
-    /** Statuses shift managers may set manually; completion is automatic. */
+    /** Statuses shift managers may set manually (including corrections). */
     public static function manuallySettable(): array
     {
         return [
-            self::Confirmed,
+            self::Recorded,
+            self::Completed,
             self::Cancelled,
             self::Missed,
+            self::Incomplete,
+            self::Scheduled,
+            self::Confirmed,
         ];
     }
 

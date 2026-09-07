@@ -15,11 +15,13 @@ use App\Models\Guard;
 use App\Models\Shift;
 use App\Models\ShiftRecurrence;
 use App\Models\Site;
+use App\Services\Finance\PayrollCalculationService;
 use App\Services\Shifts\ShiftValidationResult;
 use App\Services\Shifts\ShiftValidationService;
 use App\Support\Shifts\ShiftDutyTypeResolver;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -30,6 +32,7 @@ class ShiftService
         private GuardService $guards,
         private AuditService $audit,
         private DeploymentService $deployments,
+        private PayrollCalculationService $payroll,
     ) {
     }
 
@@ -68,6 +71,9 @@ class ShiftService
                 'starts_at' => $startsAt,
                 'ends_at' => $endsAt,
                 'ignore_shift_id' => $data['ignore_shift_id'] ?? null,
+                'guard_classification' => $data['guard_classification'] ?? GuardClassification::Unarmed->value,
+                'period' => $data['period'] ?? null,
+                'is_correction' => (bool) ($data['is_correction'] ?? false),
             ]);
 
             $this->assertValidation($validation, $data);
@@ -86,35 +92,81 @@ class ShiftService
                 : null;
             $shiftType = ShiftDutyTypeResolver::resolve($normalPosting, $period, $requestedType);
 
-            $shift = Shift::query()->create([
-                'reference' => $this->nextReference($startsAt),
-                'guard_id' => $data['guard_id'],
-                'site_id' => $site->id,
-                'region_id' => $site->region_id,
-                'supervisor_id' => $site->supervisor_id,
-                'deployment_id' => $deployment?->id,
-                'recurrence_id' => $data['recurrence_id'] ?? null,
-                'replaced_shift_id' => $data['replaced_shift_id'] ?? null,
-                'shift_date' => $data['shift_date'],
-                'starts_at' => $startsAt,
-                'ends_at' => $endsAt,
-                'period' => $period->value,
-                'shift_type' => $shiftType->value,
-                'guard_classification' => $data['guard_classification'] ?? GuardClassification::Unarmed->value,
-                'status' => $data['status'] ?? ShiftStatus::Scheduled->value,
-                'is_overnight' => $isOvernight,
-                'notes' => $data['notes'] ?? null,
-                'override_used' => (bool) ($data['override_critical'] ?? false),
-                'override_reason' => ($data['override_critical'] ?? false) ? ($data['override_reason'] ?? null) : null,
-                'override_by' => ($data['override_critical'] ?? false) ? auth()->id() : null,
-                'override_at' => ($data['override_critical'] ?? false) ? now() : null,
-                'validation_snapshot' => $validation->all(),
-            ]);
+            $initialStatus = ShiftStatus::tryFrom((string) ($data['status'] ?? ''))
+                ?? ShiftStatus::Recorded;
+
+            try {
+                $shift = Shift::query()->create([
+                    'reference' => $this->nextReference($startsAt),
+                    'guard_id' => $data['guard_id'],
+                    'site_id' => $site->id,
+                    'region_id' => $site->region_id,
+                    'supervisor_id' => $site->supervisor_id,
+                    'deployment_id' => $deployment?->id,
+                    'recurrence_id' => $data['recurrence_id'] ?? null,
+                    'replaced_shift_id' => $data['replaced_shift_id'] ?? null,
+                    'shift_date' => $data['shift_date'],
+                    'starts_at' => $startsAt,
+                    'ends_at' => $endsAt,
+                    'period' => $period->value,
+                    'shift_type' => $shiftType->value,
+                    'guard_classification' => $data['guard_classification'] ?? GuardClassification::Unarmed->value,
+                    'status' => $initialStatus->value,
+                    'is_overnight' => $isOvernight,
+                    'notes' => $data['notes'] ?? null,
+                    'override_used' => (bool) ($data['override_critical'] ?? false),
+                    'override_reason' => ($data['override_critical'] ?? false) ? ($data['override_reason'] ?? null) : null,
+                    'override_by' => ($data['override_critical'] ?? false) ? auth()->id() : null,
+                    'override_at' => ($data['override_critical'] ?? false) ? now() : null,
+                    'validation_snapshot' => $validation->all(),
+                ]);
+            } catch (UniqueConstraintViolationException $e) {
+                if (str_contains($e->getMessage(), 'same_shift_slot')) {
+                    $conflictSite = Shift::query()
+                        ->blocking()
+                        ->with('site:id,name')
+                        ->where('guard_id', $data['guard_id'])
+                        ->whereDate('shift_date', $data['shift_date'])
+                        ->where('period', $period->value)
+                        ->where('site_id', '!=', $site->id)
+                        ->first()
+                        ?->site
+                        ?->name ?? 'another site';
+
+                    $guard = Guard::query()->find($data['guard_id']);
+
+                    throw new InvalidArgumentException(
+                        'Deployment Conflict: Guard '.($guard?->employment_id ?? '#'.$data['guard_id'])
+                        .' is already deployed at '.$conflictSite
+                        .' for this shift. The guard cannot be deployed to another site during the same shift.'
+                    );
+                }
+
+                throw $e;
+            }
 
             $this->auditShiftEvent($shift, 'shift.created', 'Shift '.$shift->reference.' created.', (bool) ($data['override_critical'] ?? false), $data['override_reason'] ?? null, $validation);
 
-            return $shift->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+            $fresh = $shift->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+            $this->syncOpenPayrollForShift($fresh);
+
+            return $fresh;
         });
+    }
+
+    public function resolveStatusForWindow(\Carbon\CarbonInterface $startsAt, \Carbon\CarbonInterface $endsAt): ShiftStatus
+    {
+        $now = now();
+
+        if ($endsAt->lessThanOrEqualTo($now)) {
+            return ShiftStatus::Completed;
+        }
+
+        if ($startsAt->lessThanOrEqualTo($now)) {
+            return ShiftStatus::InProgress;
+        }
+
+        return ShiftStatus::Scheduled;
     }
 
     /**
@@ -135,9 +187,14 @@ class ShiftService
     public function update(Shift $shift, array $data): Shift
     {
         return DB::transaction(function () use ($shift, $data) {
-            if (in_array($shift->status, [ShiftStatus::Cancelled, ShiftStatus::Completed, ShiftStatus::Replaced], true)) {
-                throw new InvalidArgumentException('Completed, cancelled or replaced shifts cannot be edited.');
-            }
+            $isCorrection = in_array($shift->status, [
+                ShiftStatus::Cancelled,
+                ShiftStatus::Completed,
+                ShiftStatus::Recorded,
+                ShiftStatus::Missed,
+                ShiftStatus::Incomplete,
+                ShiftStatus::Replaced,
+            ], true);
 
             $guardId = $data['guard_id'] ?? $shift->guard_id;
             $siteId = $data['site_id'] ?? $shift->site_id;
@@ -153,6 +210,9 @@ class ShiftService
                 'starts_at' => $startsAt,
                 'ends_at' => $endsAt,
                 'ignore_shift_id' => $shift->id,
+                'guard_classification' => $data['guard_classification'] ?? $shift->guard_classification->value,
+                'period' => $data['period'] ?? $shift->period->value,
+                'is_correction' => $isCorrection,
             ]);
 
             $this->assertValidation($validation, $data);
@@ -163,12 +223,23 @@ class ShiftService
                 ->where('guard_id', $guardId)
                 ->first();
 
+            $previousGuardId = (int) $shift->guard_id;
+            $correctionNote = null;
+            if ($isCorrection && (int) $guardId !== $previousGuardId) {
+                $correctionNote = 'Corrected guard assignment (was guard #'.$previousGuardId.').';
+            }
+
+            $notes = array_key_exists('notes', $data) ? $data['notes'] : $shift->notes;
+            if ($correctionNote) {
+                $notes = trim(($notes ? rtrim((string) $notes)."\n" : '').$correctionNote);
+            }
+
             $shift->update([
                 'guard_id' => $guardId,
                 'site_id' => $site->id,
                 'region_id' => $site->region_id,
                 'supervisor_id' => $site->supervisor_id,
-                'deployment_id' => $deployment?->id,
+                'deployment_id' => $deployment?->id ?? $shift->deployment_id,
                 'shift_date' => $date,
                 'starts_at' => $startsAt,
                 'ends_at' => $endsAt,
@@ -176,7 +247,7 @@ class ShiftService
                 'shift_type' => $data['shift_type'] ?? $shift->shift_type->value,
                 'guard_classification' => $data['guard_classification'] ?? $shift->guard_classification->value,
                 'is_overnight' => $isOvernight,
-                'notes' => array_key_exists('notes', $data) ? $data['notes'] : $shift->notes,
+                'notes' => $notes,
                 'override_used' => (bool) ($data['override_critical'] ?? $shift->override_used),
                 'override_reason' => ($data['override_critical'] ?? false)
                     ? ($data['override_reason'] ?? $shift->override_reason)
@@ -189,8 +260,8 @@ class ShiftService
             $fresh = $shift->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
             $this->auditShiftEvent(
                 $fresh,
-                'shift.updated',
-                'Shift '.$fresh->reference.' updated.',
+                $isCorrection ? 'shift.corrected' : 'shift.updated',
+                'Shift '.$fresh->reference.($isCorrection ? ' corrected.' : ' updated.'),
                 (bool) ($data['override_critical'] ?? false),
                 $data['override_reason'] ?? null,
                 $validation,
@@ -203,16 +274,8 @@ class ShiftService
     public function updateStatus(Shift $shift, ShiftStatus $status, ?string $notes = null, bool $automatic = false): Shift
     {
         return DB::transaction(function () use ($shift, $status, $notes, $automatic) {
-            if ($shift->status === ShiftStatus::Cancelled && $status !== ShiftStatus::Cancelled) {
-                throw new InvalidArgumentException('Cancelled shifts cannot be reopened.');
-            }
-
-            if (! $automatic && $status === ShiftStatus::Completed) {
-                throw new InvalidArgumentException('Shifts are completed automatically when the shift window ends.');
-            }
-
             if (! $automatic && ! in_array($status, ShiftStatus::manuallySettable(), true)) {
-                throw new InvalidArgumentException('Only confirmed, cancelled, or missed may be set manually.');
+                throw new InvalidArgumentException('Only shift recorded, completed, cancelled, absent/no-show, incomplete, scheduled, or confirmed may be set manually.');
             }
 
             $shift->update([
@@ -234,7 +297,12 @@ class ShiftService
                     ], 'shift_in_progress');
                 }
 
-                if (in_array($status, [ShiftStatus::Completed, ShiftStatus::Cancelled, ShiftStatus::Missed], true)
+                if (in_array($status, [
+                    ShiftStatus::Completed,
+                    ShiftStatus::Cancelled,
+                    ShiftStatus::Missed,
+                    ShiftStatus::Incomplete,
+                ], true)
                     && $guard->operational_status === OperationalStatus::OnDuty) {
                     $this->deployments->releaseGuardAfterDuty(
                         $guard,
@@ -253,6 +321,8 @@ class ShiftService
                 subject: $fresh,
                 context: ['status' => $status->value],
             );
+
+            $this->syncOpenPayrollForShift($fresh);
 
             return $fresh;
         });
@@ -388,6 +458,18 @@ class ShiftService
     private function assertValidation(ShiftValidationResult $validation, array $data): void
     {
         if ($validation->hasCritical()) {
+            $nonOverridable = array_values(array_filter(
+                $validation->criticals(),
+                fn (array $issue): bool => in_array($issue['code'], ['same_shift_site', 'overlap'], true),
+            ));
+
+            if ($nonOverridable !== []) {
+                throw new InvalidArgumentException(implode(' ', array_map(
+                    fn (array $issue): string => $issue['message'],
+                    $nonOverridable,
+                )));
+            }
+
             $canOverride = (bool) ($data['override_critical'] ?? false)
                 && filled($data['override_reason'] ?? null)
                 && auth()->user()?->can('override', Shift::class);
@@ -402,6 +484,11 @@ class ShiftService
                 'Warnings require acknowledgement: '.implode(' ', $validation->warningMessages())
             );
         }
+    }
+
+    private function syncOpenPayrollForShift(Shift $shift): void
+    {
+        $this->payroll->refreshOpenRunsForShift($shift);
     }
 
     private function auditShiftEvent(

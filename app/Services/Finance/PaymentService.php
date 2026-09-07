@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\PayrollRun;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\Finance\Ledger\LedgerPostingService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -21,6 +22,7 @@ class PaymentService
     public function __construct(
         private InvoiceService $invoices,
         private AuditService $audit,
+        private LedgerPostingService $ledger,
     ) {
     }
 
@@ -79,7 +81,10 @@ class PaymentService
                 ],
             );
 
-            return $payment->fresh(['invoice', 'client', 'recorder']);
+            $fresh = $payment->fresh(['invoice', 'client', 'recorder']);
+            $this->ledger->postPayment($fresh, auth()->user());
+
+            return $fresh;
         });
     }
 

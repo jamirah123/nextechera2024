@@ -99,7 +99,7 @@ class MonthlyShiftCalculationService
             ->when(! empty($filters['region_id']), fn ($q) => $q->where('region_id', $filters['region_id']))
             ->when(! empty($filters['site_id']), fn ($q) => $q->where('site_id', $filters['site_id']))
             ->whereIn('guard_id', (clone $guardQuery)->select('id'))
-            ->where('status', ShiftStatus::Completed->value)
+            ->whereIn('status', ShiftStatus::payableValues())
             ->whereIn('shift_type', [
                 ShiftType::Normal->value,
                 ShiftType::Overtime->value,
@@ -219,7 +219,7 @@ class MonthlyShiftCalculationService
         return $guards->map(function (Guard $guard) use ($grouped) {
             $shifts = $grouped->get($guard->id, collect());
 
-            $worked = $shifts->filter(fn (Shift $shift) => $shift->status === ShiftStatus::Completed);
+            $worked = $shifts->filter(fn (Shift $shift) => $shift->status->countsAsWorked());
 
             $normal = $worked->where('shift_type', ShiftType::Normal)->count();
             $overtime = $worked->where('shift_type', ShiftType::Overtime)->count();
@@ -271,7 +271,7 @@ class MonthlyShiftCalculationService
             ->when($run?->site_id, fn ($q) => $q->where('site_id', $run->site_id))
             ->get(['shift_type', 'status']);
 
-        $worked = $shifts->filter(fn (Shift $shift) => $shift->status === ShiftStatus::Completed);
+        $worked = $shifts->filter(fn (Shift $shift) => $shift->status->countsAsWorked());
 
         $normal = $worked->where('shift_type', ShiftType::Normal)->count();
         $overtime = $worked->where('shift_type', ShiftType::Overtime)->count();

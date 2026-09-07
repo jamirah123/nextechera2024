@@ -56,14 +56,14 @@
 
     <section class="grid gap-4 lg:grid-cols-3">
         <div class="rounded-lg border border-slate-200 bg-white shadow-sm lg:col-span-2">
-            <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2.5">
-                <h2 class="text-base font-semibold text-slate-900">Site details</h2>
+            <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2">
+                <h2 class="text-sm font-semibold text-slate-900">Site details</h2>
                 <x-status-badge :tone="$site->status->tone()" :label="$site->status->label()" />
             </div>
-            <dl class="grid gap-0 sm:grid-cols-2">
-                <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
-                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Client</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">
+            <dl class="grid gap-0 sm:grid-cols-2 text-xs">
+                <div class="border-b border-slate-100 px-3 py-2 sm:border-r sm:px-4">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Client</dt>
+                    <dd class="mt-0.5 font-medium text-slate-900">
                         @if ($site->client)
                             <a href="{{ route('clients.show', $site->client) }}" class="text-brand-700 hover:text-brand-800">{{ $site->client->name }}</a>
                         @else
@@ -71,9 +71,9 @@
                         @endif
                     </dd>
                 </div>
-                <div class="border-b border-slate-100 px-3 py-2.5">
-                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Region</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">
+                <div class="border-b border-slate-100 px-3 py-2">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Region</dt>
+                    <dd class="mt-0.5 font-medium text-slate-900">
                         @if ($site->region)
                             <a href="{{ route('regions.show', $site->region) }}" class="text-brand-700 hover:text-brand-800">{{ $site->region->name }}</a>
                         @else
@@ -81,9 +81,9 @@
                         @endif
                     </dd>
                 </div>
-                <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
-                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Supervisor</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">
+                <div class="border-b border-slate-100 px-3 py-2 sm:border-r sm:px-4">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Supervisor</dt>
+                    <dd class="mt-0.5 font-medium text-slate-900">
                         @if ($site->supervisor)
                             <a href="{{ route('supervisors.show', $site->supervisor) }}" class="text-brand-700 hover:text-brand-800">{{ $site->supervisor->name }}</a>
                         @else
@@ -91,33 +91,43 @@
                         @endif
                     </dd>
                 </div>
-                <div class="border-b border-slate-100 px-3 py-2.5">
-                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Code</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $site->code }}</dd>
+                <div class="border-b border-slate-100 px-3 py-2">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Code</dt>
+                    <dd class="mt-0.5 font-medium text-slate-900">{{ $site->code }}</dd>
                 </div>
-                <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
-                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Contact</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $site->site_contact_person ?: '—' }}</dd>
+                <div class="border-b border-slate-100 px-3 py-2 sm:border-r sm:px-4">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Contact</dt>
+                    <dd class="mt-0.5 font-medium text-slate-900">{{ $site->site_contact_person ?: '—' }}</dd>
                     @if ($site->site_contact_phone)
-                        <dd class="text-xs text-slate-500">{{ $site->site_contact_phone }}</dd>
+                        <dd class="text-[11px] text-slate-500">{{ $site->site_contact_phone }}</dd>
                     @endif
                 </div>
-                <div class="border-b border-slate-100 px-3 py-2.5">
-                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Posts</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $site->number_of_posts }}</dd>
+                <div class="border-b border-slate-100 px-3 py-2">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Posts</dt>
+                    <dd class="mt-0.5 font-medium text-slate-900">{{ $site->number_of_posts }}</dd>
                 </div>
-                <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
-                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Contract</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">
+                <div class="border-b border-slate-100 px-3 py-2 sm:border-r sm:px-4">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Day manpower</dt>
+                    <dd class="mt-0.5 font-medium text-slate-900">{{ $manpower['required_day'] }} guards</dd>
+                    <dd class="text-[11px] text-slate-500">{{ $manpower['required_day_armed'] }} armed · {{ $manpower['required_day_unarmed'] }} unarmed</dd>
+                </div>
+                <div class="border-b border-slate-100 px-3 py-2">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Night manpower</dt>
+                    <dd class="mt-0.5 font-medium text-slate-900">{{ $manpower['required_night'] }} guards</dd>
+                    <dd class="text-[11px] text-slate-500">{{ $manpower['required_night_armed'] }} armed · {{ $manpower['required_night_unarmed'] }} unarmed</dd>
+                </div>
+                <div class="border-b border-slate-100 px-3 py-2 sm:border-r sm:px-4">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Contract</dt>
+                    <dd class="mt-0.5 font-medium text-slate-900">
                         {{ optional($site->contract_start_date)->format('d M Y') ?: '—' }}
                         @if ($site->contract_end_date)
                             – {{ optional($site->contract_end_date)->format('d M Y') }}
                         @endif
                     </dd>
                 </div>
-                <div class="border-b border-slate-100 px-3 py-2.5">
-                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Coordinates</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">
+                <div class="border-b border-slate-100 px-3 py-2">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Coordinates</dt>
+                    <dd class="mt-0.5 font-medium text-slate-900">
                         @if ($site->latitude && $site->longitude)
                             {{ $site->latitude }}, {{ $site->longitude }}
                         @else
@@ -125,100 +135,47 @@
                         @endif
                     </dd>
                 </div>
-                <div class="px-3 py-2.5 sm:col-span-2 sm:px-6">
-                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Location / notes</dt>
-                    <dd class="mt-1 text-sm text-slate-700">{{ $site->physical_location ?: '—' }}</dd>
+                <div class="px-3 py-2 sm:col-span-2 sm:px-4">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Location / notes</dt>
+                    <dd class="mt-0.5 text-slate-700">{{ $site->physical_location ?: '—' }}</dd>
                     @if ($site->notes)
-                        <dd class="mt-2 text-sm text-slate-600">{{ $site->notes }}</dd>
+                        <dd class="mt-1 text-slate-600">{{ $site->notes }}</dd>
                     @endif
                 </div>
             </dl>
         </div>
 
         <div class="space-y-4">
-            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 class="text-base font-semibold text-slate-900">Shift manpower</h2>
-                <p class="mt-1 text-sm text-slate-500">Day vs night requirements.</p>
-                <div class="mt-4 grid gap-3">
-                    <div class="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3">
-                        <p class="text-xs font-medium uppercase tracking-wide text-sky-700">Day</p>
-                        <p class="mt-1 text-lg font-semibold text-sky-950">{{ $manpower['required_day'] }}</p>
-                        <p class="mt-0.5 text-xs text-sky-700/80">Deployed {{ $manpower['deployed_day'] }} · Short {{ $manpower['shortage_day'] }}</p>
+            <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <h2 class="text-sm font-semibold text-slate-900">Shift manpower</h2>
+                <p class="mt-0.5 text-[11px] text-slate-500">Day vs night, armed vs unarmed.</p>
+                <div class="mt-3 grid gap-2">
+                    <div class="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
+                        <p class="text-[10px] font-medium uppercase tracking-wide text-sky-700">Day</p>
+                        <p class="mt-0.5 text-sm font-semibold tabular-nums text-sky-950">{{ $manpower['required_day'] }}</p>
+                        <p class="mt-0.5 text-[11px] text-sky-800">{{ $manpower['required_day_armed'] }} armed · {{ $manpower['required_day_unarmed'] }} unarmed</p>
+                        <p class="mt-0.5 text-[10px] text-sky-700/80">Deployed {{ $manpower['deployed_day'] }} · Short {{ $manpower['shortage_day'] }}</p>
                     </div>
-                    <div class="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-                        <p class="text-xs font-medium uppercase tracking-wide text-indigo-700">Night</p>
-                        <p class="mt-1 text-lg font-semibold text-indigo-950">{{ $manpower['required_night'] }}</p>
-                        <p class="mt-0.5 text-xs text-indigo-700/80">Deployed {{ $manpower['deployed_night'] }} · Short {{ $manpower['shortage_night'] }}</p>
+                    <div class="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2">
+                        <p class="text-[10px] font-medium uppercase tracking-wide text-indigo-700">Night</p>
+                        <p class="mt-0.5 text-sm font-semibold tabular-nums text-indigo-950">{{ $manpower['required_night'] }}</p>
+                        <p class="mt-0.5 text-[11px] text-indigo-800">{{ $manpower['required_night_armed'] }} armed · {{ $manpower['required_night_unarmed'] }} unarmed</p>
+                        <p class="mt-0.5 text-[10px] text-indigo-700/80">Deployed {{ $manpower['deployed_night'] }} · Short {{ $manpower['shortage_night'] }}</p>
                     </div>
-                    <div class="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3">
-                        <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Total</p>
-                        <p class="mt-1 text-lg font-semibold text-slate-900">{{ $manpower['required'] }}</p>
-                        <div class="mt-2">
+                    <div class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                        <p class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Total</p>
+                        <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ $manpower['required'] }}</p>
+                        <p class="mt-0.5 text-[11px] text-slate-600">
+                            {{ $manpower['required_day_armed'] + $manpower['required_night_armed'] }} armed
+                            · {{ $manpower['required_day_unarmed'] + $manpower['required_night_unarmed'] }} unarmed
+                        </p>
+                        <div class="mt-1.5">
                             <x-status-badge :tone="$manpower['status']->tone()" :label="$manpower['status']->label()" />
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </section>
-
-    <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-100 px-3 py-2.5">
-            <h2 class="text-base font-semibold text-slate-900">Requirement history</h2>
-            <p class="mt-0.5 text-sm text-slate-500">Previous manpower requirement snapshots.</p>
-        </div>
-
-        @if ($site->manpowerRequirements->isEmpty())
-            <div class="p-5 sm:p-6">
-                <x-empty-state
-                    title="No requirement history"
-                    description="Manpower changes will appear here after updates."
-                    icon="chart"
-                />
-            </div>
-        @else
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
-                    <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                        <tr>
-                            <th class="w-14 px-3 py-2">#</th>
-                            <th class="px-3 py-2">Effective</th>
-                            <th class="px-3 py-2 text-right">Day</th>
-                            <th class="px-3 py-2 text-right">Night</th>
-                            <th class="px-3 py-2 text-right">Total</th>
-                            <th class="px-3 py-2">Notes</th>
-                            <th class="px-3 py-2">Current</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @foreach ($site->manpowerRequirements as $requirement)
-                            <tr>
-                                <td class="px-3 py-2">
-                                    <x-table-serial :iteration="$loop->iteration" />
-                                </td>
-                                <td class="px-3 py-2 text-slate-700">
-                                    {{ optional($requirement->effective_from)->format('d M Y') ?: '—' }}
-                                    @if ($requirement->effective_to)
-                                        <span class="text-slate-400">– {{ optional($requirement->effective_to)->format('d M Y') }}</span>
-                                    @endif
-                                </td>
-                                <td class="px-3 py-2 text-right text-slate-700">{{ $requirement->required_day }}</td>
-                                <td class="px-3 py-2 text-right text-slate-700">{{ $requirement->required_night }}</td>
-                                <td class="px-3 py-2 text-right font-semibold text-slate-900">{{ $requirement->required_total }}</td>
-                                <td class="px-3 py-2 text-slate-600">{{ $requirement->notes ?: '—' }}</td>
-                                <td class="px-3 py-2">
-                                    @if ($requirement->is_current)
-                                        <x-status-badge tone="emerald" label="Current" />
-                                    @else
-                                        <x-status-badge tone="slate" label="Past" />
-                                    @endif
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @endif
     </section>
 
         </div>

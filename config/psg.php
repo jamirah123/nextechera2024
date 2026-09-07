@@ -15,6 +15,7 @@ return [
     'currency' => env('PSG_CURRENCY', 'UGX'),
     'currency_label' => env('PSG_CURRENCY_LABEL', 'Ugandan Shillings'),
     'currency_decimals' => (int) env('PSG_CURRENCY_DECIMALS', 0),
+    'vat_rate' => (float) env('PSG_VAT_RATE', 18),
     'invoice_due_days' => (int) env('PSG_INVOICE_DUE_DAYS', 14),
     'company_bank_name' => env('PSG_COMPANY_BANK_NAME'),
     'company_bank_account' => env('PSG_COMPANY_BANK_ACCOUNT'),
@@ -29,6 +30,14 @@ return [
             'start' => env('PSG_NIGHT_SHIFT_START', '18:00'),
             'end' => env('PSG_NIGHT_SHIFT_END', '06:00'),
         ],
+    ],
+    'shifts' => [
+        // When true, past-window shifts without attendance become Missed instead of Completed.
+        // Default false: deployed shifts auto-complete at end time unless a manager cancels them.
+        'require_attendance_to_complete' => filter_var(
+            env('PSG_SHIFTS_REQUIRE_ATTENDANCE_TO_COMPLETE', false),
+            FILTER_VALIDATE_BOOL
+        ),
     ],
     'backup' => [
         'keep_days' => (int) env('PSG_BACKUP_KEEP', 14),

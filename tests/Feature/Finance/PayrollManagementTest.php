@@ -62,7 +62,7 @@ class PayrollManagementTest extends TestCase
             'region_id' => $site->region_id,
             'shift_date' => $period['start']->toDateString(),
             'shift_type' => ShiftType::Normal,
-            'status' => ShiftStatus::Completed,
+            'status' => ShiftStatus::Recorded,
         ]);
 
         Shift::factory()->create([
@@ -71,7 +71,7 @@ class PayrollManagementTest extends TestCase
             'region_id' => $site->region_id,
             'shift_date' => $period['start']->copy()->addDay()->toDateString(),
             'shift_type' => ShiftType::Overtime,
-            'status' => ShiftStatus::Completed,
+            'status' => ShiftStatus::Recorded,
         ]);
 
         $this->actingAs($finance)
@@ -164,7 +164,7 @@ class PayrollManagementTest extends TestCase
             'region_id' => $site->region_id,
             'shift_date' => $period['start']->toDateString(),
             'shift_type' => ShiftType::Normal,
-            'status' => ShiftStatus::Completed,
+            'status' => ShiftStatus::Recorded,
         ]);
 
         $this->actingAs($finance)
@@ -256,7 +256,7 @@ class PayrollManagementTest extends TestCase
             'region_id' => $site->region_id,
             'shift_date' => $period['start']->toDateString(),
             'shift_type' => ShiftType::Normal,
-            'status' => ShiftStatus::Completed,
+            'status' => ShiftStatus::Recorded,
         ]);
 
         $this->actingAs($finance)
@@ -310,7 +310,7 @@ class PayrollManagementTest extends TestCase
             'region_id' => $site->region_id,
             'shift_date' => $period['start']->toDateString(),
             'shift_type' => ShiftType::Normal,
-            'status' => ShiftStatus::Completed,
+            'status' => ShiftStatus::Recorded,
         ]);
 
         $this->actingAs($finance)
@@ -388,7 +388,7 @@ class PayrollManagementTest extends TestCase
             'region_id' => $site->region_id,
             'shift_date' => $period['start']->toDateString(),
             'shift_type' => ShiftType::Normal,
-            'status' => ShiftStatus::Completed,
+            'status' => ShiftStatus::Recorded,
         ]);
 
         $this->actingAs($finance)
@@ -449,7 +449,7 @@ class PayrollManagementTest extends TestCase
             'region_id' => $site->region_id,
             'shift_date' => '2024-01-15',
             'shift_type' => ShiftType::Normal,
-            'status' => ShiftStatus::Completed,
+            'status' => ShiftStatus::Recorded,
         ]);
 
         Shift::factory()->create([
@@ -458,7 +458,7 @@ class PayrollManagementTest extends TestCase
             'region_id' => $site->region_id,
             'shift_date' => '2024-02-15',
             'shift_type' => ShiftType::Normal,
-            'status' => ShiftStatus::Completed,
+            'status' => ShiftStatus::Recorded,
         ]);
 
         $this->actingAs($finance)->post(route('payroll.calculate', $januaryRun))->assertRedirect();

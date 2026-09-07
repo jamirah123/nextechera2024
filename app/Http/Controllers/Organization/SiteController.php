@@ -107,7 +107,6 @@ class SiteController extends Controller
             'client',
             'region',
             'supervisor',
-            'manpowerRequirements' => fn ($q) => $q->latest('effective_from')->limit(10),
             'creator',
             'updater',
         ]);

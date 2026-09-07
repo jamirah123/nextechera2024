@@ -12,9 +12,9 @@
         :back="route('shifts.index', ['date' => $shift->shift_date->toDateString()])"
     >
         <x-slot:actions>
-            @if ($canManage && ! in_array($shift->status->value, ['cancelled', 'completed', 'replaced'], true))
+            @if ($canManage && ! in_array($shift->status->value, ['replaced'], true))
                 <a href="{{ route('shifts.edit', $shift) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-                    Edit
+                    Edit / correct
                 </a>
             @endif
             @if ($canManage && in_array($shift->status->value, ['scheduled', 'confirmed', 'in_progress', 'missed'], true) && ! $shift->replacementRecord)
@@ -53,7 +53,7 @@
                 </dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Window</dt>
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Shift date</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                     {{ $shift->shift_date->format('d M Y') }}
                     <span class="block text-xs font-normal text-slate-500">
@@ -71,10 +71,17 @@
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $shift->supervisor?->name ?? '—' }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Created by</dt>
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Entered by</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                     {{ $shift->creator?->name ?? '—' }}
                     <span class="block text-xs font-normal text-slate-500">{{ optional($shift->created_at)->format('d M Y, H:i') }}</span>
+                </dd>
+            </div>
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Last updated by</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">
+                    {{ $shift->updater?->name ?? '—' }}
+                    <span class="block text-xs font-normal text-slate-500">{{ optional($shift->updated_at)->format('d M Y, H:i') }}</span>
                 </dd>
             </div>
             @if ($shift->notes)
@@ -98,11 +105,11 @@
         </dl>
     </section>
 
-    @if ($canManage && ! in_array($shift->status->value, ['cancelled', 'completed', 'replaced'], true))
+    @if ($canManage && $shift->status->value !== 'replaced')
         <section class="form-card">
             <h2 class="text-base font-semibold text-slate-900">Update status</h2>
             <p class="mt-1 text-sm text-slate-500">
-                Shifts complete automatically when the window ends. Mark cancelled or missed here when duty did not happen as planned.
+                A posting creates <strong class="font-semibold">Shift recorded</strong> (payable). If the guard did not finish, change to Absent/No-show, Incomplete, or Cancelled so payroll does not count it. Do not delete the record.
             </p>
             <form method="POST" action="{{ route('shifts.status', $shift) }}" class="mt-4 grid gap-4 sm:grid-cols-3 sm:items-end">
                 @csrf

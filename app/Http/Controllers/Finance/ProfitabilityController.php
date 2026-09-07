@@ -7,6 +7,7 @@ use App\Services\Finance\ProfitabilityService;
 use App\Services\ReportExportService;
 use App\Support\Money;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -29,6 +30,11 @@ class ProfitabilityController extends Controller
 
         return view('finance.profitability.index', [
             'report' => $report,
+            'tables' => [
+                ['title' => 'By client', 'rows' => $this->paginateRows($report['by_client'], $request, 'client_page')],
+                ['title' => 'By site', 'rows' => $this->paginateRows($report['by_site'], $request, 'site_page')],
+                ['title' => 'By region', 'rows' => $this->paginateRows($report['by_region'], $request, 'region_page')],
+            ],
             'filters' => ['from' => $from, 'to' => $to],
             'exportQuery' => ['from' => $from, 'to' => $to],
         ]);
@@ -66,5 +72,27 @@ class ProfitabilityController extends Controller
         }
 
         return $this->exports->downloadCsv('psg-profitability-'.$from.'-'.$to.'.csv', $headers, $data);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    private function paginateRows(array $rows, Request $request, string $pageName): LengthAwarePaginator
+    {
+        $perPage = table_per_page();
+        $page = LengthAwarePaginator::resolveCurrentPage($pageName);
+        $items = collect($rows);
+
+        return (new LengthAwarePaginator(
+            $items->forPage($page, $perPage)->values(),
+            $items->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'pageName' => $pageName,
+            ]
+        ))->appends($request->except($pageName));
     }
 }

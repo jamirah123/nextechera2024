@@ -32,13 +32,19 @@
         @method('PUT')
 
         <x-form-panel
-            title="Edit shift"
-            :subtitle="$shift->reference"
+            title="Edit / correct shift"
+            :subtitle="$shift->reference.(in_array($shift->status->value, ['recorded', 'completed', 'cancelled', 'missed', 'incomplete', 'replaced'], true) ? ' · correction mode' : '')"
             :back="route('shifts.show', $shift)"
         >
+            @if (in_array($shift->status->value, ['recorded', 'completed', 'cancelled', 'missed', 'incomplete', 'replaced'], true))
+                <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                    This duty is closed or already recorded. Saving corrects the historical record (who / when / outcome) for disputes and payroll — do not delete it.
+                </div>
+            @endif
+
             <div class="form-grid">
                 <x-form-field label="Guard" name="guard_id" type="select" :required="true" class="sm:col-span-2" x-model="guardId" x-on:change="syncSite()">
-                    <option value="">Select deployed guard</option>
+                    <option value="">Select guard</option>
                     @foreach ($guards as $guard)
                         <option value="{{ $guard->id }}">{{ $guard->employment_id }} — {{ $guard->full_name }}</option>
                     @endforeach
@@ -51,7 +57,14 @@
                     @endforeach
                 </x-form-field>
 
-                <x-form-field label="Date" name="shift_date" type="date" :value="old('shift_date', $shift->shift_date->toDateString())" :required="true" />
+                <x-form-field
+                    label="Shift date"
+                    name="shift_date"
+                    type="date"
+                    :value="old('shift_date', $shift->shift_date->toDateString())"
+                    :required="true"
+                    help="Actual duty date. Changing this does not change when the record was first entered."
+                />
                 <x-form-field label="Period" name="period" type="select" :required="true" x-model="period" x-on:change="applyPeriod()">
                     @foreach ($periods as $period)
                         <option value="{{ $period->value }}">{{ $period->label() }}</option>
@@ -67,9 +80,16 @@
                     <input type="time" name="end_time" x-model="endTime" required class="field__control">
                 </div>
 
-                <x-form-field label="Shift type" name="shift_type" type="select" :required="true" class="sm:col-span-2">
+                <x-form-field label="Shift type" name="shift_type" type="select" :required="true">
                     @foreach ($shiftTypes as $type)
                         <option value="{{ $type->value }}" @selected(old('shift_type', $shift->shift_type->value) === $type->value)>{{ $type->label() }}</option>
+                    @endforeach
+                </x-form-field>
+                <x-form-field label="Classification" name="guard_classification" type="select" :required="true">
+                    @foreach (\App\Enums\GuardClassification::cases() as $classification)
+                        <option value="{{ $classification->value }}" @selected(old('guard_classification', $shift->guard_classification->value) === $classification->value)>
+                            {{ $classification->label() }}
+                        </option>
                     @endforeach
                 </x-form-field>
                 <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes', $shift->notes)" class="sm:col-span-2" />
@@ -97,7 +117,7 @@
                 <p class="form-alert form-alert--error">{{ $message }}</p>
             @enderror
 
-            <x-form-actions :cancel="route('shifts.show', $shift)" submit-label="Update shift" />
+            <x-form-actions :cancel="route('shifts.show', $shift)" submit-label="Save correction" />
         </x-form-panel>
     </form>
 </div>

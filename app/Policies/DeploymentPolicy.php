@@ -37,7 +37,8 @@ class DeploymentPolicy
 
     public function delete(User $user, Deployment $deployment): bool
     {
-        return $this->update($user, $deployment);
+        return Access::userCanDelete($user)
+            && $this->update($user, $deployment);
     }
 
     public function transfer(User $user, Deployment $deployment): bool

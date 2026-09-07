@@ -17,14 +17,24 @@ class InvoicePdfService
 
     public function renderBinary(Invoice $invoice): string
     {
+        return $this->pdf->renderView('documents.pdf.invoice', $this->viewData($invoice, embedLogo: true));
+    }
+
+    /**
+     * @return array{invoice: Invoice, paymentTerms: string, bankDetails: string|null, companyLogo: string|null}
+     */
+    public function viewData(Invoice $invoice, bool $embedLogo = false): array
+    {
         $invoice->loadMissing(['client', 'site', 'lines']);
 
-        return $this->pdf->renderView('documents.pdf.invoice', [
+        return [
             'invoice' => $invoice,
             'paymentTerms' => $this->paymentTerms($invoice),
             'bankDetails' => $this->bankDetails(),
-            'companyLogo' => $this->companyLogoDataUri(),
-        ]);
+            'companyLogo' => $embedLogo
+                ? ($this->companyLogoDataUri() ?? $this->companyLogoUrl())
+                : $this->companyLogoUrl(),
+        ];
     }
 
     public function filename(Invoice $invoice): string
@@ -77,6 +87,19 @@ class InvoicePdfService
         }
 
         return 'data:'.$mime.';base64,'.base64_encode($binary);
+    }
+
+    public function companyLogoUrl(): ?string
+    {
+        $settings = $this->settings->current();
+
+        if (filled($settings->logo_path) && Storage::disk('public')->exists($settings->logo_path)) {
+            return $settings->resolvedLogoUrl();
+        }
+
+        $fallback = public_path(config('psg.fallback_logo', 'images/logo.jpeg'));
+
+        return is_file($fallback) ? asset(config('psg.fallback_logo', 'images/logo.jpeg')) : null;
     }
 
     private function companyLogoAbsolutePath(): ?string

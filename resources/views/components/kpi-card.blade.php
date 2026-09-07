@@ -20,7 +20,7 @@
 
 <div {{ $attributes->merge(['class' => 'flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900']) }}>
     <p @class(['truncate text-[10px] font-semibold uppercase tracking-wide', $labelTones[$tone] ?? $labelTones['slate']])>{{ $label }}</p>
-    <p class="mt-0.5 truncate text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100" title="{{ $value }}">{{ $value }}</p>
+    <p class="mt-0.5 truncate text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100" title="{{ $value }}">{{ $value }}</p>
     @if ($hint)
         <p class="mt-0.5 truncate text-[10px] text-slate-400 dark:text-slate-500">{{ $hint }}</p>
     @endif

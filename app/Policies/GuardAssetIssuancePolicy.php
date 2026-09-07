@@ -40,6 +40,7 @@ class GuardAssetIssuancePolicy
 
     public function delete(User $user, GuardAssetIssuance $issuance): bool
     {
-        return $this->update($user, $issuance);
+        return Access::userCanDelete($user)
+            && $this->update($user, $issuance);
     }
 }

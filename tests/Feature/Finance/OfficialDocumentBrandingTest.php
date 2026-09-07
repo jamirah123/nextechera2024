@@ -43,7 +43,7 @@ class OfficialDocumentBrandingTest extends TestCase
             ->assertSee(config('psg.company'))
             ->assertSee('New Age Security and Protection')
             ->assertSee('Authorized signature')
-            ->assertSee('Client acknowledgment');
+            ->assertSee('Received by');
     }
 
     public function test_report_printout_includes_branded_header(): void

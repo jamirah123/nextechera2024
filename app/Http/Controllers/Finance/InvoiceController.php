@@ -147,8 +147,7 @@ class InvoiceController extends Controller
 
         $invoice->load(['client', 'site', 'lines.site', 'payments.recorder', 'approver', 'creator', 'updater']);
 
-        return view('finance.invoices.show', [
-            'invoice' => $invoice,
+        return view('finance.invoices.show', array_merge($this->pdf->viewData($invoice), [
             'canManage' => request()->user()->can('manageFinance'),
             'history' => $this->history->forSubject($invoice),
             'recordMeta' => $this->history->recordMeta($invoice),
@@ -159,7 +158,7 @@ class InvoiceController extends Controller
                 'terminal' => $invoice->status === InvoiceStatus::Cancelled ? 'Cancelled' : ($invoice->status === InvoiceStatus::Overdue ? 'Overdue' : null),
                 'terminal_tone' => $invoice->status === InvoiceStatus::Overdue ? 'rose' : 'slate',
             ],
-        ]);
+        ]));
     }
 
     public function edit(Invoice $invoice): View

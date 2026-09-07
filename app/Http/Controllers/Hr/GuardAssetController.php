@@ -138,6 +138,7 @@ class GuardAssetController extends Controller
         return view('hr.assets.show', [
             'issuance' => $asset,
             'canManage' => request()->user()->can('update', $asset),
+            'canDelete' => request()->user()->can('delete', $asset),
             'canModify' => $this->assets->canModify($asset),
             'modificationBlockers' => $this->assets->modificationBlockers($asset),
         ]);

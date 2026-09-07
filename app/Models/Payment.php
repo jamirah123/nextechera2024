@@ -6,6 +6,7 @@ use App\Enums\PaymentMethod;
 use App\Models\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Payment extends Model
 {
@@ -53,6 +54,11 @@ class Payment extends Model
     public function recorder(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    public function matchedStatementLines(): HasMany
+    {
+        return $this->hasMany(BankStatementLine::class, 'matched_payment_id');
     }
 
     public function isDisbursement(): bool

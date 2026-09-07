@@ -77,6 +77,20 @@ function watchOptionState(el, ts) {
     el._tomSelectObserver = observer;
 }
 
+function splitLabel(text) {
+    const raw = String(text ?? '').trim();
+    const parts = raw.split(/\s+[—–-]\s+/);
+
+    if (parts.length >= 2) {
+        return {
+            code: parts[0].trim(),
+            name: parts.slice(1).join(' — ').trim(),
+        };
+    }
+
+    return { code: null, name: raw };
+}
+
 function initSelect(el) {
     if (shouldSkip(el)) {
         return null;
@@ -84,6 +98,9 @@ function initSelect(el) {
 
     const placeholderOption = Array.from(el.options).find((option) => option.value === '');
     const placeholder = placeholderOption?.textContent?.trim() || 'Search…';
+    const label = el.closest('.field')?.querySelector('.field__label')?.textContent?.trim()
+        || el.getAttribute('aria-label')
+        || placeholder;
 
     const ts = new TomSelect(el, {
         allowEmptyOption: true,
@@ -92,24 +109,44 @@ function initSelect(el) {
         maxItems: 1,
         hideSelected: false,
         closeAfterSelect: true,
+        openOnFocus: true,
         placeholder,
         searchField: ['text'],
         sortField: [{ field: '$score' }, { field: '$order' }],
+        controlInput: '<input type="text" autocomplete="off" size="1" />',
         plugins: {
             clear_button: {
                 title: 'Clear selection',
             },
-            dropdown_input: {},
         },
         render: {
             item(data, escape) {
                 if (! data.value) {
-                    return `<div class="item text-slate-400">${escape(placeholder)}</div>`;
+                    return `<div class="item item--placeholder">${escape(placeholder)}</div>`;
+                }
+
+                const { code, name } = splitLabel(data.text);
+
+                if (code) {
+                    return `<div class="item"><span class="item__code">${escape(code)}</span><span class="item__name">${escape(name)}</span></div>`;
                 }
 
                 return `<div class="item">${escape(data.text)}</div>`;
             },
             option(data, escape) {
+                if (! data.value) {
+                    return `<div class="option option--all" data-selectable>${escape(data.text || placeholder)}</div>`;
+                }
+
+                const { code, name } = splitLabel(data.text);
+
+                if (code) {
+                    return `<div class="option" data-selectable>
+                        <span class="option__code">${escape(code)}</span>
+                        <span class="option__name">${escape(name)}</span>
+                    </div>`;
+                }
+
                 return `<div class="option" data-selectable>${escape(data.text)}</div>`;
             },
             no_results() {
@@ -117,11 +154,23 @@ function initSelect(el) {
             },
         },
         onInitialize() {
-            this.control_input?.setAttribute('aria-label', `Search ${placeholder}`);
-            // Avoid duplicate empty-option text + placeholder in the control.
+            this.wrapper?.classList.add('ts-professional');
+            this.wrapper?.classList.remove(
+                'field__control',
+                'field__control--select',
+                'field__control--error',
+                'field__control--textarea',
+                'field__control--readonly',
+            );
+            this.control_input?.setAttribute('aria-label', `Search ${label}`);
+            this.control_input?.setAttribute('placeholder', '');
+
             if (! this.getValue()) {
                 this.clear(true);
             }
+        },
+        onDropdownOpen() {
+            this.control_input?.focus({ preventScroll: true });
         },
         onChange() {
             el.dispatchEvent(new Event('change', { bubbles: true }));

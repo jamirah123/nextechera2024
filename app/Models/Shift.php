@@ -35,6 +35,7 @@ class Shift extends Model
         'shift_type',
         'guard_classification',
         'status',
+        'same_shift_slot',
         'is_overnight',
         'notes',
         'override_used',
@@ -47,6 +48,34 @@ class Shift extends Model
         'created_by',
         'updated_by',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (Shift $shift): void {
+            $shift->same_shift_slot = $shift->resolveSameShiftSlot();
+        });
+    }
+
+    public function resolveSameShiftSlot(): ?string
+    {
+        if (! $this->status instanceof ShiftStatus || ! $this->status->blocksCalendarSlot()) {
+            return null;
+        }
+
+        if ($this->guard_id === null || $this->period === null || $this->shift_date === null) {
+            return null;
+        }
+
+        $date = $this->shift_date instanceof \Carbon\CarbonInterface
+            ? $this->shift_date->toDateString()
+            : (string) $this->shift_date;
+
+        $period = $this->period instanceof ShiftPeriod
+            ? $this->period->value
+            : (string) $this->period;
+
+        return $this->guard_id.'|'.$date.'|'.$period;
+    }
 
     protected function casts(): array
     {
@@ -152,9 +181,9 @@ class Shift extends Model
         });
     }
 
-    public function scopeForDate($query, string $date)
+    public function scopeForDate($query, ?string $date = null)
     {
-        return $query->whereDate('shift_date', $date);
+        return $query->whereDate('shift_date', $date ?: now()->toDateString());
     }
 
     public function scopeBlocking($query)
@@ -163,6 +192,7 @@ class Shift extends Model
             ShiftStatus::Scheduled->value,
             ShiftStatus::Confirmed->value,
             ShiftStatus::InProgress->value,
+            ShiftStatus::Recorded->value,
             ShiftStatus::Completed->value,
         ]);
     }

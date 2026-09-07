@@ -198,6 +198,52 @@ class DeploymentShiftAvailabilityTest extends TestCase
         $this->assertSame(OperationalStatus::AwaitingDeployment, $guard->operational_status);
     }
 
+    public function test_night_posting_created_during_daytime_is_not_released_before_night_window(): void
+    {
+        Carbon::setTestNow('2026-09-07 10:00:00');
+
+        $site = Site::factory()->create([
+            'required_day_guards' => 10,
+            'required_night_guards' => 10,
+            'required_guards' => 20,
+        ]);
+        $guard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $site->region_id,
+            'current_site_id' => null,
+        ]);
+
+        $deployment = app(\App\Services\DeploymentService::class)->deploy([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'shift_type' => DeploymentShiftType::Night->value,
+            'start_date' => '2026-09-07',
+        ]);
+
+        $this->assertTrue($deployment->is_current);
+        $this->assertSame(DeploymentStatus::Active, $deployment->status);
+
+        $released = app(\App\Services\DeploymentService::class)->releaseGuardsAfterShiftWindow();
+        $this->assertSame(0, $released);
+
+        $deployment->refresh();
+        $guard->refresh();
+        $this->assertTrue($deployment->is_current);
+        $this->assertSame(OperationalStatus::OnDuty, $guard->operational_status);
+
+        Carbon::setTestNow('2026-09-08 06:00:00');
+
+        $released = app(\App\Services\DeploymentService::class)->releaseGuardsAfterShiftWindow();
+        $this->assertSame(1, $released);
+
+        $deployment->refresh();
+        $guard->refresh();
+        $this->assertFalse($deployment->is_current);
+        $this->assertSame(DeploymentStatus::Ended, $deployment->status);
+        $this->assertSame(OperationalStatus::AwaitingDeployment, $guard->operational_status);
+    }
+
     public function test_scheduled_command_releases_guards_when_shift_window_ends(): void
     {
         Carbon::setTestNow('2026-08-28 17:59:00');
@@ -228,5 +274,48 @@ class DeploymentShiftAvailabilityTest extends TestCase
         $guard->refresh();
         $this->assertSame(OperationalStatus::AwaitingDeployment, $guard->operational_status);
         $this->assertFalse($guard->currentDeployment()->exists());
+    }
+
+    public function test_shift_window_release_keeps_day_posting_when_upcoming_shift_exists(): void
+    {
+        Carbon::setTestNow('2026-08-28 17:59:00');
+
+        $site = Site::factory()->create();
+        $guard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OnDuty,
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+        ]);
+
+        Deployment::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'shift_type' => DeploymentShiftType::Day,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+        ]);
+
+        \App\Models\Shift::factory()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'shift_date' => now()->addDay()->toDateString(),
+            'status' => \App\Enums\ShiftStatus::Scheduled,
+            'starts_at' => now()->addDay()->setTime(6, 0),
+            'ends_at' => now()->addDay()->setTime(18, 0),
+        ]);
+
+        Carbon::setTestNow('2026-08-28 18:00:00');
+
+        $this->artisan('psg:release-shift-window-guards')
+            ->expectsOutputToContain('0 deployment(s) ended')
+            ->assertSuccessful();
+
+        $this->assertTrue($guard->fresh()->currentDeployment()->exists());
+        $this->assertSame($site->id, $guard->fresh()->current_site_id);
     }
 }

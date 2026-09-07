@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\AbsenceService;
 use App\Services\DeploymentService;
+use App\Services\Shifts\ShiftLifecycleService;
 use Illuminate\Console\Command;
 
 class ReleaseShiftWindowGuardsCommand extends Command
@@ -12,8 +13,9 @@ class ReleaseShiftWindowGuardsCommand extends Command
 
     protected $description = 'Return day/night posted guards to the deploy board when their shift window ends';
 
-    public function handle(AbsenceService $absences, DeploymentService $deployments): int
+    public function handle(AbsenceService $absences, DeploymentService $deployments, ShiftLifecycleService $lifecycle): int
     {
+        $lifecycle->sync();
         $releasedAbsent = $absences->releaseEligibleAbsentGuards();
         $releasedDeployments = $deployments->releaseGuardsAfterShiftWindow();
 

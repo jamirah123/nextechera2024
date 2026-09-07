@@ -44,13 +44,20 @@ class EntityRelatedRecordsService
         $panels = [];
 
         if ($guard->currentDeployment) {
+            $started = optional($guard->currentDeployment->start_date)?->format('d M Y');
+            $shiftLabel = $guard->currentDeployment->shift_type?->label();
+
             $panels[] = [
                 'title' => 'Current deployment',
                 'count' => 1,
                 'href' => route('deployments.show', $guard->currentDeployment),
                 'items' => [[
                     'label' => $guard->currentDeployment->site?->name ?? 'Deployment',
-                    'meta' => optional($guard->currentDeployment->start_date)?->format('d M Y'),
+                    'meta' => collect([
+                        $started ? 'Since '.$started : null,
+                        $shiftLabel,
+                        'Still active',
+                    ])->filter()->implode(' · '),
                     'href' => route('deployments.show', $guard->currentDeployment),
                     'tone' => 'emerald',
                 ]],

@@ -37,6 +37,7 @@ class GuardFactory extends Factory
             'date_employed' => fake()->dateTimeBetween('-5 years', 'now')->format('Y-m-d'),
             'employment_status' => EmploymentStatus::Active,
             'rank_designation' => fake()->optional()->randomElement(['Security Guard', 'Senior Guard', 'Team Leader']),
+            'guard_classification' => \App\Enums\GuardClassification::Unarmed,
             'region_id' => Region::factory(),
             'current_site_id' => null,
             'current_supervisor_id' => null,

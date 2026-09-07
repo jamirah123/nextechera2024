@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
-@section('title', 'Deploy guards')
-@section('page-title', 'Deploy guards')
-@section('page-subtitle', 'Assign undeployed company guards to sites — deployed guards move to the active deployments list')
+@section('title', 'Site posting board')
+@section('page-title', 'Site posting board')
+@section('page-subtitle', 'Post company guards to client sites — Day/Night cover opens a duty; Rotating stays until transfer or end')
 
 @section('content')
 <div
@@ -12,6 +12,7 @@
         defaults: {
             site_id: '',
             shift_type: @js(\App\Enums\DeploymentShiftType::Day->value),
+            duty_type: @js(\App\Enums\ShiftType::Normal->value),
         },
         sync() {
             this.selected = this.$root.querySelectorAll('[data-row-check]:checked').length;
@@ -24,28 +25,25 @@
             if (! this.defaults.site_id) return;
             const siteId = String(this.defaults.site_id);
             this.$root.querySelectorAll('[data-row-site]').forEach((el) => {
-                const options = [...el.options].map((o) => o.value);
-                if (options.includes(siteId)) {
-                    el.value = siteId;
-                }
+                const option = Array.from(el.options).find((o) => String(o.value) === siteId);
+                if (! option || option.disabled) return;
+                const siteRegion = option.getAttribute('data-region-id');
+                const guardRegion = el.getAttribute('data-region-id');
+                if (siteRegion && guardRegion && String(siteRegion) !== String(guardRegion)) return;
+                el.value = siteId;
             });
         },
         applyDefaultType() {
             this.$root.querySelectorAll('[data-row-type]').forEach((el) => { el.value = this.defaults.shift_type; });
+            this.$root.querySelectorAll('[data-row-duty]').forEach((el) => { el.value = this.defaults.duty_type; });
         }
     }"
 >
     <x-page-header
-        title="Deployment board"
-        subtitle="Guards awaiting deployment. Day posted guards return after {{ $shiftWindows['day_available'] ?? '18:00 – 06:00' }}; night posted after {{ $shiftWindows['night_available'] ?? '06:00 – 18:00' }}."
+        title="Site posting board"
+        subtitle="Post awaiting guards to client sites."
         :back="route('deployments.index')"
-    >
-        <x-slot:actions>
-            <a href="{{ route('deployments.index') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Active list</a>
-            <a href="{{ route('shifts.allocate') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Allocate shifts</a>
-            <a href="{{ route('deployments.create') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Single form</a>
-        </x-slot:actions>
-    </x-page-header>
+    />
 
     <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         @foreach ([
@@ -67,7 +65,7 @@
             <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
                 <a
                     href="{{ route('deployments.board', array_filter(['q' => $filters['q'] ?? null])) }}"
-                    class="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold {{ empty($filters['region_id']) ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}"
+                    class="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold {{ empty($filters['region_id']) ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' }}"
                 >
                     All · {{ number_format($stats['awaiting']) }}
                 </a>
@@ -75,7 +73,7 @@
                     @php $count = (int) ($regionCounts[$region->id] ?? 0); @endphp
                     <a
                         href="{{ route('deployments.board', array_filter(['region_id' => $region->id, 'q' => $filters['q'] ?? null])) }}"
-                        class="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold {{ (string) ($filters['region_id'] ?? '') === (string) $region->id ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}"
+                        class="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold {{ (string) ($filters['region_id'] ?? '') === (string) $region->id ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' }}"
                     >
                         {{ $region->name }} · {{ number_format($count) }}
                     </a>
@@ -84,7 +82,7 @@
         </section>
     @endif
 
-    <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+    <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <form method="GET" action="{{ route('deployments.board') }}" x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-3 xl:items-end">
             <x-form-field label="Search guard" name="q" type="search" :value="$filters['q'] ?? ''" placeholder="Name or ID" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" />
             <x-form-field label="Region" name="region_id" type="select" x-on:change="$refs.filterForm.requestSubmit()">
@@ -93,12 +91,12 @@
                     <option value="{{ $region->id }}" @selected((string) ($filters['region_id'] ?? '') === (string) $region->id)>{{ $region->name }} ({{ number_format($regionCounts[$region->id] ?? 0) }})</option>
                 @endforeach
             </x-form-field>
-            <a href="{{ route('deployments.board') }}" class="rounded-xl border border-slate-200 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">Reset filters</a>
+            <a href="{{ route('deployments.board') }}" class="rounded-xl border border-slate-200 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700">Reset filters</a>
         </form>
     </section>
 
     @if (session('deployment_errors'))
-        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
             <p class="font-semibold">Some rows were skipped</p>
             <ul class="mt-1 list-disc space-y-0.5 pl-4">
                 @foreach (session('deployment_errors') as $error)
@@ -114,32 +112,38 @@
         <form method="POST" action="{{ route('deployments.board.store') }}" class="space-y-4">
             @csrf
 
-            <div class="rounded-lg border border-emerald-200 bg-white p-3 shadow-sm">
+            <div class="rounded-lg border border-emerald-200 bg-white p-3 shadow-sm dark:border-emerald-800 dark:bg-slate-800">
                 <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-                    <div class="grid flex-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                        <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                            Start date
-                            <input type="date" name="start_date" value="{{ old('start_date', now()->toDateString()) }}" class="mt-0.5 block w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                    <div class="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                        <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Shift date
+                            <input type="date" name="start_date" value="{{ old('start_date', now()->toDateString()) }}" required class="mt-0.5 block h-[1.875rem] w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium leading-tight text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
                         </label>
-                        <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:col-span-2 lg:col-span-1">
+                        <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Through date (optional)
+                            <input type="date" name="duty_date_to" value="{{ old('duty_date_to') }}" class="mt-0.5 block h-[1.875rem] w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium leading-tight text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
+                        </label>
+                        <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             Default site
-                            <x-board-select x-model="defaults.site_id" class="mt-1.5">
+                            <x-board-select x-model="defaults.site_id" class="mt-0.5">
                                 <option value="">Choose a site…</option>
                                 @foreach ($regions as $region)
-                                    @php $regionSites = $sitesByRegion->get($region->id, collect()); @endphp
+                                    @php $regionSites = $sitesByRegion->get((int) $region->id, collect()); @endphp
                                     @if ($regionSites->isNotEmpty())
-                                        <optgroup label="{{ $region->name }}">
+                                        <optgroup label="{{ $region->name }} ({{ $regionSites->count() }})">
                                             @foreach ($regionSites as $site)
-                                                <option value="{{ $site->id }}">{{ $site->name }} · {{ $site->code }}</option>
+                                                <option value="{{ $site->id }}" data-region-id="{{ $site->region_id }}">
+                                                    {{ $site->name }} · {{ $site->code }}
+                                                </option>
                                             @endforeach
                                         </optgroup>
                                     @endif
                                 @endforeach
                             </x-board-select>
                         </label>
-                        <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             Default posting type
-                            <x-board-select x-model="defaults.shift_type" class="mt-1.5">
+                            <x-board-select x-model="defaults.shift_type" class="mt-0.5">
                                 @foreach ($shiftTypes as $type)
                                     <option value="{{ $type->value }}">
                                         @if ($type === \App\Enums\DeploymentShiftType::Day)
@@ -153,21 +157,16 @@
                                 @endforeach
                             </x-board-select>
                         </label>
-                        <label class="flex items-start gap-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-700 sm:col-span-2 lg:col-span-3">
-                            <input type="hidden" name="allocate_shifts" value="0">
-                            <input type="checkbox" name="allocate_shifts" value="1" class="mt-0.5 rounded border-slate-300 text-brand-700 focus:ring-brand-500/30" @checked(old('allocate_shifts', true))>
-                            <span>
-                                <span class="font-semibold text-slate-900">Also allocate shift</span>
-                                <span class="mt-0.5 block text-xs text-slate-500">Create today’s duty record in the same step (Day/Night from posting type).</span>
-                            </span>
-                        </label>
-                        <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                            Shift date
-                            <input type="date" name="shift_date" value="{{ old('shift_date', now()->toDateString()) }}" class="mt-0.5 block w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20">
+                        <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Default duty (Normal / OT)
+                            <x-board-select x-model="defaults.duty_type" class="mt-0.5">
+                                <option value="{{ \App\Enums\ShiftType::Normal->value }}">Normal</option>
+                                <option value="{{ \App\Enums\ShiftType::Overtime->value }}">Overtime</option>
+                            </x-board-select>
                         </label>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <button type="button" @click="applyDefaultSite(); applyDefaultType()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Apply to page</button>
+                        <button type="button" @click="applyDefaultSite(); applyDefaultType()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700">Apply to page</button>
                         <button
                             type="submit"
                             class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-50"
@@ -181,53 +180,49 @@
             </div>
 
             {{-- Mobile cards --}}
-            <div class="grid gap-3 lg:hidden">
-                <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
-                    <input type="checkbox" class="rounded border-slate-300 text-brand-700 focus:ring-brand-500/30" @change="toggleAll($event.target.checked)">
+            <div class="grid gap-2 lg:hidden" data-board-viewport="mobile">
+                <label class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                    <input type="checkbox" class="h-3.5 w-3.5 rounded border-slate-300 text-brand-700 focus:ring-brand-500/30 dark:border-slate-600" @change="toggleAll($event.target.checked)">
                     Select all on this page
                 </label>
 
                 @foreach ($guards as $guard)
-                    @php $guardSites = $sitesByRegion->get($guard->region_id, collect()); @endphp
-                    <article class="form-card">
-                        <div class="flex items-start gap-3">
+                    <article class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                        <div class="flex items-start gap-2">
                             <input
                                 type="checkbox"
                                 name="selected[]"
                                 value="{{ $guard->id }}"
                                 data-row-check
-                                class="mt-1 rounded border-slate-300 text-brand-700 focus:ring-brand-500/30"
+                                class="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-brand-700 focus:ring-brand-500/30 dark:border-slate-600"
                                 @change="sync()"
                             >
                             <div class="min-w-0 flex-1">
-                                <p class="font-semibold text-slate-900">{{ $guard->full_name }}</p>
-                                <p class="mt-0.5 text-xs text-slate-500">{{ $guard->employment_id }}</p>
-                                <p class="mt-2 inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">{{ $guard->region?->name }}</p>
-                                <p class="mt-1 text-[11px] text-slate-500">{{ $guard->operational_status->label() }}</p>
+                                <p class="text-xs font-medium text-slate-900 dark:text-slate-100">{{ $guard->full_name }}</p>
+                                <p class="mt-0.5 text-[10px] text-slate-500">{{ $guard->employment_id }}</p>
+                                <p class="mt-1.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">{{ $guard->region?->name }}</p>
+                                <p class="mt-0.5 text-[10px] text-slate-500">{{ $guard->operational_status->label() }}</p>
                             </div>
                         </div>
 
-                        <div class="mt-4 space-y-3 border-t border-slate-100 pt-4">
-                            <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        <div class="mt-2.5 space-y-2 border-t border-slate-100 pt-2.5 dark:border-slate-700">
+                            <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                 Assign to site
                                 <x-board-select
                                     name="rows[{{ $guard->id }}][site_id]"
                                     data-row-site
                                     data-region-id="{{ $guard->region_id }}"
-                                    class="mt-1.5 w-full"
+                                    class="mt-1 w-full"
                                 >
-                                    <option value="">Choose site in {{ $guard->region?->name }}…</option>
-                                    @foreach ($guardSites as $site)
-                                        <option value="{{ $site->id }}">{{ $site->name }} · {{ $site->code }}</option>
-                                    @endforeach
+                                    @include('deployments.partials.board-site-options', ['guard' => $guard])
                                 </x-board-select>
                             </label>
-                            <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                                 Posting type
                                 <x-board-select
                                     name="rows[{{ $guard->id }}][shift_type]"
                                     data-row-type
-                                    class="mt-1.5 w-full"
+                                    class="mt-1 w-full"
                                 >
                                     @foreach ($shiftTypes as $type)
                                         <option value="{{ $type->value }}" @selected($type === \App\Enums\DeploymentShiftType::Day)>
@@ -242,48 +237,59 @@
                                     @endforeach
                                 </x-board-select>
                             </label>
+                            <label class="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                Duty type
+                                <x-board-select
+                                    name="rows[{{ $guard->id }}][duty_type]"
+                                    data-row-duty
+                                    class="mt-1 w-full"
+                                >
+                                    <option value="{{ \App\Enums\ShiftType::Normal->value }}" selected>Normal</option>
+                                    <option value="{{ \App\Enums\ShiftType::Overtime->value }}">Overtime</option>
+                                </x-board-select>
+                            </label>
                         </div>
                     </article>
                 @endforeach
             </div>
 
             {{-- Desktop table --}}
-            <div class="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:block">
+            <div class="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 lg:block" data-board-viewport="desktop">
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-100 text-sm">
-                        <thead class="bg-slate-50/90 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    <table class="min-w-full divide-y divide-slate-100 text-xs dark:divide-slate-700">
+                        <thead class="bg-slate-50/90 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
                             <tr>
-                                <th class="px-3 py-3.5">
-                                    <input type="checkbox" class="rounded border-slate-300 text-brand-700 focus:ring-brand-500/30" title="Select all on this page" @change="toggleAll($event.target.checked)">
+                                <th class="w-10 px-2.5 py-2">
+                                    <input type="checkbox" class="h-3.5 w-3.5 rounded border-slate-300 text-brand-700 focus:ring-brand-500/30 dark:border-slate-600" title="Select all on this page" @change="toggleAll($event.target.checked)">
                                 </th>
-                                <th class="px-3 py-3.5">Guard</th>
-                                <th class="px-3 py-3.5">Region</th>
-                                <th class="px-3 py-3.5">Status</th>
-                                <th class="px-3 py-3.5">Assign to site</th>
-                                <th class="px-3 py-3.5">Posting type</th>
+                                <th class="px-2.5 py-2">Guard</th>
+                                <th class="px-2.5 py-2">Region</th>
+                                <th class="px-2.5 py-2">Status</th>
+                                <th class="px-2.5 py-2">Assign to site</th>
+                                <th class="px-2.5 py-2">Posting type</th>
+                                <th class="px-2.5 py-2">Duty type</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                             @foreach ($guards as $guard)
-                                @php $guardSites = $sitesByRegion->get($guard->region_id, collect()); @endphp
-                                <tr class="transition hover:bg-emerald-50/40">
-                                    <td class="px-3 py-3 align-middle">
+                                <tr class="transition hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30">
+                                    <td class="px-2.5 py-1.5 align-middle">
                                         <input
                                             type="checkbox"
                                             value="{{ $guard->id }}"
                                             data-row-check
                                             data-desktop-check
-                                            class="rounded border-slate-300 text-brand-700 focus:ring-brand-500/30"
+                                            class="h-3.5 w-3.5 rounded border-slate-300 text-brand-700 focus:ring-brand-500/30 dark:border-slate-600"
                                             @change="sync()"
                                         >
                                     </td>
-                                    <td class="px-3 py-3">
-                                        <p class="font-semibold text-slate-900">{{ $guard->full_name }}</p>
-                                        <p class="text-xs text-slate-500">{{ $guard->employment_id }}</p>
+                                    <td class="px-2.5 py-1.5">
+                                        <p class="text-xs font-medium text-slate-900 dark:text-slate-100">{{ $guard->full_name }}</p>
+                                        <p class="text-[10px] text-slate-500">{{ $guard->employment_id }}</p>
                                     </td>
-                                    <td class="px-3 py-3 text-slate-600">{{ $guard->region?->name }}</td>
-                                    <td class="px-3 py-3 text-xs text-slate-500">{{ $guard->operational_status->label() }}</td>
-                                    <td class="px-3 py-3">
+                                    <td class="px-2.5 py-1.5 text-slate-600 dark:text-slate-300">{{ $guard->region?->name }}</td>
+                                    <td class="px-2.5 py-1.5 text-[10px] text-slate-500">{{ $guard->operational_status->label() }}</td>
+                                    <td class="px-2.5 py-1.5">
                                         <x-board-select
                                             name="rows[{{ $guard->id }}][site_id]"
                                             data-row-site
@@ -291,13 +297,10 @@
                                             :compact="true"
                                             class="min-w-[14rem]"
                                         >
-                                            <option value="">Choose site…</option>
-                                            @foreach ($guardSites as $site)
-                                                <option value="{{ $site->id }}">{{ $site->name }} · {{ $site->code }}</option>
-                                            @endforeach
+                                            @include('deployments.partials.board-site-options', ['guard' => $guard])
                                         </x-board-select>
                                     </td>
-                                    <td class="px-3 py-3">
+                                    <td class="px-2.5 py-1.5">
                                         <x-board-select
                                             name="rows[{{ $guard->id }}][shift_type]"
                                             data-row-type
@@ -314,6 +317,16 @@
                                                     @endif
                                                 </option>
                                             @endforeach
+                                        </x-board-select>
+                                    </td>
+                                    <td class="px-2.5 py-1.5">
+                                        <x-board-select
+                                            name="rows[{{ $guard->id }}][duty_type]"
+                                            data-row-duty
+                                            :compact="true"
+                                        >
+                                            <option value="{{ \App\Enums\ShiftType::Normal->value }}" selected>Normal</option>
+                                            <option value="{{ \App\Enums\ShiftType::Overtime->value }}">Overtime</option>
                                         </x-board-select>
                                     </td>
                                 </tr>
@@ -341,6 +354,14 @@
                     form.querySelectorAll('input[data-synced-selected]').forEach((el) => el.remove());
 
                     const selectedIds = new Set();
+                    const mobileViewport = form.querySelector('[data-board-viewport="mobile"]');
+                    const desktopViewport = form.querySelector('[data-board-viewport="desktop"]');
+                    const inactiveViewport = isDesktop ? mobileViewport : desktopViewport;
+
+                    // Prevent duplicate mobile/desktop fields from colliding on submit.
+                    inactiveViewport?.querySelectorAll('input, select, textarea').forEach((el) => {
+                        el.disabled = true;
+                    });
 
                     if (isDesktop) {
                         form.querySelectorAll('input[name="selected[]"]').forEach((el) => { el.disabled = true; });
@@ -359,7 +380,11 @@
                         });
                     }
 
-                    form.querySelectorAll('[data-row-site], [data-row-type]').forEach((el) => {
+                    form.querySelectorAll('[data-row-site], [data-row-type], [data-row-duty]').forEach((el) => {
+                        if (el.disabled) {
+                            return;
+                        }
+
                         const match = el.name.match(/^rows\[(\d+)\]/);
                         if (! match || ! selectedIds.has(match[1])) {
                             el.disabled = true;

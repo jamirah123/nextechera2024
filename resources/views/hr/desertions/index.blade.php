@@ -15,17 +15,17 @@
     </x-page-header>
 
     <section class="flex flex-row gap-2 sm:gap-3">
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-rose-700 sm:text-[11px]">Open</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['open'] }}</p>
+        <div class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-rose-700">Open</p>
+            <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $stats['open'] }}</p>
         </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Returned</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['returned'] }}</p>
+        <div class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Returned</p>
+            <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $stats['returned'] }}</p>
         </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-[11px]">Closed</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['closed'] }}</p>
+        <div class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-600">Closed</p>
+            <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $stats['closed'] }}</p>
         </div>
     </section>
 
@@ -46,31 +46,38 @@
     @if ($desertions->isEmpty())
         <x-empty-state title="No desertion cases" description="Report a desertion to lock scheduling and start HR follow-up." icon="warning" />
     @else
-        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <table class="min-w-full divide-y divide-slate-100 text-sm">
-                <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    <tr>
-                        <th class="w-14 px-3 py-2">#</th>
-                        <th class="px-3 py-2">Guard</th>
-                        <th class="px-3 py-2">Reported</th>
-                        <th class="px-3 py-2">Last site</th>
-                        <th class="px-3 py-2">HR status</th>
-                        <th class="px-3 py-2 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                    @foreach ($desertions as $desertion)
+        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
+                    <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
                         <tr>
-                            <td class="px-3 py-2"><x-table-serial :paginator="$desertions" :index="$loop->index" /></td>
-                            <td class="px-3 py-2"><p class="font-semibold">{{ $desertion->assignedGuard?->full_name }}</p><p class="text-xs text-slate-500">{{ $desertion->assignedGuard?->employment_id }}</p></td>
-                            <td class="px-3 py-2">{{ $desertion->date_reported->format('d M Y') }}</td>
-                            <td class="px-3 py-2">{{ $desertion->lastKnownSite?->name ?? '—' }}</td>
-                            <td class="px-3 py-2"><x-status-badge :tone="$desertion->hr_status->tone()" :label="$desertion->hr_status->label()" /></td>
-                            <td class="px-3 py-2 text-right"><x-action-icon :href="route('desertions.show', $desertion)" label="View" icon="eye" /></td>
+                            <th class="w-10 px-2.5 py-1.5">#</th>
+                            <th class="px-2.5 py-1.5">Guard</th>
+                            <th class="px-2.5 py-1.5">Reported</th>
+                            <th class="px-2.5 py-1.5">Last site</th>
+                            <th class="px-2.5 py-1.5">HR status</th>
+                            <th class="px-2.5 py-1.5 text-right">Actions</th>
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                        @foreach ($desertions as $desertion)
+                            <tr class="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+                                <td class="px-2.5 py-1.5 tabular-nums text-slate-500"><x-table-serial :paginator="$desertions" :index="$loop->index" /></td>
+                                <td class="px-2.5 py-1.5">
+                                    <p class="font-medium text-slate-900 dark:text-slate-100">{{ $desertion->assignedGuard?->full_name }}</p>
+                                    <p class="text-[10px] leading-tight text-slate-500">{{ $desertion->assignedGuard?->employment_id }}</p>
+                                </td>
+                                <td class="whitespace-nowrap px-2.5 py-1.5 text-slate-600 dark:text-slate-300">{{ $desertion->date_reported->format('d M Y') }}</td>
+                                <td class="px-2.5 py-1.5 text-slate-700 dark:text-slate-300">{{ $desertion->lastKnownSite?->name ?? '—' }}</td>
+                                <td class="px-2.5 py-1.5"><x-status-badge :tone="$desertion->hr_status->tone()" :label="$desertion->hr_status->label()" /></td>
+                                <td class="px-2.5 py-1.5 text-right">
+                                    <x-action-icon :href="route('desertions.show', $desertion)" label="View" icon="eye" class="!h-6 !w-6" />
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
         </div>
         <div>{{ $desertions->links() }}</div>
     @endif

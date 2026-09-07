@@ -30,7 +30,8 @@ class ShiftPolicy
 
     public function delete(User $user, Shift $shift): bool
     {
-        return Access::userCan($user, 'operations.shifts_manage');
+        return Access::userCanDelete($user)
+            && Access::userCan($user, 'operations.shifts_manage');
     }
 
     public function manageStatus(User $user, Shift $shift): bool

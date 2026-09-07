@@ -177,6 +177,28 @@ class OrganizationTest extends TestCase
         ]);
     }
 
+    public function test_site_show_page_lists_armed_and_unarmed_manpower(): void
+    {
+        $user = User::factory()->role(UserRole::OperationsManager)->create();
+        $site = Site::factory()->create([
+            'required_day_guards' => 9,
+            'required_day_armed_guards' => 3,
+            'required_day_unarmed_guards' => 6,
+            'required_night_guards' => 10,
+            'required_night_armed_guards' => 4,
+            'required_night_unarmed_guards' => 6,
+            'required_guards' => 19,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('sites.show', $site))
+            ->assertOk()
+            ->assertSee('Day manpower')
+            ->assertSee('Night manpower')
+            ->assertSee('3 armed · 6 unarmed')
+            ->assertSee('4 armed · 6 unarmed');
+    }
+
     public function test_manpower_coverage_page_loads(): void
     {
         $user = User::factory()->role(UserRole::ShiftManager)->create();

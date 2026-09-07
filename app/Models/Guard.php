@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CompensationType;
 use App\Enums\EmploymentStatus;
+use App\Enums\GuardClassification;
 use App\Enums\GuardGender;
 use App\Enums\OperationalStatus;
 use App\Models\Concerns\TracksUserChanges;
@@ -38,6 +39,7 @@ class Guard extends Model
         'employment_end_date',
         'employment_status',
         'rank_designation',
+        'guard_classification',
         'region_id',
         'current_site_id',
         'current_supervisor_id',
@@ -62,6 +64,7 @@ class Guard extends Model
             'gender' => GuardGender::class,
             'employment_status' => EmploymentStatus::class,
             'compensation_type' => CompensationType::class,
+            'guard_classification' => GuardClassification::class,
             'operational_status' => OperationalStatus::class,
             'date_of_birth' => 'date',
             'date_employed' => 'date',

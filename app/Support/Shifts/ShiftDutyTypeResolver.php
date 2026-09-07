@@ -13,7 +13,7 @@ class ShiftDutyTypeResolver
         ShiftPeriod $workPeriod,
         ?ShiftType $explicit = null,
     ): ShiftType {
-        if ($explicit !== null && $explicit !== ShiftType::Normal) {
+        if ($explicit !== null) {
             return $explicit;
         }
 

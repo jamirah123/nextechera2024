@@ -27,6 +27,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Throwable;
 
 class PayrollCalculationService
 {
@@ -35,6 +36,46 @@ class PayrollCalculationService
         private AuditService $audit,
         private ArchiveService $archive,
     ) {
+    }
+
+    /**
+     * Recalculate any open (draft/calculated) payroll runs that cover this duty's period.
+     * No-op when the month has no open run yet.
+     */
+    public function refreshOpenRunsForShift(Shift $shift): int
+    {
+        $date = $shift->shift_date;
+        if ($date === null) {
+            return 0;
+        }
+
+        $year = (int) $date->format('Y');
+        $month = (int) $date->format('m');
+        $refreshed = 0;
+
+        PayrollRun::query()
+            ->where('period_year', $year)
+            ->where('period_month', $month)
+            ->whereIn('status', [PayrollRunStatus::Draft->value, PayrollRunStatus::Calculated->value])
+            ->where(function ($query) use ($shift): void {
+                $query->whereNull('region_id')
+                    ->orWhere('region_id', $shift->region_id);
+            })
+            ->where(function ($query) use ($shift): void {
+                $query->whereNull('site_id')
+                    ->orWhere('site_id', $shift->site_id);
+            })
+            ->orderBy('id')
+            ->each(function (PayrollRun $run) use (&$refreshed): void {
+                try {
+                    $this->calculate($run);
+                    $refreshed++;
+                } catch (Throwable) {
+                    // Leave the run unchanged if recalculation is blocked mid-flow.
+                }
+            });
+
+        return $refreshed;
     }
 
     public function calculate(PayrollRun $run): PayrollRun
@@ -584,7 +625,7 @@ class PayrollCalculationService
             ->whereBetween('shift_date', [$start, $end])
             ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
             ->when($run->site_id, fn ($q) => $q->where('site_id', $run->site_id))
-            ->where('status', ShiftStatus::Completed->value)
+            ->whereIn('status', ShiftStatus::payableValues())
             ->whereIn('shift_type', [
                 ShiftType::Normal->value,
                 ShiftType::Overtime->value,

@@ -31,7 +31,7 @@ enum InvoiceStatus: string
             self::PartiallyPaid => 'amber',
             self::Paid => 'emerald',
             self::Overdue => 'rose',
-            self::Cancelled => 'slate',
+            self::Cancelled => 'rose',
         };
     }
 

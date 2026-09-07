@@ -14,6 +14,7 @@ use App\Http\Controllers\Finance\BillingController;
 use App\Http\Controllers\Finance\InvoiceController;
 use App\Http\Controllers\Finance\PaymentController;
 use App\Http\Controllers\Finance\ProfitabilityController;
+use App\Http\Controllers\Finance\AdvanceController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Guards\GuardController;
@@ -94,6 +95,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/deployments/create', [DeploymentController::class, 'create'])->name('deployments.create');
     Route::post('/deployments', [DeploymentController::class, 'store'])->name('deployments.store');
     Route::get('/deployments/{deployment}', [DeploymentController::class, 'show'])->name('deployments.show');
+    Route::get('/deployments/{deployment}/edit', [DeploymentController::class, 'edit'])->name('deployments.edit');
+    Route::put('/deployments/{deployment}', [DeploymentController::class, 'update'])->name('deployments.update');
     Route::get('/deployments/{deployment}/letter', [DeploymentController::class, 'downloadLetter'])->name('deployments.letter');
     Route::get('/deployments/{deployment}/transfer', [DeploymentController::class, 'transferForm'])->name('deployments.transfer');
     Route::get('/deployments/transfers/{transfer}/letter', [DeploymentController::class, 'downloadTransferLetter'])->name('deployments.transfers.letter');
@@ -215,6 +218,40 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/profitability', [ProfitabilityController::class, 'index'])->name('profitability.index');
     Route::get('/profitability/export', [ProfitabilityController::class, 'export'])->name('profitability.export');
+
+    Route::get('/advances', [AdvanceController::class, 'index'])->name('advances.index');
+    Route::get('/advances/export', [AdvanceController::class, 'export'])->name('advances.export');
+
+    Route::get('/ledger', [\App\Http\Controllers\Finance\Ledger\LedgerDashboardController::class, '__invoke'])->name('ledger.index');
+    Route::get('/ledger/accounts', [\App\Http\Controllers\Finance\Ledger\GlAccountController::class, 'index'])->name('ledger.accounts.index');
+    Route::post('/ledger/accounts', [\App\Http\Controllers\Finance\Ledger\GlAccountController::class, 'store'])->name('ledger.accounts.store');
+    Route::get('/ledger/journals', [\App\Http\Controllers\Finance\Ledger\GlJournalController::class, 'index'])->name('ledger.journals.index');
+    Route::get('/ledger/journals/create', [\App\Http\Controllers\Finance\Ledger\GlJournalController::class, 'create'])->name('ledger.journals.create');
+    Route::post('/ledger/journals', [\App\Http\Controllers\Finance\Ledger\GlJournalController::class, 'store'])->name('ledger.journals.store');
+    Route::get('/ledger/journals/{journal}', [\App\Http\Controllers\Finance\Ledger\GlJournalController::class, 'show'])->name('ledger.journals.show');
+    Route::get('/ledger/purchases', [\App\Http\Controllers\Finance\Ledger\PurchaseInvoiceController::class, 'index'])->name('ledger.purchases.index');
+    Route::get('/ledger/purchases/create', [\App\Http\Controllers\Finance\Ledger\PurchaseInvoiceController::class, 'create'])->name('ledger.purchases.create');
+    Route::post('/ledger/purchases', [\App\Http\Controllers\Finance\Ledger\PurchaseInvoiceController::class, 'store'])->name('ledger.purchases.store');
+    Route::get('/ledger/purchases/{purchase}', [\App\Http\Controllers\Finance\Ledger\PurchaseInvoiceController::class, 'show'])->name('ledger.purchases.show');
+    Route::get('/ledger/purchases/{purchase}/edit', [\App\Http\Controllers\Finance\Ledger\PurchaseInvoiceController::class, 'edit'])->name('ledger.purchases.edit');
+    Route::put('/ledger/purchases/{purchase}', [\App\Http\Controllers\Finance\Ledger\PurchaseInvoiceController::class, 'update'])->name('ledger.purchases.update');
+    Route::post('/ledger/purchases/{purchase}/post', [\App\Http\Controllers\Finance\Ledger\PurchaseInvoiceController::class, 'post'])->name('ledger.purchases.post');
+    Route::post('/ledger/purchases/{purchase}/cancel', [\App\Http\Controllers\Finance\Ledger\PurchaseInvoiceController::class, 'cancel'])->name('ledger.purchases.cancel');
+    Route::get('/ledger/reports/trial-balance', [\App\Http\Controllers\Finance\Ledger\LedgerReportController::class, 'trialBalance'])->name('ledger.reports.trial-balance');
+    Route::get('/ledger/reports/profit-loss', [\App\Http\Controllers\Finance\Ledger\LedgerReportController::class, 'profitAndLoss'])->name('ledger.reports.profit-loss');
+    Route::get('/ledger/periods', [\App\Http\Controllers\Finance\Ledger\GlPeriodController::class, 'index'])->name('ledger.periods.index');
+    Route::post('/ledger/periods/{period}/close', [\App\Http\Controllers\Finance\Ledger\GlPeriodController::class, 'close'])->name('ledger.periods.close');
+    Route::post('/ledger/periods/{period}/reopen', [\App\Http\Controllers\Finance\Ledger\GlPeriodController::class, 'reopen'])->name('ledger.periods.reopen');
+    Route::get('/ledger/vat', [\App\Http\Controllers\Finance\Ledger\VatPackController::class, 'index'])->name('ledger.vat.index');
+    Route::get('/ledger/vat/export', [\App\Http\Controllers\Finance\Ledger\VatPackController::class, 'export'])->name('ledger.vat.export');
+    Route::get('/ledger/bank', [\App\Http\Controllers\Finance\Ledger\BankReconciliationController::class, 'index'])->name('ledger.bank.index');
+    Route::post('/ledger/bank', [\App\Http\Controllers\Finance\Ledger\BankReconciliationController::class, 'store'])->name('ledger.bank.store');
+    Route::get('/ledger/bank/{bankAccount}', [\App\Http\Controllers\Finance\Ledger\BankReconciliationController::class, 'show'])->name('ledger.bank.show');
+    Route::post('/ledger/bank/{bankAccount}/lines', [\App\Http\Controllers\Finance\Ledger\BankReconciliationController::class, 'storeLine'])->name('ledger.bank.lines.store');
+    Route::post('/ledger/bank/{bankAccount}/auto-match', [\App\Http\Controllers\Finance\Ledger\BankReconciliationController::class, 'autoMatch'])->name('ledger.bank.auto-match');
+    Route::post('/ledger/bank/{bankAccount}/lines/{line}/match', [\App\Http\Controllers\Finance\Ledger\BankReconciliationController::class, 'match'])->name('ledger.bank.lines.match');
+    Route::post('/ledger/bank/{bankAccount}/lines/{line}/unmatch', [\App\Http\Controllers\Finance\Ledger\BankReconciliationController::class, 'unmatch'])->name('ledger.bank.lines.unmatch');
+    Route::post('/ledger/bank/{bankAccount}/lines/{line}/exclude', [\App\Http\Controllers\Finance\Ledger\BankReconciliationController::class, 'exclude'])->name('ledger.bank.lines.exclude');
 
     Route::get('/payroll', [\App\Http\Controllers\Finance\PayrollRunController::class, 'index'])->name('payroll.index');
     Route::get('/payroll/create', [\App\Http\Controllers\Finance\PayrollRunController::class, 'create'])->name('payroll.create');

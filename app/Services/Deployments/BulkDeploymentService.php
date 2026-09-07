@@ -3,6 +3,7 @@
 namespace App\Services\Deployments;
 
 use App\Enums\DeploymentShiftType;
+use App\Enums\ShiftType;
 use App\Models\Guard;
 use App\Models\Site;
 use App\Services\DeploymentService;
@@ -21,7 +22,9 @@ class BulkDeploymentService
      *     guard_id: int,
      *     site_id: int,
      *     shift_type?: string,
+     *     duty_type?: string|null,
      *     start_date?: string|null,
+     *     duty_date_to?: string|null,
      *     notes?: string|null
      * }>  $rows
      * @return array{created: int, skipped: int, errors: list<string>, deployed_guard_ids: list<int>}
@@ -66,8 +69,10 @@ class BulkDeploymentService
                         'guard_id' => $guard->id,
                         'site_id' => $site->id,
                         'shift_type' => $shiftType->value,
+                        'duty_type' => $row['duty_type'] ?? ShiftType::Normal->value,
                         'start_date' => $row['start_date'] ?? now()->toDateString(),
-                        'notes' => $row['notes'] ?? 'Allocated from deployment board',
+                        'duty_date_to' => $row['duty_date_to'] ?? null,
+                        'notes' => $row['notes'] ?? 'Recorded from site posting board',
                     ]);
                 });
                 $created++;

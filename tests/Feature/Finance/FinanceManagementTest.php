@@ -120,7 +120,8 @@ class FinanceManagementTest extends TestCase
         $this->actingAs($finance)
             ->get(route('profitability.index'))
             ->assertOk()
-            ->assertSee('Profitability');
+            ->assertSee('Profitability')
+            ->assertSee('By client');
     }
 
     public function test_finance_exports_are_available(): void
@@ -331,5 +332,35 @@ class FinanceManagementTest extends TestCase
         $this->assertStringContainsString('cash basis', strtolower((string) $invoice->notes));
         $this->assertTrue($invoice->lines()->where('description', 'like', '%Day Armed shifts%')->exists());
         $this->assertTrue($invoice->lines()->where('description', 'like', '%Night Armed shifts%')->exists());
+    }
+
+    public function test_billing_service_copies_site_manpower_when_day_night_counts_omitted(): void
+    {
+        $client = Client::factory()->create();
+        $site = \App\Models\Site::factory()->create([
+            'client_id' => $client->id,
+            'required_day_armed_guards' => 4,
+            'required_day_unarmed_guards' => 6,
+            'required_night_armed_guards' => 2,
+            'required_night_unarmed_guards' => 8,
+            'required_day_guards' => 10,
+            'required_night_guards' => 10,
+            'required_guards' => 20,
+        ]);
+
+        $profile = app(\App\Services\Finance\BillingService::class)->create([
+            'client_id' => $client->id,
+            'site_id' => $site->id,
+            'monthly_rate_per_armed_guard' => 900000,
+            'monthly_rate_per_unarmed_guard' => 500000,
+            'effective_from' => now()->toDateString(),
+            'is_active' => true,
+        ]);
+
+        $this->assertSame(4, (int) $profile->contracted_day_armed_guards);
+        $this->assertSame(6, (int) $profile->contracted_day_unarmed_guards);
+        $this->assertSame(2, (int) $profile->contracted_night_armed_guards);
+        $this->assertSame(8, (int) $profile->contracted_night_unarmed_guards);
+        $this->assertGreaterThan(0, $profile->estimatedMonthlyTotal());
     }
 }

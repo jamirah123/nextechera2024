@@ -68,7 +68,7 @@ class ReplacementService
                 'period' => $original->period->value,
                 'shift_type' => ShiftType::Replacement->value,
                 'guard_classification' => $original->guard_classification->value,
-                'status' => ShiftStatus::Scheduled->value,
+                'status' => ShiftStatus::Recorded->value,
                 'notes' => trim(
                     'Replacement for '.$original->reference
                     .(filled($data['notes'] ?? null) ? "\n".$data['notes'] : '')

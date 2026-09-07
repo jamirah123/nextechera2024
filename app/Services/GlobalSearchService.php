@@ -5,10 +5,19 @@ namespace App\Services;
 use App\Models\Client;
 use App\Models\Deployment;
 use App\Models\Guard;
+use App\Models\GuardSalaryAdvance;
+use App\Models\Incident;
+use App\Models\Invoice;
+use App\Models\Payment;
+use App\Models\PayrollRun;
 use App\Models\Region;
 use App\Models\Shift;
 use App\Models\Site;
+use App\Models\Staff;
 use App\Models\Supervisor;
+use App\Models\User;
+use App\Models\WorkOrder;
+use App\Support\Access\Access;
 use Illuminate\Support\Collection;
 
 class GlobalSearchService
@@ -16,7 +25,7 @@ class GlobalSearchService
     /**
      * @return list<array{type: string, label: string, title: string, subtitle: string, url: string, badge: string|null}>
      */
-    public function search(string $query, int $limitPerType = 5): array
+    public function search(string $query, ?User $user = null, int $limitPerType = 4): array
     {
         $term = trim($query);
 
@@ -24,17 +33,57 @@ class GlobalSearchService
             return [];
         }
 
-        return collect()
-            ->merge($this->guards($term, $limitPerType))
-            ->merge($this->deployments($term, $limitPerType))
-            ->merge($this->shifts($term, $limitPerType))
-            ->merge($this->regions($term, $limitPerType))
-            ->merge($this->supervisors($term, $limitPerType))
-            ->merge($this->clients($term, $limitPerType))
-            ->merge($this->sites($term, $limitPerType))
-            ->take(20)
-            ->values()
-            ->all();
+        $user ??= auth()->user();
+        $results = collect();
+
+        if ($this->can($user, 'guards.view') || $this->can($user, 'organization.view')) {
+            $results = $results->merge($this->guards($term, $limitPerType));
+        }
+
+        if ($this->can($user, 'organization.view') || $this->can($user, 'operations.deployments_manage') || $this->can($user, 'operations.deploy_board')) {
+            $results = $results->merge($this->deployments($term, $limitPerType));
+        }
+
+        if ($this->can($user, 'organization.view') || $this->can($user, 'operations.shifts_manage')) {
+            $results = $results->merge($this->shifts($term, $limitPerType));
+        }
+
+        if ($this->can($user, 'organization.view')) {
+            $results = $results
+                ->merge($this->regions($term, $limitPerType))
+                ->merge($this->supervisors($term, $limitPerType))
+                ->merge($this->clients($term, $limitPerType))
+                ->merge($this->sites($term, $limitPerType));
+        }
+
+        if ($this->can($user, 'staff.view')) {
+            $results = $results->merge($this->staff($term, $limitPerType));
+        }
+
+        if ($this->can($user, 'organization.view') || $this->can($user, 'operations.incidents_manage')) {
+            $results = $results->merge($this->incidents($term, $limitPerType));
+        }
+
+        if ($this->can($user, 'organization.view') || $this->can($user, 'operations.work_orders_manage')) {
+            $results = $results->merge($this->workOrders($term, $limitPerType));
+        }
+
+        if ($this->can($user, 'finance.view')) {
+            $results = $results
+                ->merge($this->invoices($term, $limitPerType))
+                ->merge($this->payments($term, $limitPerType))
+                ->merge($this->payrollRuns($term, $limitPerType))
+                ->merge($this->advances($term, $limitPerType))
+                ->merge($this->journals($term, $limitPerType))
+                ->merge($this->glAccounts($term, $limitPerType));
+        }
+
+        return $results->take(28)->values()->all();
+    }
+
+    private function can(?User $user, string $permission): bool
+    {
+        return $user !== null && Access::userCan($user, $permission);
     }
 
     /**
@@ -167,18 +216,15 @@ class GlobalSearchService
      */
     private function sites(string $term, int $limit): Collection
     {
-        $like = '%'.$term.'%';
-
         return Site::query()
-            ->with(['client:id,name', 'region:id,name', 'supervisor:id,name'])
-            ->where(function ($q) use ($like): void {
+            ->with(['client:id,name', 'region:id,name'])
+            ->where(function ($q) use ($term): void {
+                $like = '%'.$term.'%';
                 $q->where('name', 'like', $like)
                     ->orWhere('code', 'like', $like)
                     ->orWhere('physical_location', 'like', $like)
                     ->orWhere('site_contact_person', 'like', $like)
-                    ->orWhereHas('client', function ($client) use ($like): void {
-                        $client->where('name', 'like', $like)->orWhere('code', 'like', $like);
-                    });
+                    ->orWhereHas('client', fn ($client) => $client->where('name', 'like', $like)->orWhere('code', 'like', $like));
             })
             ->orderBy('name')
             ->limit($limit)
@@ -190,6 +236,210 @@ class GlobalSearchService
                 'subtitle' => $site->code.' · '.($site->client?->name ?? 'No client').' · '.($site->region?->name ?? 'No region'),
                 'url' => route('sites.show', $site),
                 'badge' => $site->status->label(),
+            ]);
+    }
+
+    /**
+     * @return Collection<int, array{type: string, label: string, title: string, subtitle: string, url: string, badge: string|null}>
+     */
+    private function staff(string $term, int $limit): Collection
+    {
+        return Staff::query()
+            ->search($term)
+            ->orderBy('full_name')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Staff $member) => [
+                'type' => 'staff',
+                'label' => 'Staff',
+                'title' => $member->full_name,
+                'subtitle' => $member->employment_id.($member->department ? ' · '.$member->department : ''),
+                'url' => route('staff.show', $member),
+                'badge' => $member->employment_status?->label(),
+            ]);
+    }
+
+    /**
+     * @return Collection<int, array{type: string, label: string, title: string, subtitle: string, url: string, badge: string|null}>
+     */
+    private function incidents(string $term, int $limit): Collection
+    {
+        return Incident::query()
+            ->with(['site:id,name,code', 'assignedGuard:id,full_name,employment_id'])
+            ->search($term)
+            ->latest('occurred_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Incident $incident) => [
+                'type' => 'incident',
+                'label' => 'Incident',
+                'title' => $incident->title ?: $incident->reference,
+                'subtitle' => $incident->reference.' · '.($incident->site?->name ?? 'No site'),
+                'url' => route('incidents.show', $incident),
+                'badge' => $incident->status->label(),
+            ]);
+    }
+
+    /**
+     * @return Collection<int, array{type: string, label: string, title: string, subtitle: string, url: string, badge: string|null}>
+     */
+    private function workOrders(string $term, int $limit): Collection
+    {
+        return WorkOrder::query()
+            ->search($term)
+            ->latest('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (WorkOrder $order) => [
+                'type' => 'work_order',
+                'label' => 'Work order',
+                'title' => $order->title ?: $order->reference,
+                'subtitle' => $order->reference.($order->due_at ? ' · Due '.$order->due_at->format('d M Y') : ''),
+                'url' => route('work-orders.show', $order),
+                'badge' => $order->status->label(),
+            ]);
+    }
+
+    /**
+     * @return Collection<int, array{type: string, label: string, title: string, subtitle: string, url: string, badge: string|null}>
+     */
+    private function invoices(string $term, int $limit): Collection
+    {
+        return Invoice::query()
+            ->with(['client:id,name'])
+            ->search($term)
+            ->latest('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Invoice $invoice) => [
+                'type' => 'invoice',
+                'label' => 'Invoice',
+                'title' => $invoice->reference,
+                'subtitle' => ($invoice->client?->name ?? 'No client').' · '.$invoice->period_start->format('d M Y').' – '.$invoice->period_end->format('d M Y'),
+                'url' => route('invoices.show', $invoice),
+                'badge' => $invoice->status->label(),
+            ]);
+    }
+
+    /**
+     * @return Collection<int, array{type: string, label: string, title: string, subtitle: string, url: string, badge: string|null}>
+     */
+    private function payments(string $term, int $limit): Collection
+    {
+        return Payment::query()
+            ->with(['invoice:id,reference', 'client:id,name'])
+            ->search($term)
+            ->latest('payment_date')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Payment $payment) => [
+                'type' => 'payment',
+                'label' => 'Payment',
+                'title' => $payment->reference,
+                'subtitle' => ($payment->client?->name ?? $payment->invoice?->reference ?? 'Payment')
+                    .' · '.\App\Support\Money::format($payment->amount),
+                'url' => route('payments.show', $payment),
+                'badge' => $payment->method?->label(),
+            ]);
+    }
+
+    /**
+     * @return Collection<int, array{type: string, label: string, title: string, subtitle: string, url: string, badge: string|null}>
+     */
+    private function payrollRuns(string $term, int $limit): Collection
+    {
+        return PayrollRun::query()
+            ->search($term)
+            ->latest('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (PayrollRun $run) => [
+                'type' => 'payroll',
+                'label' => 'Payroll',
+                'title' => $run->reference,
+                'subtitle' => 'Period '.$run->periodLabel().' · '.(int) $run->guard_count.' payslips',
+                'url' => route('payroll.show', $run),
+                'badge' => $run->status->label(),
+            ]);
+    }
+
+    /**
+     * @return Collection<int, array{type: string, label: string, title: string, subtitle: string, url: string, badge: string|null}>
+     */
+    private function advances(string $term, int $limit): Collection
+    {
+        $like = '%'.$term.'%';
+
+        return GuardSalaryAdvance::query()
+            ->with(['assignedGuard:id,full_name,employment_id', 'assignedStaff:id,full_name,employment_id'])
+            ->where(function ($q) use ($like): void {
+                $q->where('label', 'like', $like)
+                    ->orWhere('notes', 'like', $like)
+                    ->orWhereHas('assignedGuard', fn ($g) => $g
+                        ->where('full_name', 'like', $like)
+                        ->orWhere('employment_id', 'like', $like))
+                    ->orWhereHas('assignedStaff', fn ($s) => $s
+                        ->where('full_name', 'like', $like)
+                        ->orWhere('employment_id', 'like', $like));
+            })
+            ->latest('id')
+            ->limit($limit)
+            ->get()
+            ->map(function (GuardSalaryAdvance $advance) {
+                $person = $advance->assignedGuard?->full_name ?? $advance->assignedStaff?->full_name ?? 'Advance';
+                $code = $advance->assignedGuard?->employment_id ?? $advance->assignedStaff?->employment_id ?? '';
+                $url = $advance->guard_id
+                    ? route('guards.show', $advance->guard_id)
+                    : ($advance->staff_id ? route('staff.show', $advance->staff_id) : route('advances.index'));
+
+                return [
+                    'type' => 'advance',
+                    'label' => 'Advance',
+                    'title' => $advance->label,
+                    'subtitle' => trim($code.' · '.$person).' · Bal '.\App\Support\Money::format($advance->balance_remaining),
+                    'url' => $url,
+                    'badge' => $advance->is_active && (float) $advance->balance_remaining > 0 ? 'Active' : 'Closed',
+                ];
+            });
+    }
+
+    /**
+     * @return Collection<int, array{type: string, label: string, title: string, subtitle: string, url: string, badge: string|null}>
+     */
+    private function journals(string $term, int $limit): Collection
+    {
+        return \App\Models\GlJournal::query()
+            ->search($term)
+            ->latest('id')
+            ->limit($limit)
+            ->get()
+            ->map(fn (\App\Models\GlJournal $journal) => [
+                'type' => 'journal',
+                'label' => 'Journal',
+                'title' => $journal->reference,
+                'subtitle' => $journal->description,
+                'url' => route('ledger.journals.show', $journal),
+                'badge' => $journal->status->label(),
+            ]);
+    }
+
+    /**
+     * @return Collection<int, array{type: string, label: string, title: string, subtitle: string, url: string, badge: string|null}>
+     */
+    private function glAccounts(string $term, int $limit): Collection
+    {
+        return \App\Models\GlAccount::query()
+            ->search($term)
+            ->orderBy('code')
+            ->limit($limit)
+            ->get()
+            ->map(fn (\App\Models\GlAccount $account) => [
+                'type' => 'gl_account',
+                'label' => 'GL account',
+                'title' => $account->label(),
+                'subtitle' => $account->type->label().($account->system_role ? ' · '.$account->system_role : ''),
+                'url' => route('ledger.accounts.index', ['q' => $account->code]),
+                'badge' => $account->is_active ? 'Active' : 'Inactive',
             ]);
     }
 }

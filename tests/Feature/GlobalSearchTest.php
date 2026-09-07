@@ -90,13 +90,88 @@ class GlobalSearchTest extends TestCase
             ->assertUnauthorized();
     }
 
-    public function test_short_query_returns_empty_results(): void
+    public function test_search_returns_invoices_payroll_and_incidents(): void
     {
         $admin = User::factory()->superAdmin()->create();
+        $client = Client::factory()->create(['name' => 'Harbor Retail Group']);
+        $site = Site::factory()->create(['name' => 'Harbor HQ', 'client_id' => $client->id]);
+
+        $invoice = \App\Models\Invoice::query()->create([
+            'reference' => 'INV-SEARCH-9001',
+            'client_id' => $client->id,
+            'status' => \App\Enums\InvoiceStatus::Issued,
+            'period_start' => now()->startOfMonth(),
+            'period_end' => now()->endOfMonth(),
+            'issue_date' => now(),
+            'due_date' => now()->addDays(14),
+            'currency' => 'UGX',
+            'subtotal' => 1000,
+            'tax_amount' => 0,
+            'total' => 1000,
+            'amount_paid' => 0,
+            'balance' => 1000,
+        ]);
+
+        $payroll = \App\Models\PayrollRun::query()->create([
+            'reference' => 'PAY-SEARCH-42',
+            'period_year' => (int) now()->year,
+            'period_month' => (int) now()->month,
+            'period_start' => now()->startOfMonth(),
+            'period_end' => now()->endOfMonth(),
+            'status' => \App\Enums\PayrollRunStatus::Draft,
+            'currency' => 'UGX',
+            'guard_count' => 0,
+        ]);
+
+        $incident = \App\Models\Incident::query()->create([
+            'reference' => 'OB-SEARCH-77',
+            'title' => 'Perimeter breach reported',
+            'description' => 'Test incident for search',
+            'site_id' => $site->id,
+            'incident_type' => \App\Enums\IncidentType::Theft->value,
+            'severity' => \App\Enums\IncidentSeverity::Medium->value,
+            'status' => \App\Enums\IncidentStatus::Reported->value,
+            'occurred_at' => now(),
+            'reported_at' => now(),
+            'reported_by' => $admin->id,
+        ]);
 
         $this->actingAs($admin)
-            ->getJson(route('search', ['q' => 'a']))
+            ->getJson(route('search', ['q' => 'INV-SEARCH']))
             ->assertOk()
-            ->assertJson(['results' => []]);
+            ->assertJsonFragment([
+                'type' => 'invoice',
+                'title' => 'INV-SEARCH-9001',
+                'url' => route('invoices.show', $invoice),
+            ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('search', ['q' => 'PAY-SEARCH']))
+            ->assertOk()
+            ->assertJsonFragment([
+                'type' => 'payroll',
+                'title' => 'PAY-SEARCH-42',
+                'url' => route('payroll.show', $payroll),
+            ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('search', ['q' => 'Perimeter']))
+            ->assertOk()
+            ->assertJsonFragment([
+                'type' => 'incident',
+                'title' => 'Perimeter breach reported',
+                'url' => route('incidents.show', $incident),
+            ]);
+    }
+
+    public function test_finance_manager_can_open_advances_hub(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+
+        $this->actingAs($finance)
+            ->get(route('advances.index'))
+            ->assertOk()
+            ->assertSee('Salary advances')
+            ->assertSee('Open balance');
     }
 }

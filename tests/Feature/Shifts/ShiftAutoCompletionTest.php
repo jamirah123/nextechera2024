@@ -2,15 +2,16 @@
 
 namespace Tests\Feature\Shifts;
 
+use App\Enums\AttendanceEventType;
 use App\Enums\ShiftStatus;
 use App\Enums\UserRole;
+use App\Models\Attendance;
 use App\Models\Shift;
 use App\Models\User;
 use App\Services\ShiftService;
 use App\Services\Shifts\ShiftLifecycleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use InvalidArgumentException;
 use Tests\TestCase;
 
 class ShiftAutoCompletionTest extends TestCase
@@ -24,7 +25,7 @@ class ShiftAutoCompletionTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_in_progress_shift_is_completed_automatically_when_window_ends(): void
+    public function test_in_progress_shift_is_completed_when_window_ends(): void
     {
         Carbon::setTestNow('2026-08-28 18:00:00');
 
@@ -39,7 +40,7 @@ class ShiftAutoCompletionTest extends TestCase
         $this->assertSame(ShiftStatus::Completed, $shift->fresh()->status);
     }
 
-    public function test_scheduled_shift_past_end_is_marked_missed_not_completed(): void
+    public function test_scheduled_shift_past_end_is_completed_unless_cancelled(): void
     {
         Carbon::setTestNow('2026-08-28 18:00:00');
 
@@ -51,31 +52,73 @@ class ShiftAutoCompletionTest extends TestCase
 
         app(ShiftLifecycleService::class)->sync();
 
+        $this->assertSame(ShiftStatus::Completed, $shift->fresh()->status);
+    }
+
+    public function test_attendance_gate_marks_in_progress_missed_when_enabled(): void
+    {
+        config(['psg.shifts.require_attendance_to_complete' => true]);
+        Carbon::setTestNow('2026-08-28 18:00:00');
+
+        $shift = Shift::factory()->create([
+            'status' => ShiftStatus::InProgress,
+            'starts_at' => now()->setTime(6, 0),
+            'ends_at' => now()->setTime(18, 0),
+        ]);
+
+        app(ShiftLifecycleService::class)->sync();
+
         $this->assertSame(ShiftStatus::Missed, $shift->fresh()->status);
     }
 
-    public function test_shift_manager_cannot_manually_mark_shift_completed(): void
+    public function test_attendance_gate_completes_when_evidence_exists(): void
+    {
+        config(['psg.shifts.require_attendance_to_complete' => true]);
+        Carbon::setTestNow('2026-08-28 18:00:00');
+
+        $shift = Shift::factory()->create([
+            'status' => ShiftStatus::InProgress,
+            'starts_at' => now()->setTime(6, 0),
+            'ends_at' => now()->setTime(18, 0),
+        ]);
+
+        Attendance::query()->create([
+            'guard_id' => $shift->guard_id,
+            'site_id' => $shift->site_id,
+            'shift_id' => $shift->id,
+            'event_type' => AttendanceEventType::CheckIn,
+            'source' => 'test',
+            'occurred_at' => now()->setTime(6, 5),
+        ]);
+
+        app(ShiftLifecycleService::class)->sync();
+
+        $this->assertSame(ShiftStatus::Completed, $shift->fresh()->status);
+    }
+
+    public function test_shift_manager_can_manually_mark_shift_completed_for_correction(): void
     {
         $manager = User::factory()->role(UserRole::ShiftManager)->create();
-        $shift = Shift::factory()->create(['status' => ShiftStatus::InProgress]);
+        $shift = Shift::factory()->create(['status' => ShiftStatus::Missed]);
 
         $this->actingAs($manager)
             ->post(route('shifts.status', $shift), [
                 'status' => ShiftStatus::Completed->value,
+                'notes' => 'Corrected — duty was worked',
             ])
-            ->assertSessionHasErrors();
+            ->assertRedirect()
+            ->assertSessionHas('status');
 
-        $this->assertSame(ShiftStatus::InProgress, $shift->fresh()->status);
+        $this->assertSame(ShiftStatus::Completed, $shift->fresh()->status);
     }
 
-    public function test_shift_service_rejects_manual_completion(): void
+    public function test_shift_service_allows_manual_completion_for_corrections(): void
     {
-        $shift = Shift::factory()->create(['status' => ShiftStatus::InProgress]);
+        $shift = Shift::factory()->create(['status' => ShiftStatus::Cancelled]);
 
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('completed automatically');
+        $updated = app(ShiftService::class)->updateStatus($shift, ShiftStatus::Completed, 'Reopened as completed');
 
-        app(ShiftService::class)->updateStatus($shift, ShiftStatus::Completed);
+        $this->assertSame(ShiftStatus::Completed, $updated->status);
     }
 
     public function test_shift_manager_can_mark_shift_cancelled(): void

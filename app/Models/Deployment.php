@@ -82,6 +82,57 @@ class Deployment extends Model
         return $query->where('is_current', true)->where('status', DeploymentStatus::Active);
     }
 
+    /**
+     * Deployments covering a calendar day (inclusive start/end).
+     */
+    public function scopeActiveOnDate($query, string $date)
+    {
+        return $query
+            ->whereDate('start_date', '<=', $date)
+            ->where(function ($q) use ($date): void {
+                $q->whereNull('end_date')
+                    ->orWhereDate('end_date', '>=', $date);
+            });
+    }
+
+    /**
+     * Deployments for guards who have a duty on this exact shift date at that site.
+     * Prefers the deployment linked on the shift row when present.
+     */
+    public function scopeWithDutyOnDate($query, string $date)
+    {
+        return $query->where(function ($outer) use ($date): void {
+            $outer
+                ->whereExists(function ($q) use ($date): void {
+                    $q->selectRaw('1')
+                        ->from('shifts')
+                        ->whereColumn('shifts.deployment_id', 'deployments.id')
+                        ->whereDate('shifts.shift_date', $date);
+                })
+                ->orWhere(function ($fallback) use ($date): void {
+                    $fallback
+                        ->whereExists(function ($q) use ($date): void {
+                            $q->selectRaw('1')
+                                ->from('shifts')
+                                ->whereColumn('shifts.guard_id', 'deployments.guard_id')
+                                ->whereColumn('shifts.site_id', 'deployments.site_id')
+                                ->whereDate('shifts.shift_date', $date)
+                                ->whereNull('shifts.deployment_id');
+                        })
+                        ->whereDate('deployments.start_date', '<=', $date)
+                        ->where(function ($coverage) use ($date): void {
+                            $coverage->whereNull('deployments.end_date')
+                                ->orWhereDate('deployments.end_date', '>=', $date);
+                        });
+                });
+        });
+    }
+
+    public function shifts(): HasMany
+    {
+        return $this->hasMany(Shift::class);
+    }
+
     public function scopeSearch($query, ?string $term)
     {
         if (! filled($term)) {

@@ -2,7 +2,9 @@
 
 namespace App\Services\Shifts;
 
+use App\Enums\AttendanceEventType;
 use App\Enums\ShiftStatus;
+use App\Models\Attendance;
 use App\Models\Shift;
 use App\Services\ShiftService;
 
@@ -21,6 +23,7 @@ class ShiftLifecycleService
         $started = 0;
         $completed = 0;
         $missed = 0;
+        $requireAttendance = (bool) config('psg.shifts.require_attendance_to_complete', false);
 
         Shift::query()
             ->whereIn('status', [ShiftStatus::Scheduled, ShiftStatus::Confirmed])
@@ -32,22 +35,22 @@ class ShiftLifecycleService
                 $started++;
             });
 
+        // Past window: complete automatically unless attendance gate is enabled.
+        // Cancelled stays cancelled; Missed is a manual manager action (or attendance gate).
         Shift::query()
-            ->where('status', ShiftStatus::InProgress)
+            ->whereIn('status', [ShiftStatus::Scheduled, ShiftStatus::Confirmed, ShiftStatus::InProgress])
             ->where('ends_at', '<=', $now)
             ->orderBy('id')
-            ->each(function (Shift $shift) use (&$completed): void {
+            ->each(function (Shift $shift) use (&$completed, &$missed, $requireAttendance): void {
+                if ($requireAttendance && ! $this->hasAttendanceEvidence($shift)) {
+                    $this->shifts->updateStatus($shift, ShiftStatus::Missed, automatic: true);
+                    $missed++;
+
+                    return;
+                }
+
                 $this->shifts->updateStatus($shift, ShiftStatus::Completed, automatic: true);
                 $completed++;
-            });
-
-        Shift::query()
-            ->whereIn('status', [ShiftStatus::Scheduled, ShiftStatus::Confirmed])
-            ->where('ends_at', '<=', $now)
-            ->orderBy('id')
-            ->each(function (Shift $shift) use (&$missed): void {
-                $this->shifts->updateStatus($shift, ShiftStatus::Missed, automatic: true);
-                $missed++;
             });
 
         return [
@@ -55,5 +58,29 @@ class ShiftLifecycleService
             'completed' => $completed,
             'missed' => $missed,
         ];
+    }
+
+    public function hasAttendanceEvidence(Shift $shift): bool
+    {
+        $presenceEvents = [
+            AttendanceEventType::CheckIn->value,
+            AttendanceEventType::OnDuty->value,
+            AttendanceEventType::Manual->value,
+        ];
+
+        if (Attendance::query()
+            ->where('shift_id', $shift->id)
+            ->whereIn('event_type', $presenceEvents)
+            ->exists()) {
+            return true;
+        }
+
+        return Attendance::query()
+            ->where('guard_id', $shift->guard_id)
+            ->where('site_id', $shift->site_id)
+            ->whereNull('shift_id')
+            ->whereIn('event_type', $presenceEvents)
+            ->whereBetween('occurred_at', [$shift->starts_at, $shift->ends_at])
+            ->exists();
     }
 }

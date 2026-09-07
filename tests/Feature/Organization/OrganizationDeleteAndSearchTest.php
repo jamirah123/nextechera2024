@@ -64,4 +64,25 @@ class OrganizationDeleteAndSearchTest extends TestCase
 
         $this->assertSoftDeleted($region);
     }
+
+    public function test_operations_manager_cannot_delete_region(): void
+    {
+        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+        $region = Region::factory()->create(['code' => 'OPS1', 'name' => 'Ops Locked']);
+
+        $this->assertFalse($ops->can('delete', $region));
+        $this->assertFalse($ops->can('deleteAny', Region::class));
+        $this->assertTrue($ops->can('update', $region));
+
+        $this->actingAs($ops)
+            ->get(route('regions.index'))
+            ->assertOk()
+            ->assertDontSee('>Delete<', false);
+
+        $this->actingAs($ops)
+            ->delete(route('regions.destroy', $region))
+            ->assertForbidden();
+
+        $this->assertNotSoftDeleted($region);
+    }
 }

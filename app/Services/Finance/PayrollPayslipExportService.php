@@ -19,10 +19,20 @@ class PayrollPayslipExportService
 
         $headers = ['Section', 'Label', 'Amount'];
         $rows = $payslip->isFixedSalary()
-            ? [
-                ['Earnings', 'Monthly salary', number_format((float) $payslip->base_shift_rate, 2, '.', '')],
-                ['Earnings', 'Period gross', number_format((float) $payslip->gross_pay, 2, '.', '')],
-            ]
+            ? (function () use ($payslip) {
+                $overtimePay = round((float) $payslip->overtime_shifts * (float) $payslip->overtime_shift_rate, 2);
+                $salaryPortion = round((float) $payslip->gross_pay - $overtimePay, 2);
+                $rows = [
+                    ['Earnings', 'Monthly salary', number_format((float) $payslip->base_shift_rate, 2, '.', '')],
+                    ['Earnings', 'Period salary', number_format($salaryPortion, 2, '.', '')],
+                ];
+                if ($payslip->overtime_shifts > 0) {
+                    $rows[] = ['Earnings', 'Overtime shifts ('.$payslip->overtime_shifts.')', number_format($overtimePay, 2, '.', '')];
+                }
+                $rows[] = ['Earnings', 'Gross pay', number_format((float) $payslip->gross_pay, 2, '.', '')];
+
+                return $rows;
+            })()
             : [
                 ['Earnings', 'Normal shifts ('.$payslip->normal_shifts.')', number_format($payslip->normal_shifts * $payslip->base_shift_rate, 2, '.', '')],
                 ['Earnings', 'Overtime shifts ('.$payslip->overtime_shifts.')', number_format($payslip->overtime_shifts * $payslip->overtime_shift_rate, 2, '.', '')],

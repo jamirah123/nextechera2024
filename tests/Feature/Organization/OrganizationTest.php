@@ -32,21 +32,35 @@ class OrganizationTest extends TestCase
 
         $region = Region::query()->where('code', 'CEN')->firstOrFail();
 
-        $this->actingAs($user)
-            ->post(route('supervisors.store'), [
-                'name' => 'John Supervisor',
+        $hr = User::factory()->role(UserRole::HrManager)->create();
+
+        $this->actingAs($hr)
+            ->post(route('staff.store'), [
+                'employee_type' => 'supervisor',
+                'employment_id' => 'PSG050',
+                'first_name' => 'John',
+                'last_name' => 'Supervisor',
                 'phone' => '+255700000011',
                 'email' => 'john.sup@example.com',
                 'region_id' => $region->id,
-                'status' => 'active',
+                'employment_status' => 'active',
+                'supervisor_status' => 'active',
                 'assignment_date' => now()->toDateString(),
+                'assignment_reason' => 'Initial posting',
                 'notes' => 'Primary',
-                'reason' => 'Initial posting',
+                'monthly_salary' => 0,
+                'address' => 'Kampala',
+                'bank_name' => 'Centenary',
+                'bank_account' => '1234567890',
             ])
             ->assertRedirect();
 
         $supervisor = Supervisor::query()->where('email', 'john.sup@example.com')->firstOrFail();
         $this->assertNotEmpty($supervisor->supervisor_code);
+        $this->assertSame('PSG050', $supervisor->fresh()->guardProfile?->employment_id);
+        $this->assertSame('PSG050', $supervisor->fresh()->staffProfile?->employment_id);
+        $this->assertSame('Kampala', $supervisor->staffProfile?->address);
+        $this->assertSame('Centenary', $supervisor->staffProfile?->bank_name);
         $this->assertDatabaseHas('supervisor_assignment_histories', [
             'supervisor_id' => $supervisor->id,
             'new_region_id' => $region->id,

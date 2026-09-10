@@ -190,6 +190,7 @@ class GuardController extends Controller
             'employmentStatuses' => EmploymentStatus::cases(),
             'operationalStatuses' => OperationalStatus::cases(),
             'genders' => GuardGender::cases(),
+            'canCorrectEmploymentId' => request()->user()->can('correctEmploymentId', $guard),
         ]);
     }
 

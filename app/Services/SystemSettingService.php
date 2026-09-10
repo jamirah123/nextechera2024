@@ -241,7 +241,14 @@ class SystemSettingService
             'psg.shift_defaults.night.end' => $settings->default_night_shift_end,
             'psg.backup.keep_days' => $settings->backup_keep_days,
             'psg.backup.path' => $settings->backup_path,
+            'psg.backup.schedule' => $settings->backup_schedule ?? config('psg.backup.schedule', 'daily'),
+            'psg.backup.notify' => (bool) ($settings->backup_notify ?? config('psg.backup.notify', true)),
+            'psg.backup.offsite_disk' => $settings->backup_offsite_disk ?: config('psg.backup.offsite_disk'),
+            'filesystems.disks.backups.root' => storage_path('app/'.trim((string) $settings->backup_path, '/\\')),
         ]);
+
+        // Rebuild the backups disk so path changes take effect immediately.
+        app('filesystem')->forgetDisk('backups');
     }
 
     /** @return array<string, mixed> */
@@ -275,6 +282,9 @@ class SystemSettingService
             'default_night_shift_end' => config('psg.shift_defaults.night.end', '06:00'),
             'backup_keep_days' => config('psg.backup.keep_days', 14),
             'backup_path' => config('psg.backup.path', 'backups'),
+            'backup_schedule' => config('psg.backup.schedule', 'daily'),
+            'backup_notify' => config('psg.backup.notify', true),
+            'backup_offsite_disk' => config('psg.backup.offsite_disk'),
             'accounting_export_enabled' => false,
             'accounting_export_path' => 'exports/accounting',
         ];

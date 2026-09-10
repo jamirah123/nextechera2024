@@ -29,10 +29,16 @@
                                 ? \App\Support\Finance\PayrollRates::staffEligibleDays($payslip->assignedStaff, $run)
                                 : null;
                             $periodDays = \App\Support\Finance\PayrollRates::periodDays($run);
+                            $overtimePay = round((float) $payslip->overtime_shifts * (float) $payslip->overtime_shift_rate, 2);
+                            $salaryPortion = round((float) $payslip->gross_pay - $overtimePay, 2);
                         @endphp
                         <div class="flex justify-between"><dt>Monthly gross</dt><dd>{{ \App\Support\Money::format($payslip->base_shift_rate, $run->currency) }}</dd></div>
                         @if ($eligibleDays !== null && $eligibleDays < $periodDays)
                             <div class="flex justify-between text-slate-600"><dt>Days paid</dt><dd>{{ $eligibleDays }} of {{ $periodDays }}</dd></div>
+                        @endif
+                        <div class="flex justify-between"><dt>Period salary</dt><dd>{{ \App\Support\Money::format($salaryPortion, $run->currency) }}</dd></div>
+                        @if ($payslip->overtime_shifts > 0)
+                            <div class="flex justify-between"><dt>Overtime ({{ $payslip->overtime_shifts }})</dt><dd>{{ \App\Support\Money::format($overtimePay, $run->currency) }}</dd></div>
                         @endif
                     @else
                         <div class="flex justify-between"><dt>Normal ({{ $payslip->normal_shifts }})</dt><dd>{{ \App\Support\Money::format($payslip->normal_shifts * $payslip->base_shift_rate, $run->currency) }}</dd></div>

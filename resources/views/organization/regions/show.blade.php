@@ -105,7 +105,7 @@
                             <a href="{{ route('supervisors.show', $supervisor) }}" class="flex items-center justify-between gap-3 px-3 py-2 hover:bg-slate-50 sm:px-6">
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-semibold text-slate-900">{{ $supervisor->name }}</p>
-                                    <p class="text-xs text-slate-500">{{ $supervisor->supervisor_code }} · {{ $supervisor->sites_count }} sites</p>
+                                    <p class="text-xs text-slate-500">{{ $supervisor->employmentId() }} · {{ $supervisor->sites_count }} sites</p>
                                 </div>
                                 <x-status-badge :tone="$supervisor->status->tone()" :label="$supervisor->status->label()" />
                             </a>

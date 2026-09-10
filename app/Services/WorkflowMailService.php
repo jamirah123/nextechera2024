@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\UserRole;
 use App\Mail\WorkflowActionMail;
 use App\Models\AuditLog;
+use App\Models\DatabaseBackup;
 use App\Models\Guard;
 use App\Models\Invoice;
 use App\Models\Leave;
@@ -23,6 +24,10 @@ class WorkflowMailService
     public function notifyFromAudit(AuditLog $log): void
     {
         if (! config('psg.notifications.workflow_email_enabled', true)) {
+            return;
+        }
+
+        if (str_starts_with($log->action, 'backup.') && ! config('psg.backup.notify', true)) {
             return;
         }
 
@@ -156,6 +161,7 @@ class WorkflowMailService
                 Shift::class => route('shifts.show', $log->subject_id),
                 Site::class => route('sites.show', $log->subject_id),
                 Guard::class => route('guards.show', $log->subject_id),
+                DatabaseBackup::class => route('backups.show', $log->subject_id),
                 default => null,
             };
         } catch (\Throwable) {

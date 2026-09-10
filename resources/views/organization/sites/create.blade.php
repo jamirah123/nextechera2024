@@ -111,7 +111,7 @@
                                     :disabled="regionId !== '' && regionId !== '{{ $supervisor->region_id }}'"
                                     :hidden="regionId !== '' && regionId !== '{{ $supervisor->region_id }}'"
                                 >
-                                    {{ $supervisor->name }} ({{ $supervisor->supervisor_code }})
+                                    {{ $supervisor->name }} ({{ $supervisor->employmentId() }})
                                 </option>
                             @endforeach
                         </select>

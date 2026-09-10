@@ -12,8 +12,8 @@
         :back="route('organization.index')"
     >
         <x-slot:actions>
-            @if ($canManage)
-                <a href="{{ route('supervisors.create') }}" class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">
+            @if ($canRegister ?? false)
+                <a href="{{ route('staff.create', ['employee_type' => 'supervisor']) }}" class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">
                     <x-icon name="plus" class="h-4 w-4" />
                     New supervisor
                 </a>
@@ -33,7 +33,7 @@
                 name="q"
                 type="search"
                 :value="$filters['q'] ?? ''"
-                placeholder="Name, code, phone"
+                placeholder="Name, employment ID, phone"
                 help="Results update as you type"
                 class="lg:col-span-2"
                 autocomplete="off"
@@ -65,12 +65,12 @@
     @if ($supervisors->isEmpty())
         <x-empty-state
             title="No supervisors found"
-            description="Register a supervisor and assign them to a region."
+            description="Ask HR to register supervisors, then assign them to sites and regions."
             icon="users"
         >
-            @if ($canManage)
+            @if ($canRegister ?? false)
                 <x-slot:actions>
-                    <a href="{{ route('supervisors.create') }}" class="inline-flex rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
+                    <a href="{{ route('staff.create', ['employee_type' => 'supervisor']) }}" class="inline-flex rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-800">
                         Register supervisor
                     </a>
                 </x-slot:actions>
@@ -83,7 +83,7 @@
                     <div class="flex items-start justify-between gap-3">
                         <a href="{{ route('supervisors.show', $supervisor) }}" class="min-w-0">
                             <p class="truncate font-semibold text-slate-900 hover:text-brand-700">{{ $supervisor->name }}</p>
-                            <p class="mt-0.5 text-xs text-slate-500">{{ $supervisor->supervisor_code }}</p>
+                            <p class="mt-0.5 text-xs text-slate-500">{{ $supervisor->guardProfile?->employment_id ?? $supervisor->supervisor_code }}</p>
                         </a>
                         <x-status-badge :tone="$supervisor->status->tone()" :label="$supervisor->status->label()" />
                     </div>
@@ -130,7 +130,7 @@
                                     <a href="{{ route('supervisors.show', $supervisor) }}" class="font-semibold text-slate-900 hover:text-brand-700">
                                         {{ $supervisor->name }}
                                     </a>
-                                    <p class="text-[10px] text-slate-500">{{ $supervisor->supervisor_code }}</p>
+                                    <p class="text-[10px] text-slate-500">{{ $supervisor->guardProfile?->employment_id ?? $supervisor->supervisor_code }}</p>
                                 </td>
                                 <td class="text-slate-600">{{ $supervisor->region?->name ?? '—' }}</td>
                                 <td class="text-slate-600">

@@ -50,7 +50,8 @@ class RoleNavigation
                 self::module('Reports', 'Operational, HR and financial report exports.', 'chart', 'violet', route('reports.index')),
                 self::module('Audit Logs', 'Immutable trail of critical system actions.', 'audit', 'rose', route('audit.index')),
                 self::module('Archived Records', 'Deletion backups that can be restored by administrators.', 'audit', 'amber', route('archived.index')),
-                self::module('Platform Settings', 'White-label branding, finance defaults, shift times and backups.', 'settings', 'violet', route('settings.index')),
+                self::module('Database Backups', 'Create, verify, download and restore full database backups.', 'settings', 'rose', route('backups.index')),
+                self::module('Platform Settings', 'White-label branding, finance defaults, shift times and backup policy.', 'settings', 'violet', route('settings.index')),
                 self::module('Bulk Import / Export', 'CSV migration for guards, sites, opening balances and accounting exports.', 'report', 'sky', route('data-import.index')),
                 self::module('Roles & Permissions', 'Configure role capabilities and access control.', 'settings', 'violet', route('roles.index')),
             ],
@@ -240,11 +241,12 @@ class RoleNavigation
                 ['label' => 'Sites', 'href' => route('sites.index')],
                 ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
             ]),
-            self::nav('Administration', 'settings', route('users.index'), 'users.*|roles.*|audit.*|archived.*|settings.*', [
+            self::nav('Administration', 'settings', route('users.index'), 'users.*|roles.*|audit.*|archived.*|backups.*|settings.*', [
                 ['label' => 'Users', 'href' => route('users.index')],
                 ['label' => 'Roles & Permissions', 'href' => route('roles.index')],
                 ['label' => 'Audit Logs', 'href' => route('audit.index')],
                 ['label' => 'Archived Records', 'href' => route('archived.index')],
+                ['label' => 'Database Backups', 'href' => route('backups.index')],
                 ['label' => 'Platform Settings', 'href' => route('settings.index')],
                 ['label' => 'Bulk Import / Export', 'href' => route('data-import.index')],
             ]),

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Hr;
 
+use App\Enums\EmployeeType;
 use App\Enums\EmploymentStatus;
 use App\Enums\GuardGender;
+use App\Enums\SupervisorStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Staff\StoreStaffRequest;
 use App\Http\Requests\Staff\UpdateStaffRequest;
@@ -25,7 +27,7 @@ class StaffController extends Controller
         $this->authorize('viewAny', Staff::class);
 
         $staffMembers = Staff::query()
-            ->with(['region:id,name,code'])
+            ->with(['region:id,name,code', 'supervisorProfile:id,staff_id,supervisor_code'])
             ->search($request->string('q')->toString())
             ->when($request->filled('employment_status'), fn ($q) => $q->where('employment_status', $request->string('employment_status')))
             ->when($request->filled('region_id'), fn ($q) => $q->where('region_id', $request->integer('region_id')))
@@ -56,32 +58,48 @@ class StaffController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
         $this->authorize('create', Staff::class);
+
+        $requestedType = EmployeeType::tryFrom((string) $request->query('employee_type', ''));
+        $defaultType = $requestedType?->value ?? EmployeeType::Staff->value;
 
         return view('staff.create', [
             'regions' => Region::query()->active()->orderBy('name')->get(['id', 'name', 'code']),
             'employmentStatuses' => EmploymentStatus::cases(),
+            'supervisorStatuses' => SupervisorStatus::cases(),
             'genders' => GuardGender::cases(),
             'nextEmploymentId' => $this->staff->nextEmploymentId(),
+            'canRegisterStaff' => true,
+            'canRegisterSupervisor' => true,
+            'defaultEmployeeType' => $defaultType,
         ]);
     }
 
     public function store(StoreStaffRequest $request): RedirectResponse
     {
         $member = $this->staff->createStaff($request->validated());
+        $isSupervisor = $member->supervisorProfile !== null;
 
         return redirect()
-            ->route('staff.show', $member)
-            ->with('status', 'Staff member registered successfully.');
+            ->route($isSupervisor ? 'supervisors.show' : 'staff.show', $isSupervisor ? $member->supervisorProfile : $member)
+            ->with('status', $isSupervisor
+                ? 'Supervisor registered successfully and added to the staff registry.'
+                : 'Staff member registered successfully.');
     }
 
     public function show(Staff $staff): View
     {
         $this->authorize('view', $staff);
 
-        $staff->load(['region', 'salaryAdvances', 'creator', 'updater']);
+        $staff->load([
+            'region',
+            'salaryAdvances',
+            'creator',
+            'updater',
+            'supervisorProfile.guardProfile:id,employment_id',
+        ]);
 
         return view('staff.show', [
             'staff' => $staff,
@@ -96,16 +114,21 @@ class StaffController extends Controller
         $this->authorize('update', $staff);
 
         return view('staff.edit', [
-            'staff' => $staff,
+            'staff' => $staff->loadMissing('supervisorProfile'),
             'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
             'employmentStatuses' => EmploymentStatus::cases(),
             'genders' => GuardGender::cases(),
+            'canCorrectEmploymentId' => request()->user()->can('correctEmploymentId', $staff),
         ]);
     }
 
     public function update(UpdateStaffRequest $request, Staff $staff): RedirectResponse
     {
-        $this->staff->updateStaff($staff, $request->validated());
+        $this->staff->updateStaff(
+            $staff,
+            $request->safe()->except(['reason']),
+            $request->validated('reason'),
+        );
 
         return redirect()
             ->route('staff.show', $staff)

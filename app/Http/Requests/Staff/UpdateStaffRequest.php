@@ -4,6 +4,9 @@ namespace App\Http\Requests\Staff;
 
 use App\Enums\EmploymentStatus;
 use App\Enums\GuardGender;
+use App\Models\Staff;
+use App\Rules\UniqueEmploymentId;
+use App\Services\Hr\EmploymentIdService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,7 +22,17 @@ class UpdateStaffRequest extends FormRequest
     /** @return array<string, mixed> */
     public function rules(): array
     {
+        /** @var Staff $staff */
+        $staff = $this->route('staff');
+        $canCorrectId = $this->user()?->can('correctEmploymentId', $staff) ?? false;
+        $idChanged = $canCorrectId
+            && is_string($this->input('employment_id'))
+            && app(EmploymentIdService::class)->normalize((string) $this->input('employment_id')) !== $staff->employment_id;
+
         return [
+            'employment_id' => $canCorrectId
+                ? ['sometimes', 'required', 'string', 'max:32', new UniqueEmploymentId(ignoreStaffId: $staff->id)]
+                : ['prohibited'],
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
@@ -42,6 +55,25 @@ class UpdateStaffRequest extends FormRequest
             'nssf_number' => ['nullable', 'string', 'max:40'],
             'tin_number' => ['nullable', 'string', 'max:40'],
             'notes' => ['nullable', 'string'],
+            'reason' => [
+                $idChanged ? 'required' : 'nullable',
+                'string',
+                'max:191',
+            ],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        /** @var Staff|null $staff */
+        $staff = $this->route('staff');
+        $canCorrectId = $staff && ($this->user()?->can('correctEmploymentId', $staff) ?? false);
+        $employmentId = $this->input('employment_id');
+
+        if ($canCorrectId && is_string($employmentId) && $employmentId !== '') {
+            $this->merge([
+                'employment_id' => app(EmploymentIdService::class)->normalize($employmentId),
+            ]);
+        }
     }
 }

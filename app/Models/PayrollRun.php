@@ -32,6 +32,7 @@ class PayrollRun extends Model
         'approved_at',
         'paid_at',
         'created_by',
+        'updated_by',
         'submitted_by',
         'approved_by',
         'paid_by',

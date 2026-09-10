@@ -264,6 +264,20 @@
                             <span class="row-value">{{ $eligibleDays }} of {{ $periodDays }}</span>
                         </div>
                     @endif
+                    @php
+                        $overtimePay = round((float) $payslip->overtime_shifts * (float) $payslip->overtime_shift_rate, 2);
+                        $salaryPortion = round((float) $payslip->gross_pay - $overtimePay, 2);
+                    @endphp
+                    <div class="row">
+                        <span class="row-label">Period salary</span>
+                        <span class="row-value">{{ \App\Support\Money::format($salaryPortion, $run->currency) }}</span>
+                    </div>
+                    @if ($payslip->overtime_shifts > 0)
+                        <div class="row">
+                            <span class="row-label">Overtime ({{ $payslip->overtime_shifts }})</span>
+                            <span class="row-value">{{ \App\Support\Money::format($overtimePay, $run->currency) }}</span>
+                        </div>
+                    @endif
                 @else
                     <div class="row">
                         <span class="row-label">Normal ({{ $payslip->normal_shifts }})</span>

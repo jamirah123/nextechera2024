@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\BackupController;
 use App\Http\Controllers\Admin\DataImportController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SystemSettingController;
@@ -281,6 +282,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/archived-records', [\App\Http\Controllers\Admin\ArchivedRecordController::class, 'index'])->name('archived.index');
     Route::get('/archived-records/{deletedRecordSnapshot}', [\App\Http\Controllers\Admin\ArchivedRecordController::class, 'show'])->name('archived.show');
     Route::post('/archived-records/{deletedRecordSnapshot}/restore', [\App\Http\Controllers\Admin\ArchivedRecordController::class, 'restore'])->name('archived.restore');
+
+    Route::get('/backups', [BackupController::class, 'index'])->name('backups.index');
+    Route::post('/backups', [BackupController::class, 'store'])->name('backups.store');
+    Route::get('/backups/{backup}', [BackupController::class, 'show'])->name('backups.show');
+    Route::get('/backups/{backup}/download', [BackupController::class, 'download'])->name('backups.download');
+    Route::post('/backups/{backup}/verify', [BackupController::class, 'verify'])->name('backups.verify');
+    Route::post('/backups/{backup}/restore', [BackupController::class, 'restore'])->name('backups.restore');
+    Route::delete('/backups/{backup}', [BackupController::class, 'destroy'])->name('backups.destroy');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('users.create');

@@ -337,7 +337,9 @@ class PayrollCalculationService
     private function createSalaryGuardPayslip(PayrollRun $run, Guard $guard): PayrollPayslip
     {
         $monthlyGross = PayrollRates::monthlyGross($guard);
-        $gross = PayrollRates::fixedPeriodGross($guard, $run);
+        $salaryGross = PayrollRates::fixedPeriodGross($guard, $run);
+        $overtime = $this->salaryOvertimeEarnings($guard, $monthlyGross, $run);
+        $gross = round($salaryGross + $overtime['pay'], 2);
 
         $payslip = PayrollPayslip::query()->create([
             'payroll_run_id' => $run->id,
@@ -346,13 +348,13 @@ class PayrollCalculationService
             'full_name' => $guard->full_name,
             'compensation_type' => CompensationType::Salary,
             'normal_shifts' => 0,
-            'overtime_shifts' => 0,
+            'overtime_shifts' => $overtime['count'],
             'relief_shifts' => 0,
             'replacement_shifts' => 0,
             'special_duty_shifts' => 0,
-            'total_shifts' => 0,
+            'total_shifts' => $overtime['count'],
             'base_shift_rate' => $monthlyGross,
-            'overtime_shift_rate' => 0,
+            'overtime_shift_rate' => $overtime['rate'],
             'gross_pay' => $gross,
             'bank_name' => $guard->bank_name,
             'bank_account' => $guard->bank_account,
@@ -364,13 +366,33 @@ class PayrollCalculationService
         $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
         $this->applyAssetRecoveryDeductions($payslip, guardId: $guard->id);
 
+        if ($overtime['count'] > 0) {
+            $this->linkShifts(
+                $payslip,
+                $guard->id,
+                $run->period_start->toDateString(),
+                PayrollRates::effectiveShiftEnd($guard, $run)->toDateString(),
+                $run,
+                overtimeOnly: true,
+            );
+        }
+
         return $payslip->refresh();
     }
 
     private function createStaffPayslip(PayrollRun $run, Staff $member): PayrollPayslip
     {
+        $member->loadMissing(['supervisorProfile.guardProfile']);
+
         $monthlyGross = PayrollRates::staffMonthlyGross($member);
-        $gross = PayrollRates::staffPeriodGross($member, $run);
+        $salaryGross = PayrollRates::staffPeriodGross($member, $run);
+
+        $coverGuard = $member->supervisorProfile?->guardProfile;
+        $overtime = $coverGuard !== null
+            ? $this->salaryOvertimeEarnings($coverGuard, $monthlyGross, $run)
+            : ['count' => 0, 'rate' => 0.0, 'pay' => 0.0];
+
+        $gross = round($salaryGross + $overtime['pay'], 2);
 
         $payslip = PayrollPayslip::query()->create([
             'payroll_run_id' => $run->id,
@@ -379,13 +401,13 @@ class PayrollCalculationService
             'full_name' => $member->full_name,
             'compensation_type' => CompensationType::Salary,
             'normal_shifts' => 0,
-            'overtime_shifts' => 0,
+            'overtime_shifts' => $overtime['count'],
             'relief_shifts' => 0,
             'replacement_shifts' => 0,
             'special_duty_shifts' => 0,
-            'total_shifts' => 0,
+            'total_shifts' => $overtime['count'],
             'base_shift_rate' => $monthlyGross,
-            'overtime_shift_rate' => 0,
+            'overtime_shift_rate' => $overtime['rate'],
             'gross_pay' => $gross,
             'bank_name' => $member->bank_name,
             'bank_account' => $member->bank_account,
@@ -397,7 +419,60 @@ class PayrollCalculationService
         $this->applyStatutoryDeductions($payslip, $gross, includeUniform: false);
         $this->applyAdvanceDeductions($payslip, staffId: $member->id);
 
+        if ($coverGuard !== null && $overtime['count'] > 0) {
+            $this->linkShifts(
+                $payslip,
+                $coverGuard->id,
+                $run->period_start->toDateString(),
+                $run->period_end->toDateString(),
+                $run,
+                overtimeOnly: true,
+            );
+        }
+
         return $payslip->refresh();
+    }
+
+    /**
+     * @return array{count: int, rate: float, pay: float}
+     */
+    private function salaryOvertimeEarnings(Guard $guard, float $monthlyGross, PayrollRun $run): array
+    {
+        $end = PayrollRates::effectiveShiftEnd($guard, $run)->toDateString();
+        $count = $this->overtimeShiftCountForGuard(
+            $guard->id,
+            $run->period_start->toDateString(),
+            $end,
+            $run,
+        );
+
+        if ($count <= 0) {
+            return ['count' => 0, 'rate' => 0.0, 'pay' => 0.0];
+        }
+
+        $rate = PayrollRates::salaryOvertimeShiftRate($monthlyGross, $guard, $run);
+
+        if ($rate <= 0) {
+            return ['count' => $count, 'rate' => 0.0, 'pay' => 0.0];
+        }
+
+        return [
+            'count' => $count,
+            'rate' => $rate,
+            'pay' => round($count * $rate, 2),
+        ];
+    }
+
+    private function overtimeShiftCountForGuard(int $guardId, string $start, string $end, PayrollRun $run): int
+    {
+        return Shift::query()
+            ->where('guard_id', $guardId)
+            ->whereBetween('shift_date', [$start, $end])
+            ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
+            ->when($run->site_id, fn ($q) => $q->where('site_id', $run->site_id))
+            ->whereIn('status', ShiftStatus::payableValues())
+            ->where('shift_type', ShiftType::Overtime)
+            ->count();
     }
 
     /** @return Collection<int, Staff> */
@@ -412,7 +487,24 @@ class PayrollCalculationService
             ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
             ->orderBy('employment_id')
             ->get()
-            ->filter(fn (Staff $member) => PayrollRates::staffPeriodGross($member, $run) > 0);
+            ->filter(function (Staff $member) use ($run) {
+                $salary = PayrollRates::staffPeriodGross($member, $run);
+                if ($salary > 0) {
+                    return true;
+                }
+
+                // Supervisor with no salary yet but overtime cover shifts still need a payslip line.
+                $member->loadMissing('supervisorProfile');
+                $guardId = $member->supervisorProfile?->guard_id;
+
+                return $guardId !== null
+                    && $this->overtimeShiftCountForGuard(
+                        (int) $guardId,
+                        $run->period_start->toDateString(),
+                        $run->period_end->toDateString(),
+                        $run,
+                    ) > 0;
+            });
     }
 
     /** @return Collection<int, Guard> */
@@ -420,12 +512,20 @@ class PayrollCalculationService
     {
         return Guard::query()
             ->onSalaryPay()
+            // Supervisors are paid via their staff payslip (fixed salary + optional overtime).
+            ->whereDoesntHave('supervisorProfile')
             ->employedDuringPeriod($run->period_start, $run->period_end)
             ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
             ->when($run->site_id, fn ($q) => $q->where('current_site_id', $run->site_id))
             ->orderBy('employment_id')
             ->get()
-            ->filter(fn (Guard $guard) => PayrollRates::fixedPeriodGross($guard, $run) > 0);
+            ->filter(fn (Guard $guard) => PayrollRates::fixedPeriodGross($guard, $run) > 0
+                || $this->overtimeShiftCountForGuard(
+                    $guard->id,
+                    $run->period_start->toDateString(),
+                    PayrollRates::effectiveShiftEnd($guard, $run)->toDateString(),
+                    $run,
+                ) > 0);
     }
 
     private function applyAdvanceDeductions(PayrollPayslip $payslip, ?int $guardId = null, ?int $staffId = null): void
@@ -618,21 +718,31 @@ class PayrollCalculationService
             });
     }
 
-    private function linkShifts(PayrollPayslip $payslip, int $guardId, string $start, string $end, PayrollRun $run): void
-    {
+    private function linkShifts(
+        PayrollPayslip $payslip,
+        int $guardId,
+        string $start,
+        string $end,
+        PayrollRun $run,
+        bool $overtimeOnly = false,
+    ): void {
+        $types = $overtimeOnly
+            ? [ShiftType::Overtime->value]
+            : [
+                ShiftType::Normal->value,
+                ShiftType::Overtime->value,
+                ShiftType::Relief->value,
+                ShiftType::Replacement->value,
+                ShiftType::SpecialDuty->value,
+            ];
+
         $shiftIds = Shift::query()
             ->where('guard_id', $guardId)
             ->whereBetween('shift_date', [$start, $end])
             ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
             ->when($run->site_id, fn ($q) => $q->where('site_id', $run->site_id))
             ->whereIn('status', ShiftStatus::payableValues())
-            ->whereIn('shift_type', [
-                ShiftType::Normal->value,
-                ShiftType::Overtime->value,
-                ShiftType::Relief->value,
-                ShiftType::Replacement->value,
-                ShiftType::SpecialDuty->value,
-            ])
+            ->whereIn('shift_type', $types)
             ->pluck('id');
 
         if ($shiftIds->isNotEmpty()) {

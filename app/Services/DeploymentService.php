@@ -130,24 +130,30 @@ class DeploymentService
 
     /**
      * Deploy a supervisor to cover a site using their linked guard payroll profile.
-     * A scheduled shift is created automatically for payroll / monthly reporting.
+     * A shift is always recorded by deploy(). Pay is driven only by an explicit duty_type:
+     * normal = history only (fixed salary unchanged); overtime = overtime earnings.
      *
      * @param  array{
      *     site_id: int,
      *     shift_type?: string,
-     *     work_shift_type?: string,
+     *     duty_type?: string,
      *     start_date?: string,
      *     notes?: string|null
      * }  $data
      */
     public function deploySupervisor(Supervisor $supervisor, array $data): Deployment
     {
-        $guard = app(SupervisorGuardService::class)->ensureGuardProfile($supervisor);
+        $guard = app(SupervisorGuardService::class)->ensureEmployeeProfiles($supervisor)['guard'];
         $site = Site::query()->findOrFail($data['site_id']);
+
+        $dutyType = ShiftType::tryFrom((string) ($data['duty_type'] ?? '')) ?? ShiftType::Normal;
 
         $noteParts = array_filter([
             $data['notes'] ?? null,
             'Supervisor cover deployment.',
+            $dutyType === ShiftType::Overtime
+                ? 'Duty type: overtime.'
+                : 'Duty type: normal (no overtime pay).',
         ]);
 
         $deployment = $this->deploy([
@@ -155,13 +161,9 @@ class DeploymentService
             'site_id' => $site->id,
             'shift_type' => $data['shift_type'] ?? DeploymentShiftType::Day->value,
             'start_date' => $data['start_date'] ?? now()->toDateString(),
+            'duty_type' => $dutyType->value,
             'notes' => implode(' ', $noteParts),
         ]);
-
-        $normalPosting = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? '')) ?? DeploymentShiftType::Day;
-        $workPosting = DeploymentShiftType::tryFrom((string) ($data['work_shift_type'] ?? '')) ?? $normalPosting;
-
-        $this->scheduleCoverShift($guard, $site, $data, $normalPosting, $workPosting);
 
         return $deployment;
     }

@@ -47,6 +47,17 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Database backups — never publicly served. Root follows PSG_BACKUP_PATH.
+         */
+        'backups' => [
+            'driver' => 'local',
+            'root' => storage_path('app/'.trim((string) env('PSG_BACKUP_PATH', 'backups'), '/\\')),
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

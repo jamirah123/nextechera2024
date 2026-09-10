@@ -74,8 +74,15 @@ class PermissionCatalog
             [
                 'key' => 'admin.settings_manage',
                 'group' => 'Administration',
-                'label' => 'Manage platform settings & backups',
-                'description' => 'White-label branding, finance defaults, shift templates and backups.',
+                'label' => 'Manage platform settings',
+                'description' => 'White-label branding, finance defaults, shift templates and backup retention settings.',
+                'roles' => $admin,
+            ],
+            [
+                'key' => 'admin.backups_manage',
+                'group' => 'Administration',
+                'label' => 'Manage database backups & restore',
+                'description' => 'Create, download, verify and restore database backups. Restricted critical infrastructure access.',
                 'roles' => $admin,
             ],
             [
@@ -122,6 +129,13 @@ class PermissionCatalog
                 'label' => 'View organization structure',
                 'description' => 'Browse regions, sites, clients and supervisors.',
                 'roles' => $all,
+            ],
+            [
+                'key' => 'employees.correct_employment_id',
+                'group' => 'HR',
+                'label' => 'Correct employment IDs',
+                'description' => 'Change a permanent Employment ID after registration. Changes are audited.',
+                'roles' => $admin,
             ],
             [
                 'key' => 'guards.manage',

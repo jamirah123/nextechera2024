@@ -6,6 +6,7 @@ use App\Models\Absence;
 use App\Models\AuditLog;
 use App\Models\BillingProfile;
 use App\Models\Client;
+use App\Models\DatabaseBackup;
 use App\Models\Deployment;
 use App\Models\Desertion;
 use App\Models\Guard;
@@ -58,6 +59,9 @@ class AuditLogUrlResolver
             Site::class => $this->safeRoute('sites.show', $log->subject_id),
             Client::class => $this->safeRoute('clients.show', $log->subject_id),
             WorkOrder::class => $this->safeRoute('work-orders.show', $log->subject_id),
+            DatabaseBackup::class => $user && \App\Support\Access\Access::userCan($user, 'admin.backups_manage')
+                ? $this->safeRoute('backups.show', $log->subject_id)
+                : null,
             default => null,
         };
 

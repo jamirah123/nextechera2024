@@ -11,12 +11,12 @@
 
         <x-form-panel
             :title="'Deploy '.$supervisor->name"
-            subtitle="Cover a site shortage. A shift is scheduled automatically for monthly payroll reporting."
+            subtitle="Cover a site shortage. A shift is always recorded for deployment history; pay depends on the duty type you select."
             :back="route('supervisors.show', $supervisor)"
         >
             <div class="form-group">
                 <p class="form-group__description">
-                    When the cover shift differs from the normal posting (e.g. day guard working night), it is recorded as <strong>overtime</strong> in the monthly shift report.
+                    Supervisors remain on fixed salary. Choose <strong>Normal</strong> for operational coverage with no extra pay, or <strong>Overtime</strong> when the cover is beyond the fixed arrangement and should earn overtime.
                 </p>
             </div>
 
@@ -30,17 +30,25 @@
                     @endforeach
                 </x-form-field>
 
-                <x-form-field label="Normal posting" name="shift_type" type="select" :required="true" help="The guard slot being covered (day / night).">
+                <x-form-field label="Shift period" name="shift_type" type="select" :required="true" help="Day or night slot being covered.">
                     @foreach ($shiftTypes as $type)
                         <option value="{{ $type->value }}" @selected(old('shift_type', 'day') === $type->value)>{{ $type->label() }}</option>
                     @endforeach
                 </x-form-field>
 
-                <x-form-field label="Cover shift worked" name="work_shift_type" type="select" help="Leave same as posting for a normal shift, or pick a different period for overtime.">
-                    <option value="">Same as normal posting</option>
-                    @foreach ($shiftTypes as $type)
-                        <option value="{{ $type->value }}" @selected(old('work_shift_type') === $type->value)>{{ $type->label() }}</option>
-                    @endforeach
+                <x-form-field
+                    label="Duty type"
+                    name="duty_type"
+                    type="select"
+                    :required="true"
+                    help="Normal = history only, no extra pay. Overtime = paid from fixed salary using overtime rules."
+                >
+                    <option value="{{ \App\Enums\ShiftType::Normal->value }}" @selected(old('duty_type', 'normal') === 'normal')">
+                        Normal shift — no overtime pay
+                    </option>
+                    <option value="{{ \App\Enums\ShiftType::Overtime->value }}" @selected(old('duty_type') === 'overtime')">
+                        Overtime shift — add overtime earnings
+                    </option>
                 </x-form-field>
 
                 <x-form-field label="Start date" name="start_date" type="date" :value="old('start_date', now()->toDateString())" />

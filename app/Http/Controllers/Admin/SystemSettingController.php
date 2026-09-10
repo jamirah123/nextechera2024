@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\Console\Output\BufferedOutput;
 
@@ -74,6 +75,9 @@ class SystemSettingController extends Controller
             'default_night_shift_end' => ['required', 'date_format:H:i'],
             'backup_keep_days' => ['required', 'integer', 'min:1', 'max:365'],
             'backup_path' => ['required', 'string', 'max:120', 'regex:/^[a-zA-Z0-9_\-\/]+$/'],
+            'backup_schedule' => ['required', 'string', 'in:daily,weekly,daily_and_weekly'],
+            'backup_notify' => ['nullable', 'boolean'],
+            'backup_offsite_disk' => ['nullable', 'string', 'max:40', Rule::in(['s3'])],
         ]);
 
         $logo = $request->file('logo');
@@ -83,6 +87,8 @@ class SystemSettingController extends Controller
         $data['payroll_use_progressive_paye'] = $request->boolean('payroll_use_progressive_paye');
         $data['notify_workflow_actions_by_email'] = $request->boolean('notify_workflow_actions_by_email');
         $data['notify_proactive_alerts'] = $request->boolean('notify_proactive_alerts');
+        $data['backup_notify'] = $request->boolean('backup_notify');
+        $data['backup_offsite_disk'] = filled($data['backup_offsite_disk'] ?? null) ? $data['backup_offsite_disk'] : null;
 
         $this->settings->update($data, $logo, $favicon);
 
@@ -117,20 +123,19 @@ class SystemSettingController extends Controller
     {
         $this->authorize('runMaintenance', SystemSetting::class);
 
-        $settings = $this->settings->current();
-
-        $exitCode = Artisan::call('psg:backup-database', [
-            '--keep' => $settings->backup_keep_days,
-            '--path' => $settings->backup_path,
-        ]);
-
-        $output = trim(Artisan::output());
-
-        if ($exitCode !== 0) {
-            return back()->withErrors(['backup' => $output ?: 'Database backup failed.']);
+        try {
+            $backup = app(\App\Services\DatabaseBackupService::class)->create(
+                \App\Enums\BackupType::Manual,
+                request()->user(),
+                ['notes' => 'Manual backup from Platform Settings.'],
+            );
+        } catch (\Throwable $e) {
+            return back()->withErrors(['backup' => $e->getMessage()]);
         }
 
-        return back()->with('status', $output ?: 'Database backup completed.');
+        return redirect()
+            ->route('backups.show', $backup)
+            ->with('status', 'Backup '.$backup->reference.' completed successfully.');
     }
 
     public function productionCheck(): RedirectResponse

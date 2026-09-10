@@ -193,6 +193,36 @@ class WorkflowActionCatalog
                 'headline' => 'A work order was marked complete',
                 'action_label' => 'View work order',
             ],
+            'backup.completed' => [
+                'permissions' => ['admin.backups_manage'],
+                'subject' => 'Database backup completed',
+                'headline' => 'Automated / manual database backup succeeded',
+                'action_label' => 'Open backup console',
+            ],
+            'backup.failed' => [
+                'permissions' => ['admin.backups_manage'],
+                'subject' => 'Database backup failed',
+                'headline' => 'Database backup failed — investigate immediately',
+                'action_label' => 'Open backup console',
+            ],
+            'backup.verify_failed' => [
+                'permissions' => ['admin.backups_manage'],
+                'subject' => 'Backup integrity check failed',
+                'headline' => 'A database backup failed checksum verification',
+                'action_label' => 'Open backup console',
+            ],
+            'backup.restored' => [
+                'permissions' => ['admin.backups_manage'],
+                'subject' => 'Database restored from backup',
+                'headline' => 'Live database was restored from a backup',
+                'action_label' => 'Open backup console',
+            ],
+            'backup.restore_failed' => [
+                'permissions' => ['admin.backups_manage'],
+                'subject' => 'Database restore failed',
+                'headline' => 'Database restore failed after safety backup',
+                'action_label' => 'Open backup console',
+            ],
         ];
     }
 

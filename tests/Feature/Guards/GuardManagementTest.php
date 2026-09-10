@@ -26,6 +26,7 @@ class GuardManagementTest extends TestCase
 
         $this->actingAs($hr)
             ->post(route('guards.store'), [
+                'employment_id' => 'PSG001',
                 'first_name' => 'John',
                 'middle_name' => 'Kamau',
                 'last_name' => 'Mwangi',
@@ -39,7 +40,7 @@ class GuardManagementTest extends TestCase
         $guard = Guard::query()->first();
 
         $this->assertNotNull($guard);
-        $this->assertSame('PSG0001', $guard->employment_id);
+        $this->assertSame('PSG001', $guard->employment_id);
         $this->assertSame('John Kamau Mwangi', $guard->full_name);
         $this->assertDatabaseCount('guard_status_histories', 2);
     }
@@ -51,6 +52,7 @@ class GuardManagementTest extends TestCase
 
         $this->actingAs($hr)
             ->post(route('guards.store'), [
+                'employment_id' => 'PSG002',
                 'first_name' => 'Trainee',
                 'last_name' => 'Guard',
                 'region_id' => $region->id,
@@ -119,6 +121,7 @@ class GuardManagementTest extends TestCase
 
         $response = $this->actingAs($hr)
             ->post(route('guards.store'), [
+                'employment_id' => 'PSG010',
                 'first_name' => 'Jane',
                 'last_name' => 'Wanjiku',
                 'region_id' => $region->id,
@@ -179,6 +182,7 @@ class GuardManagementTest extends TestCase
 
         $this->actingAs($hr)
             ->post(route('guards.store'), [
+                'employment_id' => 'PSG011',
                 'first_name' => 'Peter',
                 'last_name' => 'Ochieng',
                 'region_id' => $region->id,

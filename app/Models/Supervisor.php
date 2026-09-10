@@ -24,6 +24,7 @@ class Supervisor extends Model
         'email',
         'region_id',
         'guard_id',
+        'staff_id',
         'status',
         'assignment_date',
         'notes',
@@ -49,6 +50,11 @@ class Supervisor extends Model
         return $this->belongsTo(Guard::class, 'guard_id');
     }
 
+    public function staffProfile(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'staff_id');
+    }
+
     public function sites(): HasMany
     {
         return $this->hasMany(Site::class);
@@ -69,6 +75,18 @@ class Supervisor extends Model
         return $this->status === SupervisorStatus::Active;
     }
 
+    /**
+     * Company Employment ID (PSG…) when linked; otherwise internal SUP code.
+     */
+    public function employmentId(): ?string
+    {
+        $this->loadMissing(['guardProfile:id,employment_id', 'staffProfile:id,employment_id']);
+
+        return $this->guardProfile?->employment_id
+            ?? $this->staffProfile?->employment_id
+            ?? $this->supervisor_code;
+    }
+
     public function scopeActive($query)
     {
         return $query->where('status', SupervisorStatus::Active);
@@ -86,7 +104,8 @@ class Supervisor extends Model
             $q->where('name', 'like', $like)
                 ->orWhere('supervisor_code', 'like', $like)
                 ->orWhere('phone', 'like', $like)
-                ->orWhere('email', 'like', $like);
+                ->orWhere('email', 'like', $like)
+                ->orWhereHas('guardProfile', fn ($guard) => $guard->where('employment_id', 'like', $like));
         });
     }
 }

@@ -230,9 +230,27 @@
                 <x-form-field label="Night shift end" name="default_night_shift_end" type="time" :value="old('default_night_shift_end', $settings->default_night_shift_end)" :required="true" />
             </x-form-group>
 
-            <x-form-group title="Backup retention" description="Automated backups run daily at 01:30 (server time). Manual backups are available below.">
-                <x-form-field label="Keep backups (days/files)" name="backup_keep_days" type="number" :value="old('backup_keep_days', $settings->backup_keep_days)" :required="true" min="1" max="365" />
-                <x-form-field label="Backup folder" name="backup_path" :value="old('backup_path', $settings->backup_path)" :required="true" help="Relative to storage/app" />
+            <x-form-group title="Backup & recovery policy" description="Scheduled dumps run via the Laravel scheduler. Manage individual backups under Administration → Database Backups.">
+                <x-form-field label="Keep backups (newest files)" name="backup_keep_days" type="number" :value="old('backup_keep_days', $settings->backup_keep_days)" :required="true" min="1" max="365" help="Retention count for completed backups. Oldest files are pruned automatically." />
+                <x-form-field label="Backup folder" name="backup_path" :value="old('backup_path', $settings->backup_path)" :required="true" help="Relative to storage/app — never publicly served" />
+                <x-form-field label="Schedule" name="backup_schedule" type="select" :required="true">
+                    @foreach (['daily' => 'Daily (01:30)', 'weekly' => 'Weekly (Sunday 02:15)', 'daily_and_weekly' => 'Daily + weekly'] as $value => $label)
+                        <option value="{{ $value }}" @selected(old('backup_schedule', $settings->backup_schedule ?? 'daily') === $value)>{{ $label }}</option>
+                    @endforeach
+                </x-form-field>
+                <x-form-field label="Off-site disk" name="backup_offsite_disk" type="select" help="Optional cloud copy after each successful local backup (requires AWS credentials).">
+                    <option value="" @selected(old('backup_offsite_disk', $settings->backup_offsite_disk) === null || old('backup_offsite_disk', $settings->backup_offsite_disk) === '')>Local only</option>
+                    <option value="s3" @selected(old('backup_offsite_disk', $settings->backup_offsite_disk) === 's3')>Amazon S3</option>
+                </x-form-field>
+                <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 sm:col-span-2">
+                    <input type="checkbox" name="backup_notify" value="1" @checked(old('backup_notify', $settings->backup_notify ?? true)) class="rounded border-slate-300 text-brand-700 focus:ring-brand-600">
+                    Email Super Admins when automatic backups succeed or fail
+                </label>
+                <p class="sm:col-span-2 text-xs text-slate-500">
+                    Open the
+                    <a href="{{ route('backups.index') }}" class="font-semibold text-brand-700 hover:underline">Database Backups</a>
+                    console to download, verify integrity, or restore.
+                </p>
             </x-form-group>
 
             <div class="form-actions">
@@ -305,6 +323,7 @@
                     @csrf
                     <button type="submit" class="btn btn-primary">Backup now</button>
                 </form>
+                <a href="{{ route('backups.index') }}" class="btn btn-secondary">Open backup console</a>
             </div>
         </x-slot:actions>
 

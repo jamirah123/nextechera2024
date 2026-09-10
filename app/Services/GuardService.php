@@ -2,14 +2,21 @@
 
 namespace App\Services;
 
+use App\Enums\AuditCategory;
 use App\Enums\EmploymentStatus;
 use App\Enums\OperationalStatus;
 use App\Models\Guard;
 use App\Models\GuardStatusHistory;
+use App\Services\Hr\EmploymentIdService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class GuardService
 {
+    public function __construct(private EmploymentIdService $employmentIds)
+    {
+    }
+
     public function composeFullName(?string $first, ?string $middle, ?string $last): string
     {
         return collect([$first, $middle, $last])
@@ -20,17 +27,7 @@ class GuardService
 
     public function nextEmploymentId(): string
     {
-        $latest = Guard::withTrashed()
-            ->where('employment_id', 'like', 'PSG%')
-            ->orderByDesc('id')
-            ->value('employment_id');
-
-        $number = 1;
-        if (is_string($latest) && preg_match('/(\d+)$/', $latest, $matches)) {
-            $number = ((int) $matches[1]) + 1;
-        }
-
-        return 'PSG'.str_pad((string) $number, 4, '0', STR_PAD_LEFT);
+        return $this->employmentIds->next();
     }
 
     /**
@@ -39,7 +36,12 @@ class GuardService
     public function createGuard(array $data): Guard
     {
         return DB::transaction(function () use ($data) {
-            $data['employment_id'] = $data['employment_id'] ?? $this->nextEmploymentId();
+            if (! empty($data['employment_id'])) {
+                $data['employment_id'] = $this->employmentIds->normalize((string) $data['employment_id']);
+            } else {
+                $data['employment_id'] = $this->nextEmploymentId();
+            }
+
             $data['full_name'] = $this->composeFullName(
                 $data['first_name'] ?? null,
                 $data['middle_name'] ?? null,
@@ -81,6 +83,19 @@ class GuardService
         return DB::transaction(function () use ($guard, $data, $reason) {
             $previousEmployment = $guard->employment_status?->value;
             $previousOperational = $guard->operational_status?->value;
+            $previousEmploymentId = $guard->employment_id;
+
+            if (array_key_exists('employment_id', $data)) {
+                $user = Auth::user();
+                if (! $user?->can('correctEmploymentId', $guard)) {
+                    unset($data['employment_id']);
+                } else {
+                    $data['employment_id'] = $this->employmentIds->normalize((string) $data['employment_id']);
+                    if ($data['employment_id'] === $previousEmploymentId) {
+                        unset($data['employment_id']);
+                    }
+                }
+            }
 
             if (isset($data['first_name']) || isset($data['middle_name']) || isset($data['last_name'])) {
                 $data['full_name'] = $this->composeFullName(
@@ -92,6 +107,21 @@ class GuardService
 
             $guard->update($data);
             $guard->refresh();
+
+            if (isset($data['employment_id']) && $data['employment_id'] !== $previousEmploymentId) {
+                app(AuditService::class)->logOverride(
+                    action: 'employment_id.corrected',
+                    summary: "Employment ID corrected from {$previousEmploymentId} to {$data['employment_id']}.",
+                    subject: $guard,
+                    reason: $reason ?: 'employment_id_correction',
+                    context: [
+                        'from' => $previousEmploymentId,
+                        'to' => $data['employment_id'],
+                        'employee_type' => 'guard',
+                    ],
+                    category: AuditCategory::Hr,
+                );
+            }
 
             if ($previousEmployment !== $guard->employment_status->value) {
                 $this->recordStatusChange(

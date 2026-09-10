@@ -30,14 +30,36 @@ class PayrollRates
         return max(1, $run->period_start->diffInDays($run->period_end) + 1);
     }
 
+    /**
+     * Divisor for converting monthly gross to a daily/shift equivalent.
+     * Uses configured standard days when set (e.g. 30); otherwise calendar days in the run.
+     */
+    public static function rateDivisor(?PayrollRun $run = null): int
+    {
+        $standard = (int) config('psg.payroll.standard_shifts_per_month', 0);
+
+        if ($standard > 0) {
+            return $standard;
+        }
+
+        return $run !== null
+            ? self::calendarDays($run)
+            : max(1, now()->daysInMonth);
+    }
+
+    public static function dailyRateFromMonthly(float $monthlyGross, ?PayrollRun $run = null): float
+    {
+        if ($monthlyGross <= 0) {
+            return 0.0;
+        }
+
+        return round($monthlyGross / self::rateDivisor($run), 2);
+    }
+
     /** Earnings per completed normal (or equivalent) shift. */
     public static function perShiftRate(Guard $guard, ?PayrollRun $run = null): float
     {
-        $divisor = $run !== null
-            ? self::calendarDays($run)
-            : max(1, now()->daysInMonth);
-
-        return round(self::monthlyGross($guard) / $divisor, 2);
+        return self::dailyRateFromMonthly(self::monthlyGross($guard), $run);
     }
 
     public static function baseShiftRate(Guard $guard, ?PayrollRun $run = null): float
@@ -54,6 +76,25 @@ class PayrollRates
         }
 
         return round(self::perShiftRate($guard, $run) * (float) config('psg.payroll.overtime_multiplier', 1.5), 2);
+    }
+
+    /**
+     * Overtime rate for fixed-salary staff/supervisors from monthly salary + configured rules.
+     * Does not permanently change salary — used only when overtime shifts are recorded.
+     */
+    public static function salaryOvertimeShiftRate(float $monthlyGross, ?Guard $guard = null, ?PayrollRun $run = null): float
+    {
+        if ($guard !== null) {
+            $explicit = (float) $guard->overtime_shift_rate;
+
+            if ($explicit > 0) {
+                return $explicit;
+            }
+        }
+
+        $daily = self::dailyRateFromMonthly($monthlyGross, $run);
+
+        return round($daily * (float) config('psg.payroll.overtime_multiplier', 1.5), 2);
     }
 
     /** Fixed monthly gross pro-rated for mid-period joiners and leavers. */

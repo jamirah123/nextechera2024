@@ -15,13 +15,15 @@
             :subtitle="'Update employment details for '.$guard->employment_id"
             :back="route('guards.show', $guard)"
         >
-            <div class="form-highlight">
-                <p class="form-highlight__label">Employment ID</p>
-                <p class="form-highlight__value">{{ $guard->employment_id }}</p>
-                <p class="form-highlight__help">Permanent identifier — cannot be changed after registration.</p>
-            </div>
+            @unless ($canCorrectEmploymentId ?? false)
+                <div class="form-highlight">
+                    <p class="form-highlight__label">Employment ID</p>
+                    <p class="form-highlight__value">{{ $guard->employment_id }}</p>
+                    <p class="form-highlight__help">Permanent identifier — cannot be changed after registration.</p>
+                </div>
+            @endunless
 
-            @include('guards.partials.form-fields', ['guard' => $guard])
+            @include('guards.partials.form-fields', ['guard' => $guard, 'canCorrectEmploymentId' => $canCorrectEmploymentId ?? false])
 
             <x-form-actions :cancel="route('guards.show', $guard)" submit-label="Save changes" />
         </x-form-panel>

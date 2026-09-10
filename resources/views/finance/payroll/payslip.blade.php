@@ -51,7 +51,7 @@
                 'label' => 'NSSF / TIN',
                 'value' => trim(collect([$payslip->nssf_number ? 'NSSF '.$payslip->nssf_number : null, $payslip->tin_number ? 'TIN '.$payslip->tin_number : null])->filter()->implode(' · ') ?: '—'),
             ]]"
-            footer-note="{{ $payslip->isFixedSalary() ? 'This payslip reflects a fixed monthly salary for the pay period.' : 'This payslip is generated from completed shifts recorded in the operations system.' }}"
+            footer-note="{{ $payslip->isFixedSalary() ? ($payslip->overtime_shifts > 0 ? 'Fixed monthly salary plus overtime earnings from recorded overtime cover shifts.' : 'This payslip reflects a fixed monthly salary for the pay period.') : 'This payslip is generated from completed shifts recorded in the operations system.' }}"
         >
             <div class="mb-6 grid gap-4 sm:grid-cols-2">
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
@@ -63,10 +63,16 @@
                                     ? \App\Support\Finance\PayrollRates::staffEligibleDays($payslip->assignedStaff, $run)
                                     : null;
                                 $periodDays = \App\Support\Finance\PayrollRates::periodDays($run);
+                                $overtimePay = round((float) $payslip->overtime_shifts * (float) $payslip->overtime_shift_rate, 2);
+                                $salaryPortion = round((float) $payslip->gross_pay - $overtimePay, 2);
                             @endphp
                             <div class="flex justify-between"><dt>Monthly gross</dt><dd>{{ \App\Support\Money::format($payslip->base_shift_rate, $run->currency) }}</dd></div>
                             @if ($eligibleDays !== null && $eligibleDays < $periodDays)
                                 <div class="flex justify-between text-slate-600"><dt>Days paid</dt><dd>{{ $eligibleDays }} of {{ $periodDays }}</dd></div>
+                            @endif
+                            <div class="flex justify-between"><dt>Period salary</dt><dd>{{ \App\Support\Money::format($salaryPortion, $run->currency) }}</dd></div>
+                            @if ($payslip->overtime_shifts > 0)
+                                <div class="flex justify-between"><dt>Overtime ({{ $payslip->overtime_shifts }})</dt><dd>{{ \App\Support\Money::format($overtimePay, $run->currency) }}</dd></div>
                             @endif
                             <div class="flex justify-between"><dt>Period gross</dt><dd>{{ \App\Support\Money::format($payslip->gross_pay, $run->currency) }}</dd></div>
                         @else
@@ -85,6 +91,9 @@
                         @if ($payslip->isFixedSalary())
                             <div class="flex justify-between"><dt>Pay type</dt><dd>{{ $payslip->compensation_type->shortLabel() }}</dd></div>
                             <div class="flex justify-between"><dt>Monthly salary</dt><dd>{{ \App\Support\Money::format($payslip->base_shift_rate, $run->currency) }}</dd></div>
+                            @if ($payslip->overtime_shifts > 0)
+                                <div class="flex justify-between"><dt>Overtime rate</dt><dd>{{ \App\Support\Money::format($payslip->overtime_shift_rate, $run->currency) }}</dd></div>
+                            @endif
                         @else
                             <div class="flex justify-between"><dt>Base shift rate</dt><dd>{{ \App\Support\Money::format($payslip->base_shift_rate, $run->currency) }}</dd></div>
                             <div class="flex justify-between"><dt>Overtime rate</dt><dd>{{ \App\Support\Money::format($payslip->overtime_shift_rate, $run->currency) }}</dd></div>

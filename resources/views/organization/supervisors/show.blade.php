@@ -2,13 +2,13 @@
 
 @section('title', $supervisor->name)
 @section('page-title', 'Supervisor details')
-@section('page-subtitle', $supervisor->supervisor_code)
+@section('page-subtitle', $supervisor->guardProfile?->employment_id ?? $supervisor->supervisor_code)
 
 @section('content')
 <div class="space-y-3">
     <x-page-header
         :title="$supervisor->name"
-        :subtitle="'Supervisor '.$supervisor->supervisor_code"
+        :subtitle="'Supervisor '.($supervisor->guardProfile?->employment_id ?? $supervisor->supervisor_code)"
         :back="route('supervisors.index')"
     >
         <x-slot:actions>
@@ -40,10 +40,22 @@
         </div>
         <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Code</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $supervisor->supervisor_code }}</dd>
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Employment ID</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">
+                    @if ($supervisor->guardProfile)
+                        <a href="{{ route('guards.show', $supervisor->guardProfile) }}" class="text-brand-700 hover:text-brand-800">
+                            {{ $supervisor->guardProfile->employment_id }}
+                        </a>
+                    @else
+                        —
+                    @endif
+                </dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Internal code</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $supervisor->supervisor_code }}</dd>
+            </div>
+            <div class="border-b border-slate-100 px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Region</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">
                     @if ($supervisor->region)
@@ -55,19 +67,31 @@
                     @endif
                 </dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Staff profile</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">
+                    @if ($supervisor->staffProfile)
+                        <a href="{{ route('staff.show', $supervisor->staffProfile) }}" class="text-brand-700 hover:text-brand-800">
+                            View in staff list
+                        </a>
+                    @else
+                        —
+                    @endif
+                </dd>
+            </div>
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Assignment date</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($supervisor->assignment_date)->format('d M Y') ?: '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Phone</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $supervisor->phone ?: '—' }}</dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:border-b-0 lg:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Email</dt>
                 <dd class="mt-1 break-all text-sm font-semibold text-slate-900">{{ $supervisor->email ?: '—' }}</dd>
             </div>
-            <div class="px-3 py-2.5">
+            <div class="border-t border-slate-100 px-3 py-2.5 sm:col-span-2 lg:col-span-3">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notes</dt>
                 <dd class="mt-1 text-sm text-slate-700">{{ $supervisor->notes ?: '—' }}</dd>
             </div>

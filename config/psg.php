@@ -42,6 +42,11 @@ return [
     'backup' => [
         'keep_days' => (int) env('PSG_BACKUP_KEEP', 14),
         'path' => env('PSG_BACKUP_PATH', 'backups'),
+        'disk' => env('PSG_BACKUP_DISK', 'backups'),
+        'schedule' => env('PSG_BACKUP_SCHEDULE', 'daily'), // daily | weekly | daily_and_weekly
+        'notify' => filter_var(env('PSG_BACKUP_NOTIFY', true), FILTER_VALIDATE_BOOL),
+        'offsite_disk' => env('PSG_BACKUP_OFFSITE_DISK'), // e.g. s3 — leave empty for local only
+        'offsite_path' => env('PSG_BACKUP_OFFSITE_PATH', 'psg-backups'),
     ],
     'notifications' => [
         'poll_seconds' => (int) env('PSG_NOTIFICATIONS_POLL_SECONDS', 30),

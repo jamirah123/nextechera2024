@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\DeploymentShiftType;
+use App\Enums\SiteStatus;
 use App\Enums\SupervisorStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\DeploySupervisorRequest;
-use App\Http\Requests\Organization\StoreSupervisorRequest;
 use App\Http\Requests\Organization\UpdateSupervisorRequest;
 use App\Models\Deployment;
 use App\Models\Region;
 use App\Models\Site;
+use App\Models\Staff;
 use App\Models\Supervisor;
-use App\Enums\DeploymentShiftType;
-use App\Enums\SiteStatus;
 use App\Services\DeploymentService;
 use App\Services\OrganizationService;
 use App\Services\SupervisorGuardService;
@@ -35,7 +35,7 @@ class SupervisorController extends Controller
         $this->authorize('viewAny', Supervisor::class);
 
         $supervisors = Supervisor::query()
-            ->with(['region'])
+            ->with(['region', 'guardProfile:id,employment_id'])
             ->withCount('sites')
             ->search($request->string('q')->toString())
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
@@ -50,47 +50,24 @@ class SupervisorController extends Controller
             'statuses' => SupervisorStatus::cases(),
             'filters' => $request->only(['q', 'status', 'region_id']),
             'canManage' => $request->user()->can('create', Supervisor::class),
+            'canRegister' => $request->user()->can('create', Staff::class),
             'canDelete' => $request->user()->can('deleteAny', Supervisor::class),
         ]);
     }
 
-    public function create(): View
+    public function create(): RedirectResponse
     {
-        $this->authorize('create', Supervisor::class);
+        $this->authorize('create', Staff::class);
 
-        return view('organization.supervisors.create', [
-            'regions' => Region::query()->active()->orderBy('name')->get(['id', 'name', 'code']),
-            'statuses' => SupervisorStatus::cases(),
-            'nextCode' => $this->organization->nextSupervisorCode(),
-        ]);
+        return redirect()->route('staff.create', ['employee_type' => 'supervisor']);
     }
 
-    public function store(StoreSupervisorRequest $request): RedirectResponse
+    public function store(Request $request): RedirectResponse
     {
-        $supervisor = DB::transaction(function () use ($request) {
-            $data = $request->safe()->except(['reason']);
-            $data['supervisor_code'] = $this->organization->nextSupervisorCode();
-            $data['assignment_date'] = $data['assignment_date'] ?? now()->toDateString();
-
-            $supervisor = Supervisor::query()->create($data);
-
-            $this->organization->recordSupervisorAssignment(
-                $supervisor,
-                null,
-                (int) $supervisor->region_id,
-                'initial_assignment',
-                $request->input('reason'),
-                'Supervisor registered and assigned to region.',
-            );
-
-            return $supervisor;
-        });
-
-        $this->supervisorGuards->ensureGuardProfile($supervisor);
-
+        // Legacy endpoint: prefer Staff registration with employee_type=supervisor.
         return redirect()
-            ->route('supervisors.show', $supervisor)
-            ->with('status', 'Supervisor registered successfully.');
+            ->route('staff.create', ['employee_type' => 'supervisor'])
+            ->with('status', 'Register supervisors from the Staff form. Choose Employee Type → Supervisor.');
     }
 
     public function show(Supervisor $supervisor): View
@@ -101,6 +78,7 @@ class SupervisorController extends Controller
             'region',
             'guardProfile.currentDeployment.site',
             'guardProfile.region',
+            'staffProfile',
             'sites.client',
             'assignmentHistories.previousRegion',
             'assignmentHistories.newRegion',
@@ -168,10 +146,16 @@ class SupervisorController extends Controller
     {
         $this->authorize('update', $supervisor);
 
+        $supervisor->loadMissing(['guardProfile', 'staffProfile']);
+
         return view('organization.supervisors.edit', [
             'supervisor' => $supervisor,
             'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
             'statuses' => SupervisorStatus::cases(),
+            'canCorrectEmploymentId' => request()->user()->can('correctEmploymentId', $supervisor),
+            'canManageStaffPayroll' => $supervisor->staffProfile
+                ? request()->user()->can('update', $supervisor->staffProfile)
+                : false,
         ]);
     }
 
@@ -179,7 +163,16 @@ class SupervisorController extends Controller
     {
         DB::transaction(function () use ($request, $supervisor): void {
             $previousRegionId = (int) $supervisor->region_id;
-            $data = $request->safe()->except(['reason']);
+            $data = $request->safe()->except([
+                'reason',
+                'employment_id',
+                'address',
+                'monthly_salary',
+                'bank_name',
+                'bank_account',
+                'nssf_number',
+                'tin_number',
+            ]);
 
             $supervisor->update($data);
 
@@ -192,6 +185,32 @@ class SupervisorController extends Controller
                     $request->input('reason') ?: 'Region reassignment',
                     'Supervisor transferred to a different region.',
                 );
+            }
+
+            $this->supervisorGuards->syncFromSupervisor($supervisor->fresh());
+
+            if ($request->user()?->can('correctEmploymentId', $supervisor) && $request->filled('employment_id')) {
+                $this->supervisorGuards->syncLinkedEmploymentId(
+                    $supervisor->fresh(),
+                    $request->validated('employment_id'),
+                    $request->input('reason'),
+                );
+            }
+
+            $staff = $supervisor->fresh()->staffProfile;
+            if ($staff && $request->user()?->can('update', $staff)) {
+                app(\App\Services\StaffService::class)->updateStaff($staff, array_filter(
+                    $request->safe()->only([
+                        'address',
+                        'notes',
+                        'monthly_salary',
+                        'bank_name',
+                        'bank_account',
+                        'nssf_number',
+                        'tin_number',
+                    ]),
+                    fn ($value) => $value !== null,
+                ));
             }
         });
 

@@ -21,7 +21,7 @@ class StaffFactory extends Factory
         $last = fake()->lastName();
 
         return [
-            'employment_id' => 'STF'.fake()->unique()->numerify('####'),
+            'employment_id' => 'PSG'.fake()->unique()->numerify('####'),
             'first_name' => $first,
             'middle_name' => $middle,
             'last_name' => $last,

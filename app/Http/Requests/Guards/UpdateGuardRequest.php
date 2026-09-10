@@ -6,6 +6,9 @@ use App\Enums\EmploymentStatus;
 use App\Enums\GuardClassification;
 use App\Enums\GuardGender;
 use App\Enums\OperationalStatus;
+use App\Models\Guard;
+use App\Rules\UniqueEmploymentId;
+use App\Services\Hr\EmploymentIdService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,7 +24,17 @@ class UpdateGuardRequest extends FormRequest
     /** @return array<string, mixed> */
     public function rules(): array
     {
+        /** @var Guard $guard */
+        $guard = $this->route('guard');
+        $canCorrectId = $this->user()?->can('correctEmploymentId', $guard) ?? false;
+        $idChanged = $canCorrectId
+            && is_string($this->input('employment_id'))
+            && app(EmploymentIdService::class)->normalize((string) $this->input('employment_id')) !== $guard->employment_id;
+
         return [
+            'employment_id' => $canCorrectId
+                ? ['sometimes', 'required', 'string', 'max:32', new UniqueEmploymentId(ignoreGuardId: $guard->id)]
+                : ['prohibited'],
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
@@ -48,15 +61,30 @@ class UpdateGuardRequest extends FormRequest
             'bank_name' => ['nullable', 'string', 'max:120'],
             'bank_account' => ['nullable', 'string', 'max:64'],
             'nssf_number' => ['nullable', 'string', 'max:40'],
-            'reason' => ['nullable', 'string', 'max:191'],
+            'reason' => [
+                $idChanged ? 'required' : 'nullable',
+                'string',
+                'max:191',
+            ],
             ...GuardAttachmentRules::rules(),
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
+        /** @var Guard|null $guard */
+        $guard = $this->route('guard');
+        $canCorrectId = $guard && ($this->user()?->can('correctEmploymentId', $guard) ?? false);
+        $employmentId = $this->input('employment_id');
+
+        $merge = [
             'guard_classification' => $this->input('guard_classification', GuardClassification::Unarmed->value),
-        ]);
+        ];
+
+        if ($canCorrectId && is_string($employmentId) && $employmentId !== '') {
+            $merge['employment_id'] = app(EmploymentIdService::class)->normalize($employmentId);
+        }
+
+        $this->merge($merge);
     }
 }

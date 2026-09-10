@@ -28,6 +28,11 @@ class GuardPolicy
         return Access::userCan($user, 'guards.manage');
     }
 
+    public function correctEmploymentId(User $user, Guard $guard): bool
+    {
+        return Access::userCan($user, 'employees.correct_employment_id');
+    }
+
     public function deleteAny(User $user): bool
     {
         return Access::userCan($user, 'guards.manage');

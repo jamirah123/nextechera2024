@@ -42,8 +42,8 @@ class DemoDataSeeder extends Seeder
         $this->seedRegionSupervisorUsers($supervisors, $regions);
         $clients = $this->seedClients();
         $this->seedSites($regions, $supervisors, $clients, $organization);
-        $this->seedStaff();
         $this->seedGuards($regions);
+        $this->seedStaff();
 
         Auth::logout();
 
@@ -292,14 +292,18 @@ class DemoDataSeeder extends Seeder
         ];
 
         foreach ($members as $index => $member) {
-            $employmentId = 'STF'.str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT);
-            if (Staff::query()->where('employment_id', $employmentId)->exists()) {
+            $alreadySeeded = Staff::query()
+                ->where('first_name', $member['first_name'])
+                ->where('last_name', $member['last_name'])
+                ->exists();
+
+            if ($alreadySeeded) {
                 continue;
             }
 
             $service->createStaff([
                 ...$member,
-                'employment_id' => $employmentId,
+                'employment_id' => $service->nextEmploymentId(),
                 'phone' => '07'.str_pad((string) (50000000 + $index), 8, '0', STR_PAD_LEFT),
                 'email' => strtolower($member['first_name']).'.'.strtolower($member['last_name']).'@platinumsecurity.local',
                 'bank_name' => 'Centenary Bank',

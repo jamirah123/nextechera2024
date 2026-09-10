@@ -59,6 +59,16 @@
                 <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Office</dt>
                 <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">{{ $staff->region?->name ?? 'Head office' }}</dd>
             </div>
+            @if ($staff->supervisorProfile)
+                <div class="border-b border-slate-100 px-3 py-1.5 sm:border-r dark:border-slate-700 sm:col-span-2 lg:col-span-3">
+                    <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Field supervisor</dt>
+                    <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">
+                        <a href="{{ route('supervisors.show', $staff->supervisorProfile) }}" class="text-brand-700 hover:text-brand-800 dark:text-brand-400">
+                            {{ $staff->supervisorProfile->employmentId() }} — open supervisor profile
+                        </a>
+                    </dd>
+                </div>
+            @endif
             <div class="border-b border-slate-100 px-3 py-1.5 sm:border-r dark:border-slate-700">
                 <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Monthly salary</dt>
                 <dd class="mt-0.5 text-xs font-semibold text-brand-700 dark:text-brand-400">{{ \App\Support\Money::format($staff->monthly_salary) }}</dd>

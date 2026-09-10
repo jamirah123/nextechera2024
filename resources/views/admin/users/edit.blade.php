@@ -51,7 +51,7 @@
                         <option value="">Select supervisor…</option>
                         @foreach ($supervisors as $supervisor)
                             <option value="{{ $supervisor->id }}" @selected((string) old('supervisor_id', $user->supervisor_id) === (string) $supervisor->id)>
-                                {{ $supervisor->name }} ({{ $supervisor->supervisor_code }}) — {{ $supervisor->region?->name ?? 'No region' }}
+                                {{ $supervisor->name }} ({{ $supervisor->employmentId() }}) — {{ $supervisor->region?->name ?? 'No region' }}
                             </option>
                         @endforeach
                     </select>

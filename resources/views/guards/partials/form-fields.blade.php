@@ -24,6 +24,25 @@
     </x-form-group>
 
     <x-form-group title="Employment">
+        @if (! $guard)
+            <x-form-field
+                label="Employment ID"
+                name="employment_id"
+                :value="old('employment_id', $nextEmploymentId ?? '')"
+                :required="true"
+                class="sm:col-span-2"
+                help="Automatically generated. You may edit this if the employee already had an existing company ID."
+            />
+        @elseif ($canCorrectEmploymentId ?? false)
+            <x-form-field
+                label="Employment ID"
+                name="employment_id"
+                :value="old('employment_id', $guard->employment_id)"
+                :required="true"
+                class="sm:col-span-2"
+                help="Super Admin correction only. Changing this ID is recorded in the audit log."
+            />
+        @endif
         <x-form-field label="Date employed" name="date_employed" type="date" :value="old('date_employed', optional($guard?->date_employed)->format('Y-m-d') ?? now()->toDateString())" />
         <x-form-field label="Last working day" name="employment_end_date" type="date" :value="old('employment_end_date', optional($guard?->employment_end_date)->format('Y-m-d'))" help="Payroll pro-rates to this date. Leave blank for full month while active." />
         <x-form-field label="Pay type" name="compensation_type" type="select">
@@ -62,7 +81,13 @@
             @endforeach
         </x-form-field>
         @if ($guard)
-            <x-form-field label="Status change reason" name="reason" :value="old('reason')" class="sm:col-span-2" />
+            <x-form-field
+                label="{{ ($canCorrectEmploymentId ?? false) ? 'Change reason' : 'Status change reason' }}"
+                name="reason"
+                :value="old('reason')"
+                class="sm:col-span-2"
+                :help="($canCorrectEmploymentId ?? false) ? 'Required when correcting the employment ID. Also used for status changes.' : null"
+            />
         @endif
     </x-form-group>
 </div>

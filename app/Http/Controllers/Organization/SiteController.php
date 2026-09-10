@@ -75,7 +75,11 @@ class SiteController extends Controller
         return view('organization.sites.create', [
             'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'contract_status']),
             'regions' => Region::query()->active()->orderBy('name')->get(['id', 'name', 'code']),
-            'supervisors' => Supervisor::query()->active()->with('region:id,name')->orderBy('name')->get(),
+            'supervisors' => Supervisor::query()->active()->with([
+                'region:id,name',
+                'guardProfile:id,employment_id',
+                'staffProfile:id,employment_id',
+            ])->orderBy('name')->get(),
             'statuses' => SiteStatus::cases(),
             'prefill' => [
                 'client_id' => $request->integer('client_id') ?: null,
@@ -148,7 +152,11 @@ class SiteController extends Controller
             'site' => $site,
             'clients' => Client::query()->orderBy('name')->get(['id', 'name', 'contract_status']),
             'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
-            'supervisors' => Supervisor::query()->with('region:id,name')->orderBy('name')->get(),
+            'supervisors' => Supervisor::query()->with([
+                'region:id,name',
+                'guardProfile:id,employment_id',
+                'staffProfile:id,employment_id',
+            ])->orderBy('name')->get(),
             'statuses' => SiteStatus::cases(),
         ]);
     }

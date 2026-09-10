@@ -21,6 +21,8 @@ class StaffManagementTest extends TestCase
 
         $this->actingAs($hr)
             ->post(route('staff.store'), [
+                'employee_type' => 'staff',
+                'employment_id' => 'PSG001',
                 'first_name' => 'Jane',
                 'last_name' => 'Nabwire',
                 'job_title' => 'Finance Officer',
@@ -36,7 +38,7 @@ class StaffManagementTest extends TestCase
         $staff = Staff::query()->first();
 
         $this->assertNotNull($staff);
-        $this->assertSame('STF0001', $staff->employment_id);
+        $this->assertSame('PSG001', $staff->employment_id);
         $this->assertSame('Jane Nabwire', $staff->full_name);
         $this->assertSame(1500000.0, (float) $staff->monthly_salary);
     }
@@ -44,7 +46,7 @@ class StaffManagementTest extends TestCase
     public function test_finance_manager_can_view_but_not_register_staff(): void
     {
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
-        $staff = Staff::factory()->create(['employment_id' => 'STF0100', 'full_name' => 'Office Clerk']);
+        $staff = Staff::factory()->create(['employment_id' => 'PSG0100', 'full_name' => 'Office Clerk']);
 
         $this->actingAs($finance)
             ->get(route('staff.index'))
@@ -52,7 +54,7 @@ class StaffManagementTest extends TestCase
             ->assertSee('Office Clerk')
             ->assertSee('Inactive', false)
             ->assertSee('Left', false)
-            ->assertDontSee('Register staff', false);
+            ->assertDontSee('Register employee', false);
 
         $this->actingAs($finance)
             ->get(route('staff.create'))

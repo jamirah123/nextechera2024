@@ -66,7 +66,11 @@ class UserController extends Controller
 
         return view('admin.users.create', [
             'roles' => $this->users->assignableRolesFor(request()->user()),
-            'supervisors' => Supervisor::query()->with('region:id,name')->orderBy('name')->get(['id', 'name', 'supervisor_code', 'region_id']),
+            'supervisors' => Supervisor::query()->with([
+                'region:id,name',
+                'guardProfile:id,employment_id',
+                'staffProfile:id,employment_id',
+            ])->orderBy('name')->get(),
         ]);
     }
 
@@ -124,7 +128,11 @@ class UserController extends Controller
         return view('admin.users.edit', [
             'user' => $user->load(['supervisorProfile.region', 'attachments.uploader']),
             'roles' => $this->users->assignableRolesFor(request()->user()),
-            'supervisors' => Supervisor::query()->with('region:id,name')->orderBy('name')->get(['id', 'name', 'supervisor_code', 'region_id']),
+            'supervisors' => Supervisor::query()->with([
+                'region:id,name',
+                'guardProfile:id,employment_id',
+                'staffProfile:id,employment_id',
+            ])->orderBy('name')->get(),
             'isSelf' => request()->user()->id === $user->id,
         ]);
     }

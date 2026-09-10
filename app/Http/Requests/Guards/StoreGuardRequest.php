@@ -7,6 +7,8 @@ use App\Enums\GuardClassification;
 use App\Enums\GuardGender;
 use App\Enums\OperationalStatus;
 use App\Models\Guard;
+use App\Rules\UniqueEmploymentId;
+use App\Services\Hr\EmploymentIdService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -21,6 +23,7 @@ class StoreGuardRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'employment_id' => ['required', 'string', 'max:32', new UniqueEmploymentId],
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],
@@ -54,8 +57,13 @@ class StoreGuardRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $employmentId = $this->input('employment_id');
+
         $this->merge([
             'guard_classification' => $this->input('guard_classification', GuardClassification::Unarmed->value),
+            'employment_id' => is_string($employmentId) && $employmentId !== ''
+                ? app(EmploymentIdService::class)->normalize($employmentId)
+                : $employmentId,
         ]);
     }
 }

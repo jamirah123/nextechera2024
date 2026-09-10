@@ -11,7 +11,7 @@
             @if ($canManage)
                 <a href="{{ route('staff.create') }}" class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">
                     <x-icon name="plus" class="h-4 w-4" />
-                    Register staff
+                    Register employee
                 </a>
             @endif
         </x-slot:actions>
@@ -83,6 +83,9 @@
                                 <p>{{ $member->job_title ?: '—' }}</p>
                                 @if ($member->department)
                                     <p class="text-[10px] text-slate-500">{{ $member->department }}</p>
+                                @endif
+                                @if ($member->supervisorProfile)
+                                    <p class="mt-0.5 text-[10px] font-medium text-brand-700">Field supervisor</p>
                                 @endif
                             </td>
                             <td>{{ $member->region?->name ?? 'Head office' }}</td>

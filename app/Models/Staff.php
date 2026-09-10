@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Staff extends Model
@@ -74,6 +75,11 @@ class Staff extends Model
     public function payslips(): HasMany
     {
         return $this->hasMany(PayrollPayslip::class);
+    }
+
+    public function supervisorProfile(): HasOne
+    {
+        return $this->hasOne(Supervisor::class, 'staff_id');
     }
 
     public function isEmploymentActive(): bool

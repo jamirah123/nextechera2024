@@ -20,8 +20,7 @@ class ReplacementService
         private ShiftService $shifts,
         private GuardService $guards,
         private AuditService $audit,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{

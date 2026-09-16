@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\ProactiveAlertService;
+use App\Services\WorkOrderService;
 use Illuminate\Console\Command;
 
 class ScanProactiveAlertsCommand extends Command
@@ -24,7 +25,7 @@ class ScanProactiveAlertsCommand extends Command
         $tasksCreated = 0;
 
         if (config('psg.work_orders.auto_create_from_alerts', true)) {
-            $tasksCreated = app(\App\Services\WorkOrderService::class)->syncRecentAlerts(1);
+            $tasksCreated = app(WorkOrderService::class)->syncRecentAlerts(1);
         }
 
         $this->info(sprintf(

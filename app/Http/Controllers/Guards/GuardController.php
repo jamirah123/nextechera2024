@@ -3,18 +3,18 @@
 namespace App\Http\Controllers\Guards;
 
 use App\Enums\EmploymentStatus;
+use App\Enums\GuardDocumentType;
 use App\Enums\GuardGender;
 use App\Enums\OperationalStatus;
-use App\Enums\GuardDocumentType;
 use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Guards\StoreGuardRequest;
 use App\Http\Requests\Guards\UpdateGuardRequest;
 use App\Models\Deployment;
 use App\Models\Guard;
+use App\Models\GuardAssetIssuance;
 use App\Models\GuardAttachment;
 use App\Models\Region;
-use App\Services\DeploymentService;
 use App\Services\Documents\LetterPdfService;
 use App\Services\EntityRelatedRecordsService;
 use App\Services\EntityTimelineService;
@@ -38,8 +38,7 @@ class GuardController extends Controller
         private EntityTimelineService $timeline,
         private EntityRelatedRecordsService $relatedRecords,
         private LetterPdfService $letters,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
@@ -47,10 +46,6 @@ class GuardController extends Controller
 
         $user = $request->user();
         $regionId = $user->regionId();
-
-        app(DeploymentService::class)->syncDeployedGuardStatuses(
-            $user->mustStayInOwnRegion() ? $regionId : null,
-        );
 
         $guards = Guard::query()
             ->with(['region:id,name,code', 'currentSite:id,name,code', 'currentSupervisor:id,name'])
@@ -64,6 +59,8 @@ class GuardController extends Controller
             ->withQueryString();
 
         $statsBase = Guard::query()->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId));
+        $employmentCounts = status_counts((clone $statsBase), 'employment_status');
+        $operationalCounts = status_counts((clone $statsBase), 'operational_status');
 
         return view('guards.index', [
             'guards' => $guards,
@@ -77,11 +74,11 @@ class GuardController extends Controller
             'canManage' => $user->can('create', Guard::class),
             'canDelete' => $user->can('deleteAny', Guard::class),
             'stats' => [
-                'total' => (clone $statsBase)->count(),
-                'active' => (clone $statsBase)->activeEmployment()->count(),
-                'on_leave' => (clone $statsBase)->where('operational_status', OperationalStatus::OnLeave)->count(),
-                'absent' => (clone $statsBase)->where('operational_status', OperationalStatus::Absent)->count(),
-                'deserted' => (clone $statsBase)->where('operational_status', OperationalStatus::Deserted)->count(),
+                'total' => array_sum($employmentCounts),
+                'active' => (int) ($employmentCounts[EmploymentStatus::Active->value] ?? 0),
+                'on_leave' => (int) ($operationalCounts[OperationalStatus::OnLeave->value] ?? 0),
+                'absent' => (int) ($operationalCounts[OperationalStatus::Absent->value] ?? 0),
+                'deserted' => (int) ($operationalCounts[OperationalStatus::Deserted->value] ?? 0),
             ],
         ]);
     }
@@ -124,11 +121,6 @@ class GuardController extends Controller
     {
         $this->authorize('view', $guard);
 
-        app(DeploymentService::class)->syncDeployedGuardStatuses(
-            request()->user()->mustStayInOwnRegion() ? request()->user()->regionId() : null,
-        );
-
-        $guard->refresh();
         $guard->load([
             'region',
             'currentSite.client',
@@ -147,7 +139,7 @@ class GuardController extends Controller
             'guard' => $guard,
             'currentDeployment' => $guard->currentDeployment,
             'canManage' => request()->user()->can('update', $guard),
-            'canManageAssets' => request()->user()->can('create', \App\Models\GuardAssetIssuance::class),
+            'canManageAssets' => request()->user()->can('create', GuardAssetIssuance::class),
             'canManageFinance' => request()->user()->can('manageFinance'),
             'canDelete' => request()->user()->can('delete', $guard),
             'canDeploy' => request()->user()->can('create', Deployment::class),

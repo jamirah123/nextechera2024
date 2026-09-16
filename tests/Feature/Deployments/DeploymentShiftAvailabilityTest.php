@@ -6,11 +6,14 @@ use App\Enums\DeploymentShiftType;
 use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\OperationalStatus;
+use App\Enums\ShiftStatus;
 use App\Enums\UserRole;
 use App\Models\Deployment;
 use App\Models\Guard;
+use App\Models\Shift;
 use App\Models\Site;
 use App\Models\User;
+use App\Services\DeploymentService;
 use App\Support\Deployments\DeploymentShiftSchedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -214,7 +217,7 @@ class DeploymentShiftAvailabilityTest extends TestCase
             'current_site_id' => null,
         ]);
 
-        $deployment = app(\App\Services\DeploymentService::class)->deploy([
+        $deployment = app(DeploymentService::class)->deploy([
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'shift_type' => DeploymentShiftType::Night->value,
@@ -224,7 +227,7 @@ class DeploymentShiftAvailabilityTest extends TestCase
         $this->assertTrue($deployment->is_current);
         $this->assertSame(DeploymentStatus::Active, $deployment->status);
 
-        $released = app(\App\Services\DeploymentService::class)->releaseGuardsAfterShiftWindow();
+        $released = app(DeploymentService::class)->releaseGuardsAfterShiftWindow();
         $this->assertSame(0, $released);
 
         $deployment->refresh();
@@ -234,7 +237,7 @@ class DeploymentShiftAvailabilityTest extends TestCase
 
         Carbon::setTestNow('2026-09-08 06:00:00');
 
-        $released = app(\App\Services\DeploymentService::class)->releaseGuardsAfterShiftWindow();
+        $released = app(DeploymentService::class)->releaseGuardsAfterShiftWindow();
         $this->assertSame(1, $released);
 
         $deployment->refresh();
@@ -298,13 +301,13 @@ class DeploymentShiftAvailabilityTest extends TestCase
             'is_current' => true,
         ]);
 
-        \App\Models\Shift::factory()->create([
+        Shift::factory()->create([
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
             'supervisor_id' => $site->supervisor_id,
             'shift_date' => now()->addDay()->toDateString(),
-            'status' => \App\Enums\ShiftStatus::Scheduled,
+            'status' => ShiftStatus::Scheduled,
             'starts_at' => now()->addDay()->setTime(6, 0),
             'ends_at' => now()->addDay()->setTime(18, 0),
         ]);

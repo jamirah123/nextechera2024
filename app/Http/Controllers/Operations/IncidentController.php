@@ -8,9 +8,9 @@ use App\Enums\IncidentType;
 use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Operations\IncidentAttachmentRules;
+use App\Models\Guard;
 use App\Models\Incident;
 use App\Models\IncidentAttachment;
-use App\Models\Guard;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\Operations\IncidentAttachmentService;
@@ -37,8 +37,7 @@ class IncidentController extends Controller
         private IncidentAttachmentService $attachments,
         private IncidentReportPdfService $reports,
         private ReportExportService $exports,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {

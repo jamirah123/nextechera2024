@@ -2,8 +2,9 @@
 
 namespace App\Http\Requests\Organization;
 
-use App\Http\Requests\Organization\Concerns\SyncsSiteManpowerInputs;
 use App\Enums\SiteStatus;
+use App\Http\Requests\Organization\Concerns\SyncsSiteManpowerInputs;
+use App\Models\Site;
 use App\Models\Supervisor;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -15,7 +16,7 @@ class StoreSiteRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return $this->user()?->can('create', \App\Models\Site::class) ?? false;
+        return $this->user()?->can('create', Site::class) ?? false;
     }
 
     /** @return array<string, mixed> */

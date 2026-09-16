@@ -17,8 +17,7 @@ class DashboardController extends Controller
         private ShiftDeskService $shiftDesk,
         private ComplianceSnapshotService $compliance,
         private DashboardStatisticsService $statistics,
-    ) {
-    }
+    ) {}
 
     public function __invoke(Request $request): View
     {
@@ -51,7 +50,7 @@ class DashboardController extends Controller
             'kpis' => $kpis,
             'modules' => RoleNavigation::modules($user),
             'ops' => $this->opsDashboards->landingSnapshot(),
-            'compliance' => $this->compliance->snapshot(),
+            'compliance' => $this->compliance->cachedSnapshot(),
             'shiftDesk' => $shiftDeskSnapshot,
             'charts' => $this->statistics->for($user),
         ]);

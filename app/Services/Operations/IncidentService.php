@@ -6,17 +6,13 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Enums\IncidentSeverity;
 use App\Enums\IncidentStatus;
-use App\Enums\IncidentType;
 use App\Models\Incident;
-use App\Models\Site;
 use App\Services\AuditService;
 use Illuminate\Support\Facades\DB;
 
 class IncidentService
 {
-    public function __construct(private AuditService $audit)
-    {
-    }
+    public function __construct(private AuditService $audit) {}
 
     /**
      * @param  array<string, mixed>  $data

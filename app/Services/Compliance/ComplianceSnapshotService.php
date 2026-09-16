@@ -14,12 +14,11 @@ use App\Models\GuardAttachment;
 use App\Models\Site;
 use App\Services\ManpowerService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class ComplianceSnapshotService
 {
-    public function __construct(private ManpowerService $manpower)
-    {
-    }
+    public function __construct(private ManpowerService $manpower) {}
 
     /**
      * @return array<string, mixed>
@@ -53,12 +52,13 @@ class ComplianceSnapshotService
             ->whereBetween('contract_end_date', [$today, $windowEnd])
             ->count();
 
-        $slaBreaches = $this->slaBreaches()->count();
-        $understaffed = Site::query()
+        $slaBreaches = $this->slaBreaches();
+        $activeSites = Site::query()
             ->where('status', SiteStatus::Active)
             ->where('required_guards', '>', 0)
-            ->get()
-            ->filter(fn (Site $site) => $this->manpower->forSite($site)['status'] === CoverageStatus::Understaffed)
+            ->get();
+        $understaffed = $this->manpower->forSites($activeSites)
+            ->filter(fn (array $snap) => $snap['status'] === CoverageStatus::Understaffed)
             ->count();
 
         return [
@@ -70,12 +70,26 @@ class ComplianceSnapshotService
             'clients_expiring_contracts' => $clientsExpiring,
             'clients_expired_contracts' => $clientsExpired,
             'sites_expiring_contracts' => $sitesExpiring,
-            'sla_breach_sites' => $slaBreaches,
+            'sla_breach_sites' => $slaBreaches->count(),
             'understaffed_sites' => $understaffed,
             'expired_document_guards' => $this->expiredDocumentGuardSamples(),
             'expiring_contracts' => $this->expiringContractSamples($withinDays),
-            'sla_breaches' => $this->slaBreaches()->take(5)->values(),
+            'sla_breaches' => $slaBreaches->take(5)->values(),
         ];
+    }
+
+    /**
+     * Cached snapshot for dashboards (short TTL — ops data changes often).
+     *
+     * @return array<string, mixed>
+     */
+    public function cachedSnapshot(?int $ttlSeconds = 45): array
+    {
+        return Cache::remember(
+            'psg.compliance.snapshot',
+            max(15, $ttlSeconds ?? (int) config('psg.performance.dashboard_cache_seconds', 45)),
+            fn () => $this->snapshot(),
+        );
     }
 
     public function renewalWindowDays(): int
@@ -148,13 +162,21 @@ class ComplianceSnapshotService
      */
     public function slaBreaches(): Collection
     {
-        return Site::query()
+        $sites = Site::query()
             ->where('status', SiteStatus::Active)
             ->with(['client:id,name', 'region:id,name'])
             ->orderBy('name')
-            ->get()
-            ->map(function (Site $site): ?array {
-                $coverage = $this->manpower->forSite($site);
+            ->get();
+
+        $coverageBySite = $this->manpower->forSites($sites);
+
+        return $sites
+            ->map(function (Site $site) use ($coverageBySite): ?array {
+                $coverage = $coverageBySite->get($site->id);
+                if (! $coverage) {
+                    return null;
+                }
+
                 $contracted = (int) ($coverage['contracted'] ?? 0);
 
                 if ($contracted <= 0) {

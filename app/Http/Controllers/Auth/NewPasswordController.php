@@ -17,9 +17,7 @@ use Illuminate\View\View;
 
 class NewPasswordController extends Controller
 {
-    public function __construct(private AuditService $audit)
-    {
-    }
+    public function __construct(private AuditService $audit) {}
 
     public function create(string $token): View
     {

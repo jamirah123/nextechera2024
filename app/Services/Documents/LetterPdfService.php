@@ -13,9 +13,7 @@ use InvalidArgumentException;
 
 class LetterPdfService
 {
-    public function __construct(private DompdfRenderer $pdf)
-    {
-    }
+    public function __construct(private DompdfRenderer $pdf) {}
 
     public function deployment(Deployment $deployment): string
     {

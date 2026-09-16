@@ -10,9 +10,7 @@ use App\Services\ShiftService;
 
 class ShiftLifecycleService
 {
-    public function __construct(private ShiftService $shifts)
-    {
-    }
+    public function __construct(private ShiftService $shifts) {}
 
     /**
      * @return array{started: int, completed: int, missed: int}

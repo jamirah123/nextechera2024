@@ -13,9 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class BillingService
 {
-    public function __construct(private AuditService $audit)
-    {
-    }
+    public function __construct(private AuditService $audit) {}
 
     /**
      * @param  array<string, mixed>  $data

@@ -132,10 +132,17 @@ class BillingProfile extends Model
 
     public function contractedGuardTotal(): int
     {
-        return (int) $this->contracted_day_armed_guards
+        $split = (int) $this->contracted_day_armed_guards
             + (int) $this->contracted_day_unarmed_guards
             + (int) $this->contracted_night_armed_guards
             + (int) $this->contracted_night_unarmed_guards;
+
+        if ($split > 0) {
+            return $split;
+        }
+
+        // Legacy profiles stored totals without day/night split.
+        return (int) $this->contracted_armed_guards + (int) $this->contracted_unarmed_guards;
     }
 
     public function estimatedMonthlyHeadcountBill(): float

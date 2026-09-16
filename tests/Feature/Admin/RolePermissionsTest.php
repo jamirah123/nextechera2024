@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Enums\UserRole;
+use App\Models\Guard;
 use App\Models\User;
 use App\Support\Access\RolePermissionService;
 use App\Support\Navigation\NavigationAccess;
@@ -39,7 +40,7 @@ class RolePermissionsTest extends TestCase
         app(RolePermissionService::class)->flushCache();
 
         $this->assertTrue(app(RolePermissionService::class)->roleCan(UserRole::ShiftManager, 'guards.manage'));
-        $this->assertTrue($shiftManager->can('create', \App\Models\Guard::class));
+        $this->assertTrue($shiftManager->can('create', Guard::class));
     }
 
     public function test_super_admin_can_clone_permissions_between_roles(): void

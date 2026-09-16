@@ -7,8 +7,10 @@ use App\Enums\EmploymentStatus;
 use App\Enums\GuardClassification;
 use App\Enums\GuardGender;
 use App\Enums\OperationalStatus;
+use App\Models\Concerns\CapturesDeletionSnapshot;
 use App\Models\Concerns\TracksUserChanges;
 use Database\Factories\GuardFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,9 +20,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Guard extends Model
 {
+    use CapturesDeletionSnapshot;
+
     /** @use HasFactory<GuardFactory> */
     use HasFactory, SoftDeletes, TracksUserChanges;
-    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $fillable = [
         'employment_id',
@@ -170,7 +173,7 @@ class Guard extends Model
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<Guard>  $query
+     * @param  Builder<Guard>  $query
      */
     public function scopeOnSalaryPay($query): void
     {
@@ -178,7 +181,7 @@ class Guard extends Model
     }
 
     /**
-     * @param  \Illuminate\Database\Eloquent\Builder<Guard>  $query
+     * @param  Builder<Guard>  $query
      */
     public function scopeOnShiftPay($query): void
     {
@@ -206,7 +209,7 @@ class Guard extends Model
     /**
      * Guards without an active site posting (deployment board pool).
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<Guard>  $query
+     * @param  Builder<Guard>  $query
      */
     public function scopeAwaitingDeployment($query): void
     {
@@ -216,7 +219,7 @@ class Guard extends Model
     /**
      * Guards HR has cleared for site posting (excludes training wing and others).
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<Guard>  $query
+     * @param  Builder<Guard>  $query
      */
     public function scopeAvailableForDeployment($query): void
     {
@@ -229,7 +232,7 @@ class Guard extends Model
     /**
      * Regular guards only — exclude supervisor payroll profiles from the deployment board.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<Guard>  $query
+     * @param  Builder<Guard>  $query
      */
     public function scopeRegularGuards($query): void
     {

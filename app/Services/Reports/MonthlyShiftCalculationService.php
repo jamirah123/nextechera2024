@@ -5,6 +5,7 @@ namespace App\Services\Reports;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Models\Guard;
+use App\Models\PayrollRun;
 use App\Models\Shift;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -260,7 +261,7 @@ class MonthlyShiftCalculationService
      *     total_shifts: int
      * }
      */
-    public function guardRowForPeriod(int $guardId, string $start, string $end, ?\App\Models\PayrollRun $run = null): array
+    public function guardRowForPeriod(int $guardId, string $start, string $end, ?PayrollRun $run = null): array
     {
         $guard = Guard::query()->findOrFail($guardId);
 

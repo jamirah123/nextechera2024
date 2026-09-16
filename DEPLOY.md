@@ -38,12 +38,16 @@ SESSION_DRIVER=database
 SESSION_SECURE_COOKIE=true
 QUEUE_CONNECTION=database
 CACHE_STORE=database
+LOG_CHANNEL=stack
+LOG_STACK=daily
 LOG_LEVEL=warning
 
 PSG_BACKUP_KEEP=14
 ```
 
 Never commit `.env`. Keep `APP_DEBUG=false` in production.
+
+For error monitoring in production, install `sentry/sentry-laravel` when ready and set `SENTRY_LARAVEL_DSN` (see comments in `.env.example`).
 
 ### Mail (password reset & alerts)
 
@@ -211,7 +215,7 @@ If using database queues:
 php artisan queue:work --sleep=3 --tries=3
 ```
 
-Use a process manager (Supervisor / NSSM) in production.
+Use a process manager (Supervisor / NSSM) in production. Full schedule table, Supervisor/NSSM samples, and mail-backlog handling: [docs/ops-queue-scheduler.md](./docs/ops-queue-scheduler.md).
 
 ## 8. Backups
 

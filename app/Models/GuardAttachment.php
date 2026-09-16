@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\GuardDocumentType;
+use App\Services\ArchiveService;
 use App\Support\Attachments\AttachmentPreview;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -85,12 +86,12 @@ class GuardAttachment extends Model
     protected static function booted(): void
     {
         static::deleting(function (GuardAttachment $attachment): void {
-            app(\App\Services\ArchiveService::class)->recordSnapshot($attachment);
+            app(ArchiveService::class)->recordSnapshot($attachment);
             $attachment->deleteFile();
         });
 
         static::deleted(function (GuardAttachment $attachment): void {
-            app(\App\Services\ArchiveService::class)->logDeletion($attachment);
+            app(ArchiveService::class)->logDeletion($attachment);
         });
     }
 }

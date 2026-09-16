@@ -17,6 +17,7 @@ use App\Models\PayrollRun;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Models\User;
+use App\Support\Access\RolePermissionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -295,8 +296,8 @@ class GuardAssetManagementTest extends TestCase
         foreach ([UserRole::OperationsManager, UserRole::FinanceManager] as $role) {
             $user = User::factory()->role($role)->create();
 
-            app(\App\Support\Access\RolePermissionService::class)->seedDefaults();
-            app(\App\Support\Access\RolePermissionService::class)->flushCache();
+            app(RolePermissionService::class)->seedDefaults();
+            app(RolePermissionService::class)->flushCache();
 
             $this->actingAs($user)
                 ->get(route('assets.create'))

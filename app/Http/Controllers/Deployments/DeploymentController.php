@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Deployments;
 
 use App\Enums\DeploymentShiftType;
 use App\Enums\DeploymentStatus;
-use App\Enums\OperationalStatus;
 use App\Enums\ShiftPeriod;
+use App\Enums\ShiftType;
 use App\Enums\SiteStatus;
 use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
@@ -13,21 +13,23 @@ use App\Http\Requests\Deployments\StoreDeploymentRequest;
 use App\Http\Requests\Deployments\TransferDeploymentRequest;
 use App\Http\Requests\Deployments\UpdateDeploymentRequest;
 use App\Models\Deployment;
+use App\Models\DeploymentTransfer;
 use App\Models\Guard;
 use App\Models\Region;
 use App\Models\Site;
-use App\Models\DeploymentTransfer;
+use App\Models\User;
 use App\Services\AbsenceService;
+use App\Services\Deployments\BulkDeploymentService;
 use App\Services\DeploymentService;
 use App\Services\Documents\LetterPdfService;
-use App\Services\Deployments\BulkDeploymentService;
 use App\Services\Shifts\BulkShiftAllocationService;
 use App\Services\Shifts\ShiftLifecycleService;
 use App\Support\Deployments\DeploymentShiftSchedule;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
 
@@ -42,8 +44,7 @@ class DeploymentController extends Controller
         private AbsenceService $absences,
         private LetterPdfService $letters,
         private ShiftLifecycleService $shiftLifecycle,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
@@ -83,6 +84,8 @@ class DeploymentController extends Controller
                 fn ($q) => $q->current(),
             );
 
+        $shiftTypeCounts = status_counts($statsBase, 'shift_type');
+
         return view('deployments.index', [
             'deployments' => $deployments,
             'regions' => Region::query()
@@ -99,10 +102,13 @@ class DeploymentController extends Controller
             'filters' => $request->only(['q', 'status', 'region_id', 'site_id', 'shift_type', 'current_only', 'date']),
             'canManage' => $user->can('create', Deployment::class),
             'stats' => [
-                'active' => (clone $statsBase)->count(),
-                'day' => (clone $statsBase)->where('shift_type', DeploymentShiftType::Day)->count(),
-                'night' => (clone $statsBase)->where('shift_type', DeploymentShiftType::Night)->count(),
-                'transferred' => (clone $statsBase)->where('status', DeploymentStatus::Transferred)->count(),
+                'active' => array_sum($shiftTypeCounts),
+                'day' => (int) ($shiftTypeCounts[DeploymentShiftType::Day->value] ?? 0),
+                'night' => (int) ($shiftTypeCounts[DeploymentShiftType::Night->value] ?? 0),
+                'transferred' => Deployment::query()
+                    ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
+                    ->where('status', DeploymentStatus::Transferred)
+                    ->count(),
             ],
         ]);
     }
@@ -110,8 +116,6 @@ class DeploymentController extends Controller
     public function create(Request $request): View
     {
         $this->authorize('create', Deployment::class);
-
-        $this->releaseBoardPoolGuards($request->user());
 
         $user = $request->user();
         $regionId = $user->regionId();
@@ -139,11 +143,9 @@ class DeploymentController extends Controller
     {
         $this->authorize('board', Deployment::class);
 
-        $this->releaseBoardPoolGuards($request->user());
-
         $user = $request->user();
         $regionId = $user->regionId();
-        $shiftSchedule = \App\Support\Deployments\DeploymentShiftSchedule::fromConfig();
+        $shiftSchedule = DeploymentShiftSchedule::fromConfig();
         $baseQuery = $this->boardGuardQuery($request, $user);
 
         $guards = (clone $baseQuery)
@@ -214,8 +216,8 @@ class DeploymentController extends Controller
             $rowRules["rows.{$guardId}.site_id"] = ['required', 'exists:sites,id'];
             $rowRules["rows.{$guardId}.shift_type"] = ['required', Rule::in(DeploymentShiftType::values())];
             $rowRules["rows.{$guardId}.duty_type"] = ['nullable', Rule::in([
-                \App\Enums\ShiftType::Normal->value,
-                \App\Enums\ShiftType::Overtime->value,
+                ShiftType::Normal->value,
+                ShiftType::Overtime->value,
             ])];
         }
 
@@ -245,7 +247,7 @@ class DeploymentController extends Controller
                 'guard_id' => (int) $guardId,
                 'site_id' => (int) $site->id,
                 'shift_type' => $row['shift_type'],
-                'duty_type' => $row['duty_type'] ?? \App\Enums\ShiftType::Normal->value,
+                'duty_type' => $row['duty_type'] ?? ShiftType::Normal->value,
                 'start_date' => $data['start_date'],
                 'duty_date_to' => $data['duty_date_to'] ?? null,
             ];
@@ -414,7 +416,7 @@ class DeploymentController extends Controller
             ->with('status', 'Deployment ended successfully.');
     }
 
-    private function boardGuardQuery(Request $request, \App\Models\User $user, bool $applyRegionFilter = true): \Illuminate\Database\Eloquent\Builder
+    private function boardGuardQuery(Request $request, User $user, bool $applyRegionFilter = true): Builder
     {
         $regionId = $user->regionId();
 
@@ -441,7 +443,7 @@ class DeploymentController extends Controller
             );
     }
 
-    private function releaseBoardPoolGuards(\App\Models\User $user): void
+    private function releaseBoardPoolGuards(User $user): void
     {
         $this->shiftLifecycle->sync();
         $this->absences->releaseEligibleAbsentGuards();

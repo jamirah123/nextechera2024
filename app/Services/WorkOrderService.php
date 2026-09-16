@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
-use App\Enums\WorkOrderCategory;
 use App\Enums\WorkOrderPriority;
 use App\Enums\WorkOrderStatus;
 use App\Models\AuditLog;
@@ -22,9 +21,7 @@ use InvalidArgumentException;
 
 class WorkOrderService
 {
-    public function __construct(private AuditService $audit)
-    {
-    }
+    public function __construct(private AuditService $audit) {}
 
     public function enabled(): bool
     {

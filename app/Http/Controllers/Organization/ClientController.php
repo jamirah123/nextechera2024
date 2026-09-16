@@ -18,8 +18,7 @@ class ClientController extends Controller
     public function __construct(
         private EntityTimelineService $timeline,
         private EntityRelatedRecordsService $relatedRecords,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {

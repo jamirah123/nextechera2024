@@ -23,8 +23,7 @@ class ProcessCsvImportJob implements ShouldQueue
     public function __construct(
         public string $type,
         public string $storagePath,
-    ) {
-    }
+    ) {}
 
     public function handle(
         GuardImportService $guards,

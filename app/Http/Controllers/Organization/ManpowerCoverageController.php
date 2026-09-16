@@ -19,8 +19,7 @@ class ManpowerCoverageController extends Controller
         private ManpowerService $manpower,
         private ManpowerCoverageReportService $report,
         private ReportExportService $exporter,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {

@@ -2,15 +2,15 @@
 
 namespace Tests\Feature\Operations;
 
-use App\Enums\AssetCategory;
-use App\Enums\AssetIssuanceType;
+use App\Enums\AuditCategory;
+use App\Enums\AuditSeverity;
+use App\Enums\ContractStatus;
 use App\Enums\CoverageStatus;
 use App\Enums\UserRole;
 use App\Enums\WorkOrderCategory;
 use App\Enums\WorkOrderStatus;
 use App\Models\AuditLog;
 use App\Models\Client;
-use App\Models\Desertion;
 use App\Models\Guard;
 use App\Models\Site;
 use App\Models\User;
@@ -19,6 +19,7 @@ use App\Services\AuditService;
 use App\Services\ManpowerService;
 use App\Services\ProactiveAlertService;
 use App\Services\WorkOrderService;
+use App\Support\Access\RolePermissionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
@@ -60,7 +61,7 @@ class WorkOrderManagementTest extends TestCase
     {
         $client = Client::factory()->create([
             'contract_end_date' => now()->addDays(10)->toDateString(),
-            'contract_status' => \App\Enums\ContractStatus::Active,
+            'contract_status' => ContractStatus::Active,
         ]);
 
         app(ProactiveAlertService::class)->alertClientContract($client, expired: false);
@@ -96,7 +97,7 @@ class WorkOrderManagementTest extends TestCase
     {
         $manager = User::factory()->role(UserRole::OperationsManager)->create();
         $assignee = User::factory()->role(UserRole::ShiftManager)->create();
-        app(\App\Support\Access\RolePermissionService::class)->seedDefaults();
+        app(RolePermissionService::class)->seedDefaults();
 
         $log = app(AuditService::class)->log(
             action: 'site.understaffed',
@@ -136,8 +137,8 @@ class WorkOrderManagementTest extends TestCase
 
         $log = AuditLog::query()->create([
             'action' => 'leave.pending_reminder',
-            'category' => \App\Enums\AuditCategory::Hr,
-            'severity' => \App\Enums\AuditSeverity::Warning,
+            'category' => AuditCategory::Hr,
+            'severity' => AuditSeverity::Warning,
             'summary' => 'Leave pending',
             'context' => ['dedup_key' => 'leave-pending-99'],
             'created_at' => now(),

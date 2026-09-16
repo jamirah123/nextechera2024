@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Enums\UserRole;
+use App\Models\Supervisor;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -37,7 +38,7 @@ class UserAccessTest extends TestCase
     public function test_super_admin_can_create_region_supervisor_linked_to_profile(): void
     {
         $admin = User::factory()->superAdmin()->create();
-        $supervisor = \App\Models\Supervisor::factory()->create();
+        $supervisor = Supervisor::factory()->create();
 
         $this->actingAs($admin)
             ->post(route('users.store'), [

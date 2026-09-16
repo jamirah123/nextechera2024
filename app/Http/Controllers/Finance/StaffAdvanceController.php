@@ -13,9 +13,7 @@ use InvalidArgumentException;
 
 class StaffAdvanceController extends Controller
 {
-    public function __construct(private GuardAdvanceService $advances)
-    {
-    }
+    public function __construct(private GuardAdvanceService $advances) {}
 
     public function store(Request $request, Staff $staff): RedirectResponse
     {

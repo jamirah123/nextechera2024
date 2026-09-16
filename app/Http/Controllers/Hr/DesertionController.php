@@ -16,9 +16,7 @@ use InvalidArgumentException;
 
 class DesertionController extends Controller
 {
-    public function __construct(private DesertionService $desertions)
-    {
-    }
+    public function __construct(private DesertionService $desertions) {}
 
     public function index(Request $request): View
     {

@@ -22,6 +22,7 @@ use App\Services\GuardService;
 use App\Services\OrganizationService;
 use App\Services\StaffService;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
@@ -89,7 +90,7 @@ class DemoDataSeeder extends Seeder
         }
     }
 
-    /** @return \Illuminate\Support\Collection<int, Region> */
+    /** @return Collection<int, Region> */
     private function seedRegions()
     {
         $defs = [
@@ -114,8 +115,8 @@ class DemoDataSeeder extends Seeder
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Region>  $regions
-     * @return \Illuminate\Support\Collection<int, Supervisor>
+     * @param  Collection<int, Region>  $regions
+     * @return Collection<int, Supervisor>
      */
     private function seedSupervisors($regions, OrganizationService $organization)
     {
@@ -157,8 +158,8 @@ class DemoDataSeeder extends Seeder
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Supervisor>  $supervisors
-     * @param  \Illuminate\Support\Collection<int, Region>  $regions
+     * @param  Collection<int, Supervisor>  $supervisors
+     * @param  Collection<int, Region>  $regions
      */
     private function seedRegionSupervisorUsers($supervisors, $regions): void
     {
@@ -184,7 +185,7 @@ class DemoDataSeeder extends Seeder
         }
     }
 
-    /** @return \Illuminate\Support\Collection<int, Client> */
+    /** @return Collection<int, Client> */
     private function seedClients()
     {
         $names = [
@@ -218,9 +219,9 @@ class DemoDataSeeder extends Seeder
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Region>  $regions
-     * @param  \Illuminate\Support\Collection<int, Supervisor>  $supervisors
-     * @param  \Illuminate\Support\Collection<int, Client>  $clients
+     * @param  Collection<int, Region>  $regions
+     * @param  Collection<int, Supervisor>  $supervisors
+     * @param  Collection<int, Client>  $clients
      */
     private function seedSites($regions, $supervisors, $clients, OrganizationService $organization): void
     {
@@ -314,7 +315,7 @@ class DemoDataSeeder extends Seeder
         }
     }
 
-    /** @param  \Illuminate\Support\Collection<int, Region>  $regions */
+    /** @param  Collection<int, Region>  $regions */
     private function seedGuards($regions): void
     {
         $service = app(GuardService::class);

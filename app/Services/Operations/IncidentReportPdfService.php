@@ -9,9 +9,7 @@ use Illuminate\Support\Collection;
 
 class IncidentReportPdfService
 {
-    public function __construct(private DompdfRenderer $pdf)
-    {
-    }
+    public function __construct(private DompdfRenderer $pdf) {}
 
     public function dailySiteReport(Site $site, string $date): string
     {

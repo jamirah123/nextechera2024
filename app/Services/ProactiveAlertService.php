@@ -8,7 +8,6 @@ use App\Enums\ContractStatus;
 use App\Enums\CoverageStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\GuardDocumentType;
-use App\Enums\InvoiceStatus;
 use App\Enums\LeaveStatus;
 use App\Enums\SiteStatus;
 use App\Models\AuditLog;
@@ -19,15 +18,13 @@ use App\Models\Invoice;
 use App\Models\Leave;
 use App\Models\Site;
 use App\Support\Money;
-use Carbon\Carbon;
 
 class ProactiveAlertService
 {
     public function __construct(
         private AuditService $audit,
         private ManpowerService $manpower,
-    ) {
-    }
+    ) {}
 
     public function enabled(): bool
     {

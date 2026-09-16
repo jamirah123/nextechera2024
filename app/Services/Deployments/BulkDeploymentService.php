@@ -13,9 +13,7 @@ use Throwable;
 
 class BulkDeploymentService
 {
-    public function __construct(private DeploymentService $deployments)
-    {
-    }
+    public function __construct(private DeploymentService $deployments) {}
 
     /**
      * @param  list<array{

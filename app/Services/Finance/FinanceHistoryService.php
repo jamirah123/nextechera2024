@@ -4,6 +4,7 @@ namespace App\Services\Finance;
 
 use App\Models\AuditLog;
 use App\Models\Invoice;
+use App\Models\Payment;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -28,7 +29,7 @@ class FinanceHistoryService
 
             if ($paymentIds->isNotEmpty()) {
                 $paymentLogs = AuditLog::query()
-                    ->where('subject_type', \App\Models\Payment::class)
+                    ->where('subject_type', Payment::class)
                     ->whereIn('subject_id', $paymentIds)
                     ->latest('created_at')
                     ->latest('id')
@@ -78,7 +79,7 @@ class FinanceHistoryService
             ];
         }
 
-        if ($subject instanceof \App\Models\Payment && $subject->recorder) {
+        if ($subject instanceof Payment && $subject->recorder) {
             $meta[] = [
                 'label' => 'Recorded by',
                 'value' => $subject->recorder->name,

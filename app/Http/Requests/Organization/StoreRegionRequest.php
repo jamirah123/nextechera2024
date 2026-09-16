@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization;
 
 use App\Enums\RegionStatus;
+use App\Models\Region;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,7 +11,7 @@ class StoreRegionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('create', \App\Models\Region::class) ?? false;
+        return $this->user()?->can('create', Region::class) ?? false;
     }
 
     /** @return array<string, mixed> */

@@ -21,9 +21,7 @@ use Illuminate\Support\Collection;
 
 class OperationalReportService
 {
-    public function __construct(private ManpowerService $manpower)
-    {
-    }
+    public function __construct(private ManpowerService $manpower) {}
 
     /**
      * @param  array{date?: string, region_id?: int|null, site_id?: int|null}  $filters

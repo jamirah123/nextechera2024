@@ -10,6 +10,7 @@ use App\Enums\LeaveType;
 use App\Enums\ShiftStatus;
 use App\Enums\UserRole;
 use App\Mail\WorkflowActionMail;
+use App\Models\AuditLog;
 use App\Models\Client;
 use App\Models\Guard;
 use App\Models\GuardAttachment;
@@ -195,6 +196,6 @@ class ProactiveAlertTest extends TestCase
         $this->assertTrue($service->alertDocument($attachment, expired: false));
         $this->assertFalse($service->alertDocument($attachment->fresh(), expired: false));
 
-        $this->assertSame(1, \App\Models\AuditLog::query()->where('action', 'guard.document_expiring')->count());
+        $this->assertSame(1, AuditLog::query()->where('action', 'guard.document_expiring')->count());
     }
 }

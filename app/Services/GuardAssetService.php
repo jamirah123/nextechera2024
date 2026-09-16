@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Enums\AssetCategory;
 use App\Enums\AssetIssuanceStatus;
-use App\Enums\AssetIssuanceType;
 use App\Enums\AssetLineStatus;
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
@@ -18,9 +17,7 @@ use InvalidArgumentException;
 
 class GuardAssetService
 {
-    public function __construct(private AuditService $audit)
-    {
-    }
+    public function __construct(private AuditService $audit) {}
 
     /**
      * @param  array{
@@ -375,7 +372,7 @@ class GuardAssetService
     {
         $actor ??= auth()->user();
 
-        return DB::transaction(function () use ($issuance, $lineReturns, $actor, $terminationReturn): GuardAssetIssuance {
+        return DB::transaction(function () use ($issuance, $lineReturns, $terminationReturn): GuardAssetIssuance {
             $issuance->load('lines', 'assignedGuard:id,full_name,employment_id');
 
             foreach ($lineReturns as $lineId => $payload) {

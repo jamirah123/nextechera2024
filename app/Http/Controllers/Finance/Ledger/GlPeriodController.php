@@ -12,9 +12,7 @@ use Illuminate\View\View;
 
 class GlPeriodController extends Controller
 {
-    public function __construct(private GlPeriodService $periods)
-    {
-    }
+    public function __construct(private GlPeriodService $periods) {}
 
     public function index(Request $request): View
     {

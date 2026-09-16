@@ -12,9 +12,7 @@ use Illuminate\View\View;
 
 class OperationalDashboardController extends Controller
 {
-    public function __construct(private OperationalDashboardService $dashboards)
-    {
-    }
+    public function __construct(private OperationalDashboardService $dashboards) {}
 
     public function company(): View
     {

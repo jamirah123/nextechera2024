@@ -43,8 +43,8 @@ class ProductionCheckCommand extends Command
             }
             if (config('queue.default') === 'sync') {
                 $this->warn('[WARN] QUEUE_CONNECTION=sync runs jobs inline. Use database or redis in production with php artisan queue:work.');
-            } elseif (\Illuminate\Support\Facades\Schema::hasTable('failed_jobs')) {
-                $failedJobs = (int) \Illuminate\Support\Facades\DB::table('failed_jobs')->count();
+            } elseif (Schema::hasTable('failed_jobs')) {
+                $failedJobs = (int) DB::table('failed_jobs')->count();
                 if ($failedJobs > 0) {
                     $this->warn("[WARN] {$failedJobs} failed queue job(s). Run php artisan queue:failed");
                 }

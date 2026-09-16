@@ -8,7 +8,6 @@ use App\Models\Client;
 use App\Models\Guard;
 use App\Models\Invoice;
 use App\Models\Region;
-use App\Models\Site;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Jobs;
 
 use App\Enums\InvoiceStatus;
+use App\Enums\PayrollRunStatus;
 use App\Enums\UserRole;
 use App\Jobs\CalculatePayrollRunJob;
 use App\Jobs\ProcessCsvImportJob;
@@ -13,7 +14,6 @@ use App\Models\PayrollRun;
 use App\Models\Region;
 use App\Models\SystemSetting;
 use App\Models\User;
-use App\Enums\PayrollRunStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
@@ -72,7 +72,7 @@ class QueueJobsTest extends TestCase
         Region::factory()->create(['code' => 'CENTRAL']);
 
         $csv = "first_name,middle_name,last_name,gender,date_of_birth,phone,email,national_id,date_employed,employment_status,operational_status,region_code,compensation_type,base_shift_rate,monthly_gross,bank_name,bank_account,nssf_number,address,notes,rank_designation\n";
-        $csv .= "Jane,,Doe,female,,0700111222,,,".now()->toDateString().",active,training,CENTRAL,shift,,,,,,,,\n";
+        $csv .= 'Jane,,Doe,female,,0700111222,,,'.now()->toDateString().",active,training,CENTRAL,shift,,,,,,,,\n";
 
         $file = UploadedFile::fake()->createWithContent('guards.csv', $csv);
 

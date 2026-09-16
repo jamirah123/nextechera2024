@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests\Guards;
 
-use Illuminate\Foundation\Http\FormRequest;
-
 class GuardAttachmentRules
 {
     /** @return array<string, mixed> */

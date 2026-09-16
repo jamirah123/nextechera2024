@@ -231,7 +231,7 @@ class WorkflowActionCatalog
         return array_key_exists($action, self::definitions());
     }
 
-    /** @return array{permissions?: list<string>, roles?: list<\App\Enums\UserRole>, subject: string, headline: string, action_label: string, include_stakeholders?: bool}|null */
+    /** @return array{permissions?: list<string>, roles?: list<UserRole>, subject: string, headline: string, action_label: string, include_stakeholders?: bool}|null */
     public static function find(string $action): ?array
     {
         return self::definitions()[$action] ?? null;

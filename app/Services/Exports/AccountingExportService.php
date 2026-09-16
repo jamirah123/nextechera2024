@@ -8,8 +8,8 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PayrollRun;
 use App\Models\SystemSetting;
-use App\Support\Money;
 use App\Services\SystemSettingService;
+use App\Support\Money;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -18,8 +18,7 @@ class AccountingExportService
 {
     public function __construct(
         private SystemSettingService $settings,
-    ) {
-    }
+    ) {}
 
     /**
      * @return list<string> Written file paths (relative to local disk)

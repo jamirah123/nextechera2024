@@ -7,6 +7,7 @@ use App\Enums\GlJournalStatus;
 use App\Models\GlAccount;
 use App\Models\GlJournalLine;
 use App\Models\GlPeriod;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class LedgerReportService
@@ -115,7 +116,7 @@ class LedgerReportService
     }
 
     /**
-     * @param  callable(\Illuminate\Database\Eloquent\Builder): void  $constrainJournal
+     * @param  callable(Builder): void  $constrainJournal
      * @return array<int, array{debit: float, credit: float}>
      */
     private function aggregate(callable $constrainJournal): array

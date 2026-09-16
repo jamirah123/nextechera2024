@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Client;
 use App\Models\Deployment;
+use App\Models\GlAccount;
+use App\Models\GlJournal;
 use App\Models\Guard;
 use App\Models\GuardSalaryAdvance;
 use App\Models\Incident;
@@ -18,6 +20,7 @@ use App\Models\Supervisor;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Support\Access\Access;
+use App\Support\Money;
 use Illuminate\Support\Collection;
 
 class GlobalSearchService
@@ -337,7 +340,7 @@ class GlobalSearchService
                 'label' => 'Payment',
                 'title' => $payment->reference,
                 'subtitle' => ($payment->client?->name ?? $payment->invoice?->reference ?? 'Payment')
-                    .' · '.\App\Support\Money::format($payment->amount),
+                    .' · '.Money::format($payment->amount),
                 'url' => route('payments.show', $payment),
                 'badge' => $payment->method?->label(),
             ]);
@@ -396,7 +399,7 @@ class GlobalSearchService
                     'type' => 'advance',
                     'label' => 'Advance',
                     'title' => $advance->label,
-                    'subtitle' => trim($code.' · '.$person).' · Bal '.\App\Support\Money::format($advance->balance_remaining),
+                    'subtitle' => trim($code.' · '.$person).' · Bal '.Money::format($advance->balance_remaining),
                     'url' => $url,
                     'badge' => $advance->is_active && (float) $advance->balance_remaining > 0 ? 'Active' : 'Closed',
                 ];
@@ -408,12 +411,12 @@ class GlobalSearchService
      */
     private function journals(string $term, int $limit): Collection
     {
-        return \App\Models\GlJournal::query()
+        return GlJournal::query()
             ->search($term)
             ->latest('id')
             ->limit($limit)
             ->get()
-            ->map(fn (\App\Models\GlJournal $journal) => [
+            ->map(fn (GlJournal $journal) => [
                 'type' => 'journal',
                 'label' => 'Journal',
                 'title' => $journal->reference,
@@ -428,12 +431,12 @@ class GlobalSearchService
      */
     private function glAccounts(string $term, int $limit): Collection
     {
-        return \App\Models\GlAccount::query()
+        return GlAccount::query()
             ->search($term)
             ->orderBy('code')
             ->limit($limit)
             ->get()
-            ->map(fn (\App\Models\GlAccount $account) => [
+            ->map(fn (GlAccount $account) => [
                 'type' => 'gl_account',
                 'label' => 'GL account',
                 'title' => $account->label(),

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Guard;
 use App\Models\GuardAssetIssuance;
 use App\Models\GuardAssetLine;
+use App\Models\GuardAssetRecovery;
 use App\Models\Region;
 use App\Services\GuardAssetService;
 use Illuminate\Http\RedirectResponse;
@@ -18,9 +19,7 @@ use InvalidArgumentException;
 
 class GuardAssetController extends Controller
 {
-    public function __construct(private GuardAssetService $assets)
-    {
-    }
+    public function __construct(private GuardAssetService $assets) {}
 
     public function index(Request $request): View
     {
@@ -65,7 +64,7 @@ class GuardAssetController extends Controller
                     ->whereYear('issued_at', now()->year)
                     ->count(),
                 'outstanding' => $outstanding,
-                'recoveries' => (float) \App\Models\GuardAssetRecovery::query()
+                'recoveries' => (float) GuardAssetRecovery::query()
                     ->when($user->mustStayInOwnRegion(), fn ($q) => $q->whereHas('assignedGuard', fn ($g) => $g->where('region_id', $regionId)))
                     ->active()
                     ->sum('balance_remaining'),

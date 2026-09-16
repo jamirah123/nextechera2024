@@ -19,9 +19,7 @@ use InvalidArgumentException;
 
 class ArchiveService
 {
-    public function __construct(private AuditService $audit)
-    {
-    }
+    public function __construct(private AuditService $audit) {}
 
     /**
      * @param  array<string, mixed>  $relations

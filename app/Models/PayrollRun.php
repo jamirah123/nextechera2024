@@ -7,6 +7,7 @@ use App\Models\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PayrollRun extends Model
 {
@@ -89,7 +90,7 @@ class PayrollRun extends Model
         return $this->belongsTo(User::class, 'paid_by');
     }
 
-    public function payment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
     }

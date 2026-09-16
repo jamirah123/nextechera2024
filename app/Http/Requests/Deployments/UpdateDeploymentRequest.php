@@ -3,7 +3,6 @@
 namespace App\Http\Requests\Deployments;
 
 use App\Enums\DeploymentShiftType;
-use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Site;
 use Illuminate\Foundation\Http\FormRequest;

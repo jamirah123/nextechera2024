@@ -27,8 +27,7 @@ class WorkflowActionMail extends Mailable implements ShouldQueue
         public ?string $actionUrl,
         public string $actionLabel,
         public array $details = [],
-    ) {
-    }
+    ) {}
 
     public function envelope(): Envelope
     {

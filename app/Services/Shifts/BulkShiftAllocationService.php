@@ -4,6 +4,7 @@ namespace App\Services\Shifts;
 
 use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
+use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Models\Deployment;
 use App\Services\ShiftService;
@@ -14,9 +15,7 @@ use Throwable;
 
 class BulkShiftAllocationService
 {
-    public function __construct(private ShiftService $shifts)
-    {
-    }
+    public function __construct(private ShiftService $shifts) {}
 
     /**
      * @param  list<array{
@@ -73,7 +72,7 @@ class BulkShiftAllocationService
                         'period' => $period->value,
                         'shift_type' => $shiftType->value,
                         'guard_classification' => $classification->value,
-                        'status' => \App\Enums\ShiftStatus::Recorded->value,
+                        'status' => ShiftStatus::Recorded->value,
                         'acknowledge_warnings' => true,
                         'notes' => 'Shift recorded from duty roster',
                     ]);

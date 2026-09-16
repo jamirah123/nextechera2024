@@ -17,9 +17,7 @@ class RunAccountingExportJob implements ShouldQueue
 
     public int $timeout = 600;
 
-    public function __construct(public ?string $since = null)
-    {
-    }
+    public function __construct(public ?string $since = null) {}
 
     public function handle(AccountingExportService $exports): void
     {

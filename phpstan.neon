@@ -1,0 +1,21 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    paths:
+        - app
+        - routes
+    level: 5
+    treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        -
+            identifier: missingType.iterableValue
+        -
+            identifier: missingType.generics
+    excludePaths:
+        - bootstrap/*
+        - storage/*
+        - vendor/*
+
+    reportUnmatchedIgnoredErrors: false

@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Enums\PayrollRunStatus;
-use App\Jobs\CalculatePayrollRunJob;
 use App\Http\Controllers\Controller;
+use App\Jobs\CalculatePayrollRunJob;
 use App\Models\PayrollRun;
 use App\Models\Region;
 use App\Models\Site;
@@ -25,8 +25,7 @@ class PayrollRunController extends Controller
         private PayrollRunService $payroll,
         private PayrollBankExportService $exports,
         private ReportExportService $reportExports,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {

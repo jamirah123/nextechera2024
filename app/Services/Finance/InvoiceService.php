@@ -5,8 +5,8 @@ namespace App\Services\Finance;
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Enums\BillingMode;
-use App\Enums\GuardClassification;
 use App\Enums\GlJournalSource;
+use App\Enums\GuardClassification;
 use App\Enums\InvoiceStatus;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
@@ -30,8 +30,7 @@ class InvoiceService
     public function __construct(
         private AuditService $audit,
         private LedgerPostingService $ledger,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{

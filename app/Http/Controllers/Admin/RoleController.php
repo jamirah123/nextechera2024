@@ -15,9 +15,7 @@ use Illuminate\View\View;
 
 class RoleController extends Controller
 {
-    public function __construct(private RolePermissionService $permissions)
-    {
-    }
+    public function __construct(private RolePermissionService $permissions) {}
 
     public function index(): View
     {

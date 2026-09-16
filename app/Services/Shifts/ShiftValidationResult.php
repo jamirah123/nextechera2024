@@ -5,9 +5,7 @@ namespace App\Services\Shifts;
 class ShiftValidationResult
 {
     /** @param  list<array{code: string, level: string, message: string}>  $issues */
-    public function __construct(private array $issues = [])
-    {
-    }
+    public function __construct(private array $issues = []) {}
 
     public static function make(): self
     {

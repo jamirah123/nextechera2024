@@ -2,11 +2,12 @@
 
 namespace Tests\Feature\Hr;
 
+use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
+use App\Enums\GuardClassification;
 use App\Enums\LeaveStatus;
 use App\Enums\LeaveType;
 use App\Enums\OperationalStatus;
-use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
@@ -17,7 +18,6 @@ use App\Models\Leave;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Models\User;
-use App\Enums\DeploymentStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

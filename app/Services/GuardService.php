@@ -13,9 +13,7 @@ use Illuminate\Support\Facades\DB;
 
 class GuardService
 {
-    public function __construct(private EmploymentIdService $employmentIds)
-    {
-    }
+    public function __construct(private EmploymentIdService $employmentIds) {}
 
     public function composeFullName(?string $first, ?string $middle, ?string $last): string
     {

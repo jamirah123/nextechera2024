@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ContractStatus;
+use App\Models\Concerns\CapturesDeletionSnapshot;
 use App\Models\Concerns\TracksUserChanges;
 use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,9 +13,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Client extends Model
 {
+    use CapturesDeletionSnapshot;
+
     /** @use HasFactory<ClientFactory> */
     use HasFactory, SoftDeletes, TracksUserChanges;
-    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $fillable = [
         'name',

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\Exports\AccountingExportService;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 
 class ExportAccountingCommand extends Command
@@ -14,7 +15,7 @@ class ExportAccountingCommand extends Command
     public function handle(AccountingExportService $exports): int
     {
         $since = $this->option('since')
-            ? \Carbon\Carbon::parse($this->option('since'))
+            ? Carbon::parse($this->option('since'))
             : null;
 
         $written = $exports->run($since);

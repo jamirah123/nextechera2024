@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\SiteStatus;
+use App\Models\Concerns\CapturesDeletionSnapshot;
 use App\Models\Concerns\TracksUserChanges;
 use App\Services\ManpowerService;
 use Database\Factories\SiteFactory;
@@ -15,9 +16,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Site extends Model
 {
+    use CapturesDeletionSnapshot;
+
     /** @use HasFactory<SiteFactory> */
     use HasFactory, SoftDeletes, TracksUserChanges;
-    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $fillable = [
         'name',

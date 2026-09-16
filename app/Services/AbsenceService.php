@@ -18,8 +18,7 @@ class AbsenceService
     public function __construct(
         private GuardService $guards,
         private DeploymentService $deployments,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{

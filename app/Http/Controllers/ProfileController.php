@@ -13,14 +13,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProfileController extends Controller
 {
-    public function __construct(private UserAttachmentService $attachments)
-    {
-    }
+    public function __construct(private UserAttachmentService $attachments) {}
 
     public function show(Request $request): View
     {

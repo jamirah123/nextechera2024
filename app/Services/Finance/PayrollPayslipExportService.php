@@ -9,9 +9,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PayrollPayslipExportService
 {
-    public function __construct(private ReportExportService $exports)
-    {
-    }
+    public function __construct(private ReportExportService $exports) {}
 
     public function downloadCsv(PayrollRun $run, PayrollPayslip $payslip): StreamedResponse
     {

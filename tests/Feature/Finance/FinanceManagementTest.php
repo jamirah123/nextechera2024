@@ -2,12 +2,20 @@
 
 namespace Tests\Feature\Finance;
 
+use App\Enums\GuardClassification;
 use App\Enums\InvoiceStatus;
+use App\Enums\ShiftPeriod;
+use App\Enums\ShiftStatus;
+use App\Enums\ShiftType;
 use App\Enums\UserRole;
 use App\Models\BillingProfile;
 use App\Models\Client;
+use App\Models\Guard;
 use App\Models\Invoice;
+use App\Models\Shift;
+use App\Models\Site;
 use App\Models\User;
+use App\Services\Finance\BillingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,7 +27,7 @@ class FinanceManagementTest extends TestCase
     {
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $client = Client::factory()->create();
-        \App\Models\Site::factory()->create([
+        Site::factory()->create([
             'client_id' => $client->id,
             'required_day_armed_guards' => 10,
             'required_day_unarmed_guards' => 20,
@@ -238,7 +246,7 @@ class FinanceManagementTest extends TestCase
     {
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $client = Client::factory()->create();
-        \App\Models\Site::factory()->create([
+        Site::factory()->create([
             'client_id' => $client->id,
             'required_day_armed_guards' => 0,
             'required_day_unarmed_guards' => 0,
@@ -275,8 +283,8 @@ class FinanceManagementTest extends TestCase
     {
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $client = Client::factory()->create();
-        $site = \App\Models\Site::factory()->create(['client_id' => $client->id]);
-        $guard = \App\Models\Guard::factory()->create();
+        $site = Site::factory()->create(['client_id' => $client->id]);
+        $guard = Guard::factory()->create();
 
         BillingProfile::query()->create([
             'client_id' => $client->id,
@@ -293,26 +301,26 @@ class FinanceManagementTest extends TestCase
             'is_active' => true,
         ]);
 
-        \App\Models\Shift::factory()->create([
+        Shift::factory()->create([
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
             'shift_date' => now()->startOfMonth()->toDateString(),
-            'period' => \App\Enums\ShiftPeriod::Day,
-            'guard_classification' => \App\Enums\GuardClassification::Armed,
-            'status' => \App\Enums\ShiftStatus::Completed,
-            'shift_type' => \App\Enums\ShiftType::Normal,
+            'period' => ShiftPeriod::Day,
+            'guard_classification' => GuardClassification::Armed,
+            'status' => ShiftStatus::Completed,
+            'shift_type' => ShiftType::Normal,
         ]);
 
-        \App\Models\Shift::factory()->create([
+        Shift::factory()->create([
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
             'shift_date' => now()->startOfMonth()->addDay()->toDateString(),
-            'period' => \App\Enums\ShiftPeriod::Night,
-            'guard_classification' => \App\Enums\GuardClassification::Armed,
-            'status' => \App\Enums\ShiftStatus::Completed,
-            'shift_type' => \App\Enums\ShiftType::Normal,
+            'period' => ShiftPeriod::Night,
+            'guard_classification' => GuardClassification::Armed,
+            'status' => ShiftStatus::Completed,
+            'shift_type' => ShiftType::Normal,
             'is_overnight' => true,
         ]);
 
@@ -337,7 +345,7 @@ class FinanceManagementTest extends TestCase
     public function test_billing_service_copies_site_manpower_when_day_night_counts_omitted(): void
     {
         $client = Client::factory()->create();
-        $site = \App\Models\Site::factory()->create([
+        $site = Site::factory()->create([
             'client_id' => $client->id,
             'required_day_armed_guards' => 4,
             'required_day_unarmed_guards' => 6,
@@ -348,7 +356,7 @@ class FinanceManagementTest extends TestCase
             'required_guards' => 20,
         ]);
 
-        $profile = app(\App\Services\Finance\BillingService::class)->create([
+        $profile = app(BillingService::class)->create([
             'client_id' => $client->id,
             'site_id' => $site->id,
             'monthly_rate_per_armed_guard' => 900000,

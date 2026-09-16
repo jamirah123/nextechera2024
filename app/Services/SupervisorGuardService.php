@@ -17,8 +17,7 @@ class SupervisorGuardService
     public function __construct(
         private GuardService $guards,
         private StaffService $staff,
-    ) {
-    }
+    ) {}
 
     /**
      * Ensure the supervisor has both a guard (shift cover) and staff (HR registry) profile

@@ -11,6 +11,7 @@ use App\Models\PurchaseInvoice;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Support\Money;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -20,8 +21,7 @@ class PurchaseInvoiceService
         private LedgerPostingService $ledger,
         private ChartOfAccountsService $coa,
         private AuditService $audit,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{
@@ -171,7 +171,7 @@ class PurchaseInvoiceService
 
     private function nextReference(string $billDate): string
     {
-        $stamp = \Carbon\Carbon::parse($billDate)->format('Ym');
+        $stamp = Carbon::parse($billDate)->format('Ym');
         $prefix = 'PINV-'.$stamp.'-';
         $latest = PurchaseInvoice::query()
             ->where('reference', 'like', $prefix.'%')

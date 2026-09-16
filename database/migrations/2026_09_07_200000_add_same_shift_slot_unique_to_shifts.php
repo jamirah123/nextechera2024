@@ -3,6 +3,7 @@
 use App\Enums\ShiftStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -30,7 +31,7 @@ return new class extends Migration
             ->chunkById(200, function ($shifts): void {
                 foreach ($shifts as $shift) {
                     $slot = $shift->guard_id.'|'
-                        .\Illuminate\Support\Carbon::parse($shift->shift_date)->toDateString()
+                        .Carbon::parse($shift->shift_date)->toDateString()
                         .'|'.$shift->period;
 
                     $conflict = DB::table('shifts')

@@ -15,9 +15,7 @@ use Illuminate\View\View;
 
 class GlJournalController extends Controller
 {
-    public function __construct(private LedgerPostingService $ledger)
-    {
-    }
+    public function __construct(private LedgerPostingService $ledger) {}
 
     public function index(Request $request): View
     {

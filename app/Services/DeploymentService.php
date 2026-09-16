@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\AuditCategory;
+use App\Enums\AuditSeverity;
 use App\Enums\DeploymentShiftType;
 use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
@@ -10,8 +12,6 @@ use App\Enums\OperationalStatus;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
-use App\Enums\AuditCategory;
-use App\Enums\AuditSeverity;
 use App\Models\Deployment;
 use App\Models\DeploymentTransfer;
 use App\Models\Guard;
@@ -19,7 +19,9 @@ use App\Models\Shift;
 use App\Models\Site;
 use App\Models\Supervisor;
 use App\Support\Deployments\DeploymentShiftSchedule;
+use App\Support\Performance\DashboardCache;
 use App\Support\Shifts\ShiftDutyTypeResolver;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -28,8 +30,7 @@ class DeploymentService
     public function __construct(
         private AuditService $audit,
         private GuardService $guards,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{
@@ -42,6 +43,11 @@ class DeploymentService
      */
     public function deploy(array $data): Deployment
     {
+        DB::afterCommit(function (): void {
+            DashboardCache::flush();
+            app(ManpowerService::class)->flushRequestCache();
+        });
+
         return DB::transaction(function () use ($data) {
             $guard = Guard::query()->findOrFail($data['guard_id']);
             $site = Site::query()->with('supervisor')->findOrFail($data['site_id']);
@@ -77,7 +83,7 @@ class DeploymentService
             );
 
             $lastDutyDate = $dutyTo
-                ? \Illuminate\Support\Carbon::parse((string) $dutyTo)->toDateString()
+                ? Carbon::parse((string) $dutyTo)->toDateString()
                 : $dutyFrom;
 
             $deployment = Deployment::query()->create([
@@ -210,9 +216,9 @@ class DeploymentService
         [$start, $end] = $this->shiftTimesFor($workPeriod);
 
         $toExplicit = ! empty($data['duty_date_to']);
-        $from = \Illuminate\Support\Carbon::parse($data['start_date'] ?? now()->toDateString())->startOfDay();
+        $from = Carbon::parse($data['start_date'] ?? now()->toDateString())->startOfDay();
         $to = $toExplicit
-            ? \Illuminate\Support\Carbon::parse((string) $data['duty_date_to'])->startOfDay()
+            ? Carbon::parse((string) $data['duty_date_to'])->startOfDay()
             : $from->copy();
 
         // Overnight: before dawn, "today" still means the night that started yesterday.
@@ -310,6 +316,11 @@ class DeploymentService
      */
     public function transfer(Deployment $deployment, array $data): Deployment
     {
+        DB::afterCommit(function (): void {
+            DashboardCache::flush();
+            app(ManpowerService::class)->flushRequestCache();
+        });
+
         return DB::transaction(function () use ($deployment, $data) {
             if (! $deployment->isActive()) {
                 throw new InvalidArgumentException('Only active deployments can be transferred.');
@@ -723,8 +734,8 @@ class DeploymentService
 
     private function nightCoverHasCompleted(
         Deployment $deployment,
-        \Illuminate\Support\Carbon $startDay,
-        \Illuminate\Support\Carbon $now,
+        Carbon $startDay,
+        Carbon $now,
     ): bool {
         $nightEnd = (string) config('psg.shift_defaults.night.end', '06:00');
         $dawnOnStartDay = $startDay->copy()->setTimeFromTimeString($nightEnd);
@@ -944,9 +955,9 @@ class DeploymentService
         string $fromDate,
         ?string $toDate = null,
     ): void {
-        $from = \Illuminate\Support\Carbon::parse($fromDate)->startOfDay();
+        $from = Carbon::parse($fromDate)->startOfDay();
         $to = $toDate
-            ? \Illuminate\Support\Carbon::parse($toDate)->startOfDay()
+            ? Carbon::parse($toDate)->startOfDay()
             : $from->copy();
 
         if ($period === ShiftPeriod::Night) {
@@ -1044,9 +1055,9 @@ class DeploymentService
      */
     private function isHistoricalPostingOnly(array $data): bool
     {
-        $from = \Illuminate\Support\Carbon::parse($data['start_date'] ?? now()->toDateString())->startOfDay();
+        $from = Carbon::parse($data['start_date'] ?? now()->toDateString())->startOfDay();
         $to = ! empty($data['duty_date_to'])
-            ? \Illuminate\Support\Carbon::parse((string) $data['duty_date_to'])->startOfDay()
+            ? Carbon::parse((string) $data['duty_date_to'])->startOfDay()
             : $from->copy();
 
         if ($to->lt($from)) {
@@ -1124,7 +1135,7 @@ class DeploymentService
      * Night duty date is the evening the night starts. Between midnight and day start,
      * selecting "today" still refers to last night's in-progress duty.
      */
-    private function alignNightDutyDate(\Illuminate\Support\Carbon $date): \Illuminate\Support\Carbon
+    private function alignNightDutyDate(Carbon $date): Carbon
     {
         $now = now();
         $dayStart = (string) config('psg.shift_defaults.day.start', '06:00');

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization;
 
 use App\Enums\ContractStatus;
+use App\Models\Client;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,7 +11,7 @@ class StoreClientRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('create', \App\Models\Client::class) ?? false;
+        return $this->user()?->can('create', Client::class) ?? false;
     }
 
     /** @return array<string, mixed> */

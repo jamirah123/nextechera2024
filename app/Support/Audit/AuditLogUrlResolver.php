@@ -20,6 +20,7 @@ use App\Models\ShiftReplacement;
 use App\Models\Site;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Support\Access\Access;
 use Illuminate\Support\Facades\Gate;
 
 class AuditLogUrlResolver
@@ -48,7 +49,7 @@ class AuditLogUrlResolver
             BillingProfile::class => $user && Gate::forUser($user)->allows('viewFinance')
                 ? $this->safeRoute('billing.show', $log->subject_id)
                 : null,
-            User::class => $user && \App\Support\Access\Access::userCan($user, 'admin.users_manage')
+            User::class => $user && Access::userCan($user, 'admin.users_manage')
                 ? $this->safeRoute('users.show', $log->subject_id)
                 : null,
             Leave::class => $this->safeRoute('leaves.show', $log->subject_id),
@@ -59,7 +60,7 @@ class AuditLogUrlResolver
             Site::class => $this->safeRoute('sites.show', $log->subject_id),
             Client::class => $this->safeRoute('clients.show', $log->subject_id),
             WorkOrder::class => $this->safeRoute('work-orders.show', $log->subject_id),
-            DatabaseBackup::class => $user && \App\Support\Access\Access::userCan($user, 'admin.backups_manage')
+            DatabaseBackup::class => $user && Access::userCan($user, 'admin.backups_manage')
                 ? $this->safeRoute('backups.show', $log->subject_id)
                 : null,
             default => null,

@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Enums\UserRole;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\SystemSettingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -44,7 +45,7 @@ class SystemSettingsTest extends TestCase
             ->assertRedirect(route('settings.index'));
 
         Cache::forget('system_settings.id');
-        app(\App\Services\SystemSettingService::class)->applyRuntimeConfig();
+        app(SystemSettingService::class)->applyRuntimeConfig();
 
         $this->assertDatabaseHas('system_settings', [
             'company_name' => 'Platinum Security Uganda',
@@ -96,7 +97,7 @@ class SystemSettingsTest extends TestCase
             ->assertRedirect(route('settings.index'));
 
         Cache::forget('system_settings.id');
-        app(\App\Services\SystemSettingService::class)->applyRuntimeConfig();
+        app(SystemSettingService::class)->applyRuntimeConfig();
 
         $settings = SystemSetting::query()->first();
 
@@ -245,7 +246,7 @@ class SystemSettingsTest extends TestCase
             ->assertRedirect(route('settings.index'));
 
         Cache::forget('system_settings.id');
-        app(\App\Services\SystemSettingService::class)->applyRuntimeConfig();
+        app(SystemSettingService::class)->applyRuntimeConfig();
 
         $this->assertDatabaseHas('system_settings', [
             'payroll_use_progressive_paye' => false,
@@ -273,7 +274,7 @@ class SystemSettingsTest extends TestCase
             ->assertRedirect(route('settings.index'));
 
         Cache::forget('system_settings.id');
-        app(\App\Services\SystemSettingService::class)->applyRuntimeConfig();
+        app(SystemSettingService::class)->applyRuntimeConfig();
 
         $this->assertDatabaseHas('system_settings', [
             'payroll_default_base_shift_rate' => 35000,

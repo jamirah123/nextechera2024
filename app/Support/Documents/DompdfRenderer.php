@@ -4,7 +4,6 @@ namespace App\Support\Documents;
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
-use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Support\Facades\View;
 
 class DompdfRenderer

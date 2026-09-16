@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\BackupType;
 use App\Http\Controllers\Controller;
 use App\Models\SystemSetting;
+use App\Services\DatabaseBackupService;
 use App\Services\SystemSettingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,9 +17,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 
 class SystemSettingController extends Controller
 {
-    public function __construct(private SystemSettingService $settings)
-    {
-    }
+    public function __construct(private SystemSettingService $settings) {}
 
     public function index(): View
     {
@@ -124,8 +124,8 @@ class SystemSettingController extends Controller
         $this->authorize('runMaintenance', SystemSetting::class);
 
         try {
-            $backup = app(\App\Services\DatabaseBackupService::class)->create(
-                \App\Enums\BackupType::Manual,
+            $backup = app(DatabaseBackupService::class)->create(
+                BackupType::Manual,
                 request()->user(),
                 ['notes' => 'Manual backup from Platform Settings.'],
             );

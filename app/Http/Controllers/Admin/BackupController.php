@@ -17,9 +17,7 @@ use Throwable;
 
 class BackupController extends Controller
 {
-    public function __construct(private DatabaseBackupService $backups)
-    {
-    }
+    public function __construct(private DatabaseBackupService $backups) {}
 
     public function index(Request $request): View
     {

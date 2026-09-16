@@ -2,8 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Enums\IncidentSeverity;
+use App\Enums\IncidentStatus;
+use App\Enums\IncidentType;
+use App\Enums\InvoiceStatus;
+use App\Enums\PayrollRunStatus;
 use App\Enums\UserRole;
 use App\Models\Client;
+use App\Models\Incident;
+use App\Models\Invoice;
+use App\Models\PayrollRun;
 use App\Models\Region;
 use App\Models\Site;
 use App\Models\Supervisor;
@@ -96,10 +104,10 @@ class GlobalSearchTest extends TestCase
         $client = Client::factory()->create(['name' => 'Harbor Retail Group']);
         $site = Site::factory()->create(['name' => 'Harbor HQ', 'client_id' => $client->id]);
 
-        $invoice = \App\Models\Invoice::query()->create([
+        $invoice = Invoice::query()->create([
             'reference' => 'INV-SEARCH-9001',
             'client_id' => $client->id,
-            'status' => \App\Enums\InvoiceStatus::Issued,
+            'status' => InvoiceStatus::Issued,
             'period_start' => now()->startOfMonth(),
             'period_end' => now()->endOfMonth(),
             'issue_date' => now(),
@@ -112,25 +120,25 @@ class GlobalSearchTest extends TestCase
             'balance' => 1000,
         ]);
 
-        $payroll = \App\Models\PayrollRun::query()->create([
+        $payroll = PayrollRun::query()->create([
             'reference' => 'PAY-SEARCH-42',
             'period_year' => (int) now()->year,
             'period_month' => (int) now()->month,
             'period_start' => now()->startOfMonth(),
             'period_end' => now()->endOfMonth(),
-            'status' => \App\Enums\PayrollRunStatus::Draft,
+            'status' => PayrollRunStatus::Draft,
             'currency' => 'UGX',
             'guard_count' => 0,
         ]);
 
-        $incident = \App\Models\Incident::query()->create([
+        $incident = Incident::query()->create([
             'reference' => 'OB-SEARCH-77',
             'title' => 'Perimeter breach reported',
             'description' => 'Test incident for search',
             'site_id' => $site->id,
-            'incident_type' => \App\Enums\IncidentType::Theft->value,
-            'severity' => \App\Enums\IncidentSeverity::Medium->value,
-            'status' => \App\Enums\IncidentStatus::Reported->value,
+            'incident_type' => IncidentType::Theft->value,
+            'severity' => IncidentSeverity::Medium->value,
+            'status' => IncidentStatus::Reported->value,
             'occurred_at' => now(),
             'reported_at' => now(),
             'reported_by' => $admin->id,

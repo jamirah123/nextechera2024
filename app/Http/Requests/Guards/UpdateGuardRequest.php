@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Guards;
 
+use App\Enums\CompensationType;
 use App\Enums\EmploymentStatus;
 use App\Enums\GuardClassification;
 use App\Enums\GuardGender;
@@ -48,7 +49,7 @@ class UpdateGuardRequest extends FormRequest
             'date_employed' => ['nullable', 'date'],
             'employment_end_date' => ['nullable', 'date', 'after_or_equal:date_employed'],
             'employment_status' => ['required', Rule::in(EmploymentStatus::values())],
-            'compensation_type' => ['nullable', Rule::in(\App\Enums\CompensationType::values())],
+            'compensation_type' => ['nullable', Rule::in(CompensationType::values())],
             'rank_designation' => ['nullable', 'string', 'max:100'],
             'guard_classification' => ['nullable', Rule::in(GuardClassification::values())],
             'region_id' => ['nullable', 'exists:regions,id'],

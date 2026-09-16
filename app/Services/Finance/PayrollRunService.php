@@ -22,8 +22,7 @@ class PayrollRunService
         private PaymentService $payments,
         private AuditService $audit,
         private LedgerPostingService $ledger,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{

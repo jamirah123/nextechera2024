@@ -13,9 +13,7 @@ use Illuminate\Support\Collection;
 
 class VatPackService
 {
-    public function __construct(private ChartOfAccountsService $coa)
-    {
-    }
+    public function __construct(private ChartOfAccountsService $coa) {}
 
     public function defaultRate(): float
     {

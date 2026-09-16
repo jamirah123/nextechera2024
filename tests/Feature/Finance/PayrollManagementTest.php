@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Finance;
 
+use App\Enums\CompensationType;
 use App\Enums\EmploymentStatus;
 use App\Enums\PayrollDeductionType;
 use App\Enums\PayrollRunStatus;
@@ -9,6 +10,7 @@ use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Enums\UserRole;
 use App\Models\Guard;
+use App\Models\GuardSalaryAdvance;
 use App\Models\Payment;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollRun;
@@ -19,6 +21,7 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\Finance\PayrollRunService;
 use App\Services\Finance\ProfitabilityService;
+use App\Services\SystemSettingService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -237,7 +240,7 @@ class PayrollManagementTest extends TestCase
             'payroll_uniform_charge' => 3000,
         ]);
 
-        app(\App\Services\SystemSettingService::class)->applyRuntimeConfig();
+        app(SystemSettingService::class)->applyRuntimeConfig();
 
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $site = Site::factory()->create();
@@ -246,7 +249,7 @@ class PayrollManagementTest extends TestCase
         $guard = Guard::factory()->create([
             'region_id' => $site->region_id,
             'current_site_id' => $site->id,
-            'compensation_type' => \App\Enums\CompensationType::Shift,
+            'compensation_type' => CompensationType::Shift,
             'base_shift_rate' => 300000,
         ]);
 
@@ -369,7 +372,7 @@ class PayrollManagementTest extends TestCase
             'payroll_default_base_shift_rate' => 30000,
         ]);
 
-        app(\App\Services\SystemSettingService::class)->applyRuntimeConfig();
+        app(SystemSettingService::class)->applyRuntimeConfig();
 
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $site = Site::factory()->create();
@@ -378,7 +381,7 @@ class PayrollManagementTest extends TestCase
         $guard = Guard::factory()->create([
             'region_id' => $site->region_id,
             'current_site_id' => $site->id,
-            'compensation_type' => \App\Enums\CompensationType::Shift,
+            'compensation_type' => CompensationType::Shift,
             'base_shift_rate' => 0,
         ]);
 
@@ -810,7 +813,7 @@ class PayrollManagementTest extends TestCase
             'payroll_uniform_charge' => 3000,
         ]);
 
-        app(\App\Services\SystemSettingService::class)->applyRuntimeConfig();
+        app(SystemSettingService::class)->applyRuntimeConfig();
 
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $period = $this->closedPayrollPeriod();
@@ -1030,7 +1033,7 @@ class PayrollManagementTest extends TestCase
 
         Guard::factory()->create([
             'region_id' => null,
-            'compensation_type' => \App\Enums\CompensationType::Salary,
+            'compensation_type' => CompensationType::Salary,
             'base_shift_rate' => 900000,
         ]);
 
@@ -1042,7 +1045,7 @@ class PayrollManagementTest extends TestCase
         $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
 
         $payslip = PayrollPayslip::query()->firstOrFail();
-        $this->assertSame(\App\Enums\CompensationType::Salary, $payslip->compensation_type);
+        $this->assertSame(CompensationType::Salary, $payslip->compensation_type);
         $this->assertSame(900000.0, (float) $payslip->gross_pay);
     }
 
@@ -1053,7 +1056,7 @@ class PayrollManagementTest extends TestCase
 
         Guard::factory()->create([
             'region_id' => null,
-            'compensation_type' => \App\Enums\CompensationType::Salary,
+            'compensation_type' => CompensationType::Salary,
             'base_shift_rate' => $period['days'] * 10000,
             'date_employed' => $period['start']->toDateString(),
             'employment_end_date' => $period['start']->copy()->addDays(19)->toDateString(),
@@ -1080,7 +1083,7 @@ class PayrollManagementTest extends TestCase
             'date_employed' => $period['start']->toDateString(),
         ]);
 
-        \App\Models\GuardSalaryAdvance::query()->create([
+        GuardSalaryAdvance::query()->create([
             'staff_id' => $staff->id,
             'label' => 'Emergency advance',
             'original_amount' => 200000,

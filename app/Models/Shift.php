@@ -7,6 +7,7 @@ use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Models\Concerns\TracksUserChanges;
+use Carbon\CarbonInterface;
 use Database\Factories\ShiftFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -66,7 +67,7 @@ class Shift extends Model
             return null;
         }
 
-        $date = $this->shift_date instanceof \Carbon\CarbonInterface
+        $date = $this->shift_date instanceof CarbonInterface
             ? $this->shift_date->toDateString()
             : (string) $this->shift_date;
 

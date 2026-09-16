@@ -14,9 +14,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AuditLogController extends Controller
 {
-    public function __construct(private ReportExportService $exports)
-    {
-    }
+    public function __construct(private ReportExportService $exports) {}
 
     public function index(Request $request): View
     {

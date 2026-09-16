@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -24,8 +25,7 @@ class BillingController extends Controller
         private BillingService $billing,
         private FinanceHistoryService $history,
         private ReportExportService $exports,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
@@ -162,7 +162,7 @@ class BillingController extends Controller
             ->limit(5000)
             ->get();
 
-            $headers = ['#', 'Client', 'Site', 'Mode', 'Cash/no VAT', 'Armed posts', 'Unarmed posts', 'Total', 'Armed rate/mo', 'Unarmed rate/mo', 'Day shift', 'Night shift', 'Effective from', 'Effective to', 'Status'];
+        $headers = ['#', 'Client', 'Site', 'Mode', 'Cash/no VAT', 'Armed posts', 'Unarmed posts', 'Total', 'Armed rate/mo', 'Unarmed rate/mo', 'Day shift', 'Night shift', 'Effective from', 'Effective to', 'Status'];
         $data = $rows->values()->map(fn (BillingProfile $p, int $i) => [
             $i + 1,
             $p->client?->name,
@@ -223,19 +223,19 @@ class BillingController extends Controller
         );
 
         if ($mode->usesMonthlyRates() && $totalGuards === 0) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'client_id' => 'No site manpower found for this client/site. Set armed/unarmed day and night guards on sites first.',
             ]);
         }
 
         if ($mode->usesMonthlyRates() && ! $monthlyBillable) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'monthly_rate_per_unarmed_guard' => 'Enter monthly rates for the armed and/or unarmed posts that have manpower.',
             ]);
         }
 
         if ($mode->usesShiftRates() && ! $shiftBillable) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'rate_per_armed_day_shift' => 'Set at least one day/night armed or unarmed shift rate for per-shift or hybrid billing.',
             ]);
         }

@@ -27,8 +27,7 @@ class SiteController extends Controller
         private ManpowerService $manpower,
         private EntityTimelineService $timeline,
         private EntityRelatedRecordsService $relatedRecords,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
@@ -48,8 +47,9 @@ class SiteController extends Controller
             ->paginate(table_per_page())
             ->withQueryString();
 
-        $sites->getCollection()->transform(function (Site $site) {
-            $site->setAttribute('manpower', $this->manpower->forSite($site));
+        $manpowerBySite = $this->manpower->forSites($sites->getCollection());
+        $sites->getCollection()->transform(function (Site $site) use ($manpowerBySite) {
+            $site->setAttribute('manpower', $manpowerBySite->get($site->id) ?? $this->manpower->forSite($site));
 
             return $site;
         });

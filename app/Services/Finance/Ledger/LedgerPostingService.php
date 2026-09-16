@@ -26,8 +26,7 @@ class LedgerPostingService
         private ChartOfAccountsService $coa,
         private GlPeriodService $periods,
         private AuditService $audit,
-    ) {
-    }
+    ) {}
 
     public function postInvoice(Invoice $invoice, ?User $actor = null): ?GlJournal
     {

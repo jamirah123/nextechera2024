@@ -18,7 +18,6 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 use InvalidArgumentException;
-use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UserController extends Controller
@@ -26,8 +25,7 @@ class UserController extends Controller
     public function __construct(
         private UserAccessService $users,
         private UserAttachmentService $attachments,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {

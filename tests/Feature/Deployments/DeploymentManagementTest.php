@@ -12,6 +12,7 @@ use App\Enums\ShiftType;
 use App\Enums\UserRole;
 use App\Models\Deployment;
 use App\Models\Guard;
+use App\Models\Region;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Models\User;
@@ -163,22 +164,22 @@ class DeploymentManagementTest extends TestCase
             'end_date' => null,
         ]);
 
-        \App\Models\Shift::factory()->create([
+        Shift::factory()->create([
             'guard_id' => $earlyGuard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
             'shift_date' => '2026-09-03',
-            'period' => \App\Enums\ShiftPeriod::Day,
-            'status' => \App\Enums\ShiftStatus::Recorded,
+            'period' => ShiftPeriod::Day,
+            'status' => ShiftStatus::Recorded,
         ]);
 
-        \App\Models\Shift::factory()->create([
+        Shift::factory()->create([
             'guard_id' => $laterGuard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
             'shift_date' => '2026-09-07',
-            'period' => \App\Enums\ShiftPeriod::Night,
-            'status' => \App\Enums\ShiftStatus::Recorded,
+            'period' => ShiftPeriod::Night,
+            'status' => ShiftStatus::Recorded,
         ]);
 
         $this->actingAs($ops)
@@ -228,7 +229,7 @@ class DeploymentManagementTest extends TestCase
     {
         $ops = User::factory()->role(UserRole::OperationsManager)->create();
         $site = Site::factory()->create();
-        $otherRegion = \App\Models\Region::factory()->create();
+        $otherRegion = Region::factory()->create();
         $guard = Guard::factory()->create([
             'employment_status' => EmploymentStatus::Active,
             'operational_status' => OperationalStatus::AwaitingDeployment,

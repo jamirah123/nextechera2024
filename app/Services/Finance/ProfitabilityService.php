@@ -2,6 +2,7 @@
 
 namespace App\Services\Finance;
 
+use App\Enums\CompensationType;
 use App\Enums\GuardClassification;
 use App\Enums\InvoiceStatus;
 use App\Enums\PayrollRunStatus;
@@ -251,7 +252,7 @@ class ProfitabilityService
                 $from,
                 $to,
             ))
-            ->where(function (Builder $query) use ($clientId, $siteId, $regionId): void {
+            ->where(function (Builder $query) use ($siteId, $regionId): void {
                 if ($siteId) {
                     $query->whereRaw('0 = 1');
 
@@ -273,7 +274,7 @@ class ProfitabilityService
         $salaryGuards = (float) PayrollPayslip::query()
             ->whereNotNull('guard_id')
             ->whereNull('staff_id')
-            ->where('compensation_type', \App\Enums\CompensationType::Salary->value)
+            ->where('compensation_type', CompensationType::Salary->value)
             ->whereHas('run', fn (Builder $query) => $this->applyPeriodOverlap(
                 $query->where('status', PayrollRunStatus::Paid->value),
                 $from,

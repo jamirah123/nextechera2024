@@ -15,9 +15,7 @@ use Illuminate\View\View;
 
 class AttendanceController extends Controller
 {
-    public function __construct(private AttendanceService $attendances)
-    {
-    }
+    public function __construct(private AttendanceService $attendances) {}
 
     public function index(Request $request): View
     {

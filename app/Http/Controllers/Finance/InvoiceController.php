@@ -16,8 +16,8 @@ use App\Services\ReportExportService;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -33,13 +33,11 @@ class InvoiceController extends Controller
         private EntityTimelineService $timeline,
         private ReportExportService $exports,
         private InvoicePdfService $pdf,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
         Gate::authorize('viewFinance');
-        $this->invoices->markOverdueInvoices();
 
         $scope = $request->string('scope')->toString() === 'all' ? 'all' : 'current';
 
@@ -57,6 +55,8 @@ class InvoiceController extends Controller
             ->paginate(table_per_page())
             ->withQueryString();
 
+        $invoiceStatusCounts = status_counts(Invoice::query());
+
         return view('finance.invoices.index', [
             'invoices' => $invoices,
             'statuses' => InvoiceStatus::cases(),
@@ -66,10 +66,10 @@ class InvoiceController extends Controller
             'canManage' => $request->user()->can('manageFinance'),
             'exportQuery' => array_filter($request->only(['q', 'status', 'client_id', 'scope']), fn ($v) => filled($v)),
             'stats' => [
-                'draft' => Invoice::query()->where('status', InvoiceStatus::Draft)->count(),
+                'draft' => (int) ($invoiceStatusCounts[InvoiceStatus::Draft->value] ?? 0),
                 'open' => Invoice::query()->open()->count(),
-                'overdue' => Invoice::query()->where('status', InvoiceStatus::Overdue)->count(),
-                'paid' => Invoice::query()->where('status', InvoiceStatus::Paid)->count(),
+                'overdue' => (int) ($invoiceStatusCounts[InvoiceStatus::Overdue->value] ?? 0),
+                'paid' => (int) ($invoiceStatusCounts[InvoiceStatus::Paid->value] ?? 0),
                 'all_time' => Invoice::withTrashed()->count(),
             ],
         ]);

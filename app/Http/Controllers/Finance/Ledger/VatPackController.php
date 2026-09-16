@@ -19,8 +19,7 @@ class VatPackController extends Controller
         private VatPackService $vat,
         private GlPeriodService $periods,
         private ReportExportService $exports,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {

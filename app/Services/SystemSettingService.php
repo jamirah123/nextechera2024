@@ -12,19 +12,23 @@ use Illuminate\Support\Facades\Storage;
 
 class SystemSettingService
 {
-    public function __construct(private AuditService $audit)
-    {
-    }
+    private static ?SystemSetting $requestMemo = null;
+
+    public function __construct(private AuditService $audit) {}
 
     public function current(): SystemSetting
     {
+        if (self::$requestMemo instanceof SystemSetting) {
+            return self::$requestMemo;
+        }
+
         $settingsId = Cache::get('system_settings.id');
 
         if (is_int($settingsId)) {
             $settings = SystemSetting::query()->find($settingsId);
 
             if ($settings) {
-                return $settings;
+                return self::$requestMemo = $settings;
             }
 
             $this->flushCache();
@@ -40,19 +44,22 @@ class SystemSettingService
         if ($settings) {
             Cache::forever('system_settings.id', $settings->id);
 
-            return $settings;
+            return self::$requestMemo = $settings;
         }
 
         $settings = SystemSetting::query()->create($this->defaultAttributes());
         Cache::forever('system_settings.id', $settings->id);
 
-        return $settings;
+        return self::$requestMemo = $settings;
     }
 
     public function flushCache(): void
     {
+        self::$requestMemo = null;
         Cache::forget('system_settings');
         Cache::forget('system_settings.id');
+        Cache::forget('psg.dashboard.landing_snapshot');
+        Cache::forget('psg.compliance.snapshot');
     }
 
     /**

@@ -15,6 +15,7 @@ use App\Models\Staff;
 use App\Models\Supervisor;
 use App\Services\DeploymentService;
 use App\Services\OrganizationService;
+use App\Services\StaffService;
 use App\Services\SupervisorGuardService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,8 +28,7 @@ class SupervisorController extends Controller
         private OrganizationService $organization,
         private DeploymentService $deployments,
         private SupervisorGuardService $supervisorGuards,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
@@ -199,7 +199,7 @@ class SupervisorController extends Controller
 
             $staff = $supervisor->fresh()->staffProfile;
             if ($staff && $request->user()?->can('update', $staff)) {
-                app(\App\Services\StaffService::class)->updateStaff($staff, array_filter(
+                app(StaffService::class)->updateStaff($staff, array_filter(
                     $request->safe()->only([
                         'address',
                         'notes',

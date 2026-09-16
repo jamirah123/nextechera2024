@@ -6,22 +6,27 @@ use App\Enums\WorkOrderCategory;
 use App\Enums\WorkOrderPriority;
 use App\Enums\WorkOrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Client;
+use App\Models\Desertion;
+use App\Models\Guard;
+use App\Models\Invoice;
+use App\Models\Leave;
 use App\Models\Region;
+use App\Models\Site;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\WorkOrderService;
 use App\Support\Access\Access;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
 
 class WorkOrderController extends Controller
 {
-    public function __construct(private WorkOrderService $workOrders)
-    {
-    }
+    public function __construct(private WorkOrderService $workOrders) {}
 
     public function index(Request $request): View
     {
@@ -199,7 +204,7 @@ class WorkOrderController extends Controller
             ->with('status', 'Work order cancelled.');
     }
 
-    /** @return \Illuminate\Support\Collection<int, User> */
+    /** @return Collection<int, User> */
     private function assignableUsers(User $user)
     {
         return User::query()
@@ -218,12 +223,12 @@ class WorkOrderController extends Controller
         }
 
         return match ($subject::class) {
-            \App\Models\Site::class => route('sites.show', $subject),
-            \App\Models\Client::class => route('clients.show', $subject),
-            \App\Models\Guard::class => route('guards.show', $subject),
-            \App\Models\Leave::class => route('leaves.show', $subject),
-            \App\Models\Desertion::class => route('desertions.show', $subject),
-            \App\Models\Invoice::class => Access::userCan(request()->user(), 'finance.view')
+            Site::class => route('sites.show', $subject),
+            Client::class => route('clients.show', $subject),
+            Guard::class => route('guards.show', $subject),
+            Leave::class => route('leaves.show', $subject),
+            Desertion::class => route('desertions.show', $subject),
+            Invoice::class => Access::userCan(request()->user(), 'finance.view')
                 ? route('invoices.show', $subject)
                 : null,
             default => null,

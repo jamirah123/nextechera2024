@@ -27,8 +27,7 @@ class DataImportController extends Controller
         private OpeningBalanceImportService $openingBalances,
         private AccountingExportService $accountingExport,
         private SystemSettingService $settings,
-    ) {
-    }
+    ) {}
 
     public function index(): View
     {

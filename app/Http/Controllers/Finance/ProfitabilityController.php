@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Finance;
 use App\Http\Controllers\Controller;
 use App\Services\Finance\ProfitabilityService;
 use App\Services\ReportExportService;
-use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Gate;
@@ -17,8 +16,7 @@ class ProfitabilityController extends Controller
     public function __construct(
         private ProfitabilityService $profitability,
         private ReportExportService $exports,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {

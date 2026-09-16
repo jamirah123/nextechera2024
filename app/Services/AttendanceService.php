@@ -10,9 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 class AttendanceService
 {
-    public function __construct(private GuardService $guards)
-    {
-    }
+    public function __construct(private GuardService $guards) {}
 
     /**
      * @param  array{

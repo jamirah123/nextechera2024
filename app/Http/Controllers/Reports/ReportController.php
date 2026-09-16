@@ -9,6 +9,7 @@ use App\Services\ReportExportService;
 use App\Services\Reports\MonthlyShiftCalculationService;
 use App\Services\Reports\OperationalReportService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -19,8 +20,7 @@ class ReportController extends Controller
         private MonthlyShiftCalculationService $monthlyShifts,
         private OperationalReportService $reports,
         private ReportExportService $exports,
-    ) {
-    }
+    ) {}
 
     public function index(): View
     {
@@ -427,7 +427,7 @@ class ReportController extends Controller
 
     /**
      * @param  list<string>  $headers
-     * @param  iterable<int, list<string|int|float|null>>|\Illuminate\Support\Collection<int, list<string|int|float|null>>  $rows
+     * @param  iterable<int, list<string|int|float|null>>|Collection<int, list<string|int|float|null>>  $rows
      */
     private function downloadCsv(string $filename, array $headers, iterable $rows): StreamedResponse
     {

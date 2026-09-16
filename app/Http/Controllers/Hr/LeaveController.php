@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Hr;
 
 use App\Enums\LeaveStatus;
 use App\Enums\LeaveType;
+use App\Enums\UserRole;
 use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
 use App\Models\Guard;
@@ -12,8 +13,8 @@ use App\Services\Documents\LetterPdfService;
 use App\Services\LeaveService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
 
@@ -24,8 +25,7 @@ class LeaveController extends Controller
     public function __construct(
         private LeaveService $leaves,
         private LetterPdfService $letters,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
@@ -82,7 +82,7 @@ class LeaveController extends Controller
 
         try {
             if ($request->boolean('approve_now') && (
-                $request->user()->isSuperAdmin() || $request->user()->hasRole(\App\Enums\UserRole::HrManager)
+                $request->user()->isSuperAdmin() || $request->user()->hasRole(UserRole::HrManager)
             )) {
                 $data['status'] = LeaveStatus::Approved->value;
             }

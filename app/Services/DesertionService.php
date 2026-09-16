@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Enums\DesertionHrStatus;
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
+use App\Enums\DesertionHrStatus;
 use App\Enums\OperationalStatus;
 use App\Models\Deployment;
 use App\Models\Desertion;
@@ -18,8 +18,7 @@ class DesertionService
         private GuardService $guards,
         private DeploymentService $deployments,
         private AuditService $audit,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{

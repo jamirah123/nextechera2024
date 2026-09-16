@@ -19,6 +19,13 @@ class OrganizationDashboardController extends Controller
         $this->authorize('viewAny', Region::class);
 
         $companyManpower = $manpower->forCompany();
+        $previewSites = Site::query()
+            ->where('status', SiteStatus::Active)
+            ->where('required_guards', '>', 0)
+            ->orderByDesc('required_guards')
+            ->limit(5)
+            ->get();
+        $previewManpower = $manpower->forSites($previewSites);
 
         return view('organization.index', [
             'stats' => [
@@ -37,15 +44,10 @@ class OrganizationDashboardController extends Controller
                 ->latest()
                 ->limit(6)
                 ->get(),
-            'understaffedPreview' => Site::query()
-                ->where('status', SiteStatus::Active)
-                ->where('required_guards', '>', 0)
-                ->orderByDesc('required_guards')
-                ->limit(5)
-                ->get()
+            'understaffedPreview' => $previewSites
                 ->map(fn (Site $site) => [
                     'site' => $site,
-                    'manpower' => $manpower->forSite($site),
+                    'manpower' => $previewManpower->get($site->id) ?? $manpower->forSite($site),
                 ]),
             'canManage' => $request->user()->can('create', Region::class),
         ]);

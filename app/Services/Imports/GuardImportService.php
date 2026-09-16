@@ -21,8 +21,7 @@ class GuardImportService
         private CsvImportService $csv,
         private GuardService $guards,
         private SystemSettingService $settings,
-    ) {
-    }
+    ) {}
 
     /** @return list<string> */
     public function templateHeaders(): array

@@ -19,8 +19,7 @@ class SiteImportService
     public function __construct(
         private CsvImportService $csv,
         private OrganizationService $organization,
-    ) {
-    }
+    ) {}
 
     /** @return list<string> */
     public function templateHeaders(): array

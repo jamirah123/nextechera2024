@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\EmploymentStatus;
+use App\Enums\OperationalStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -63,11 +65,11 @@ class GuardStatusHistory extends Model
         }
 
         if ($this->status_type === 'employment') {
-            return \App\Enums\EmploymentStatus::tryFrom($value)?->label() ?? str_replace('_', ' ', ucfirst($value));
+            return EmploymentStatus::tryFrom($value)?->label() ?? str_replace('_', ' ', ucfirst($value));
         }
 
         if ($this->status_type === 'operational') {
-            return \App\Enums\OperationalStatus::tryFrom($value)?->label() ?? str_replace('_', ' ', ucfirst($value));
+            return OperationalStatus::tryFrom($value)?->label() ?? str_replace('_', ' ', ucfirst($value));
         }
 
         return str_replace('_', ' ', ucfirst($value));

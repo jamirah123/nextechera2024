@@ -14,7 +14,9 @@ use App\Models\Shift;
 use App\Models\Site;
 use App\Models\User;
 use App\Support\Access\Access;
+use App\Support\Money;
 use App\Support\Notifications\WorkflowActionCatalog;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
@@ -197,9 +199,9 @@ class WorkflowMailService
             $details[] = 'Reference: '.$subject->reference;
             $details[] = 'Period: '.$subject->periodLabel();
             $details[] = 'Payslips: '.$subject->payslipCount();
-            $details[] = 'Gross: '.\App\Support\Money::format($subject->gross_total, $subject->currency);
-            $details[] = 'Deductions: '.\App\Support\Money::format($subject->deductions_total, $subject->currency);
-            $details[] = 'Net pay: '.\App\Support\Money::format($subject->net_total, $subject->currency);
+            $details[] = 'Gross: '.Money::format($subject->gross_total, $subject->currency);
+            $details[] = 'Deductions: '.Money::format($subject->deductions_total, $subject->currency);
+            $details[] = 'Net pay: '.Money::format($subject->net_total, $subject->currency);
 
             if ($subject->approver) {
                 $details[] = 'Approved by: '.$subject->approver->name;
@@ -220,7 +222,7 @@ class WorkflowMailService
                 $details[] = 'Due: '.$subject->due_date->format('d M Y');
             }
             if ((float) $subject->balance > 0) {
-                $details[] = 'Balance: '.\App\Support\Money::format($subject->balance, $subject->currency);
+                $details[] = 'Balance: '.Money::format($subject->balance, $subject->currency);
             }
         }
 
@@ -247,7 +249,7 @@ class WorkflowMailService
         if ($subject instanceof Guard) {
             $details[] = 'Guard: '.$subject->full_name.' ('.$subject->employment_id.')';
             if (filled($context['expires_at'] ?? null)) {
-                $details[] = 'Expiry: '.\Carbon\Carbon::parse($context['expires_at'])->format('d M Y');
+                $details[] = 'Expiry: '.Carbon::parse($context['expires_at'])->format('d M Y');
             }
         }
 

@@ -11,6 +11,7 @@ use App\Enums\ShiftType;
 use App\Enums\UserRole;
 use App\Models\Deployment;
 use App\Models\Guard;
+use App\Models\Shift;
 use App\Models\Site;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -211,7 +212,7 @@ class BulkDeploymentBoardTest extends TestCase
             'shift_type' => ShiftType::Normal->value,
         ]);
 
-        $this->assertSame(1, \App\Models\Shift::query()
+        $this->assertSame(1, Shift::query()
             ->where('guard_id', $guard->id)
             ->whereDate('shift_date', $shiftDate)
             ->count());

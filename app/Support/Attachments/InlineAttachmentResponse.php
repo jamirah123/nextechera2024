@@ -10,8 +10,7 @@ class InlineAttachmentResponse implements Responsable
 {
     public function __construct(
         private object $attachment,
-    ) {
-    }
+    ) {}
 
     public function toResponse($request): StreamedResponse
     {

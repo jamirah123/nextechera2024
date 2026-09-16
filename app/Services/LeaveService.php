@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\AuditCategory;
+use App\Enums\AuditSeverity;
 use App\Enums\LeaveStatus;
 use App\Enums\LeaveType;
 use App\Enums\OperationalStatus;
@@ -10,6 +12,7 @@ use App\Models\Guard;
 use App\Models\Leave;
 use App\Models\Shift;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -18,8 +21,7 @@ class LeaveService
     public function __construct(
         private GuardService $guards,
         private AuditService $audit,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{
@@ -77,8 +79,8 @@ class LeaveService
                 $this->audit->log(
                     action: 'leave.requested',
                     summary: 'Leave request submitted for '.$fresh->assignedGuard?->employment_id.'.',
-                    category: \App\Enums\AuditCategory::Hr,
-                    severity: \App\Enums\AuditSeverity::Warning,
+                    category: AuditCategory::Hr,
+                    severity: AuditSeverity::Warning,
                     subject: $fresh,
                     context: [
                         'start_date' => $fresh->start_date->toDateString(),
@@ -125,8 +127,8 @@ class LeaveService
             $this->audit->log(
                 action: 'leave.approved',
                 summary: 'Leave approved for '.$fresh->assignedGuard?->employment_id.'.',
-                category: \App\Enums\AuditCategory::Hr,
-                severity: \App\Enums\AuditSeverity::Notice,
+                category: AuditCategory::Hr,
+                severity: AuditSeverity::Notice,
                 subject: $fresh,
                 context: [
                     'start_date' => $fresh->start_date->toDateString(),
@@ -156,8 +158,8 @@ class LeaveService
         $this->audit->log(
             action: 'leave.rejected',
             summary: 'Leave rejected for '.$fresh->assignedGuard?->employment_id.'.',
-            category: \App\Enums\AuditCategory::Hr,
-            severity: \App\Enums\AuditSeverity::Notice,
+            category: AuditCategory::Hr,
+            severity: AuditSeverity::Notice,
             subject: $fresh,
             context: [
                 'notes' => $notes,
@@ -214,7 +216,7 @@ class LeaveService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, Shift>
+     * @return Collection<int, Shift>
      */
     public function conflictingShifts(int $guardId, string $start, string $end)
     {

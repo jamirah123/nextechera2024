@@ -8,6 +8,7 @@ use App\Services\Finance\Ledger\GlPeriodService;
 use App\Services\Finance\Ledger\LedgerReportService;
 use App\Services\ReportExportService;
 use App\Support\Money;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
@@ -19,8 +20,7 @@ class LedgerReportController extends Controller
         private LedgerReportService $reports,
         private GlPeriodService $periods,
         private ReportExportService $exports,
-    ) {
-    }
+    ) {}
 
     public function trialBalance(Request $request): View|StreamedResponse
     {
@@ -95,7 +95,7 @@ class LedgerReportController extends Controller
         return $this->periods->ensureForDate(now());
     }
 
-    /** @return \Illuminate\Database\Eloquent\Collection<int, GlPeriod> */
+    /** @return Collection<int, GlPeriod> */
     private function periodOptions()
     {
         return GlPeriod::query()->orderByDesc('year')->orderByDesc('month')->limit(24)->get();

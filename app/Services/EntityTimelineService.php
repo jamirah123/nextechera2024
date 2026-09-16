@@ -15,6 +15,7 @@ use App\Models\Leave;
 use App\Models\Payment;
 use App\Models\Shift;
 use App\Models\Site;
+use App\Models\User;
 use App\Support\Audit\AuditLogUrlResolver;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
@@ -22,13 +23,11 @@ use Illuminate\Support\Collection;
 
 class EntityTimelineService
 {
-    public function __construct(private AuditLogUrlResolver $urls)
-    {
-    }
+    public function __construct(private AuditLogUrlResolver $urls) {}
 
     /**
      * @return Collection<int, array{
-     *     occurred_at: \Carbon\Carbon|null,
+     *     occurred_at: Carbon|null,
      *     summary: string,
      *     category: string,
      *     category_tone: string,
@@ -40,7 +39,7 @@ class EntityTimelineService
      *     source: string
      * }>
      */
-    public function for(Model $subject, ?\App\Models\User $viewer = null, int $limit = 40): Collection
+    public function for(Model $subject, ?User $viewer = null, int $limit = 40): Collection
     {
         $viewer ??= auth()->user();
         $entries = collect();
@@ -176,7 +175,7 @@ class EntityTimelineService
     }
 
     /** @return array<string, mixed> */
-    private function fromAuditLog(AuditLog $log, ?\App\Models\User $viewer): array
+    private function fromAuditLog(AuditLog $log, ?User $viewer): array
     {
         return [
             'occurred_at' => $log->created_at,

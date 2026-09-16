@@ -12,6 +12,7 @@ use App\Models\Leave;
 use App\Models\Payment;
 use App\Models\Shift;
 use App\Models\Site;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 
@@ -112,7 +113,7 @@ class EntityRelatedRecordsService
                 'href' => route('guards.show', $guard).'#advances',
                 'items' => $guard->salaryAdvances->take(4)->map(fn ($advance) => [
                     'label' => $advance->label,
-                    'meta' => 'Balance '.\App\Support\Money::format($advance->balance_remaining),
+                    'meta' => 'Balance '.Money::format($advance->balance_remaining),
                     'href' => route('guards.show', $guard).'#advances',
                     'tone' => $advance->is_active ? 'amber' : 'slate',
                 ])->all(),
@@ -177,7 +178,7 @@ class EntityRelatedRecordsService
                     'href' => route('invoices.index', ['client_id' => $client->id]),
                     'items' => $invoices->map(fn (Invoice $invoice) => [
                         'label' => $invoice->reference,
-                        'meta' => $invoice->status->label().' · '.\App\Support\Money::format($invoice->balance, $invoice->currency).' due',
+                        'meta' => $invoice->status->label().' · '.Money::format($invoice->balance, $invoice->currency).' due',
                         'href' => route('invoices.show', $invoice),
                         'tone' => $invoice->status->tone(),
                     ])->all(),
@@ -313,7 +314,7 @@ class EntityRelatedRecordsService
                 'href' => route('payments.index', ['invoice_id' => $invoice->id]),
                 'items' => $payments->map(fn (Payment $payment) => [
                     'label' => $payment->reference,
-                    'meta' => $payment->payment_date->format('d M Y').' · '.\App\Support\Money::format($payment->amount, $invoice->currency),
+                    'meta' => $payment->payment_date->format('d M Y').' · '.Money::format($payment->amount, $invoice->currency),
                     'href' => route('payments.show', $payment),
                     'tone' => 'emerald',
                 ])->all(),

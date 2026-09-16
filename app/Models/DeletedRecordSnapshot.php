@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Archive\DeletedRecordRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
@@ -49,12 +50,12 @@ class DeletedRecordSnapshot extends Model
 
     public function isRestorable(): bool
     {
-        return ! $this->isRestored() && \App\Support\Archive\DeletedRecordRegistry::canRestore($this->model_class);
+        return ! $this->isRestored() && DeletedRecordRegistry::canRestore($this->model_class);
     }
 
     public function typeLabel(): string
     {
-        return \App\Support\Archive\DeletedRecordRegistry::typeLabel($this->record_type);
+        return DeletedRecordRegistry::typeLabel($this->record_type);
     }
 
     public function scopeActive($query)

@@ -18,6 +18,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Services\ShiftService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -194,7 +195,7 @@ class ManpowerSurplusEnforcementTest extends TestCase
             ->assertSee('deployed', false);
     }
 
-    /** @return array{0: Site, 1: \Illuminate\Support\Collection<int, Guard>} */
+    /** @return array{0: Site, 1: Collection<int, Guard>} */
     private function siteWithDayRequirement(int $requiredDay, int $guardCount): array
     {
         $site = Site::factory()->create([

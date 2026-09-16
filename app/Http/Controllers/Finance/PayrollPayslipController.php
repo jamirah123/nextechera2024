@@ -12,9 +12,9 @@ use App\Services\Finance\PayrollPayslipExportService;
 use App\Services\Finance\PayrollPayslipPdfService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
-use Illuminate\Http\Response;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -25,8 +25,7 @@ class PayrollPayslipController extends Controller
         private PayrollCalculationService $calculator,
         private PayrollPayslipExportService $exports,
         private PayrollPayslipPdfService $pdf,
-    ) {
-    }
+    ) {}
 
     public function show(PayrollRun $payroll, PayrollPayslip $payslip): View
     {

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\UserRole;
+use App\Models\Supervisor;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -68,7 +69,7 @@ class UserFactory extends Factory
         return $this->state(function (array $attributes) use ($supervisorId) {
             return [
                 'role' => UserRole::RegionSupervisor,
-                'supervisor_id' => $supervisorId ?? \App\Models\Supervisor::factory(),
+                'supervisor_id' => $supervisorId ?? Supervisor::factory(),
             ];
         });
     }

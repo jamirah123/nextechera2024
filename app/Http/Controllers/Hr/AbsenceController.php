@@ -16,9 +16,7 @@ use InvalidArgumentException;
 
 class AbsenceController extends Controller
 {
-    public function __construct(private AbsenceService $absences)
-    {
-    }
+    public function __construct(private AbsenceService $absences) {}
 
     public function index(Request $request): View
     {

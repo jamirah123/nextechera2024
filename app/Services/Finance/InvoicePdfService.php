@@ -12,8 +12,7 @@ class InvoicePdfService
     public function __construct(
         private DompdfRenderer $pdf,
         private SystemSettingService $settings,
-    ) {
-    }
+    ) {}
 
     public function renderBinary(Invoice $invoice): string
     {

@@ -11,9 +11,7 @@ use InvalidArgumentException;
 
 class UserAccessService
 {
-    public function __construct(private AuditService $audit)
-    {
-    }
+    public function __construct(private AuditService $audit) {}
 
     /**
      * @param  array{

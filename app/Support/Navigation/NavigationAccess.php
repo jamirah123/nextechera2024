@@ -3,6 +3,7 @@
 namespace App\Support\Navigation;
 
 use App\Models\User;
+use App\Support\Access\Access;
 
 class NavigationAccess
 {
@@ -183,7 +184,7 @@ class NavigationAccess
             return self::canSeePattern($user, $routeName);
         }
 
-        return \App\Support\Access\Access::userCan($user, $permission);
+        return Access::userCan($user, $permission);
     }
 
     private static function canSeePattern(User $user, string $pattern): bool
@@ -192,7 +193,7 @@ class NavigationAccess
             $segment = trim($segment);
 
             foreach (self::permissionsForPattern($segment) as $permission) {
-                if (\App\Support\Access\Access::userCan($user, $permission)) {
+                if (Access::userCan($user, $permission)) {
                     return true;
                 }
             }

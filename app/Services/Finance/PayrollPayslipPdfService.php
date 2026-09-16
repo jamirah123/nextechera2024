@@ -8,9 +8,7 @@ use App\Support\Documents\DompdfRenderer;
 
 class PayrollPayslipPdfService
 {
-    public function __construct(private DompdfRenderer $pdf)
-    {
-    }
+    public function __construct(private DompdfRenderer $pdf) {}
 
     public function renderBinary(PayrollRun $run, PayrollPayslip $payslip): string
     {

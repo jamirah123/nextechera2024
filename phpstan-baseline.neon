@@ -1,0 +1,2731 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Property App\\Http\\Controllers\\Admin\\DataImportController\:\:\$accountingExport is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Http/Controllers/Admin/DataImportController.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Http/Controllers/Audit/AuditLogController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\AuditLog\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Audit/AuditLogController.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 3
+			path: app/Http/Controllers/DashboardController.php
+
+		-
+			message: '#^Match expression does not handle remaining value\: string$#'
+			identifier: match.unhandled
+			count: 1
+			path: app/Http/Controllers/Deployments/DeploymentController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\Deployments\\DeploymentController\:\:periodForDeployment\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Http/Controllers/Deployments/DeploymentController.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Illuminate\\Support\\Collection\<int,App\\Models\\Guard\>\:\:prepend\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Deployments/DeploymentController.php
+
+		-
+			message: '#^Property App\\Http\\Controllers\\Deployments\\DeploymentController\:\:\$bulkAllocation is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Http/Controllers/Deployments/DeploymentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/Finance/AdvanceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/Finance/AdvanceController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\GuardSalaryAdvance\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Finance/AdvanceController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>employment_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Finance/AdvanceController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>full_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Finance/AdvanceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/Finance/BillingController.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Http/Controllers/Finance/BillingController.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Finance/BillingController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\BillingProfile\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Finance/BillingController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Finance/BillingController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$billing_mode\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$cash_no_tax\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$description\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$line_total\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$quantity\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$unit_price\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Cannot call method lifecycleStep\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Invoice\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>cash_no_tax" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>value" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Finance/InvoiceController.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Http/Controllers/Finance/Ledger/LedgerReportController.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Finance/Ledger/LedgerReportController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,array\<string, App\\Models\\GlAccount\|float\>\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Finance/Ledger/LedgerReportController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Finance/Ledger/VatPackController.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Finance/Ledger/VatPackController.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Finance/Ledger/VatPackController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,App\\Models\\Invoice\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Finance/Ledger/VatPackController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Finance/PaymentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reference\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/Finance/PaymentController.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Finance/PaymentController.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Finance/PaymentController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Payment\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Finance/PaymentController.php
+
+		-
+			message: '#^Parameter \#2 \$default of function old expects array\|Illuminate\\Database\\Eloquent\\Model\|string\|null, int given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Http/Controllers/Finance/PayrollRunController.php
+
+		-
+			message: '#^Cannot call method tone\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Guards/GuardController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Hr/AttendanceController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>value" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Hr/StaffController.php
+
+		-
+			message: '#^Cannot call method toIso8601String\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/NotificationController.php
+
+		-
+			message: '#^Cannot call method tone\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Organization/SiteController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$currentDeployment\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/Organization/SupervisorController.php
+
+		-
+			message: '#^Parameter \#1 \$staff of method App\\Services\\StaffService\:\:updateStaff\(\) expects App\\Models\\Staff, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Organization/SupervisorController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 7
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 9
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,App\\Models\\Guard\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,App\\Models\\Shift\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 2
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Parameter \#1 \$rows of method App\\Services\\Reports\\MonthlyShiftCalculationService\:\:exportRows\(\) expects Illuminate\\Support\\Collection\<int, array\<string, mixed\>\>, Illuminate\\Support\\Collection\<int, array\{guard_id\: int, employment_id\: string, full_name\: string, region\: string\|null, site\: string\|null, normal_shifts\: int, overtime_shifts\: int, relief_shifts\: int, \.\.\.\}\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Reports/ReportController.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Deployment\:\:\$deployed\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Shifts/ShiftController.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:current\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/Shifts/ShiftController.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Http/Controllers/Shifts/ShiftController.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Illuminate\\Support\\Collection\<int,App\\Models\\Guard\>\:\:prepend\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Shifts/ShiftController.php
+
+		-
+			message: '#^Property App\\Http\\Controllers\\Shifts\\ShiftController\:\:\$lifecycle is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: app/Http/Controllers/Shifts/ShiftController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Requests/Organization/UpdateSupervisorRequest.php
+
+		-
+			message: '#^Cannot call method timezone\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/AuditLog.php
+
+		-
+			message: '#^Property Illuminate\\Database\\Eloquent\\Model\:\:\$attributes \(array\<string, mixed\>\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: app/Models/DeletedRecordSnapshot.php
+
+		-
+			message: '#^Property Illuminate\\Database\\Eloquent\\Model\:\:\$relations \(array\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: app/Models/DeletedRecordSnapshot.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/GlPeriod.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:current\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Models/Guard.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:filter\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|null, Closure\(App\\Models\\GuardAssetLine\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/GuardAssetIssuance.php
+
+		-
+			message: '#^Parameter \#1 \$key of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:contains\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|Illuminate\\Database\\Eloquent\\Model\|int\|string, Closure\(App\\Models\\GuardAssetLine\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/GuardAssetIssuance.php
+
+		-
+			message: '#^Parameter \#1 \$key of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:every\(\) expects \(callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: bool\)\|Illuminate\\Database\\Eloquent\\Model\|string, Closure\(App\\Models\\GuardAssetLine\)\: bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Models/GuardAssetIssuance.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/GuardAssetLine.php
+
+		-
+			message: '#^Cannot call method isPast\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/GuardAttachment.php
+
+		-
+			message: '#^Cannot call method lte\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/GuardAttachment.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Models/Leave.php
+
+		-
+			message: '#^Cannot call method blocksCalendarSlot\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/Shift.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Models/Shift.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Models/Supervisor.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>employment_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Models/Supervisor.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$region_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Cannot call method hasImplicitFullAccess\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/User.php
+
+		-
+			message: '#^Cannot call method isOpen\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/WorkOrder.php
+
+		-
+			message: '#^Cannot call method isPast\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Models/WorkOrder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$region_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Policies/AbsencePolicy.php
+
+		-
+			message: '#^Cannot call method isDownloadable\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Policies/DatabaseBackupPolicy.php
+
+		-
+			message: '#^Cannot call method isRestorable\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Policies/DatabaseBackupPolicy.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$region_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Policies/DesertionPolicy.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$region_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Policies/GuardAssetIssuancePolicy.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$region_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Policies/IncidentPolicy.php
+
+		-
+			message: '#^Cannot call method isOpen\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Policies/WorkOrderPolicy.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$current_site_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/AbsenceService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$operational_status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/AbsenceService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\GuardService\:\:updateGuard\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/AbsenceService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>site_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/AbsenceService.php
+
+		-
+			message: '#^Call to an undefined static method Illuminate\\Database\\Eloquent\\Model\:\:withTrashed\(\)\.$#'
+			identifier: staticMethod.notFound
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Call to function is_array\(\) with \*NEVER\* will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Cannot call method fresh\(\) on class\-string\|object\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Cannot call method restore\(\) on class\-string\|object\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Cannot unset offset ''deleted_at'' on string\.$#'
+			identifier: unset.offset
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Cannot unset offset ''id'' on string\.$#'
+			identifier: unset.offset
+			count: 3
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Class App\\Services\\Client not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Class App\\Services\\Guard not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Class App\\Services\\Invoice not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Class App\\Services\\Region not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Class App\\Services\\Site not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Class App\\Services\\Staff not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Class App\\Services\\Supervisor not found\.$#'
+			identifier: class.notFound
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Empty array passed to foreach\.$#'
+			identifier: foreach.emptyArray
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Offset ''guard_id'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Offset ''user_id'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 2
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ArchiveService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/AuditService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: app/Services/Compliance/ComplianceSnapshotService.php
+
+		-
+			message: '#^Method App\\Services\\Compliance\\ComplianceSnapshotService\:\:expiredDocumentGuardSamples\(\) should return Illuminate\\Support\\Collection\<int, array\{guard\: App\\Models\\Guard, label\: string, expires_at\: string\}\> but returns Illuminate\\Support\\Collection\<int, array\{guard\: Illuminate\\Database\\Eloquent\\Model, label\: string, expires_at\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Compliance/ComplianceSnapshotService.php
+
+		-
+			message: '#^Method App\\Services\\Compliance\\ComplianceSnapshotService\:\:slaBreaches\(\) should return Illuminate\\Support\\Collection\<int, array\{site\: App\\Models\\Site, contracted\: int, deployed\: int, shortage\: int, profile\: App\\Models\\BillingProfile\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{site\: App\\Models\\Site, contracted\: int\<1, max\>, deployed\: mixed, shortage\: float\|int\<1, max\>, profile\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Compliance/ComplianceSnapshotService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\GuardAttachment\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/Compliance/ComplianceSnapshotService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,array\<string, mixed\>\>\:\:filter\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/Compliance/ComplianceSnapshotService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{site\: App\\Models\\Site, manpower\: array\<string, mixed\>, href\: string\}, Closure\(App\\Models\\Site\)\: array\{site\: App\\Models\\Site, manpower\: array\<string, mixed\>, href\: string\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Dashboards/OperationalDashboardService.php
+
+		-
+			message: '#^Parameter \#1 \$sites of method App\\Services\\ManpowerService\:\:forSites\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\Site\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Dashboards/OperationalDashboardService.php
+
+		-
+			message: '#^Parameter \#1 \$snapshots of method App\\Services\\Dashboards\\OperationalDashboardService\:\:aggregateSnapshots\(\) expects Illuminate\\Support\\Collection\<int, array\<string, mixed\>\|null\>, Illuminate\\Support\\Collection\<int, array\<string, mixed\>\> given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Services/Dashboards/OperationalDashboardService.php
+
+		-
+			message: '#^Parameter \#1 \$snapshots of method App\\Services\\Dashboards\\OperationalDashboardService\:\:aggregateSnapshots\(\) expects Illuminate\\Support\\Collection\<int, array\<string, mixed\>\|null\>, Illuminate\\Support\\Collection\<int, non\-empty\-array\<string, mixed\>\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Dashboards/OperationalDashboardService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/DatabaseBackupService.php
+
+		-
+			message: '#^Cannot call method isDownloadable\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/DatabaseBackupService.php
+
+		-
+			message: '#^Cannot call method isRestorable\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/DatabaseBackupService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/DatabaseBackupService.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: app/Services/DatabaseBackupService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: app/Services/DatabaseBackupService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/DatabaseBackupService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$region_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:current\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 2
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Method App\\Services\\DeploymentService\:\:scheduleWorkShift\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\DeploymentService\:\:assertSameRegion\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\DeploymentService\:\:postDeploymentStatus\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\DeploymentService\:\:syncGuardAssignment\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\GuardService\:\:updateGuard\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Parameter \#1 \$posting of static method App\\Support\\Shifts\\ShiftDutyTypeResolver\:\:workPeriodFor\(\) expects App\\Enums\\DeploymentShiftType, string given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Parameter \#1 \$shiftType of static method App\\Support\\Deployments\\DeploymentShiftSchedule\:\:isOnShift\(\) expects App\\Enums\\DeploymentShiftType, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Parameter \#4 \$normalPosting of method App\\Services\\DeploymentService\:\:recordDutiesForPosting\(\) expects App\\Enums\\DeploymentShiftType, string given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>value" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/DeploymentService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$current_site_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/DesertionService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$operational_status\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/DesertionService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\DesertionService\:\:restoreGuardToDeploymentBoard\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/DesertionService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\GuardService\:\:updateGuard\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Services/DesertionService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/Documents/LetterPdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$balance_remaining\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$contract_status\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$is_active\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$shift_type\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$start_date\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:displayLabel\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 6
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 5
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Cannot call method tone\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 6
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Deployment\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Incident\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Invoice\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Leave\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Shift\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 2
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 3
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{label\: string, meta\: non\-falsy\-string, href\: string, tone\: ''emerald''\}, Closure\(App\\Models\\Payment\)\: array\{label\: string, meta\: non\-falsy\-string, href\: string, tone\: ''emerald''\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: array\{label\: string, meta\: string, href\: string, tone\: mixed\}, Closure\(App\\Models\\Site\)\: array\{label\: string, meta\: string, href\: string, tone\: mixed\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,App\\Models\\GuardAssetIssuance\>\:\:flatMap\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>full_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/EntityRelatedRecordsService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/EntityTimelineService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/EntityTimelineService.php
+
+		-
+			message: '#^Cannot call method tone\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/EntityTimelineService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\GuardStatusHistory\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/EntityTimelineService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/EntityTimelineService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>timestamp" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/EntityTimelineService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$client\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reference\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Method App\\Services\\Exports\\AccountingExportService\:\:invoiceJournalRows\(\) should return Illuminate\\Support\\Collection\<int, list\<float\|int\|string\|null\>\> but returns Illuminate\\Support\\Collection\<int, array\{mixed, string, mixed, mixed, mixed, mixed, mixed, mixed, \.\.\.\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Method App\\Services\\Exports\\AccountingExportService\:\:paymentJournalRows\(\) should return Illuminate\\Support\\Collection\<int, list\<float\|int\|string\|null\>\> but returns Illuminate\\Support\\Collection\<int, array\{mixed, string, mixed, mixed, mixed, ''Bank / Cash'', ''Accounts Receivable'', float, \.\.\.\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Method App\\Services\\Exports\\AccountingExportService\:\:payrollJournalRows\(\) should return Illuminate\\Support\\Collection\<int, list\<float\|int\|string\|null\>\> but returns Illuminate\\Support\\Collection\<int, array\{mixed~null, string, lowercase\-string&non\-falsy\-string, \*ERROR\*, ''Payroll Expense'', ''Payroll Payable'', float, float, float, string\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Invoice\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Payment\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\PayrollRun\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>code" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Exports/AccountingExportService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>cash_no_tax" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>client_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>contracted_armed_guards" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>contracted_day_armed_guards" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>contracted_day_unarmed_guards" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>contracted_night_armed_guards" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>contracted_night_unarmed_guards" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>contracted_unarmed_guards" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>cost_per_armed_shift" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>cost_per_unarmed_shift" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>currency" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>is_active" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>monthly_cost_per_armed_guard" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>monthly_cost_per_unarmed_guard" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>monthly_rate_per_armed_day_guard" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>monthly_rate_per_armed_guard" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>monthly_rate_per_armed_night_guard" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>monthly_rate_per_unarmed_day_guard" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>monthly_rate_per_unarmed_guard" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>monthly_rate_per_unarmed_night_guard" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>rate_per_armed_day_shift" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>rate_per_armed_night_shift" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>rate_per_armed_shift" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>rate_per_unarmed_day_shift" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>rate_per_unarmed_night_shift" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>rate_per_unarmed_shift" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>value" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/BillingService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$created_at\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/Finance/FinanceHistoryService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$creator\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/FinanceHistoryService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Finance/FinanceHistoryService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$updated_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/FinanceHistoryService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$updater\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/FinanceHistoryService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:creator\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/Finance/FinanceHistoryService.php
+
+		-
+			message: '#^Cannot access property \$timestamp on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/Finance/FinanceHistoryService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Services/Finance/FinanceHistoryService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>timestamp" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/FinanceHistoryService.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: app/Services/Finance/GuardAdvanceService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/Finance/InvoicePdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Finance/InvoiceService.php
+
+		-
+			message: '#^Cannot call method lt\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/Finance/InvoiceService.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: app/Services/Finance/InvoiceService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Services/Finance/InvoiceService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:unmatched\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Services/Finance/Ledger/BankReconciliationService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/Ledger/GlPeriodService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$account\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerPostingService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$credit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerPostingService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$debit\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerPostingService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$memo\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerPostingService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reference\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerPostingService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Relations\\HasMany\:\:posted\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerPostingService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerPostingService.php
+
+		-
+			message: '#^Parameter \$lines of method App\\Services\\Finance\\Ledger\\LedgerPostingService\:\:post\(\) expects list\<array\{account\: App\\Models\\GlAccount, debit\: float\|int, credit\: float\|int, memo\?\: string\|null\}\>, array\{array\{account\: Illuminate\\Database\\Eloquent\\Model, debit\: float, credit\: 0, memo\: non\-falsy\-string\}, array\{account\: App\\Models\\GlAccount, debit\: 0, credit\: float, memo\: non\-falsy\-string\}\}\|array\{array\{account\: Illuminate\\Database\\Eloquent\\Model, debit\: float, credit\: 0, memo\: non\-falsy\-string\}, array\{account\: App\\Models\\GlAccount, debit\: float, credit\: 0, memo\: non\-falsy\-string\}, array\{account\: App\\Models\\GlAccount, debit\: 0, credit\: float, memo\: non\-falsy\-string\}\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerPostingService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerPostingService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\GlJournalLine\:\:\$credit_total\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerReportService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\GlJournalLine\:\:\$debit_total\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerReportService.php
+
+		-
+			message: '#^Method App\\Services\\Finance\\Ledger\\LedgerReportService\:\:trialBalance\(\) should return array\{period\: App\\Models\\GlPeriod, rows\: Illuminate\\Support\\Collection\<int, array\{account\: App\\Models\\GlAccount, debit\: float, credit\: float, balance\: float\}\>, debit_total\: float, credit_total\: float\} but returns array\{period\: App\\Models\\GlPeriod, rows\: Illuminate\\Support\\Collection\<int, array\{account\: App\\Models\\GlAccount, debit\: float, credit\: float, balance\: float, movement_debit\: float, movement_credit\: float\}\>, debit_total\: float, credit_total\: float\}\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Finance/Ledger/LedgerReportService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/Finance/Ledger/PurchaseInvoiceService.php
+
+		-
+			message: '#^Parameter \#2 \$actor of method App\\Services\\Finance\\PaymentService\:\:recordPayrollDisbursement\(\) expects App\\Models\\User\|null, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Finance/PaymentService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/Finance/PayrollBankExportService.php
+
+		-
+			message: '#^Cannot call method shortLabel\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/Finance/PayrollBankExportService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: list\<float\|int\|string\>, Closure\(App\\Models\\PayrollPayslip\)\: list\<float\|int\|string\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Finance/PayrollBankExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$balance_remaining\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$guardProfile\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$guard_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$line\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$recovered_amount\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$run\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Cannot call method canCalculate\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 7
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:each\(\) expects callable\(Illuminate\\Database\\Eloquent\\Model, int\)\: mixed, Closure\(App\\Models\\PayrollPayslip\)\: void given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Parameter \#1 \$payslip of method App\\Services\\Finance\\PayrollCalculationService\:\:recalculatePayslipTotals\(\) expects App\\Models\\PayrollPayslip, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Parameter \#1 \$run of method App\\Services\\Finance\\PayrollCalculationService\:\:recalculateRunTotals\(\) expects App\\Models\\PayrollRun, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Finance/PayrollCalculationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$amount\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/PayrollPayslipExportService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$label\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/PayrollPayslipExportService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/Finance/PayrollRunService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$client_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/ProfitabilityService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Finance/ProfitabilityService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
+			identifier: property.notFound
+			count: 4
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 9
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$reference\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 16
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:advances\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''advance'', label\: ''Advance'', title\: string, subtitle\: non\-falsy\-string, url\: string, badge\: ''Active''\|''Closed''\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:clients\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''client'', label\: ''Client'', title\: string, subtitle\: non\-falsy\-string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:deployments\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''deployment'', label\: ''Deployment'', title\: mixed, subtitle\: non\-falsy\-string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:glAccounts\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''gl_account'', label\: ''GL account'', title\: string, subtitle\: string, url\: string, badge\: ''Active''\|''Inactive''\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:guards\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''guard'', label\: ''Guard'', title\: string, subtitle\: non\-falsy\-string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:incidents\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''incident'', label\: ''Incident'', title\: string, subtitle\: non\-falsy\-string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:invoices\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''invoice'', label\: ''Invoice'', title\: string, subtitle\: non\-falsy\-string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:journals\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''journal'', label\: ''Journal'', title\: string, subtitle\: string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:payments\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''payment'', label\: ''Payment'', title\: string, subtitle\: non\-falsy\-string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:payrollRuns\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''payroll'', label\: ''Payroll'', title\: string, subtitle\: non\-falsy\-string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:regions\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''region'', label\: ''Region'', title\: string, subtitle\: string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:shifts\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''shift'', label\: ''Shift'', title\: mixed, subtitle\: non\-falsy\-string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:sites\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''site'', label\: ''Site'', title\: string, subtitle\: non\-falsy\-string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:staff\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''staff'', label\: ''Staff'', title\: string, subtitle\: string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:supervisors\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''supervisor'', label\: ''Supervisor'', title\: string, subtitle\: non\-falsy\-string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Method App\\Services\\GlobalSearchService\:\:workOrders\(\) should return Illuminate\\Support\\Collection\<int, array\{type\: string, label\: string, title\: string, subtitle\: string, url\: string, badge\: string\|null\}\> but returns Illuminate\\Support\\Collection\<int, array\{type\: ''work_order'', label\: ''Work order'', title\: string, subtitle\: string, url\: string, badge\: mixed\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Client\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Deployment\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\GlJournal\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Guard\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Incident\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Invoice\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Payment\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\PayrollRun\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Region\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Shift\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Site\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Staff\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\Supervisor\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,App\\Models\\WorkOrder\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>employment_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 3
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>full_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 4
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 9
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>reference" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/GlobalSearchService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$notes\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$quantity\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$quantity_returned\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$recovered_amount\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$recovery\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$returned_at\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:quantityOutstanding\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Method App\\Services\\GuardAssetService\:\:updateLine\(\) should return App\\Models\\GuardAssetLine but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Parameter \#1 \$line of method App\\Services\\GuardAssetService\:\:syncLineRecovery\(\) expects App\\Models\\GuardAssetLine, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>full_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/GuardAssetService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 8
+			path: app/Services/GuardService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$current_site_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/LeaveService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/LeaveService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/LeaveService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$operational_status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/LeaveService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 3
+			path: app/Services/LeaveService.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 10
+			path: app/Services/LeaveService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,App\\Models\\Shift\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 2
+			path: app/Services/LeaveService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\GuardService\:\:updateGuard\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Services/LeaveService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 5
+			path: app/Services/ManpowerCoverageReportService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/ManpowerCoverageReportService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,array\<string, App\\Models\\Site\|array\<string, mixed\>\>\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/ManpowerCoverageReportService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 5
+			path: app/Services/ManpowerCoverageReportService.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\Deployment\:\:\$aggregate\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ManpowerService.php
+
+		-
+			message: '#^Method App\\Services\\ManpowerService\:\:forSitesOnDate\(\) should return Illuminate\\Support\\Collection\<int, array\<string, mixed\>\> but returns Illuminate\\Support\\Collection\<int, array\{date\: string, required\: mixed, required_day\: mixed, required_night\: mixed, deployed\: mixed, deployed_day\: mixed, deployed_night\: mixed, allocated\: int, \.\.\.\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/ManpowerService.php
+
+		-
+			message: '#^Parameter \#1 \$sites of method App\\Services\\ManpowerService\:\:aggregate\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\Site\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ManpowerService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/NotificationFeedService.php
+
+		-
+			message: '#^Cannot call method diffForHumans\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/NotificationFeedService.php
+
+		-
+			message: '#^Cannot call method gt\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/NotificationFeedService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/NotificationFeedService.php
+
+		-
+			message: '#^Cannot call method toIso8601String\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/NotificationFeedService.php
+
+		-
+			message: '#^Cannot call method tone\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/NotificationFeedService.php
+
+		-
+			message: '#^Match expression does not handle remaining value\: string$#'
+			identifier: match.unhandled
+			count: 1
+			path: app/Services/NotificationFeedService.php
+
+		-
+			message: '#^Parameter \#3 \$readAt of method App\\Services\\NotificationFeedService\:\:format\(\) expects DateTimeInterface\|null, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/NotificationFeedService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$code\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Operations/IncidentReportPdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Operations/IncidentReportPdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Operations/IncidentReportPdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/Operations/IncidentReportPdfService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/Operations/IncidentReportPdfService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: app/Services/Operations/IncidentReportPdfService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,App\\Models\\Incident\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/Operations/IncidentReportPdfService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Operations/IncidentService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 3
+			path: app/Services/Operations/IncidentService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/Operations/IncidentService.php
+
+		-
+			message: '#^Parameter \#1 \$severity of method App\\Services\\Operations\\IncidentService\:\:auditSeverity\(\) expects App\\Enums\\IncidentSeverity, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Operations/IncidentService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProactiveAlertService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/ProactiveAlertService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ProactiveAlertService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 5
+			path: app/Services/ProactiveAlertService.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 11
+			path: app/Services/ProactiveAlertService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>full_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 3
+			path: app/Services/ProactiveAlertService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$operational_status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ReplacementService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 3
+			path: app/Services/ReplacementService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: app/Services/ReplacementService.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/ReplacementService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\GuardService\:\:updateGuard\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ReplacementService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Reports/MonthlyShiftCalculationService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Pagination\\LengthAwarePaginator\<int, App\\Models\\Guard\>\:\:getCollection\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/Reports/MonthlyShiftCalculationService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Contracts\\Pagination\\LengthAwarePaginator\<int, App\\Models\\Guard\>\:\:setCollection\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/Reports/MonthlyShiftCalculationService.php
+
+		-
+			message: '#^Cannot call method countsAsWorked\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/Reports/MonthlyShiftCalculationService.php
+
+		-
+			message: '#^Method App\\Services\\Reports\\MonthlyShiftCalculationService\:\:calculate\(\) should return Illuminate\\Support\\Collection\<int, array\{guard_id\: int, employment_id\: string, full_name\: string, region\: string\|null, site\: string\|null, normal_shifts\: int, overtime_shifts\: int, relief_shifts\: int, \.\.\.\}\> but returns Illuminate\\Support\\Collection\<int, array\<string, mixed\>\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Reports/MonthlyShiftCalculationService.php
+
+		-
+			message: '#^Method App\\Services\\Reports\\MonthlyShiftCalculationService\:\:mapRows\(\) should return Illuminate\\Support\\Collection\<int, array\<string, mixed\>\> but returns Illuminate\\Support\\Collection\<int, array\{guard_id\: int, employment_id\: string, full_name\: string, role\: string, is_supervisor\: bool, region\: mixed, site\: mixed, normal_shifts\: int, \.\.\.\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/Reports/MonthlyShiftCalculationService.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Support\\Collection\<int,App\\Models\\Guard\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Services/Reports/MonthlyShiftCalculationService.php
+
+		-
+			message: '#^Parameter \#2 \$guards of method App\\Services\\Reports\\MonthlyShiftCalculationService\:\:mapRows\(\) expects Illuminate\\Support\\Collection\<int, App\\Models\\Guard\>, Illuminate\\Database\\Eloquent\\Collection\<int, Illuminate\\Database\\Eloquent\\Model\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Reports/MonthlyShiftCalculationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$operational_status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 7
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\DeploymentService\:\:releaseGuardAfterDuty\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\GuardService\:\:updateGuard\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Parameter \#2 \$haystack of function in_array expects array, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>employment_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>shift_type" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/ShiftService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/Shifts/BulkShiftAllocationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$guard_classification\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Shifts/BulkShiftAllocationService.php
+
+		-
+			message: '#^Parameter \#1 \$normalPosting of static method App\\Support\\Shifts\\ShiftDutyTypeResolver\:\:resolve\(\) expects App\\Enums\\DeploymentShiftType, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Shifts/BulkShiftAllocationService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>employment_id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Services/Shifts/BulkShiftAllocationService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>guard_classification" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/Shifts/BulkShiftAllocationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$contract_status\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/Shifts/ShiftValidationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/Shifts/ShiftValidationService.php
+
+		-
+			message: '#^Cannot call method label\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/Shifts/ShiftValidationService.php
+
+		-
+			message: '#^Parameter \#1 \$posting of static method App\\Support\\Shifts\\ShiftDutyTypeResolver\:\:workPeriodFor\(\) expects App\\Enums\\DeploymentShiftType, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/Shifts/ShiftValidationService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$guardProfile\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/StaffService.php
+
+		-
+			message: '#^Cannot call method toDateString\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Services/StaffService.php
+
+		-
+			message: '#^Parameter \#1 \$supervisor of method App\\Services\\SupervisorGuardService\:\:syncLinkedEmploymentId\(\) expects App\\Models\\Supervisor, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/StaffService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/SupervisorGuardService.php
+
+		-
+			message: '#^Method App\\Services\\SupervisorGuardService\:\:createSupervisorForStaff\(\) should return App\\Models\\Supervisor but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/SupervisorGuardService.php
+
+		-
+			message: '#^Method App\\Services\\SupervisorGuardService\:\:ensureGuardProfile\(\) should return App\\Models\\Guard but returns Illuminate\\Database\\Eloquent\\Model\|null\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/SupervisorGuardService.php
+
+		-
+			message: '#^Method App\\Services\\SupervisorGuardService\:\:ensureStaffProfile\(\) should return App\\Models\\Staff but returns Illuminate\\Database\\Eloquent\\Model\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Services/SupervisorGuardService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\SupervisorGuardService\:\:ensureSalaryCompensation\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/SupervisorGuardService.php
+
+		-
+			message: '#^Parameter \#1 \$guard of method App\\Services\\SupervisorGuardService\:\:syncGuardSalaryFromStaff\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/SupervisorGuardService.php
+
+		-
+			message: '#^Parameter \#2 \$guard of method App\\Services\\SupervisorGuardService\:\:syncGuardRegion\(\) expects App\\Models\\Guard, Illuminate\\Database\\Eloquent\\Model given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/SupervisorGuardService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 5
+			path: app/Services/UserAccessService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/WorkOrderService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$region_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/WorkOrderService.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 2
+			path: app/Services/WorkOrderService.php
+
+		-
+			message: '#^Cannot call method isOpen\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: app/Services/WorkOrderService.php
+
+		-
+			message: '#^Offset ''dedup_key'' on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 2
+			path: app/Services/WorkOrderService.php
+
+		-
+			message: '#^Parameter \#1 \$severity of static method App\\Support\\WorkOrders\\WorkOrderAlertCatalog\:\:priorityFromSeverity\(\) expects App\\Enums\\AuditSeverity, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/WorkOrderService.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between array\{\} and array\{\} will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: app/Services/WorkOrderService.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Services/WorkOrderService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$employment_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/WorkflowMailService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Services/WorkflowMailService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 3
+			path: app/Services/WorkflowMailService.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 4
+			path: app/Services/WorkflowMailService.php
+
+		-
+			message: '#^Offset ''deployed'' on array\{\} in isset\(\) does not exist\.$#'
+			identifier: isset.offset
+			count: 1
+			path: app/Services/WorkflowMailService.php
+
+		-
+			message: '#^Offset ''expires_at'' on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/WorkflowMailService.php
+
+		-
+			message: '#^Offset ''reason'' on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Services/WorkflowMailService.php
+
+		-
+			message: '#^Offset ''required'' on array\{\} in isset\(\) does not exist\.$#'
+			identifier: isset.offset
+			count: 1
+			path: app/Services/WorkflowMailService.php
+
+		-
+			message: '#^Method App\\Support\\Audit\\AuditLogUrlResolver\:\:auditFallback\(\) never returns string so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Support/Audit/AuditLogUrlResolver.php
+
+		-
+			message: '#^Method App\\Support\\Branding\\ThemePalette\:\:brandScale\(\) should return array\<string, string\> but returns array\<int, string\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Support/Branding/ThemePalette.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Builder\<Illuminate\\Database\\Eloquent\\Model\>\:\:current\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Support/Deployments/DeploymentShiftSchedule.php
+
+		-
+			message: '#^Cannot call method canCancel\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Support/Finance/PayrollAccess.php
+
+		-
+			message: '#^Cannot call method canReject\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Support/Finance/PayrollAccess.php
+
+		-
+			message: '#^Cannot call method copy\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Support/Finance/PayrollRates.php
+
+		-
+			message: '#^Cannot call method diffInDays\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Support/Finance/PayrollRates.php
+
+		-
+			message: '#^Cannot call method lessThan\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Support/Finance/PayrollRates.php
+
+		-
+			message: '#^Method App\\Support\\Finance\\PayrollRates\:\:eligibleDaysInPeriod\(\) should return int but returns float\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Support/Finance/PayrollRates.php
+
+		-
+			message: '#^Parameter \#1 \$periodStart of static method App\\Support\\Finance\\PayrollRates\:\:eligibleDaysInPeriod\(\) expects Carbon\\CarbonInterface, string given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Support/Finance/PayrollRates.php
+
+		-
+			message: '#^Parameter \#2 \$periodEnd of static method App\\Support\\Finance\\PayrollRates\:\:eligibleDaysInPeriod\(\) expects Carbon\\CarbonInterface, string given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Support/Finance/PayrollRates.php
+
+		-
+			message: '#^Parameter \#3 \$dateEmployed of static method App\\Support\\Finance\\PayrollRates\:\:eligibleDaysInPeriod\(\) expects Carbon\\CarbonInterface\|null, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Support/Finance/PayrollRates.php
+
+		-
+			message: '#^Parameter \#4 \$employmentEndDate of static method App\\Support\\Finance\\PayrollRates\:\:eligibleDaysInPeriod\(\) expects Carbon\\CarbonInterface\|null, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Support/Finance/PayrollRates.php
+
+		-
+			message: '#^PHPDoc tag @var for constant App\\Support\\Navigation\\NavigationAccess\:\:PATTERN_PERMISSIONS with type array\<string, list\<string\>\> is not subtype of value array\{dashboard\: array\{''dashboards…''\}, ''ops\-dashboards\.\*''\: array\{''dashboards…''\}, ''organization\.\*''\: array\{''organization\.view''\}, ''regions\.\*''\: array\{''organization\.view''\}, ''supervisors\.\*''\: array\{''organization\.view''\}, ''clients\.\*''\: array\{''organization\.view''\}, ''sites\.\*''\: array\{''organization\.view''\}, ''manpower\.\*''\: array\{''organization\.view''\}, \.\.\.\}\.$#'
+			identifier: classConstant.phpDocType
+			count: 1
+			path: app/Support/Navigation/NavigationAccess.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$full_name\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Support/WorkOrders/WorkOrderAlertCatalog.php
+
+		-
+			message: '#^Offset ''client'' on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/WorkOrders/WorkOrderAlertCatalog.php
+
+		-
+			message: '#^Offset ''contract_end_date'' on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/WorkOrders/WorkOrderAlertCatalog.php
+
+		-
+			message: '#^Offset ''employment_end_date'' on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/WorkOrders/WorkOrderAlertCatalog.php
+
+		-
+			message: '#^Offset ''expires_at'' on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Support/WorkOrders/WorkOrderAlertCatalog.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>full_name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: app/Support/WorkOrders/WorkOrderAlertCatalog.php

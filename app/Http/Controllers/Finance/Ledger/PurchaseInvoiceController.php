@@ -20,8 +20,7 @@ class PurchaseInvoiceController extends Controller
         private PurchaseInvoiceService $purchases,
         private ChartOfAccountsService $coa,
         private VatPackService $vat,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {

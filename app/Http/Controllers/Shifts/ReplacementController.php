@@ -18,9 +18,7 @@ use InvalidArgumentException;
 
 class ReplacementController extends Controller
 {
-    public function __construct(private ReplacementService $replacements)
-    {
-    }
+    public function __construct(private ReplacementService $replacements) {}
 
     public function index(Request $request): View
     {

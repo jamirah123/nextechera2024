@@ -10,8 +10,7 @@ class ImportResult
         public int $updated = 0,
         public int $skipped = 0,
         public array $errors = [],
-    ) {
-    }
+    ) {}
 
     public function addError(int $row, string $message): void
     {

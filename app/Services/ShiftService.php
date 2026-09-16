@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\AuditCategory;
+use App\Enums\AuditSeverity;
 use App\Enums\DeploymentShiftType;
 use App\Enums\GuardClassification;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
-use App\Enums\AuditCategory;
-use App\Enums\AuditSeverity;
 use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Shift;
@@ -20,6 +20,7 @@ use App\Services\Shifts\ShiftValidationResult;
 use App\Services\Shifts\ShiftValidationService;
 use App\Support\Shifts\ShiftDutyTypeResolver;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Carbon\CarbonPeriod;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -33,8 +34,7 @@ class ShiftService
         private AuditService $audit,
         private DeploymentService $deployments,
         private PayrollCalculationService $payroll,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{
@@ -154,7 +154,7 @@ class ShiftService
         });
     }
 
-    public function resolveStatusForWindow(\Carbon\CarbonInterface $startsAt, \Carbon\CarbonInterface $endsAt): ShiftStatus
+    public function resolveStatusForWindow(CarbonInterface $startsAt, CarbonInterface $endsAt): ShiftStatus
     {
         $now = now();
 

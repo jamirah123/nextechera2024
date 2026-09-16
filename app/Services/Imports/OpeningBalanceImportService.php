@@ -18,7 +18,6 @@ use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 
 class OpeningBalanceImportService
 {
@@ -26,8 +25,7 @@ class OpeningBalanceImportService
         private CsvImportService $csv,
         private GuardAdvanceService $advances,
         private AuditService $audit,
-    ) {
-    }
+    ) {}
 
     /** @return list<string> */
     public function templateHeaders(): array

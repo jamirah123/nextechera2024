@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\BackupStatus;
 use App\Models\DatabaseBackup;
 use App\Models\User;
 use App\Support\Access\Access;
@@ -48,6 +49,6 @@ class DatabaseBackupPolicy
     {
         // Completed/verified backups are retained by policy; only failed catalog rows may be dismissed.
         return Access::userCan($actor, 'admin.backups_manage')
-            && $backup->status === \App\Enums\BackupStatus::Failed;
+            && $backup->status === BackupStatus::Failed;
     }
 }

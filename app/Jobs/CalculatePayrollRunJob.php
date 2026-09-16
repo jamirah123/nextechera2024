@@ -17,9 +17,7 @@ class CalculatePayrollRunJob implements ShouldQueue
 
     public int $timeout = 300;
 
-    public function __construct(public int $payrollRunId)
-    {
-    }
+    public function __construct(public int $payrollRunId) {}
 
     public function handle(PayrollRunService $payroll): void
     {

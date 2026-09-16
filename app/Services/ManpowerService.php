@@ -7,6 +7,8 @@ use App\Enums\DeploymentShiftType;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\SiteStatus;
+use App\Models\BillingProfile;
+use App\Models\Deployment;
 use App\Models\Region;
 use App\Models\Shift;
 use App\Models\Site;
@@ -14,6 +16,12 @@ use Illuminate\Support\Collection;
 
 class ManpowerService
 {
+    /** @var array<int, array{total: int, day: int, night: int}>|null */
+    private ?array $deploymentCountCache = null;
+
+    /** @var array<int, BillingProfile|null>|null keyed by site id */
+    private ?array $billingProfileCache = null;
+
     /**
      * @return array{
      *     required: int,
@@ -37,58 +45,42 @@ class ManpowerService
      *     contracted: int,
      *     sla_shortage: int,
      *     sla_percent: float|null,
-     *     billing_profile: \App\Models\BillingProfile|null
+     *     billing_profile: BillingProfile|null
      * }
      */
     public function forSite(Site $site): array
     {
-        $required = (int) $site->required_guards;
-        $requiredDay = (int) $site->required_day_guards;
-        $requiredNight = (int) $site->required_night_guards;
-        $requiredDayArmed = (int) $site->required_day_armed_guards;
-        $requiredDayUnarmed = (int) $site->required_day_unarmed_guards;
-        $requiredNightArmed = (int) $site->required_night_armed_guards;
-        $requiredNightUnarmed = (int) $site->required_night_unarmed_guards;
+        return $this->forSites(collect([$site]))->get($site->id)
+            ?? $this->buildSiteSnapshot($site, ['total' => 0, 'day' => 0, 'night' => 0], null);
+    }
 
-        $deployed = app(DeploymentService::class)->activeCountForSite($site);
-        $deployedDay = app(DeploymentService::class)->activeCountForSiteByShift($site, DeploymentShiftType::Day);
-        $deployedNight = app(DeploymentService::class)->activeCountForSiteByShift($site, DeploymentShiftType::Night);
-        $scheduled = $deployed;
-        $available = $deployed;
+    /**
+     * Batch coverage for many sites in a handful of queries.
+     *
+     * @param  Collection<int, Site>  $sites
+     * @return Collection<int, array<string, mixed>> keyed by site id
+     */
+    public function forSites(Collection $sites): Collection
+    {
+        if ($sites->isEmpty()) {
+            return collect();
+        }
 
-        $shortage = max(0, $required - $deployed);
-        $surplus = max(0, $deployed - $required);
-        $coverage = $required > 0 ? round(($deployed / $required) * 100, 1) : 0.0;
+        $siteIds = $sites->pluck('id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $counts = $this->deploymentCountsForSites($siteIds);
+        $profiles = $this->billingProfilesForSites($sites);
 
-        $billingProfile = \App\Models\BillingProfile::activeForSite($site);
-        $contracted = $billingProfile?->contractedGuardTotal() ?? 0;
-        $slaShortage = $contracted > 0 ? max(0, $contracted - $deployed) : 0;
-        $slaPercent = $contracted > 0 ? round(($deployed / $contracted) * 100, 1) : null;
+        return $sites->mapWithKeys(function (Site $site) use ($counts, $profiles) {
+            $siteId = (int) $site->id;
 
-        return [
-            'required' => $required,
-            'required_day' => $requiredDay,
-            'required_night' => $requiredNight,
-            'required_day_armed' => $requiredDayArmed,
-            'required_day_unarmed' => $requiredDayUnarmed,
-            'required_night_armed' => $requiredNightArmed,
-            'required_night_unarmed' => $requiredNightUnarmed,
-            'scheduled' => $scheduled,
-            'available' => $available,
-            'deployed' => $deployed,
-            'deployed_day' => $deployedDay,
-            'deployed_night' => $deployedNight,
-            'shortage' => $shortage,
-            'surplus' => $surplus,
-            'shortage_day' => max(0, $requiredDay - $deployedDay),
-            'shortage_night' => max(0, $requiredNight - $deployedNight),
-            'coverage_percent' => $coverage,
-            'status' => $this->coverageStatus($required, $deployed),
-            'contracted' => $contracted,
-            'sla_shortage' => $slaShortage,
-            'sla_percent' => $slaPercent,
-            'billing_profile' => $billingProfile,
-        ];
+            return [
+                $siteId => $this->buildSiteSnapshot(
+                    $site,
+                    $counts[$siteId] ?? ['total' => 0, 'day' => 0, 'night' => 0],
+                    $profiles[$siteId] ?? null,
+                ),
+            ];
+        });
     }
 
     /**
@@ -121,20 +113,16 @@ class ManpowerService
     {
         $base = $this->forSite($site);
 
-        $allocatedDay = Shift::query()
+        $allocatedRows = Shift::query()
             ->forDate($date)
             ->where('site_id', $site->id)
-            ->where('period', ShiftPeriod::Day->value)
             ->whereIn('status', ShiftStatus::blockingAllocationValues())
-            ->count();
+            ->selectRaw('period, COUNT(*) as aggregate')
+            ->groupBy('period')
+            ->pluck('aggregate', 'period');
 
-        $allocatedNight = Shift::query()
-            ->forDate($date)
-            ->where('site_id', $site->id)
-            ->where('period', ShiftPeriod::Night->value)
-            ->whereIn('status', ShiftStatus::blockingAllocationValues())
-            ->count();
-
+        $allocatedDay = (int) ($allocatedRows[ShiftPeriod::Day->value] ?? 0);
+        $allocatedNight = (int) ($allocatedRows[ShiftPeriod::Night->value] ?? 0);
         $allocated = $allocatedDay + $allocatedNight;
         $required = $base['required'];
         $requiredDay = $base['required_day'];
@@ -165,6 +153,66 @@ class ManpowerService
     }
 
     /**
+     * @param  Collection<int, Site>  $sites
+     * @return Collection<int, array<string, mixed>> keyed by site id
+     */
+    public function forSitesOnDate(Collection $sites, string $date): Collection
+    {
+        if ($sites->isEmpty()) {
+            return collect();
+        }
+
+        $bases = $this->forSites($sites);
+        $siteIds = $sites->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $allocatedRows = Shift::query()
+            ->forDate($date)
+            ->whereIn('site_id', $siteIds)
+            ->whereIn('status', ShiftStatus::blockingAllocationValues())
+            ->selectRaw('site_id, period, COUNT(*) as aggregate')
+            ->groupBy('site_id', 'period')
+            ->get()
+            ->groupBy('site_id');
+
+        return $sites->mapWithKeys(function (Site $site) use ($bases, $allocatedRows, $date) {
+            $siteId = (int) $site->id;
+            $base = $bases->get($siteId) ?? $this->buildSiteSnapshot($site, ['total' => 0, 'day' => 0, 'night' => 0], null);
+            $periodCounts = ($allocatedRows->get($siteId) ?? collect())->pluck('aggregate', 'period');
+            $allocatedDay = (int) ($periodCounts[ShiftPeriod::Day->value] ?? 0);
+            $allocatedNight = (int) ($periodCounts[ShiftPeriod::Night->value] ?? 0);
+            $allocated = $allocatedDay + $allocatedNight;
+            $required = $base['required'];
+            $requiredDay = $base['required_day'];
+            $requiredNight = $base['required_night'];
+
+            return [
+                $siteId => [
+                    'date' => $date,
+                    'required' => $required,
+                    'required_day' => $requiredDay,
+                    'required_night' => $requiredNight,
+                    'deployed' => $base['deployed'],
+                    'deployed_day' => $base['deployed_day'],
+                    'deployed_night' => $base['deployed_night'],
+                    'allocated' => $allocated,
+                    'allocated_day' => $allocatedDay,
+                    'allocated_night' => $allocatedNight,
+                    'shortage' => $base['shortage'],
+                    'shortage_day' => $base['shortage_day'],
+                    'shortage_night' => $base['shortage_night'],
+                    'allocation_shortage' => max(0, $required - $allocated),
+                    'allocation_shortage_day' => max(0, $requiredDay - $allocatedDay),
+                    'allocation_shortage_night' => max(0, $requiredNight - $allocatedNight),
+                    'coverage_percent' => $base['coverage_percent'],
+                    'allocation_coverage_percent' => $required > 0 ? round(($allocated / $required) * 100, 1) : 0.0,
+                    'status' => $base['status'],
+                    'allocation_status' => $this->coverageStatus($required, $allocated),
+                ],
+            ];
+        });
+    }
+
+    /**
      * @return array{
      *     required: int,
      *     deployed: int,
@@ -188,14 +236,15 @@ class ManpowerService
             ->when($regionId, fn ($q) => $q->where('region_id', $regionId))
             ->get();
 
+        $snapshots = $this->forSitesOnDate($sites, $date);
+
         $required = 0;
         $deployed = 0;
         $allocated = 0;
         $understaffed = 0;
         $underAllocated = 0;
 
-        foreach ($sites as $site) {
-            $snap = $this->forSiteOnDate($site, $date);
+        foreach ($snapshots as $snap) {
             $required += $snap['required'];
             $deployed += $snap['deployed'];
             $allocated += $snap['allocated'];
@@ -267,6 +316,15 @@ class ManpowerService
     }
 
     /**
+     * Clear request-local caches (useful after writes in the same request).
+     */
+    public function flushRequestCache(): void
+    {
+        $this->deploymentCountCache = null;
+        $this->billingProfileCache = null;
+    }
+
+    /**
      * @param  Collection<int, Site>  $sites
      * @return array{
      *     required: int,
@@ -281,12 +339,13 @@ class ManpowerService
      */
     private function aggregate(Collection $sites): array
     {
+        $snapshots = $this->forSites($sites);
+
         $required = 0;
         $deployed = 0;
         $understaffed = 0;
 
-        foreach ($sites as $site) {
-            $snap = $this->forSite($site);
+        foreach ($snapshots as $snap) {
             $required += $snap['required'];
             $deployed += $snap['deployed'];
             if ($snap['status'] === CoverageStatus::Understaffed) {
@@ -308,6 +367,154 @@ class ManpowerService
             'sites_count' => $sites->count(),
             'understaffed_sites' => $understaffed,
         ];
+    }
+
+    /**
+     * @param  array{total: int, day: int, night: int}  $counts
+     * @return array<string, mixed>
+     */
+    private function buildSiteSnapshot(Site $site, array $counts, ?BillingProfile $billingProfile): array
+    {
+        $required = (int) $site->required_guards;
+        $requiredDay = (int) $site->required_day_guards;
+        $requiredNight = (int) $site->required_night_guards;
+        $deployed = $counts['total'];
+        $deployedDay = $counts['day'];
+        $deployedNight = $counts['night'];
+
+        $shortage = max(0, $required - $deployed);
+        $surplus = max(0, $deployed - $required);
+        $coverage = $required > 0 ? round(($deployed / $required) * 100, 1) : 0.0;
+
+        $contracted = $billingProfile?->contractedGuardTotal() ?? 0;
+        $slaShortage = $contracted > 0 ? max(0, $contracted - $deployed) : 0;
+        $slaPercent = $contracted > 0 ? round(($deployed / $contracted) * 100, 1) : null;
+
+        return [
+            'required' => $required,
+            'required_day' => $requiredDay,
+            'required_night' => $requiredNight,
+            'required_day_armed' => (int) $site->required_day_armed_guards,
+            'required_day_unarmed' => (int) $site->required_day_unarmed_guards,
+            'required_night_armed' => (int) $site->required_night_armed_guards,
+            'required_night_unarmed' => (int) $site->required_night_unarmed_guards,
+            'scheduled' => $deployed,
+            'available' => $deployed,
+            'deployed' => $deployed,
+            'deployed_day' => $deployedDay,
+            'deployed_night' => $deployedNight,
+            'shortage' => $shortage,
+            'surplus' => $surplus,
+            'shortage_day' => max(0, $requiredDay - $deployedDay),
+            'shortage_night' => max(0, $requiredNight - $deployedNight),
+            'coverage_percent' => $coverage,
+            'status' => $this->coverageStatus($required, $deployed),
+            'contracted' => $contracted,
+            'sla_shortage' => $slaShortage,
+            'sla_percent' => $slaPercent,
+            'billing_profile' => $billingProfile,
+        ];
+    }
+
+    /**
+     * @param  list<int>  $siteIds
+     * @return array<int, array{total: int, day: int, night: int}>
+     */
+    private function deploymentCountsForSites(array $siteIds): array
+    {
+        if ($siteIds === []) {
+            return [];
+        }
+
+        $missing = array_values(array_filter(
+            $siteIds,
+            fn (int $id) => $this->deploymentCountCache === null || ! array_key_exists($id, $this->deploymentCountCache),
+        ));
+
+        if ($missing !== []) {
+            $this->deploymentCountCache ??= [];
+
+            foreach ($missing as $id) {
+                $this->deploymentCountCache[$id] = ['total' => 0, 'day' => 0, 'night' => 0];
+            }
+
+            $rows = Deployment::query()
+                ->current()
+                ->whereIn('site_id', $missing)
+                ->selectRaw('site_id, shift_type, COUNT(*) as aggregate')
+                ->groupBy('site_id', 'shift_type')
+                ->get();
+
+            foreach ($rows as $row) {
+                $siteId = (int) $row->site_id;
+                $count = (int) $row->aggregate;
+                $type = $row->shift_type instanceof \BackedEnum
+                    ? $row->shift_type->value
+                    : (string) $row->shift_type;
+
+                $this->deploymentCountCache[$siteId]['total'] += $count;
+
+                if ($type === DeploymentShiftType::Day->value || $type === DeploymentShiftType::Rotating->value) {
+                    $this->deploymentCountCache[$siteId]['day'] += $count;
+                }
+
+                if ($type === DeploymentShiftType::Night->value || $type === DeploymentShiftType::Rotating->value) {
+                    $this->deploymentCountCache[$siteId]['night'] += $count;
+                }
+            }
+        }
+
+        $result = [];
+        foreach ($siteIds as $id) {
+            $result[$id] = $this->deploymentCountCache[$id] ?? ['total' => 0, 'day' => 0, 'night' => 0];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  Collection<int, Site>  $sites
+     * @return array<int, BillingProfile|null>
+     */
+    private function billingProfilesForSites(Collection $sites): array
+    {
+        $this->billingProfileCache ??= [];
+
+        $needed = $sites->filter(
+            fn (Site $site) => ! array_key_exists((int) $site->id, $this->billingProfileCache),
+        );
+
+        if ($needed->isNotEmpty()) {
+            $today = now()->toDateString();
+            $clientIds = $needed->pluck('client_id')->filter()->unique()->values()->all();
+
+            $profiles = BillingProfile::query()
+                ->active()
+                ->whereIn('client_id', $clientIds)
+                ->whereDate('effective_from', '<=', $today)
+                ->where(fn ($q) => $q->whereNull('effective_to')->orWhereDate('effective_to', '>=', $today))
+                ->orderByDesc('effective_from')
+                ->get();
+
+            $bySite = $profiles->whereNotNull('site_id')->groupBy(fn (BillingProfile $profile) => (int) $profile->site_id);
+            $byClient = $profiles->whereNull('site_id')->groupBy(fn (BillingProfile $profile) => (int) $profile->client_id);
+
+            foreach ($needed as $site) {
+                $siteId = (int) $site->id;
+                $clientId = (int) $site->client_id;
+                $siteProfile = ($bySite->get($siteId) ?? collect())->first();
+                $clientProfile = ($byClient->get($clientId) ?? collect())->first();
+                $this->billingProfileCache[$siteId] = $siteProfile ?? $clientProfile;
+            }
+        }
+
+        $result = [];
+        foreach ($sites as $site) {
+            $siteId = (int) $site->id;
+            $result[$siteId] = $this->billingProfileCache[$siteId] ?? null;
+        }
+
+        return $result;
     }
 
     private function coverageStatus(int $required, int $deployed): CoverageStatus

@@ -16,10 +16,10 @@ use App\Models\Guard;
 use App\Models\Region;
 use App\Models\Shift;
 use App\Models\Site;
-use App\Services\ShiftService;
 use App\Services\Shifts\BulkShiftAllocationService;
 use App\Services\Shifts\ShiftLifecycleService;
 use App\Services\Shifts\ShiftValidationService;
+use App\Services\ShiftService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\RedirectResponse;
@@ -35,14 +35,11 @@ class ShiftController extends Controller
         private ShiftValidationService $validator,
         private BulkShiftAllocationService $bulkAllocation,
         private ShiftLifecycleService $lifecycle,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Shift::class);
-
-        $this->lifecycle->sync();
 
         $date = $request->filled('date')
             ? $request->string('date')->toString()
@@ -141,6 +138,7 @@ class ShiftController extends Controller
         }
 
         $statsBase = Shift::query()->forDate($date);
+        $shiftStatusCounts = status_counts($statsBase);
 
         return view('shifts.index', [
             'shifts' => $shifts,
@@ -155,14 +153,14 @@ class ShiftController extends Controller
             'deploymentPeriodCounts' => $deploymentPeriodCounts,
             'overstaffedSites' => $overstaffedSites,
             'stats' => [
-                'scheduled' => (clone $statsBase)->where('status', ShiftStatus::Scheduled)->count(),
-                'recorded' => (clone $statsBase)->where('status', ShiftStatus::Recorded)->count(),
-                'confirmed' => (clone $statsBase)->where('status', ShiftStatus::Confirmed)->count(),
-                'in_progress' => (clone $statsBase)->where('status', ShiftStatus::InProgress)->count(),
-                'completed' => (clone $statsBase)->where('status', ShiftStatus::Completed)->count(),
-                'missed' => (clone $statsBase)->where('status', ShiftStatus::Missed)->count(),
-                'incomplete' => (clone $statsBase)->where('status', ShiftStatus::Incomplete)->count(),
-                'cancelled' => (clone $statsBase)->where('status', ShiftStatus::Cancelled)->count(),
+                'scheduled' => (int) ($shiftStatusCounts[ShiftStatus::Scheduled->value] ?? 0),
+                'recorded' => (int) ($shiftStatusCounts[ShiftStatus::Recorded->value] ?? 0),
+                'confirmed' => (int) ($shiftStatusCounts[ShiftStatus::Confirmed->value] ?? 0),
+                'in_progress' => (int) ($shiftStatusCounts[ShiftStatus::InProgress->value] ?? 0),
+                'completed' => (int) ($shiftStatusCounts[ShiftStatus::Completed->value] ?? 0),
+                'missed' => (int) ($shiftStatusCounts[ShiftStatus::Missed->value] ?? 0),
+                'incomplete' => (int) ($shiftStatusCounts[ShiftStatus::Incomplete->value] ?? 0),
+                'cancelled' => (int) ($shiftStatusCounts[ShiftStatus::Cancelled->value] ?? 0),
             ],
         ]);
     }
@@ -378,9 +376,6 @@ class ShiftController extends Controller
     public function show(Shift $shift): View
     {
         $this->authorize('view', $shift);
-
-        $this->lifecycle->sync();
-        $shift->refresh();
 
         $shift->load([
             'assignedGuard.region',

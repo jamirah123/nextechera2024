@@ -6,10 +6,10 @@ use App\Enums\BankStatementLineStatus;
 use App\Http\Controllers\Controller;
 use App\Models\BankAccount;
 use App\Models\BankStatementLine;
+use App\Models\GlAccount;
 use App\Models\Payment;
 use App\Services\Finance\Ledger\BankAccountService;
 use App\Services\Finance\Ledger\BankReconciliationService;
-use App\Models\GlAccount;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -20,8 +20,7 @@ class BankReconciliationController extends Controller
     public function __construct(
         private BankReconciliationService $bank,
         private BankAccountService $accounts,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {

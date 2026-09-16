@@ -21,8 +21,7 @@ class ShiftValidationService
 {
     public function __construct(
         private LeaveService $leaves,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{

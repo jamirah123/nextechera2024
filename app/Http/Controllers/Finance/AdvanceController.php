@@ -13,9 +13,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AdvanceController extends Controller
 {
-    public function __construct(private ReportExportService $exports)
-    {
-    }
+    public function __construct(private ReportExportService $exports) {}
 
     public function index(Request $request): View
     {

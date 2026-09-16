@@ -71,6 +71,10 @@ return [
     'pagination' => [
         'per_page' => (int) env('PSG_PER_PAGE', 25),
     ],
+    'performance' => [
+        // Short TTL for ops/compliance dashboard snapshots (seconds).
+        'dashboard_cache_seconds' => (int) env('PSG_DASHBOARD_CACHE_SECONDS', 45),
+    ],
     'payroll' => [
         'default_base_shift_rate' => (float) env('PSG_PAYROLL_DEFAULT_SHIFT_RATE', 25000),
         'default_monthly_gross' => (float) env('PSG_PAYROLL_DEFAULT_MONTHLY_GROSS', 25000),

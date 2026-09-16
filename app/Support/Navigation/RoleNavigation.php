@@ -2,8 +2,18 @@
 
 namespace App\Support\Navigation;
 
+use App\Enums\DeploymentStatus;
+use App\Enums\OperationalStatus;
 use App\Enums\UserRole;
+use App\Models\Client;
+use App\Models\Deployment;
+use App\Models\Guard;
+use App\Models\Region;
+use App\Models\Site;
+use App\Models\Supervisor;
 use App\Models\User;
+use App\Services\Finance\ProfitabilityService;
+use App\Support\Money;
 
 class RoleNavigation
 {
@@ -155,10 +165,10 @@ class RoleNavigation
         $regionId = $user->regionId();
         $regionScoped = $user->mustStayInOwnRegion();
 
-        $regionCount = \App\Models\Region::query()->count();
-        $siteQuery = \App\Models\Site::query()->active();
-        $guardQuery = \App\Models\Guard::query()->activeEmployment();
-        $deploymentQuery = \App\Models\Deployment::query()->where('status', \App\Enums\DeploymentStatus::Active);
+        $regionCount = Region::query()->count();
+        $siteQuery = Site::query()->active();
+        $guardQuery = Guard::query()->activeEmployment();
+        $deploymentQuery = Deployment::query()->where('status', DeploymentStatus::Active);
 
         if ($regionScoped) {
             $siteQuery->where('region_id', $regionId);
@@ -167,17 +177,17 @@ class RoleNavigation
         }
 
         $siteCount = $siteQuery->count();
-        $clientCount = \App\Models\Client::query()->count();
-        $supervisorCount = \App\Models\Supervisor::query()->active()->count();
+        $clientCount = Client::query()->count();
+        $supervisorCount = Supervisor::query()->active()->count();
         $activeGuards = $guardQuery->count();
         $activeDeployments = $deploymentQuery->count();
-        $onLeave = \App\Models\Guard::query()
+        $onLeave = Guard::query()
             ->when($regionScoped, fn ($q) => $q->where('region_id', $regionId))
-            ->where('operational_status', \App\Enums\OperationalStatus::OnLeave)
+            ->where('operational_status', OperationalStatus::OnLeave)
             ->count();
-        $absent = \App\Models\Guard::query()
+        $absent = Guard::query()
             ->when($regionScoped, fn ($q) => $q->where('region_id', $regionId))
-            ->where('operational_status', \App\Enums\OperationalStatus::Absent)
+            ->where('operational_status', OperationalStatus::Absent)
             ->count();
 
         return match ($user->role) {
@@ -190,7 +200,7 @@ class RoleNavigation
             UserRole::ManagingDirector => [
                 ['label' => 'Active Sites', 'value' => (string) $siteCount, 'hint' => 'Operational sites', 'tone' => 'brand'],
                 ['label' => 'Deployed', 'value' => (string) $activeDeployments, 'hint' => 'Guards on active postings', 'tone' => 'emerald'],
-                ['label' => 'Outstanding', 'value' => \App\Support\Money::format(self::financeTotals()['outstanding']), 'hint' => 'Open invoice balance', 'tone' => 'amber'],
+                ['label' => 'Outstanding', 'value' => Money::format(self::financeTotals()['outstanding']), 'hint' => 'Open invoice balance', 'tone' => 'amber'],
                 ['label' => 'Overdue', 'value' => (string) self::financeTotals()['overdue_count'], 'hint' => 'Past-due invoices', 'tone' => 'rose'],
             ],
             UserRole::OperationsManager => [
@@ -213,8 +223,8 @@ class RoleNavigation
             ],
             UserRole::FinanceManager => [
                 ['label' => 'Clients', 'value' => (string) $clientCount, 'hint' => 'Billing accounts', 'tone' => 'brand'],
-                ['label' => 'Outstanding', 'value' => \App\Support\Money::format(self::financeTotals()['outstanding']), 'hint' => 'Open invoice balance', 'tone' => 'amber'],
-                ['label' => 'Month collected', 'value' => \App\Support\Money::format(self::financeTotals()['month_collected']), 'hint' => 'Payments this month', 'tone' => 'emerald'],
+                ['label' => 'Outstanding', 'value' => Money::format(self::financeTotals()['outstanding']), 'hint' => 'Open invoice balance', 'tone' => 'amber'],
+                ['label' => 'Month collected', 'value' => Money::format(self::financeTotals()['month_collected']), 'hint' => 'Payments this month', 'tone' => 'emerald'],
                 ['label' => 'Overdue', 'value' => (string) self::financeTotals()['overdue_count'], 'hint' => 'Past-due invoices', 'tone' => 'rose'],
             ],
             UserRole::RegionSupervisor => [
@@ -461,7 +471,7 @@ class RoleNavigation
 
         if ($cache === null) {
             try {
-                $cache = app(\App\Services\Finance\ProfitabilityService::class)->dashboardTotals();
+                $cache = app(ProfitabilityService::class)->dashboardTotals();
             } catch (\Throwable) {
                 $cache = [
                     'outstanding' => 0,

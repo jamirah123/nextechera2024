@@ -2,7 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Enums\CompensationType;
 use App\Enums\EmploymentStatus;
+use App\Enums\GuardClassification;
 use App\Enums\GuardGender;
 use App\Enums\OperationalStatus;
 use App\Models\Guard;
@@ -37,7 +39,7 @@ class GuardFactory extends Factory
             'date_employed' => fake()->dateTimeBetween('-5 years', 'now')->format('Y-m-d'),
             'employment_status' => EmploymentStatus::Active,
             'rank_designation' => fake()->optional()->randomElement(['Security Guard', 'Senior Guard', 'Team Leader']),
-            'guard_classification' => \App\Enums\GuardClassification::Unarmed,
+            'guard_classification' => GuardClassification::Unarmed,
             'region_id' => Region::factory(),
             'current_site_id' => null,
             'current_supervisor_id' => null,
@@ -46,7 +48,7 @@ class GuardFactory extends Factory
             'emergency_contact_phone' => fake()->optional()->e164PhoneNumber(),
             'photo_path' => null,
             'notes' => fake()->optional()->sentence(),
-            'compensation_type' => \App\Enums\CompensationType::Shift,
+            'compensation_type' => CompensationType::Shift,
         ];
     }
 
@@ -75,7 +77,7 @@ class GuardFactory extends Factory
     public function salaryStaff(): static
     {
         return $this->state(fn () => [
-            'compensation_type' => \App\Enums\CompensationType::Salary,
+            'compensation_type' => CompensationType::Salary,
             'operational_status' => OperationalStatus::OffDuty,
             'rank_designation' => fake()->randomElement(['Finance Officer', 'HR Assistant', 'Admin Officer', 'Operations Clerk']),
             'base_shift_rate' => fake()->randomElement([800000, 1200000, 1500000, 2000000]),

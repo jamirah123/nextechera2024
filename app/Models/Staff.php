@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\EmploymentStatus;
 use App\Enums\GuardGender;
+use App\Models\Concerns\CapturesDeletionSnapshot;
 use App\Models\Concerns\TracksUserChanges;
 use Database\Factories\StaffFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,9 +16,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Staff extends Model
 {
+    use CapturesDeletionSnapshot;
+
     /** @use HasFactory<StaffFactory> */
     use HasFactory, SoftDeletes, TracksUserChanges;
-    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $table = 'staff';
 

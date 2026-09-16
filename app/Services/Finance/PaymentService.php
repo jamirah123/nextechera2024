@@ -23,8 +23,7 @@ class PaymentService
         private InvoiceService $invoices,
         private AuditService $audit,
         private LedgerPostingService $ledger,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{

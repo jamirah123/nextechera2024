@@ -3,6 +3,7 @@
 namespace App\Support\Deployments;
 
 use App\Enums\DeploymentShiftType;
+use App\Models\Guard;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -17,8 +18,7 @@ class DeploymentShiftSchedule
         private string $dayEndTime,
         private string $nightStartTime,
         private string $nightEndTime,
-    ) {
-    }
+    ) {}
 
     public static function fromConfig(?CarbonInterface $at = null): self
     {
@@ -68,7 +68,7 @@ class DeploymentShiftSchedule
     /**
      * Exclude guards who are currently within their posted shift window.
      *
-     * @param  Builder<\App\Models\Guard>  $query
+     * @param  Builder<Guard>  $query
      */
     public function scopeWithoutOnShiftDeployment(Builder $query, ?CarbonInterface $at = null): void
     {

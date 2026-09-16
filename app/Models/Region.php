@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RegionStatus;
+use App\Models\Concerns\CapturesDeletionSnapshot;
 use App\Models\Concerns\TracksUserChanges;
 use Database\Factories\RegionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,9 +13,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Region extends Model
 {
+    use CapturesDeletionSnapshot;
+
     /** @use HasFactory<RegionFactory> */
     use HasFactory, SoftDeletes, TracksUserChanges;
-    use \App\Models\Concerns\CapturesDeletionSnapshot;
 
     protected $fillable = [
         'name',

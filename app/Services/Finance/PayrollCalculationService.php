@@ -10,8 +10,8 @@ use App\Enums\PayrollRunStatus;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Models\Guard;
-use App\Models\GuardSalaryAdvance;
 use App\Models\GuardAssetRecovery;
+use App\Models\GuardSalaryAdvance;
 use App\Models\PayrollDeduction;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollRun;
@@ -22,7 +22,6 @@ use App\Services\AuditService;
 use App\Services\Reports\MonthlyShiftCalculationService;
 use App\Support\Finance\PayrollPayeCalculator;
 use App\Support\Finance\PayrollRates;
-use App\Support\Money;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -35,8 +34,7 @@ class PayrollCalculationService
         private MonthlyShiftCalculationService $shiftTotals,
         private AuditService $audit,
         private ArchiveService $archive,
-    ) {
-    }
+    ) {}
 
     /**
      * Recalculate any open (draft/calculated) payroll runs that cover this duty's period.

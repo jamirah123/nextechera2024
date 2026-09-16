@@ -2,12 +2,12 @@
 
 namespace Tests\Feature\Audit;
 
-use App\Enums\UserRole;
-use App\Models\AuditLog;
-use App\Models\User;
-use App\Services\AuditService;
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
+use App\Enums\UserRole;
+use App\Models\Shift;
+use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -99,11 +99,11 @@ class AuditLogTest extends TestCase
     public function test_shift_manager_cannot_override_without_permission(): void
     {
         $this->assertFalse(
-            User::factory()->role(UserRole::ShiftManager)->create()->can('override', \App\Models\Shift::class)
+            User::factory()->role(UserRole::ShiftManager)->create()->can('override', Shift::class)
         );
 
         $this->assertTrue(
-            User::factory()->role(UserRole::OperationsManager)->create()->can('override', \App\Models\Shift::class)
+            User::factory()->role(UserRole::OperationsManager)->create()->can('override', Shift::class)
         );
     }
 }

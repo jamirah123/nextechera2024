@@ -18,9 +18,7 @@ use Illuminate\View\View;
 
 class StaffController extends Controller
 {
-    public function __construct(private StaffService $staff)
-    {
-    }
+    public function __construct(private StaffService $staff) {}
 
     public function index(Request $request): View
     {
@@ -35,6 +33,8 @@ class StaffController extends Controller
             ->paginate(table_per_page())
             ->withQueryString();
 
+        $employmentCounts = status_counts(Staff::query(), 'employment_status');
+
         return view('staff.index', [
             'staffMembers' => $staffMembers,
             'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
@@ -43,17 +43,17 @@ class StaffController extends Controller
             'canManage' => $request->user()->can('create', Staff::class),
             'canDelete' => $request->user()->can('deleteAny', Staff::class),
             'stats' => [
-                'total' => Staff::query()->count(),
-                'active' => Staff::query()->activeEmployment()->count(),
-                'inactive' => Staff::query()->whereIn('employment_status', [
-                    EmploymentStatus::Inactive,
-                    EmploymentStatus::Suspended,
-                ])->count(),
-                'left' => Staff::query()->whereIn('employment_status', [
-                    EmploymentStatus::Terminated,
-                    EmploymentStatus::Resigned,
-                    EmploymentStatus::Retired,
-                ])->count(),
+                'total' => array_sum($employmentCounts),
+                'active' => (int) ($employmentCounts[EmploymentStatus::Active->value] ?? 0),
+                'inactive' => (int) (
+                    ($employmentCounts[EmploymentStatus::Inactive->value] ?? 0)
+                    + ($employmentCounts[EmploymentStatus::Suspended->value] ?? 0)
+                ),
+                'left' => (int) (
+                    ($employmentCounts[EmploymentStatus::Terminated->value] ?? 0)
+                    + ($employmentCounts[EmploymentStatus::Resigned->value] ?? 0)
+                    + ($employmentCounts[EmploymentStatus::Retired->value] ?? 0)
+                ),
             ],
         ]);
     }

@@ -5,23 +5,26 @@ namespace App\Services;
 use App\Enums\SiteStatus;
 use App\Models\Site;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
 class ManpowerCoverageReportService
 {
-    public function __construct(private ManpowerService $manpower)
-    {
-    }
+    public function __construct(private ManpowerService $manpower) {}
 
     /**
      * @return Collection<int, array{site: Site, manpower: array<string, mixed>}>
      */
     public function rows(Request $request): Collection
     {
-        return $this->baseQuery($request)
-            ->get()
-            ->map(fn (Site $site) => $this->mapRow($site, $request));
+        $sites = $this->baseQuery($request)->get();
+        $manpower = $this->manpowerMap($sites, $request);
+
+        return $sites->map(fn (Site $site) => [
+            'site' => $site,
+            'manpower' => $manpower->get($site->id) ?? [],
+        ]);
     }
 
     /**
@@ -31,14 +34,33 @@ class ManpowerCoverageReportService
     {
         $perPage ??= table_per_page();
 
-        return $this->baseQuery($request)
+        $paginator = $this->baseQuery($request)
             ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (Site $site) => $this->mapRow($site, $request));
+            ->withQueryString();
+
+        $manpower = $this->manpowerMap($paginator->getCollection(), $request);
+
+        return $paginator->through(fn (Site $site) => [
+            'site' => $site,
+            'manpower' => $manpower->get($site->id) ?? [],
+        ]);
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<Site>
+     * @param  Collection<int, Site>  $sites
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function manpowerMap(Collection $sites, Request $request): Collection
+    {
+        $date = $request->filled('date') ? (string) $request->string('date') : null;
+
+        return $date
+            ? $this->manpower->forSitesOnDate($sites, $date)
+            : $this->manpower->forSites($sites);
+    }
+
+    /**
+     * @return Builder<Site>
      */
     private function baseQuery(Request $request)
     {
@@ -55,21 +77,6 @@ class ManpowerCoverageReportService
                 fn ($q) => $q->where('status', SiteStatus::Active),
             )
             ->orderBy('name');
-    }
-
-    /**
-     * @return array{site: Site, manpower: array<string, mixed>}
-     */
-    private function mapRow(Site $site, Request $request): array
-    {
-        $date = $request->filled('date') ? (string) $request->string('date') : null;
-
-        return [
-            'site' => $site,
-            'manpower' => $date
-                ? $this->manpower->forSiteOnDate($site, $date)
-                : $this->manpower->forSite($site),
-        ];
     }
 
     /**

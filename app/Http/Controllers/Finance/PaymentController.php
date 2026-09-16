@@ -25,8 +25,7 @@ class PaymentController extends Controller
         private PaymentService $payments,
         private FinanceHistoryService $history,
         private ReportExportService $exports,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {

@@ -40,16 +40,20 @@ php artisan schedule:work
 
 | Command | Cadence | Purpose |
 |---------|---------|---------|
-| `psg:backup-database --type=scheduled_daily` | Daily 01:30 (if schedule includes daily) | Catalogued DB backup |
+| `psg:backup-database --type=scheduled_daily` | Daily 01:30 (if schedule includes daily) | Catalogued DB + files backup |
 | `psg:backup-database --type=scheduled_weekly` | Sunday 02:15 (if schedule includes weekly) | Weekly backup |
+| `psg:backup-database --type=scheduled_monthly` | 1st of month 03:00 | Monthly long-retention backup |
+| `psg:verify-backup` | Daily 04:00 | SHA-256 integrity of latest backup |
+| `psg:test-restore-backup` | Sunday 04:30 | Non-destructive restore drill |
+| `psg:backup-health --alert` | Hourly | Freshness / missed-backup alert |
 | `psg:mark-overdue-invoices` | Daily 00:15 | Mark past-due invoices |
 | `psg:sync-shift-statuses` | Every 15 minutes | In progress / completed / missed |
-| `psg:scan-proactive-alerts` | Hourly | Understaffing, leave, documents, SLA |
+| `psg:scan-proactive-alerts` | Hourly | Understaffing, leave, documents, SLA, missed backups |
 | `psg:export-accounting` | Daily 02:00 | Accounting export files (when enabled) |
 | `psg:queue-health` | Hourly | Log/report queue backlog |
 | `psg:release-shift-window-guards` | Daily 06:00 and 18:00 | Return pool guards after shift windows |
 
-Backup schedule is controlled by System Settings / `PSG_BACKUP_SCHEDULE` (`daily`, `weekly`, or `daily_and_weekly`).
+Backup schedule is controlled by System Settings / `PSG_BACKUP_SCHEDULE` (`daily`, `weekly`, or `daily_and_weekly`). Full DR procedure: [disaster-recovery.md](./disaster-recovery.md).
 
 ## Queue worker
 

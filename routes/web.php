@@ -43,6 +43,7 @@ use App\Http\Controllers\Operations\IncidentController;
 use App\Http\Controllers\Operations\WorkOrderController;
 use App\Http\Controllers\Organization\ClientController;
 use App\Http\Controllers\Organization\ManpowerCoverageController;
+use App\Http\Controllers\Operations\OperationalPeriodController;
 use App\Http\Controllers\Organization\OrganizationDashboardController;
 use App\Http\Controllers\Organization\RegionController;
 use App\Http\Controllers\Organization\SiteController;
@@ -84,6 +85,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/organization', OrganizationDashboardController::class)->name('organization.index');
     Route::get('/manpower-coverage', [ManpowerCoverageController::class, 'index'])->name('manpower.coverage');
     Route::get('/manpower-coverage/export', [ManpowerCoverageController::class, 'export'])->name('manpower.coverage.export');
+    Route::post('/manpower-coverage/gaps/{gap}/overtime', [ManpowerCoverageController::class, 'resolveOvertime'])
+        ->name('manpower.gaps.overtime');
+    Route::get('/operations/periods', [OperationalPeriodController::class, 'index'])->name('operations.periods.index');
+    Route::post('/operations/periods/{period}/close', [OperationalPeriodController::class, 'close'])->name('operations.periods.close');
+    Route::post('/operations/periods/{period}/reopen', [OperationalPeriodController::class, 'reopen'])->name('operations.periods.reopen');
 
     Route::resource('regions', RegionController::class);
     Route::resource('supervisors', SupervisorController::class);
@@ -300,8 +306,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/backups', [BackupController::class, 'store'])->name('backups.store');
     Route::get('/backups/{backup}', [BackupController::class, 'show'])->name('backups.show');
     Route::get('/backups/{backup}/download', [BackupController::class, 'download'])->name('backups.download');
+    Route::get('/backups/{backup}/download-files', [BackupController::class, 'downloadFiles'])->name('backups.download-files');
     Route::post('/backups/{backup}/verify', [BackupController::class, 'verify'])->name('backups.verify');
+    Route::post('/backups/{backup}/test-restore', [BackupController::class, 'testRestore'])->name('backups.test-restore');
     Route::post('/backups/{backup}/restore', [BackupController::class, 'restore'])->name('backups.restore');
+    Route::post('/backups/{backup}/restore-files', [BackupController::class, 'restoreFiles'])->name('backups.restore-files');
     Route::delete('/backups/{backup}', [BackupController::class, 'destroy'])->name('backups.destroy');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');

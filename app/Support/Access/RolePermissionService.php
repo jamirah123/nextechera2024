@@ -217,4 +217,57 @@ class RolePermissionService
     {
         Cache::forget(self::CACHE_KEY);
     }
+
+    /** Grant catalog default permissions for a role that are not yet stored. */
+    public function ensureRoleDefaults(UserRole|string $role): int
+    {
+        if (! DB::getSchemaBuilder()->hasTable('role_permissions')) {
+            return 0;
+        }
+
+        $roleValue = $role instanceof UserRole ? $role->value : $role;
+
+        if (in_array($roleValue, [UserRole::SuperAdmin->value, UserRole::ManagingDirector->value], true)) {
+            return 0;
+        }
+
+        // Empty matrix means catalog defaults apply dynamically — nothing to store.
+        if (! DB::table('role_permissions')->exists()) {
+            $this->flushCache();
+
+            return 0;
+        }
+
+        $added = 0;
+        $now = now();
+
+        foreach (PermissionCatalog::definitions() as $definition) {
+            if (! in_array($roleValue, $definition['roles'], true)) {
+                continue;
+            }
+
+            $exists = DB::table('role_permissions')
+                ->where('role', $roleValue)
+                ->where('permission', $definition['key'])
+                ->exists();
+
+            if ($exists) {
+                continue;
+            }
+
+            DB::table('role_permissions')->insert([
+                'role' => $roleValue,
+                'permission' => $definition['key'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            $added++;
+        }
+
+        if ($added > 0) {
+            $this->flushCache();
+        }
+
+        return $added;
+    }
 }

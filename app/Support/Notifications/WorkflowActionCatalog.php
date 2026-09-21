@@ -195,20 +195,26 @@ class WorkflowActionCatalog
             ],
             'backup.completed' => [
                 'permissions' => ['admin.backups_manage'],
-                'subject' => 'Database backup completed',
-                'headline' => 'Automated / manual database backup succeeded',
+                'subject' => 'Application backup completed',
+                'headline' => 'Automated / manual application backup succeeded',
                 'action_label' => 'Open backup console',
             ],
             'backup.failed' => [
                 'permissions' => ['admin.backups_manage'],
-                'subject' => 'Database backup failed',
-                'headline' => 'Database backup failed — investigate immediately',
+                'subject' => 'Application backup failed',
+                'headline' => 'Application backup failed — investigate immediately',
                 'action_label' => 'Open backup console',
             ],
             'backup.verify_failed' => [
                 'permissions' => ['admin.backups_manage'],
                 'subject' => 'Backup integrity check failed',
-                'headline' => 'A database backup failed checksum verification',
+                'headline' => 'A backup failed checksum verification',
+                'action_label' => 'Open backup console',
+            ],
+            'backup.missed' => [
+                'permissions' => ['admin.backups_manage'],
+                'subject' => 'Missed or stale backup',
+                'headline' => 'No successful backup within the configured freshness window',
                 'action_label' => 'Open backup console',
             ],
             'backup.restored' => [
@@ -221,6 +227,12 @@ class WorkflowActionCatalog
                 'permissions' => ['admin.backups_manage'],
                 'subject' => 'Database restore failed',
                 'headline' => 'Database restore failed after safety backup',
+                'action_label' => 'Open backup console',
+            ],
+            'backup.files_restored' => [
+                'permissions' => ['admin.backups_manage'],
+                'subject' => 'Files restored from backup',
+                'headline' => 'Private files were restored from a backup archive',
                 'action_label' => 'Open backup console',
             ],
         ];

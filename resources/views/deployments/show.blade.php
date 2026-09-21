@@ -130,14 +130,19 @@
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $deployment->supervisor?->name ?? '—' }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Start date</dt>
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Start date (operational)</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($deployment->start_date)->format('d M Y') }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">End date</dt>
                 <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($deployment->end_date)->format('d M Y') ?: '—' }}</dd>
             </div>
-            <div class="px-3 py-2.5 sm:col-span-2 lg:col-span-3 sm:px-6">
+            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Entered on</dt>
+                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($deployment->created_at)->format('d M Y, H:i') ?: '—' }}</dd>
+                <p class="mt-0.5 text-[11px] text-slate-500">System entry time — separate from the operational duty date.</p>
+            </div>
+            <div class="px-3 py-2.5 sm:col-span-2 lg:col-span-2 sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notes</dt>
                 <dd class="mt-1 text-sm text-slate-700">{{ $deployment->notes ?: '—' }}</dd>
             </div>

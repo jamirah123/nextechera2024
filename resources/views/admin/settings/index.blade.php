@@ -230,11 +230,15 @@
                 <x-form-field label="Night shift end" name="default_night_shift_end" type="time" :value="old('default_night_shift_end', $settings->default_night_shift_end)" :required="true" />
             </x-form-group>
 
-            <x-form-group title="Backup & recovery policy" description="Scheduled dumps run via the Laravel scheduler. Manage individual backups under Administration → Database Backups.">
-                <x-form-field label="Keep backups (newest files)" name="backup_keep_days" type="number" :value="old('backup_keep_days', $settings->backup_keep_days)" :required="true" min="1" max="365" help="Retention count for completed backups. Oldest files are pruned automatically." />
+            <x-form-group title="Backup & recovery policy" description="Scheduled dumps run via the Laravel scheduler. Manage individual backups under Administration → Database Backups. See docs/disaster-recovery.md for the DR runbook.">
+                <x-form-field label="Keep daily backups" name="backup_keep_daily" type="number" :value="old('backup_keep_daily', $settings->backup_keep_daily ?? $settings->backup_keep_days)" :required="true" min="1" max="365" help="Newest daily/manual backups retained (GFS daily bucket)." />
+                <x-form-field label="Keep weekly backups" name="backup_keep_weekly" type="number" :value="old('backup_keep_weekly', $settings->backup_keep_weekly ?? 8)" :required="true" min="1" max="52" />
+                <x-form-field label="Keep monthly backups" name="backup_keep_monthly" type="number" :value="old('backup_keep_monthly', $settings->backup_keep_monthly ?? 12)" :required="true" min="1" max="60" />
+                <x-form-field label="Stale alert (hours)" name="backup_stale_hours" type="number" :value="old('backup_stale_hours', $settings->backup_stale_hours ?? 36)" :required="true" min="6" max="168" help="Raise a critical alert when no successful backup completes within this window." />
+                <input type="hidden" name="backup_keep_days" value="{{ old('backup_keep_daily', $settings->backup_keep_daily ?? $settings->backup_keep_days) }}">
                 <x-form-field label="Backup folder" name="backup_path" :value="old('backup_path', $settings->backup_path)" :required="true" help="Relative to storage/app — never publicly served" />
                 <x-form-field label="Schedule" name="backup_schedule" type="select" :required="true">
-                    @foreach (['daily' => 'Daily (01:30)', 'weekly' => 'Weekly (Sunday 02:15)', 'daily_and_weekly' => 'Daily + weekly'] as $value => $label)
+                    @foreach (['daily' => 'Daily (01:30) + monthly', 'weekly' => 'Weekly (Sunday 02:15) + monthly', 'daily_and_weekly' => 'Daily + weekly + monthly'] as $value => $label)
                         <option value="{{ $value }}" @selected(old('backup_schedule', $settings->backup_schedule ?? 'daily') === $value)>{{ $label }}</option>
                     @endforeach
                 </x-form-field>
@@ -243,13 +247,17 @@
                     <option value="s3" @selected(old('backup_offsite_disk', $settings->backup_offsite_disk) === 's3')>Amazon S3</option>
                 </x-form-field>
                 <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 sm:col-span-2">
+                    <input type="checkbox" name="backup_include_files" value="1" @checked(old('backup_include_files', $settings->backup_include_files ?? true)) class="rounded border-slate-300 text-brand-700 focus:ring-brand-600">
+                    Include private uploaded documents in each backup (ZIP of storage/app/private)
+                </label>
+                <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200 sm:col-span-2">
                     <input type="checkbox" name="backup_notify" value="1" @checked(old('backup_notify', $settings->backup_notify ?? true)) class="rounded border-slate-300 text-brand-700 focus:ring-brand-600">
-                    Email Super Admins when automatic backups succeed or fail
+                    Email authorized admins when backups succeed, fail, or become stale
                 </label>
                 <p class="sm:col-span-2 text-xs text-slate-500">
                     Open the
                     <a href="{{ route('backups.index') }}" class="font-semibold text-brand-700 hover:underline">Database Backups</a>
-                    console to download, verify integrity, or restore.
+                    console to download, verify integrity, run a restore drill, or restore.
                 </p>
             </x-form-group>
 

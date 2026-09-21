@@ -31,6 +31,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('viewAuditLogs', [AuditLogPolicy::class, 'viewAny']);
         Gate::define('viewFinance', [FinancePolicy::class, 'viewAny']);
         Gate::define('manageFinance', [FinancePolicy::class, 'manage']);
+        Gate::define('viewPurchases', [FinancePolicy::class, 'viewPurchases']);
+        Gate::define('managePurchases', [FinancePolicy::class, 'managePurchases']);
         Gate::define('approvePayroll', [FinancePolicy::class, 'approvePayroll']);
 
         try {

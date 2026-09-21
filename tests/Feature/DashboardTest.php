@@ -20,6 +20,7 @@ class DashboardTest extends TestCase
             [UserRole::HrManager, 'HR Dashboard'],
             [UserRole::ShiftManager, 'Shift Manager Dashboard'],
             [UserRole::FinanceManager, 'Finance Dashboard'],
+            [UserRole::ProcurementOfficer, 'Procurement Dashboard'],
             [UserRole::RegionSupervisor, 'Region Supervisor Dashboard'],
         ];
 

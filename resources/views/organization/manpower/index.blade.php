@@ -75,6 +75,165 @@
         @endif
     </section>
 
+    @if ($dateMode && $gapSummary)
+        <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+            <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-rose-700">Original shortage</p>
+                <p class="mt-0.5 text-sm font-semibold text-slate-900">{{ number_format($gapSummary['original_shortage']) }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-700">OT covered</p>
+                <p class="mt-0.5 text-sm font-semibold text-slate-900">{{ number_format($gapSummary['overtime_covered']) }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-rose-800">Remaining gap</p>
+                <p class="mt-0.5 text-sm font-semibold text-slate-900">{{ number_format($gapSummary['remaining_shortage']) }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Open gaps</p>
+                <p class="mt-0.5 text-sm font-semibold text-slate-900">{{ number_format($gapSummary['open_gaps']) }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">OT resolved</p>
+                <p class="mt-0.5 text-sm font-semibold text-slate-900">{{ number_format($gapSummary['resolved_gaps']) }}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-indigo-700">Est. OT cost</p>
+                <p class="mt-0.5 text-sm font-semibold text-slate-900">{{ number_format($gapSummary['estimated_ot_cost'], 2) }}</p>
+            </div>
+        </section>
+
+        @if ($gapRows->isNotEmpty())
+            <section class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <div class="mb-2 flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                        <h2 class="text-sm font-semibold text-slate-900">Manpower gaps & overtime</h2>
+                        <p class="text-[11px] text-slate-500">
+                            Original shortages stay on record. Overtime is temporary coverage and does not change permanent manpower.
+                        </p>
+                    </div>
+                </div>
+
+                <x-flash-status />
+                @error('guard_id')
+                    <p class="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">{{ $message }}</p>
+                @enderror
+
+                <div class="hidden overflow-x-auto lg:block">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Site</th>
+                                <th>Period</th>
+                                <th class="text-right">Required</th>
+                                <th class="text-right">Permanent</th>
+                                <th class="text-right">Original</th>
+                                <th class="text-right">OT covered</th>
+                                <th class="text-right">Remaining</th>
+                                <th>Status</th>
+                                <th class="no-print">Resolve with OT</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($gapRows as $gap)
+                                <tr class="hover:bg-slate-50/80 align-top">
+                                    <td>
+                                        <a href="{{ route('sites.show', $gap->site) }}" class="font-semibold text-slate-900 hover:text-brand-700">
+                                            {{ $gap->site?->name }}
+                                        </a>
+                                        <p class="text-[10px] text-slate-500">{{ $gap->reference() }}</p>
+                                    </td>
+                                    <td class="text-slate-700">{{ $gap->period->label() }}</td>
+                                    <td class="text-right">{{ $gap->required }}</td>
+                                    <td class="text-right">{{ $gap->permanent_deployed }}</td>
+                                    <td class="text-right font-medium text-rose-700">{{ $gap->original_shortage }}</td>
+                                    <td class="text-right text-amber-800">{{ $gap->overtime_covered }}</td>
+                                    <td class="text-right font-semibold {{ $gap->remaining_shortage > 0 ? 'text-rose-700' : 'text-emerald-700' }}">
+                                        {{ $gap->remaining_shortage }}
+                                    </td>
+                                    <td>
+                                        <x-status-badge :tone="$gap->status->tone()" :label="$gap->status->label()" />
+                                        @if ($gap->overtimeDeployments->isNotEmpty())
+                                            <ul class="mt-1 space-y-0.5 text-[10px] text-slate-500">
+                                                @foreach ($gap->overtimeDeployments as $ot)
+                                                    <li>
+                                                        OT: {{ $ot->assignedGuard?->employment_id }}
+                                                        {{ $ot->assignedGuard?->full_name }}
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                    </td>
+                                    <td class="no-print min-w-[14rem]">
+                                        @if ($canResolveGaps && $gap->isOpen())
+                                            <form method="POST" action="{{ route('manpower.gaps.overtime', $gap) }}" class="flex flex-col gap-1.5">
+                                                @csrf
+                                                <select name="guard_id" required class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800">
+                                                    <option value="">Select guard…</option>
+                                                    @foreach (($gapGuardOptions[$gap->id] ?? collect()) as $guard)
+                                                        <option value="{{ $guard->id }}">
+                                                            {{ $guard->employment_id }} — {{ $guard->full_name }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                                <input
+                                                    type="text"
+                                                    name="notes"
+                                                    maxlength="1000"
+                                                    placeholder="Optional note"
+                                                    class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-800"
+                                                />
+                                                <button type="submit" class="rounded-lg bg-amber-700 px-2.5 py-1.5 text-[11px] font-semibold text-white hover:bg-amber-800">
+                                                    Assign overtime
+                                                </button>
+                                            </form>
+                                        @elseif (! $gap->isOpen())
+                                            <span class="text-[11px] text-slate-400">—</span>
+                                        @else
+                                            <span class="text-[11px] text-slate-400">No deploy permission</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="grid gap-2 lg:hidden">
+                    @foreach ($gapRows as $gap)
+                        <div class="rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-900">{{ $gap->site?->name }}</p>
+                                    <p class="text-[10px] text-slate-500">{{ $gap->period->label() }} · {{ $gap->reference() }}</p>
+                                </div>
+                                <x-status-badge :tone="$gap->status->tone()" :label="$gap->status->label()" />
+                            </div>
+                            <dl class="mt-2 grid grid-cols-4 gap-1.5 text-center text-[10px]">
+                                <div class="rounded-md bg-white px-1 py-1"><dt class="text-slate-500">Orig</dt><dd class="font-semibold text-rose-700">{{ $gap->original_shortage }}</dd></div>
+                                <div class="rounded-md bg-white px-1 py-1"><dt class="text-slate-500">OT</dt><dd class="font-semibold">{{ $gap->overtime_covered }}</dd></div>
+                                <div class="rounded-md bg-white px-1 py-1"><dt class="text-slate-500">Left</dt><dd class="font-semibold">{{ $gap->remaining_shortage }}</dd></div>
+                                <div class="rounded-md bg-white px-1 py-1"><dt class="text-slate-500">Perm</dt><dd class="font-semibold">{{ $gap->permanent_deployed }}</dd></div>
+                            </dl>
+                            @if ($canResolveGaps && $gap->isOpen())
+                                <form method="POST" action="{{ route('manpower.gaps.overtime', $gap) }}" class="mt-2 space-y-1.5">
+                                    @csrf
+                                    <select name="guard_id" required class="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs">
+                                        <option value="">Select guard…</option>
+                                        @foreach (($gapGuardOptions[$gap->id] ?? collect()) as $guard)
+                                            <option value="{{ $guard->id }}">{{ $guard->employment_id }} — {{ $guard->full_name }}</option>
+                                        @endforeach
+                                    </select>
+                                    <button type="submit" class="w-full rounded-lg bg-amber-700 px-2.5 py-1.5 text-[11px] font-semibold text-white">Assign overtime</button>
+                                </form>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+    @endif
+
     <section class="filter-bar no-print rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
         <form
             method="GET"

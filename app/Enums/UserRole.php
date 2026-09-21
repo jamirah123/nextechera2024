@@ -10,6 +10,7 @@ enum UserRole: string
     case HrManager = 'hr_manager';
     case ShiftManager = 'shift_manager';
     case FinanceManager = 'finance_manager';
+    case ProcurementOfficer = 'procurement_officer';
     case RegionSupervisor = 'region_supervisor';
 
     public function label(): string
@@ -21,6 +22,7 @@ enum UserRole: string
             self::HrManager => 'HR Manager',
             self::ShiftManager => 'Shift Manager',
             self::FinanceManager => 'Finance Manager',
+            self::ProcurementOfficer => 'Procurement Officer',
             self::RegionSupervisor => 'Region Supervisor',
         };
     }
@@ -34,6 +36,7 @@ enum UserRole: string
             self::HrManager => 'Guard employment and HR records',
             self::ShiftManager => 'Shift scheduling and deployments',
             self::FinanceManager => 'Billing, payments and financial reporting',
+            self::ProcurementOfficer => 'Uniforms, kit and supplier purchases',
             self::RegionSupervisor => 'Field deployments, absences and desertions for an assigned region',
         };
     }
@@ -47,6 +50,7 @@ enum UserRole: string
             self::HrManager => 'sky',
             self::ShiftManager => 'amber',
             self::FinanceManager => 'emerald',
+            self::ProcurementOfficer => 'indigo',
             self::RegionSupervisor => 'indigo',
         };
     }
@@ -85,6 +89,7 @@ enum UserRole: string
             self::HrManager => 'HR certifications, employment contracts, or policy acknowledgements.',
             self::ShiftManager => 'Scheduling authorizations, training certificates, or ID copies.',
             self::FinanceManager => 'Tax certificates, banking documents, or finance compliance files.',
+            self::ProcurementOfficer => 'Supplier quotes, purchase orders, delivery notes, or kit inventory records.',
             self::RegionSupervisor => 'Supervisor ID, field authorizations, or regional appointment letters.',
         };
     }

@@ -29,6 +29,7 @@ class RoleNavigation
             UserRole::HrManager => self::hr(),
             UserRole::ShiftManager => self::shift(),
             UserRole::FinanceManager => self::finance(),
+            UserRole::ProcurementOfficer => self::procurement(),
             UserRole::RegionSupervisor => self::regionSupervisor(),
             default => self::fallback(),
         };
@@ -60,7 +61,7 @@ class RoleNavigation
                 self::module('Reports', 'Operational, HR and financial report exports.', 'chart', 'violet', route('reports.index')),
                 self::module('Audit Logs', 'Immutable trail of critical system actions.', 'audit', 'rose', route('audit.index')),
                 self::module('Archived Records', 'Deletion backups that can be restored by administrators.', 'audit', 'amber', route('archived.index')),
-                self::module('Database Backups', 'Create, verify, download and restore full database backups.', 'settings', 'rose', route('backups.index')),
+                self::module('Database Backups', 'Create, verify, download, restore-drill and restore database + file backups.', 'settings', 'rose', route('backups.index')),
                 self::module('Platform Settings', 'White-label branding, finance defaults, shift times and backup policy.', 'settings', 'violet', route('settings.index')),
                 self::module('Bulk Import / Export', 'CSV migration for guards, sites, opening balances and accounting exports.', 'report', 'sky', route('data-import.index')),
                 self::module('Roles & Permissions', 'Configure role capabilities and access control.', 'settings', 'violet', route('roles.index')),
@@ -142,6 +143,13 @@ class RoleNavigation
                 self::module('Purchases', 'Supplier bills with input VAT posting to accounts payable.', 'invoice', 'violet', route('ledger.purchases.index')),
                 self::module('Assets & uniforms', 'Issue kit and track replacement cost recovery on payroll.', 'shield', 'indigo', route('assets.index')),
                 self::module('Monthly Shift Exports', 'Payroll-ready normal and overtime shift totals.', 'report', 'sky', route('reports.monthly-shifts')),
+            ],
+            UserRole::ProcurementOfficer => [
+                self::module('Assets & uniforms', 'Issue kit, radios, boots and weapons. Track returns and cost recovery.', 'shield', 'indigo', route('assets.index')),
+                self::module('Purchases', 'Supplier bills for uniforms, kit and operational supplies.', 'invoice', 'violet', route('ledger.purchases.index')),
+                self::module('Guards', 'Look up guards when issuing or recovering assets.', 'shield', 'sky', route('guards.index')),
+                self::module('Organization', 'Sites and regions for kit delivery context.', 'building', 'indigo', route('organization.index')),
+                self::module('Reports', 'Export operational summaries as needed.', 'report', 'brand', route('reports.index')),
             ],
             UserRole::RegionSupervisor => [
                 self::module('Site Posting Board', 'Post guards to sites in your region.', 'map', 'emerald', route('deployments.board')),
@@ -227,6 +235,12 @@ class RoleNavigation
                 ['label' => 'Month collected', 'value' => Money::format(self::financeTotals()['month_collected']), 'hint' => 'Payments this month', 'tone' => 'emerald'],
                 ['label' => 'Overdue', 'value' => (string) self::financeTotals()['overdue_count'], 'hint' => 'Past-due invoices', 'tone' => 'rose'],
             ],
+            UserRole::ProcurementOfficer => [
+                ['label' => 'Active Guards', 'value' => (string) $activeGuards, 'hint' => 'Eligible for kit issue', 'tone' => 'brand'],
+                ['label' => 'Sites', 'value' => (string) $siteCount, 'hint' => 'Delivery locations', 'tone' => 'indigo'],
+                ['label' => 'Regions', 'value' => (string) $regionCount, 'hint' => 'Operational coverage', 'tone' => 'sky'],
+                ['label' => 'Clients', 'value' => (string) $clientCount, 'hint' => 'Client sites served', 'tone' => 'amber'],
+            ],
             UserRole::RegionSupervisor => [
                 ['label' => 'Sites', 'value' => (string) $siteCount, 'hint' => 'Sites in your region', 'tone' => 'brand'],
                 ['label' => 'Deployed', 'value' => (string) $activeDeployments, 'hint' => 'Active deployments', 'tone' => 'emerald'],
@@ -243,13 +257,14 @@ class RoleNavigation
         return [
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
             self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
-            self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*|manpower.*', [
+            self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*|manpower.*|operations.periods.*', [
                 ['label' => 'Overview', 'href' => route('organization.index')],
                 ['label' => 'Regions', 'href' => route('regions.index')],
                 ['label' => 'Supervisors', 'href' => route('supervisors.index')],
                 ['label' => 'Clients', 'href' => route('clients.index')],
                 ['label' => 'Sites', 'href' => route('sites.index')],
                 ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
+                ['label' => 'Operational periods', 'href' => route('operations.periods.index')],
             ]),
             self::nav('Administration', 'settings', route('users.index'), 'users.*|roles.*|audit.*|archived.*|backups.*|settings.*', [
                 ['label' => 'Users', 'href' => route('users.index')],
@@ -293,13 +308,14 @@ class RoleNavigation
         return [
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
             self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
-            self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*|manpower.*', [
+            self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*|manpower.*|operations.periods.*', [
                 ['label' => 'Overview', 'href' => route('organization.index')],
                 ['label' => 'Regions', 'href' => route('regions.index')],
                 ['label' => 'Supervisors', 'href' => route('supervisors.index')],
                 ['label' => 'Clients', 'href' => route('clients.index')],
                 ['label' => 'Sites', 'href' => route('sites.index')],
                 ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
+                ['label' => 'Operational periods', 'href' => route('operations.periods.index')],
             ]),
             self::nav('Administration', 'settings', route('users.index'), 'users.*|audit.*', [
                 ['label' => 'Users', 'href' => route('users.index')],
@@ -341,13 +357,14 @@ class RoleNavigation
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
             self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
             self::nav('Audit Logs', 'audit', route('audit.index'), 'audit.*'),
-            self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*|manpower.*', [
+            self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*|manpower.*|operations.periods.*', [
                 ['label' => 'Overview', 'href' => route('organization.index')],
                 ['label' => 'Regions', 'href' => route('regions.index')],
                 ['label' => 'Supervisors', 'href' => route('supervisors.index')],
                 ['label' => 'Sites', 'href' => route('sites.index')],
                 ['label' => 'Clients', 'href' => route('clients.index')],
                 ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
+                ['label' => 'Operational periods', 'href' => route('operations.periods.index')],
             ]),
             self::nav('Duty Register', 'calendar', route('shifts.index'), 'shifts.*'),
             self::nav('Duty Roster', 'plus', route('shifts.allocate'), 'shifts.allocate*'),
@@ -440,6 +457,23 @@ class RoleNavigation
             self::nav('Advances', 'wallet', route('advances.index'), 'advances.*'),
             self::nav('General ledger', 'wallet', route('ledger.index'), 'ledger.*'),
             self::nav('Shift Exports', 'report', route('reports.monthly-shifts'), 'reports.*'),
+        ];
+    }
+
+    /** @return list<array{label: string, icon: string, href: string, active: bool, children?: list<array{label: string, href: string, active?: bool}>}> */
+    private static function procurement(): array
+    {
+        return [
+            self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
+            self::nav('Assets & uniforms', 'shield', route('assets.index'), 'assets.*'),
+            self::nav('Purchases', 'invoice', route('ledger.purchases.index'), 'ledger.purchases*'),
+            self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
+            self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|sites.*', [
+                ['label' => 'Overview', 'href' => route('organization.index')],
+                ['label' => 'Sites', 'href' => route('sites.index')],
+                ['label' => 'Regions', 'href' => route('regions.index')],
+            ]),
+            self::nav('Reports', 'report', route('reports.index'), 'reports.*'),
         ];
     }
 

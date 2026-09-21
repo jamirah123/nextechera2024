@@ -26,6 +26,30 @@ class ReportingTest extends TestCase
             ->assertSee('Reports hub');
     }
 
+    public function test_procurement_officer_only_sees_procurement_report_cards(): void
+    {
+        $user = User::factory()->role(UserRole::ProcurementOfficer)->create();
+
+        $this->actingAs($user)
+            ->get(route('reports.index'))
+            ->assertOk()
+            ->assertSee('Purchases')
+            ->assertSee('Assets & uniforms')
+            ->assertSee('Guards')
+            ->assertDontSee('Monthly shift summary')
+            ->assertDontSee('Payroll runs')
+            ->assertDontSee('HR summary')
+            ->assertDontSee('Manpower coverage');
+
+        $this->actingAs($user)
+            ->get(route('reports.monthly-shifts'))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->get(route('reports.guards'))
+            ->assertOk();
+    }
+
     public function test_monthly_shift_summary_counts_completed_normal_and_overtime(): void
     {
         $user = User::factory()->role(UserRole::FinanceManager)->create();
@@ -52,6 +76,7 @@ class ReportingTest extends TestCase
             'site_id' => $site->id,
             'supervisor_id' => $site->supervisor_id,
             'shift_date' => now()->toDateString(),
+            'period' => \App\Enums\ShiftPeriod::Night,
             'shift_type' => ShiftType::Overtime,
             'status' => ShiftStatus::Completed,
             'reference' => 'SHF-'.now()->format('Ymd').'-9999',
@@ -62,7 +87,7 @@ class ReportingTest extends TestCase
             'region_id' => $site->region_id,
             'site_id' => $site->id,
             'supervisor_id' => $site->supervisor_id,
-            'shift_date' => now()->toDateString(),
+            'shift_date' => now()->addDay()->toDateString(),
             'shift_type' => ShiftType::Normal,
             'status' => ShiftStatus::Scheduled,
             'reference' => 'SHF-'.now()->format('Ymd').'-8888',

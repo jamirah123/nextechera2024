@@ -24,7 +24,7 @@ class PurchaseInvoiceController extends Controller
 
     public function index(Request $request): View
     {
-        Gate::authorize('viewFinance');
+        Gate::authorize('viewPurchases');
 
         $bills = PurchaseInvoice::query()
             ->with('expenseAccount:id,code,name')
@@ -39,13 +39,13 @@ class PurchaseInvoiceController extends Controller
             'bills' => $bills,
             'statuses' => PurchaseInvoiceStatus::cases(),
             'filters' => $request->only(['q', 'status']),
-            'canManage' => $request->user()->can('manageFinance'),
+            'canManage' => $request->user()->can('managePurchases'),
         ]);
     }
 
     public function create(Request $request): View
     {
-        Gate::authorize('manageFinance');
+        Gate::authorize('managePurchases');
 
         return view('finance.ledger.purchases.create', [
             'expenseAccounts' => GlAccount::query()->postable()->where('type', 'expense')->orderBy('code')->get(),
@@ -56,7 +56,7 @@ class PurchaseInvoiceController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        Gate::authorize('manageFinance');
+        Gate::authorize('managePurchases');
 
         $data = $this->validated($request);
 
@@ -76,17 +76,17 @@ class PurchaseInvoiceController extends Controller
 
     public function show(PurchaseInvoice $purchase): View
     {
-        Gate::authorize('viewFinance');
+        Gate::authorize('viewPurchases');
 
         return view('finance.ledger.purchases.show', [
             'bill' => $purchase->load(['expenseAccount', 'poster']),
-            'canManage' => request()->user()->can('manageFinance'),
+            'canManage' => request()->user()->can('managePurchases'),
         ]);
     }
 
     public function edit(PurchaseInvoice $purchase): View
     {
-        Gate::authorize('manageFinance');
+        Gate::authorize('managePurchases');
         abort_unless($purchase->isEditable(), 403);
 
         return view('finance.ledger.purchases.edit', [
@@ -98,7 +98,7 @@ class PurchaseInvoiceController extends Controller
 
     public function update(Request $request, PurchaseInvoice $purchase): RedirectResponse
     {
-        Gate::authorize('manageFinance');
+        Gate::authorize('managePurchases');
 
         try {
             $this->purchases->updateDraft($purchase, $this->validated($request));
@@ -113,7 +113,7 @@ class PurchaseInvoiceController extends Controller
 
     public function post(Request $request, PurchaseInvoice $purchase): RedirectResponse
     {
-        Gate::authorize('manageFinance');
+        Gate::authorize('managePurchases');
 
         try {
             $this->purchases->post($purchase, $request->user());
@@ -126,7 +126,7 @@ class PurchaseInvoiceController extends Controller
 
     public function cancel(Request $request, PurchaseInvoice $purchase): RedirectResponse
     {
-        Gate::authorize('manageFinance');
+        Gate::authorize('managePurchases');
 
         try {
             $this->purchases->cancel($purchase, $request->user());

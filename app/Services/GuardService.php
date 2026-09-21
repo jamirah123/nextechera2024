@@ -155,6 +155,7 @@ class GuardService
         ?string $reason = null,
         ?string $notes = null,
         ?array $meta = null,
+        string|\DateTimeInterface|null $effectiveAt = null,
     ): GuardStatusHistory {
         return GuardStatusHistory::query()->create([
             'guard_id' => $guard->id,
@@ -165,7 +166,9 @@ class GuardService
             'notes' => $notes,
             'meta' => $meta,
             'changed_by' => auth()->id(),
-            'effective_at' => now(),
+            'effective_at' => $effectiveAt
+                ? \Illuminate\Support\Carbon::parse($effectiveAt)
+                : now(),
         ]);
     }
 }

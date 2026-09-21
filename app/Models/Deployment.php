@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\DeploymentShiftType;
 use App\Enums\DeploymentStatus;
+use App\Enums\ShiftType;
 use App\Models\Concerns\TracksUserChanges;
 use Database\Factories\DeploymentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,6 +27,9 @@ class Deployment extends Model
         'start_date',
         'end_date',
         'is_current',
+        'is_temporary',
+        'duty_type',
+        'manpower_gap_id',
         'notes',
         'created_by',
         'updated_by',
@@ -36,9 +40,11 @@ class Deployment extends Model
         return [
             'shift_type' => DeploymentShiftType::class,
             'status' => DeploymentStatus::class,
+            'duty_type' => ShiftType::class,
             'start_date' => 'date',
             'end_date' => 'date',
             'is_current' => 'boolean',
+            'is_temporary' => 'boolean',
         ];
     }
 
@@ -80,6 +86,29 @@ class Deployment extends Model
     public function scopeCurrent($query)
     {
         return $query->where('is_current', true)->where('status', DeploymentStatus::Active);
+    }
+
+    /** Standing / permanent postings only (excludes overtime gap coverage). */
+    public function scopePermanent($query)
+    {
+        return $query->where(function ($q): void {
+            $q->where('is_temporary', false)->orWhereNull('is_temporary');
+        });
+    }
+
+    public function scopeTemporary($query)
+    {
+        return $query->where('is_temporary', true);
+    }
+
+    public function manpowerGap(): BelongsTo
+    {
+        return $this->belongsTo(ManpowerGap::class);
+    }
+
+    public function isTemporaryOvertime(): bool
+    {
+        return (bool) $this->is_temporary && $this->duty_type === ShiftType::Overtime;
     }
 
     /**

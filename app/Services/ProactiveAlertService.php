@@ -17,6 +17,7 @@ use App\Models\GuardAttachment;
 use App\Models\Invoice;
 use App\Models\Leave;
 use App\Models\Site;
+use App\Services\DatabaseBackupService;
 use App\Support\Money;
 
 class ProactiveAlertService
@@ -32,7 +33,7 @@ class ProactiveAlertService
     }
 
     /**
-     * @return array{understaffed: int, leave_reminders: int, documents_expiring: int, documents_expired: int, contracts_expiring: int, contracts_expired: int, guard_contracts_expiring: int, sla_breaches: int}
+     * @return array{understaffed: int, leave_reminders: int, documents_expiring: int, documents_expired: int, contracts_expiring: int, contracts_expired: int, guard_contracts_expiring: int, sla_breaches: int, missed_backups: int}
      */
     public function scanAll(): array
     {
@@ -46,6 +47,7 @@ class ProactiveAlertService
                 'contracts_expired' => 0,
                 'guard_contracts_expiring' => 0,
                 'sla_breaches' => 0,
+                'missed_backups' => 0,
             ];
         }
 
@@ -58,6 +60,7 @@ class ProactiveAlertService
             'contracts_expired' => $this->scanExpiredClientContracts(),
             'guard_contracts_expiring' => $this->scanExpiringGuardContracts(),
             'sla_breaches' => $this->scanSlaBreaches(),
+            'missed_backups' => $this->scanMissedBackups(),
         ];
     }
 
@@ -401,6 +404,44 @@ class ProactiveAlertService
             });
 
         return $count;
+    }
+
+    public function scanMissedBackups(): int
+    {
+        $staleHours = max(6, (int) config('psg.backup.stale_hours', 36));
+        /** @var DatabaseBackupService $backups */
+        $backups = app(DatabaseBackupService::class);
+        $hoursSince = $backups->hoursSinceLastSuccessfulBackup();
+        $latest = $backups->latestSuccessful();
+
+        if ($hoursSince !== null && $hoursSince < $staleHours) {
+            return 0;
+        }
+
+        $dedupKey = 'backup-missed-'.now()->format('Y-m-d');
+
+        if ($this->recentlyAlerted('backup.missed', $dedupKey, hours: max(12, (int) ($staleHours / 2)))) {
+            return 0;
+        }
+
+        $this->audit->log(
+            action: 'backup.missed',
+            summary: $latest
+                ? 'No successful backup within the last '.$staleHours.' hours. Latest: '.$latest->reference.'.'
+                : 'No successful application backup has been recorded yet.',
+            category: AuditCategory::System,
+            severity: AuditSeverity::Critical,
+            subject: $latest,
+            context: [
+                'dedup_key' => $dedupKey,
+                'stale_hours' => $staleHours,
+                'hours_since' => $hoursSince,
+                'latest_reference' => $latest?->reference,
+            ],
+            actor: null,
+        );
+
+        return 1;
     }
 
     public function alertClientContract(Client $client, bool $expired): bool

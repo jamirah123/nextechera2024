@@ -3,12 +3,15 @@
 namespace App\Services;
 
 use App\Enums\AbsenceReason;
+use App\Enums\AuditCategory;
+use App\Enums\AuditSeverity;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftStatus;
 use App\Models\Absence;
 use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Shift;
+use App\Services\Operations\OperationalPeriodService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -18,6 +21,8 @@ class AbsenceService
     public function __construct(
         private GuardService $guards,
         private DeploymentService $deployments,
+        private AuditService $audit,
+        private OperationalPeriodService $operationalPeriods,
     ) {}
 
     /**
@@ -42,6 +47,12 @@ class AbsenceService
             if ($absenceDate >= now()->toDateString()) {
                 throw new InvalidArgumentException('Record absences only for a day that has already passed (the missed duty date).');
             }
+
+            $this->operationalPeriods->assertWritableForDate(
+                $absenceDate,
+                auth()->user(),
+                $data['notes'] ?? $data['action_taken'] ?? null,
+            );
 
             if (Absence::query()
                 ->where('guard_id', $guard->id)
@@ -79,24 +90,47 @@ class AbsenceService
                 ]);
             }
 
-            Deployment::query()
-                ->current()
-                ->where('guard_id', $guard->id)
-                ->each(function (Deployment $deployment) use ($absenceDate): void {
-                    $this->deployments->end(
-                        $deployment,
-                        $absenceDate,
-                        'Deployment ended due to recorded absence.',
-                    );
-                });
+            // Historical absences (already past) must not tear down today's posting / status.
+            // Only the most recent calendar day (yesterday) still affects current operational state.
+            $affectsCurrentState = $absenceDate === now()->copy()->subDay()->toDateString();
 
-            $guard->refresh();
+            if ($affectsCurrentState) {
+                Deployment::query()
+                    ->current()
+                    ->where('guard_id', $guard->id)
+                    ->each(function (Deployment $deployment) use ($absenceDate): void {
+                        $this->deployments->end(
+                            $deployment,
+                            $absenceDate,
+                            'Deployment ended due to recorded absence.',
+                        );
+                    });
 
-            $this->guards->updateGuard($guard, [
-                'operational_status' => OperationalStatus::Absent->value,
-            ], 'absence_recorded');
+                $guard->refresh();
 
-            return $absence->fresh(['assignedGuard', 'site', 'shift']);
+                $this->guards->updateGuard($guard, [
+                    'operational_status' => OperationalStatus::Absent->value,
+                ], 'absence_recorded');
+            }
+
+            $fresh = $absence->fresh(['assignedGuard', 'site', 'shift']);
+
+            $this->audit->log(
+                action: 'absence.recorded',
+                summary: 'Absence recorded for '.$guard->employment_id.' on '.$absenceDate
+                    .' (entered '.now()->toDateTimeString().')'
+                    .($affectsCurrentState ? '.' : ' — historical, current status unchanged.'),
+                category: AuditCategory::Hr,
+                severity: AuditSeverity::Notice,
+                subject: $fresh,
+                context: [
+                    'guard_id' => $guard->id,
+                    'absence_date' => $absenceDate,
+                    'affects_current_state' => $affectsCurrentState,
+                ],
+            );
+
+            return $fresh;
         });
     }
 
@@ -110,7 +144,7 @@ class AbsenceService
         $eligibleGuardIds = Absence::query()
             ->select('guard_id')
             ->groupBy('guard_id')
-            ->havingRaw('DATE(MAX(absence_date)) < ?', [$today])
+            ->havingRaw('MAX(absence_date) < ?', [$today])
             ->pluck('guard_id');
 
         $released = 0;

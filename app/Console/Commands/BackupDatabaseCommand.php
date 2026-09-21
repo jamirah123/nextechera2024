@@ -10,18 +10,22 @@ use Throwable;
 class BackupDatabaseCommand extends Command
 {
     protected $signature = 'psg:backup-database
-                            {--type=scheduled_daily : Backup type: manual, scheduled_daily, scheduled_weekly, safety_pre_restore}
-                            {--keep= : Number of backups to retain (overrides settings)}
+                            {--type=scheduled_daily : Backup type: manual, scheduled_daily, scheduled_weekly, scheduled_monthly, safety_pre_restore}
+                            {--keep= : Number of daily-bucket backups to retain (overrides settings)}
                             {--notes= : Optional notes stored with the backup catalog row}';
 
-    protected $description = 'Create a catalogued, checksummed database backup for Platinum Security';
+    protected $description = 'Create a catalogued, checksummed application backup (database + optional private files)';
 
     public function handle(DatabaseBackupService $backups): int
     {
         $type = BackupType::tryFrom((string) $this->option('type')) ?? BackupType::ScheduledDaily;
 
         if ($this->option('keep') !== null) {
-            config(['psg.backup.keep_days' => max(1, (int) $this->option('keep'))]);
+            $keep = max(1, (int) $this->option('keep'));
+            config([
+                'psg.backup.keep_days' => $keep,
+                'psg.backup.keep_daily' => $keep,
+            ]);
         }
 
         try {
@@ -30,6 +34,9 @@ class BackupDatabaseCommand extends Command
             ]);
 
             $this->info('Backup created: '.$backup->reference.' → '.$backup->absolutePath());
+            if ($backup->includes_files) {
+                $this->info('Files archive: '.$backup->files_filename.' ('.$backup->formattedFilesSize().')');
+            }
             if ($backup->offsite_disk) {
                 $this->info('Off-site copy: '.$backup->offsite_disk.':'.$backup->offsite_path);
             }

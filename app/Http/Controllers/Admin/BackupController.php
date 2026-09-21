@@ -24,14 +24,24 @@ class BackupController extends Controller
         $this->authorize('viewAny', DatabaseBackup::class);
 
         $filters = $request->only(['q', 'status', 'type']);
+        $latest = $this->backups->latestSuccessful();
+        $hoursSince = $this->backups->hoursSinceLastSuccessfulBackup();
+        $staleHours = (int) config('psg.backup.stale_hours', 36);
 
         return view('admin.backups.index', [
             'backups' => $this->backups->paginate($filters),
             'filters' => $filters,
             'statuses' => BackupStatus::cases(),
             'types' => BackupType::cases(),
+            'latest' => $latest,
+            'hours_since' => $hoursSince,
+            'is_stale' => $hoursSince === null || $hoursSince >= $staleHours,
             'settings' => [
-                'keep' => (int) config('psg.backup.keep_days', 14),
+                'keep_daily' => (int) config('psg.backup.keep_daily', config('psg.backup.keep_days', 14)),
+                'keep_weekly' => (int) config('psg.backup.keep_weekly', 8),
+                'keep_monthly' => (int) config('psg.backup.keep_monthly', 12),
+                'include_files' => (bool) config('psg.backup.include_files', true),
+                'stale_hours' => $staleHours,
                 'path' => (string) config('psg.backup.path', 'backups'),
                 'schedule' => (string) config('psg.backup.schedule', 'daily'),
                 'offsite' => (string) (config('psg.backup.offsite_disk') ?: 'local only'),
@@ -49,6 +59,7 @@ class BackupController extends Controller
         return view('admin.backups.show', [
             'backup' => $backup,
             'fileExists' => $backup->fileExists(),
+            'filesArchiveExists' => $backup->filesArchiveExists(),
         ]);
     }
 
@@ -84,6 +95,17 @@ class BackupController extends Controller
         }
     }
 
+    public function downloadFiles(DatabaseBackup $backup): StreamedResponse|RedirectResponse
+    {
+        $this->authorize('downloadFiles', $backup);
+
+        try {
+            return $this->backups->downloadFiles($backup);
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['backup' => $e->getMessage()]);
+        }
+    }
+
     public function verify(DatabaseBackup $backup): RedirectResponse
     {
         $this->authorize('verify', $backup);
@@ -95,6 +117,19 @@ class BackupController extends Controller
         }
 
         return back()->with('status', 'Backup '.$backup->reference.' passed integrity verification.');
+    }
+
+    public function testRestore(DatabaseBackup $backup): RedirectResponse
+    {
+        $this->authorize('testRestore', $backup);
+
+        try {
+            $result = $this->backups->testRestore($backup, request()->user());
+        } catch (Throwable $e) {
+            return back()->withErrors(['backup' => $e->getMessage()]);
+        }
+
+        return back()->with('status', 'Restore drill passed for '.$backup->reference.'. '.$result['notes']);
     }
 
     public function restore(Request $request, DatabaseBackup $backup): RedirectResponse
@@ -121,6 +156,30 @@ class BackupController extends Controller
                 'Database restored from '.$result['restored']->reference
                 .'. Safety backup saved as '.$result['safety']->reference.'.'
             );
+    }
+
+    public function restoreFiles(Request $request, DatabaseBackup $backup): RedirectResponse
+    {
+        $this->authorize('restoreFiles', $backup);
+
+        $data = $request->validate([
+            'confirmation' => ['required', 'in:RESTORE FILES'],
+            'overwrite' => ['nullable', 'boolean'],
+        ], [
+            'confirmation.in' => 'Type RESTORE FILES in capitals to confirm.',
+        ]);
+
+        try {
+            $count = $this->backups->restoreFiles(
+                $backup,
+                $request->user(),
+                $request->boolean('overwrite'),
+            );
+        } catch (Throwable $e) {
+            return back()->withErrors(['backup' => $e->getMessage()]);
+        }
+
+        return back()->with('status', 'Restored '.$count.' file(s) from '.$backup->reference.'.');
     }
 
     public function destroy(DatabaseBackup $backup): RedirectResponse

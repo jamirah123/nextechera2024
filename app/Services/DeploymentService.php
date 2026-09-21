@@ -18,7 +18,9 @@ use App\Models\Guard;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Models\Supervisor;
+use App\Services\Operations\OperationalPeriodService;
 use App\Support\Deployments\DeploymentShiftSchedule;
+use App\Support\Historical\HistoricalDates;
 use App\Support\Performance\DashboardCache;
 use App\Support\Shifts\ShiftDutyTypeResolver;
 use Illuminate\Support\Carbon;
@@ -30,6 +32,7 @@ class DeploymentService
     public function __construct(
         private AuditService $audit,
         private GuardService $guards,
+        private OperationalPeriodService $operationalPeriods,
     ) {}
 
     /**
@@ -59,8 +62,34 @@ class DeploymentService
 
             $existing = Deployment::query()
                 ->current()
+                ->permanent()
                 ->where('guard_id', $guard->id)
                 ->first();
+
+            $dutyType = ShiftType::tryFrom((string) ($data['duty_type'] ?? ''));
+
+            // Extra OT on a different period while already permanently posted → temporary coverage.
+            if ($existing && $dutyType === ShiftType::Overtime) {
+                $workPeriod = ShiftDutyTypeResolver::workPeriodFor($shiftType);
+                $permanentPeriod = ShiftDutyTypeResolver::workPeriodFor($existing->shift_type);
+
+                if ($workPeriod !== $permanentPeriod || (int) $existing->site_id !== (int) $site->id) {
+                    $ot = $this->deployTemporaryOvertime([
+                        ...$data,
+                        'shift_type' => $shiftType->value,
+                        'duty_type' => ShiftType::Overtime->value,
+                        'start_date' => $data['start_date'] ?? now()->toDateString(),
+                        'duty_date_to' => $data['duty_date_to'] ?? ($data['start_date'] ?? now()->toDateString()),
+                    ]);
+
+                    app(ManpowerGapService::class)->syncSiteDate(
+                        $site,
+                        (string) ($data['start_date'] ?? now()->toDateString()),
+                    );
+
+                    return $ot;
+                }
+            }
 
             if ($existing) {
                 return $this->redeployExisting($existing, $guard, $site, $data);
@@ -69,6 +98,19 @@ class DeploymentService
             $historicalOnly = $this->isHistoricalPostingOnly($data);
             $dutyFrom = (string) ($data['start_date'] ?? now()->toDateString());
             $dutyTo = $data['duty_date_to'] ?? null;
+
+            $this->operationalPeriods->assertWritableForDate(
+                $dutyFrom,
+                auth()->user(),
+                $data['correction_reason'] ?? $data['notes'] ?? null,
+            );
+            if ($dutyTo) {
+                $this->operationalPeriods->assertWritableForDate(
+                    (string) $dutyTo,
+                    auth()->user(),
+                    $data['correction_reason'] ?? $data['notes'] ?? null,
+                );
+            }
 
             if (! $historicalOnly) {
                 $this->assertSiteHasPostingCapacity($site, $shiftType);
@@ -107,7 +149,10 @@ class DeploymentService
             }
 
             // Every posting records a Shift recorded duty for the duty date(s).
-            $this->recordDutiesForPosting($guard, $site, $data, $shiftType, $shiftType);
+            $this->recordDutiesForPosting($guard, $site, [
+                ...$data,
+                'deployment_id' => $deployment->id,
+            ], $shiftType, $shiftType);
 
             $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
             $this->audit->log(
@@ -127,6 +172,132 @@ class DeploymentService
                     'duty_date' => $dutyFrom,
                     'duty_date_to' => $dutyTo,
                     'historical_only' => $historicalOnly,
+                ],
+            );
+
+            app(ManpowerGapService::class)->syncSiteDate($site, $dutyFrom);
+
+            return $fresh;
+        });
+    }
+
+    /**
+     * Temporary overtime posting that fills a manpower gap for a duty date/period.
+     * Does not count toward permanent site capacity or standing manpower.
+     *
+     * @param  array{
+     *     guard_id: int,
+     *     site_id: int,
+     *     shift_type: string,
+     *     start_date: string,
+     *     duty_date_to?: string|null,
+     *     duty_type?: string,
+     *     manpower_gap_id?: int|null,
+     *     notes?: string|null
+     * }  $data
+     */
+    public function deployTemporaryOvertime(array $data): Deployment
+    {
+        DB::afterCommit(function (): void {
+            DashboardCache::flush();
+            app(ManpowerService::class)->flushRequestCache();
+        });
+
+        return DB::transaction(function () use ($data) {
+            $guard = Guard::query()->findOrFail($data['guard_id']);
+            $site = Site::query()->with('supervisor')->findOrFail($data['site_id']);
+            $shiftType = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
+                ?? DeploymentShiftType::Day;
+            $dutyFrom = (string) ($data['start_date'] ?? now()->toDateString());
+            $dutyTo = (string) ($data['duty_date_to'] ?? $dutyFrom);
+
+            $this->assertSameRegion($guard, $site);
+
+            if ($guard->employment_status !== EmploymentStatus::Active) {
+                throw new InvalidArgumentException('Only active employment guards can work overtime coverage.');
+            }
+
+            if (in_array($guard->operational_status, [
+                OperationalStatus::Deserted,
+                OperationalStatus::Suspended,
+                OperationalStatus::OnLeave,
+                OperationalStatus::Absent,
+                OperationalStatus::SickUnavailable,
+            ], true)) {
+                throw new InvalidArgumentException('This guard is not available for overtime coverage.');
+            }
+
+            $workPeriod = ShiftDutyTypeResolver::workPeriodFor($shiftType);
+            $this->assertNoSameShiftDutyElsewhere($guard, $site, $workPeriod, $dutyFrom, $dutyTo);
+
+            // Same-period permanent posting at another site already blocks via assertNoSameShiftDutyElsewhere.
+            // Allow a day-posted guard to take night OT (and vice versa).
+
+            $this->operationalPeriods->assertWritableForDate(
+                $dutyFrom,
+                auth()->user(),
+                $data['notes'] ?? null,
+            );
+
+            $historicalOnly = HistoricalDates::isHistoricalDutyRange($dutyFrom, $dutyTo);
+
+            $deployment = Deployment::query()->create([
+                'guard_id' => $guard->id,
+                'site_id' => $site->id,
+                'region_id' => $site->region_id,
+                'supervisor_id' => $site->supervisor_id,
+                'shift_type' => $shiftType->value,
+                'status' => $historicalOnly ? DeploymentStatus::Ended->value : DeploymentStatus::Active->value,
+                'start_date' => $dutyFrom,
+                'end_date' => $dutyTo,
+                'is_current' => ! $historicalOnly,
+                'is_temporary' => true,
+                'duty_type' => ShiftType::Overtime->value,
+                'manpower_gap_id' => $data['manpower_gap_id'] ?? null,
+                'notes' => $data['notes'] ?? 'Temporary overtime manpower coverage.',
+            ]);
+
+            $permanent = Deployment::query()
+                ->current()
+                ->permanent()
+                ->where('guard_id', $guard->id)
+                ->first();
+
+            $normalPosting = $permanent?->shift_type instanceof DeploymentShiftType
+                ? $permanent->shift_type
+                : $shiftType;
+
+            $this->recordDutiesForPosting(
+                $guard,
+                $site,
+                [
+                    'start_date' => $dutyFrom,
+                    'duty_date_to' => $dutyTo,
+                    'duty_type' => ShiftType::Overtime->value,
+                    'notes' => $data['notes'] ?? null,
+                    'deployment_id' => $deployment->id,
+                ],
+                $normalPosting,
+                $shiftType,
+            );
+
+            $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor', 'manpowerGap']);
+
+            $this->audit->log(
+                action: 'deployment.overtime_coverage_created',
+                summary: 'Temporary overtime coverage for '.$guard->employment_id
+                    .' at '.$site->name.' ('.$shiftType->label().') on '.$dutyFrom.'.',
+                category: AuditCategory::Deployment,
+                severity: AuditSeverity::Notice,
+                subject: $fresh,
+                context: [
+                    'guard_id' => $guard->id,
+                    'site_id' => $site->id,
+                    'shift_type' => $shiftType->value,
+                    'duty_type' => ShiftType::Overtime->value,
+                    'is_temporary' => true,
+                    'manpower_gap_id' => $fresh->manpower_gap_id,
+                    'duty_date' => $dutyFrom,
                 ],
             );
 
@@ -257,6 +428,7 @@ class DeploymentService
                 $shifts->create([
                     'guard_id' => $guard->id,
                     'site_id' => $site->id,
+                    'deployment_id' => $data['deployment_id'] ?? null,
                     'shift_date' => $day->toDateString(),
                     'start_time' => $start,
                     'end_time' => $end,
@@ -340,7 +512,14 @@ class DeploymentService
             $this->assertSiteHasPostingCapacity($toSite, $incomingShiftType);
 
             $effectiveDate = $data['effective_date'] ?? now()->toDateString();
+            $this->operationalPeriods->assertWritableForDate(
+                $effectiveDate,
+                auth()->user(),
+                $data['notes'] ?? $data['reason'] ?? null,
+            );
 
+            // Late-entered transfers of an active posting remain current state (On Duty),
+            // but effective_at stores the operational date — not the entry timestamp.
             $deployment->update([
                 'status' => DeploymentStatus::Transferred,
                 'is_current' => false,
@@ -353,7 +532,7 @@ class DeploymentService
                 'region_id' => $toSite->region_id,
                 'supervisor_id' => $toSite->supervisor_id,
                 'shift_type' => $incomingShiftType->value,
-                'status' => DeploymentStatus::Active,
+                'status' => DeploymentStatus::Active->value,
                 'start_date' => $effectiveDate,
                 'end_date' => null,
                 'is_current' => true,
@@ -369,7 +548,7 @@ class DeploymentService
                 'reason' => $data['reason'] ?? 'site_transfer',
                 'notes' => $data['notes'] ?? null,
                 'transferred_by' => auth()->id(),
-                'effective_at' => now(),
+                'effective_at' => Carbon::parse($effectiveDate)->startOfDay(),
             ]);
 
             $this->syncGuardAssignment($guard, $toSite, OperationalStatus::OnDuty);
@@ -377,7 +556,8 @@ class DeploymentService
             $fresh = $newDeployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
             $this->audit->log(
                 action: 'deployment.transferred',
-                summary: 'Guard '.$guard->employment_id.' transferred to '.$toSite->name.'.',
+                summary: 'Guard '.$guard->employment_id.' transferred to '.$toSite->name
+                    .' (effective '.$effectiveDate.'; entered '.now()->toDateTimeString().').',
                 category: AuditCategory::Deployment,
                 severity: AuditSeverity::Warning,
                 subject: $fresh,
@@ -385,8 +565,16 @@ class DeploymentService
                     'from_site_id' => $deployment->site_id,
                     'to_site_id' => $toSite->id,
                     'reason' => $data['reason'] ?? null,
+                    'effective_date' => $effectiveDate,
+                    'entered_at' => now()->toDateTimeString(),
                 ],
             );
+
+            $fromSite = Site::query()->find($deployment->site_id);
+            if ($fromSite) {
+                app(ManpowerGapService::class)->syncSiteDate($fromSite, (string) $effectiveDate);
+            }
+            app(ManpowerGapService::class)->syncSiteDate($toSite, (string) $effectiveDate);
 
             return $fresh;
         });
@@ -400,6 +588,11 @@ class DeploymentService
             }
 
             $resolvedEndDate = $endDate ?? now()->toDateString();
+            $this->operationalPeriods->assertWritableForDate(
+                $resolvedEndDate,
+                auth()->user(),
+                $notes,
+            );
 
             $deployment->update([
                 'status' => DeploymentStatus::Ended,
@@ -428,6 +621,11 @@ class DeploymentService
                 subject: $fresh,
                 context: ['guard_id' => $guard->id, 'site_id' => $fresh->site_id],
             );
+
+            $site = Site::query()->find($fresh->site_id);
+            if ($site) {
+                app(ManpowerGapService::class)->syncSiteDate($site, (string) $resolvedEndDate);
+            }
 
             return $fresh;
         });
@@ -488,6 +686,13 @@ class DeploymentService
                 $notes = trim(($notes ? rtrim((string) $notes)."\n" : '').'Correction: '.$reason);
             }
 
+            $startDate = $data['start_date'] ?? optional($deployment->start_date)->toDateString();
+            $this->operationalPeriods->assertWritableForDate(
+                (string) $startDate,
+                auth()->user(),
+                $reason !== '' ? $reason : ($notes ? (string) $notes : null),
+            );
+
             $deployment->update([
                 'guard_id' => $toGuard->id,
                 'site_id' => $toSite->id,
@@ -509,7 +714,14 @@ class DeploymentService
                     ], 'deployment_corrected_off');
                 }
 
-                $this->syncGuardAssignment($toGuard, $toSite, OperationalStatus::OnDuty);
+                // Only flip On Duty when the corrected posting still covers today.
+                $coversToday = HistoricalDates::coversToday(
+                    $deployment->fresh()->start_date,
+                    $deployment->fresh()->end_date,
+                );
+                if ($coversToday) {
+                    $this->syncGuardAssignment($toGuard, $toSite, OperationalStatus::OnDuty);
+                }
             }
 
             $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
@@ -565,6 +777,7 @@ class DeploymentService
 
         $current = Deployment::query()
             ->current()
+            ->permanent()
             ->where('site_id', $site->id)
             ->where('id', '!=', $excluding->id)
             ->where(function ($q) use ($periodType): void {
@@ -777,11 +990,16 @@ class DeploymentService
     public function syncDeployedGuardStatuses(?int $regionId = null): int
     {
         $synced = 0;
+        $today = now()->toDateString();
 
         Guard::query()
             ->activeEmployment()
             ->when($regionId, fn ($query) => $query->where('region_id', $regionId))
-            ->whereHas('deployments', fn ($query) => $query->current())
+            ->whereHas('deployments', function ($query) use ($today): void {
+                $query->current()
+                    ->permanent()
+                    ->activeOnDate($today);
+            })
             ->whereIn('operational_status', [
                 OperationalStatus::AwaitingDeployment,
                 OperationalStatus::OffDuty,
@@ -804,6 +1022,7 @@ class DeploymentService
 
         return Deployment::query()
             ->current()
+            ->permanent()
             ->where('site_id', $siteId)
             ->count();
     }
@@ -814,6 +1033,7 @@ class DeploymentService
 
         return Deployment::query()
             ->current()
+            ->permanent()
             ->where('site_id', $siteId)
             ->where(function ($q) use ($shift): void {
                 $q->where('shift_type', $shift)
@@ -911,12 +1131,19 @@ class DeploymentService
         $workPosting = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
             ?? $existing->shift_type;
 
+        $dutyDate = (string) ($data['start_date'] ?? now()->toDateString());
+
         if ((int) $existing->site_id === (int) $site->id) {
             $fresh = $this->reassignShiftPosting($existing, $guard, $site, [
                 ...$data,
                 'notes' => $notes,
             ]);
-            $this->recordDutiesForPosting($guard, $site, $data, $existing->shift_type, $workPosting);
+            $this->recordDutiesForPosting($guard, $site, [
+                ...$data,
+                'deployment_id' => $fresh->id,
+            ], $existing->shift_type, $workPosting);
+
+            app(ManpowerGapService::class)->syncSiteDate($site, $dutyDate);
 
             return $fresh;
         }
@@ -937,10 +1164,12 @@ class DeploymentService
             $guard,
             $site,
             $incomingPeriod,
-            (string) ($data['start_date'] ?? now()->toDateString()),
+            $dutyDate,
             $data['duty_date_to'] ?? null,
         );
         $this->recordDutiesForPosting($guard, $site, $data, $existing->shift_type, $workPosting);
+
+        app(ManpowerGapService::class)->syncSiteDate($site, $dutyDate);
 
         return $existing->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
     }
@@ -1055,16 +1284,10 @@ class DeploymentService
      */
     private function isHistoricalPostingOnly(array $data): bool
     {
-        $from = Carbon::parse($data['start_date'] ?? now()->toDateString())->startOfDay();
-        $to = ! empty($data['duty_date_to'])
-            ? Carbon::parse((string) $data['duty_date_to'])->startOfDay()
-            : $from->copy();
-
-        if ($to->lt($from)) {
-            $to = $from->copy();
-        }
-
-        return $to->lt(now()->copy()->startOfDay());
+        return HistoricalDates::isHistoricalDutyRange(
+            $data['start_date'] ?? now()->toDateString(),
+            $data['duty_date_to'] ?? null,
+        );
     }
 
     /**

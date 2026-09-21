@@ -74,6 +74,11 @@ class SystemSettingController extends Controller
             'default_night_shift_start' => ['required', 'date_format:H:i'],
             'default_night_shift_end' => ['required', 'date_format:H:i'],
             'backup_keep_days' => ['required', 'integer', 'min:1', 'max:365'],
+            'backup_keep_daily' => ['required', 'integer', 'min:1', 'max:365'],
+            'backup_keep_weekly' => ['required', 'integer', 'min:1', 'max:52'],
+            'backup_keep_monthly' => ['required', 'integer', 'min:1', 'max:60'],
+            'backup_include_files' => ['nullable', 'boolean'],
+            'backup_stale_hours' => ['required', 'integer', 'min:6', 'max:168'],
             'backup_path' => ['required', 'string', 'max:120', 'regex:/^[a-zA-Z0-9_\-\/]+$/'],
             'backup_schedule' => ['required', 'string', 'in:daily,weekly,daily_and_weekly'],
             'backup_notify' => ['nullable', 'boolean'],
@@ -88,7 +93,10 @@ class SystemSettingController extends Controller
         $data['notify_workflow_actions_by_email'] = $request->boolean('notify_workflow_actions_by_email');
         $data['notify_proactive_alerts'] = $request->boolean('notify_proactive_alerts');
         $data['backup_notify'] = $request->boolean('backup_notify');
+        $data['backup_include_files'] = $request->boolean('backup_include_files');
         $data['backup_offsite_disk'] = filled($data['backup_offsite_disk'] ?? null) ? $data['backup_offsite_disk'] : null;
+        // Keep legacy keep_days aligned with the daily retention bucket.
+        $data['backup_keep_days'] = (int) $data['backup_keep_daily'];
 
         $this->settings->update($data, $logo, $favicon);
 

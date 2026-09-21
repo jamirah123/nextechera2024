@@ -36,6 +36,7 @@ Seeded password for demo users: `Password@123`
 | HR Manager | `hr@platinumsecurity.local` |
 | Shift Manager | `shifts@platinumsecurity.local` |
 | Finance Manager | `finance@platinumsecurity.local` |
+| Procurement Officer | `procurement@platinumsecurity.local` |
 
 ## Tests & quality
 
@@ -52,13 +53,17 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full developer workflow. CI run
 ## Production
 
 See [DEPLOY.md](./DEPLOY.md) for deployment, backups, caching, and scheduler setup.  
-Queue workers and the full schedule list: [docs/ops-queue-scheduler.md](./docs/ops-queue-scheduler.md).
+Queue workers and the full schedule list: [docs/ops-queue-scheduler.md](./docs/ops-queue-scheduler.md).  
+Backup & disaster recovery runbook: [docs/disaster-recovery.md](./docs/disaster-recovery.md).
 
 Useful commands:
 
 ```bash
 php artisan psg:production-check
 php artisan psg:backup-database
+php artisan psg:verify-backup
+php artisan psg:test-restore-backup
+php artisan psg:backup-health --alert
 php artisan psg:test-mail you@example.com
 php artisan schedule:work
 php artisan queue:work
@@ -80,10 +85,31 @@ php artisan psg:queue-health
 11. Finance (UGX billing, headcount invoicing, payments, profitability, payroll)  
 12. Administration (users, roles matrix, system settings, database backups)  
 13. Live notifications (role-aware audit feed in the nav bar)
+14. Procurement (assets/uniforms, supplier purchases)
+15. Manpower gaps with overtime resolution
+16. Historical / past-date operations (operational vs entry date; monthly period finalize under Organization → Operational periods)
+
+## Demo seed
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+Builds:
+
+1. **DemoDataSeeder** — HQ users, 4 regions, baseline org, staff, sample guards  
+2. **WorkflowVolumeSeeder** — large connected ops graph (sites, deployments, shifts, HR, billing, assets)  
+3. **DemonstrationScenarioSeeder** — walkthrough scenarios:
+   - **Pearl Plaza (DEMO-PLAZA)** night shortage + overtime coverage  
+   - Desertion case + HR work orders  
+   - Procurement purchase bills (draft + posted with VAT)  
+   - Attendance check-ins, asset return, GL periods, payroll approve path  
+
+Password for all demo users: `Password@123`
 
 Scheduled maintenance (requires `php artisan schedule:work` or cron — full table in [docs/ops-queue-scheduler.md](./docs/ops-queue-scheduler.md)):
 
-- Database backups (daily and/or weekly per settings)
+- Application backups (daily/weekly per settings + monthly; verify, restore drill, health alerts — [docs/disaster-recovery.md](./docs/disaster-recovery.md))
 - Overdue invoice sync (`00:15`)
 - Shift status sync (every 15 minutes)
 - Proactive alerts (hourly)

@@ -61,6 +61,8 @@ class AbsenceDeploymentBoardTest extends TestCase
             'operational_status' => OperationalStatus::OffDuty,
             'current_site_id' => $site->id,
             'region_id' => $site->region_id,
+            'first_name' => 'Absent',
+            'last_name' => 'Guard',
             'full_name' => 'Absent Guard',
         ]);
 
@@ -88,12 +90,17 @@ class AbsenceDeploymentBoardTest extends TestCase
         $this->assertSame(OperationalStatus::Absent, $guard->operational_status);
         $this->assertFalse($deployment->is_current);
 
-        $this->actingAs($ops)
-            ->get(route('deployments.board'))
-            ->assertOk()
-            ->assertSee('Absent Guard', false);
+        // Visiting the board releases yesterday's absences back to the pooling board.
+        $this->actingAs($ops)->get(route('deployments.board'))->assertOk();
 
         $this->assertSame(OperationalStatus::AwaitingDeployment, $guard->fresh()->operational_status);
+        $this->assertTrue(
+            \App\Models\Guard::query()
+                ->whereKey($guard->id)
+                ->where('operational_status', OperationalStatus::AwaitingDeployment)
+                ->whereDoesntHave('deployments', fn ($q) => $q->current())
+                ->exists()
+        );
     }
 
     public function test_absent_guard_appears_on_deployment_board_from_the_following_day(): void
@@ -106,6 +113,8 @@ class AbsenceDeploymentBoardTest extends TestCase
             'employment_status' => EmploymentStatus::Active,
             'operational_status' => OperationalStatus::Absent,
             'region_id' => $site->region_id,
+            'first_name' => 'Released',
+            'last_name' => 'Guard',
             'full_name' => 'Released Guard',
         ]);
 
@@ -117,10 +126,7 @@ class AbsenceDeploymentBoardTest extends TestCase
             'reported_at' => now()->subDay(),
         ]);
 
-        $this->actingAs($ops)
-            ->get(route('deployments.board'))
-            ->assertOk()
-            ->assertSee('Released Guard', false);
+        $this->actingAs($ops)->get(route('deployments.board'))->assertOk();
 
         $this->assertSame(OperationalStatus::AwaitingDeployment, $guard->fresh()->operational_status);
     }

@@ -177,7 +177,13 @@ class ManpowerService
         return $sites->mapWithKeys(function (Site $site) use ($bases, $allocatedRows, $date) {
             $siteId = (int) $site->id;
             $base = $bases->get($siteId) ?? $this->buildSiteSnapshot($site, ['total' => 0, 'day' => 0, 'night' => 0], null);
-            $periodCounts = ($allocatedRows->get($siteId) ?? collect())->pluck('aggregate', 'period');
+            $periodCounts = ($allocatedRows->get($siteId) ?? collect())->mapWithKeys(function ($row) {
+                $period = $row->period instanceof \BackedEnum
+                    ? $row->period->value
+                    : (string) $row->period;
+
+                return [$period => (int) $row->aggregate];
+            });
             $allocatedDay = (int) ($periodCounts[ShiftPeriod::Day->value] ?? 0);
             $allocatedNight = (int) ($periodCounts[ShiftPeriod::Night->value] ?? 0);
             $allocated = $allocatedDay + $allocatedNight;
@@ -440,6 +446,7 @@ class ManpowerService
 
             $rows = Deployment::query()
                 ->current()
+                ->permanent()
                 ->whereIn('site_id', $missing)
                 ->selectRaw('site_id, shift_type, COUNT(*) as aggregate')
                 ->groupBy('site_id', 'shift_type')

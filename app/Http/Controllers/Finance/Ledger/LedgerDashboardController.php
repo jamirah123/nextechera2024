@@ -10,13 +10,18 @@ use App\Models\GlJournal;
 use App\Models\GlPeriod;
 use App\Services\Finance\Ledger\GlPeriodService;
 use App\Support\Money;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 
 class LedgerDashboardController extends Controller
 {
-    public function __invoke(GlPeriodService $periods): View
+    public function __invoke(GlPeriodService $periods): View|RedirectResponse
     {
+        if (! Gate::allows('viewFinance') && Gate::allows('viewPurchases')) {
+            return redirect()->route('ledger.purchases.index');
+        }
+
         Gate::authorize('viewFinance');
 
         $periods->ensureRollingWindow();

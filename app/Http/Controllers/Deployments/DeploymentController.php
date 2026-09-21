@@ -143,6 +143,8 @@ class DeploymentController extends Controller
     {
         $this->authorize('board', Deployment::class);
 
+        $this->releaseBoardPoolGuards($request->user());
+
         $user = $request->user();
         $regionId = $user->regionId();
         $shiftSchedule = DeploymentShiftSchedule::fromConfig();

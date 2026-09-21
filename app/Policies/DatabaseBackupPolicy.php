@@ -31,10 +31,24 @@ class DatabaseBackupPolicy
             && $backup->fileExists();
     }
 
+    public function downloadFiles(User $actor, DatabaseBackup $backup): bool
+    {
+        return Access::userCan($actor, 'admin.backups_manage')
+            && $backup->status->isDownloadable()
+            && $backup->filesArchiveExists();
+    }
+
     public function verify(User $actor, DatabaseBackup $backup): bool
     {
         return Access::userCan($actor, 'admin.backups_manage')
             && $backup->status->isDownloadable()
+            && $backup->fileExists();
+    }
+
+    public function testRestore(User $actor, DatabaseBackup $backup): bool
+    {
+        return Access::userCan($actor, 'admin.backups_manage')
+            && $backup->status->isRestorable()
             && $backup->fileExists();
     }
 
@@ -43,6 +57,13 @@ class DatabaseBackupPolicy
         return Access::userCan($actor, 'admin.backups_manage')
             && $backup->status->isRestorable()
             && $backup->fileExists();
+    }
+
+    public function restoreFiles(User $actor, DatabaseBackup $backup): bool
+    {
+        return Access::userCan($actor, 'admin.backups_manage')
+            && $backup->status->isRestorable()
+            && $backup->filesArchiveExists();
     }
 
     public function delete(User $actor, DatabaseBackup $backup): bool

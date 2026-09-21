@@ -189,11 +189,7 @@ Run the scheduler every minute:
 
 On Windows Task Scheduler, run the equivalent every minute.
 
-Daily database backup is registered at **01:30** via:
-
-```php
-Schedule::command('psg:backup-database --keep=14')
-```
+Daily database backup is registered at **01:30** (plus weekly/monthly per settings) via `routes/console.php`. Integrity verification, restore drills, and missed-backup health checks are also scheduled. Full procedure: [docs/disaster-recovery.md](./docs/disaster-recovery.md).
 
 Overdue invoice sync runs daily at **00:15**:
 
@@ -207,7 +203,7 @@ Shift lifecycle sync runs **every 15 minutes** (scheduled/confirmed → in progr
 php artisan psg:sync-shift-statuses
 ```
 
-Backups are written to `storage/app/backups/`.
+Backups are written to `storage/app/backups/` (database dump + optional private-files ZIP). Configure `PSG_BACKUP_OFFSITE_DISK=s3` for a separate copy.
 
 If using database queues:
 
@@ -222,13 +218,17 @@ Use a process manager (Supervisor / NSSM) in production. Full schedule table, Su
 Manual backup:
 
 ```bash
-php artisan psg:backup-database --keep=14
+php artisan psg:backup-database --type=manual
 ```
 
 - **SQLite**: copies the DB file  
 - **MySQL/MariaDB**: runs `mysqldump` into `.sql`
+- **Files**: zips `storage/app/private` when `PSG_BACKUP_INCLUDE_FILES=true`
+- **Verify**: `php artisan psg:verify-backup`
+- **Restore drill**: `php artisan psg:test-restore-backup`
+- **Restore**: admin console (type `RESTORE`) or `php artisan psg:restore-backup {reference} --force`
 
-Store copies off-server (object storage / network share). Test restores quarterly.
+Store copies off-server (object storage / network share). Follow [docs/disaster-recovery.md](./docs/disaster-recovery.md) and test restores quarterly.
 
 ## 9. Health check
 

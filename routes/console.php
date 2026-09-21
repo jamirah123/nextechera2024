@@ -13,7 +13,6 @@ $backupSchedule = (string) config('psg.backup.schedule', 'daily');
 if (in_array($backupSchedule, ['daily', 'daily_and_weekly'], true)) {
     Schedule::command('psg:backup-database', [
         '--type' => 'scheduled_daily',
-        '--keep' => config('psg.backup.keep_days', 14),
     ])->dailyAt('01:30')
         ->withoutOverlapping()
         ->name('psg-backup-daily');
@@ -22,11 +21,35 @@ if (in_array($backupSchedule, ['daily', 'daily_and_weekly'], true)) {
 if (in_array($backupSchedule, ['weekly', 'daily_and_weekly'], true)) {
     Schedule::command('psg:backup-database', [
         '--type' => 'scheduled_weekly',
-        '--keep' => config('psg.backup.keep_days', 14),
     ])->weeklyOn(0, '02:15')
         ->withoutOverlapping()
         ->name('psg-backup-weekly');
 }
+
+// Monthly long-retention copy (1st of each month).
+Schedule::command('psg:backup-database', [
+    '--type' => 'scheduled_monthly',
+])->monthlyOn(1, '03:00')
+    ->withoutOverlapping()
+    ->name('psg-backup-monthly');
+
+// Integrity check of the latest successful backup after the nightly window.
+Schedule::command('psg:verify-backup')
+    ->dailyAt('04:00')
+    ->withoutOverlapping()
+    ->name('psg-backup-verify');
+
+// Non-destructive restore drill weekly (Sunday after weekly backup).
+Schedule::command('psg:test-restore-backup')
+    ->weeklyOn(0, '04:30')
+    ->withoutOverlapping()
+    ->name('psg-backup-restore-drill');
+
+// Freshness / missed-backup monitoring.
+Schedule::command('psg:backup-health', ['--alert' => true])
+    ->hourly()
+    ->withoutOverlapping()
+    ->name('psg-backup-health');
 
 Schedule::command('psg:mark-overdue-invoices')
     ->dailyAt('00:15')

@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Reports;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Region;
 use App\Models\Site;
+use App\Models\User;
 use App\Services\ReportExportService;
 use App\Services\Reports\MonthlyShiftCalculationService;
 use App\Services\Reports\OperationalReportService;
@@ -22,67 +24,18 @@ class ReportController extends Controller
         private ReportExportService $exports,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorizeReports();
 
         return view('reports.index', [
-            'cards' => [
-                [
-                    'title' => 'Monthly shift summary',
-                    'description' => 'Normal, overtime and totals by guard for payroll-ready month-end review.',
-                    'href' => route('reports.monthly-shifts'),
-                    'tone' => 'brand',
-                ],
-                [
-                    'title' => 'Payroll runs',
-                    'description' => 'Calculate, approve and pay guards from completed shifts with payslips and bank export.',
-                    'href' => route('payroll.index'),
-                    'tone' => 'emerald',
-                ],
-                [
-                    'title' => 'Daily shifts',
-                    'description' => 'Today or any date: scheduled, completed, missed and overtime counts.',
-                    'href' => route('reports.daily-shifts'),
-                    'tone' => 'sky',
-                ],
-                [
-                    'title' => 'Weekly shifts',
-                    'description' => 'Week board with completion and overtime rollups.',
-                    'href' => route('reports.weekly-shifts'),
-                    'tone' => 'indigo',
-                ],
-                [
-                    'title' => 'Guards',
-                    'description' => 'Employment and operational status across the company.',
-                    'href' => route('reports.guards'),
-                    'tone' => 'emerald',
-                ],
-                [
-                    'title' => 'Deployments',
-                    'description' => 'Active deployments and recent transfers.',
-                    'href' => route('reports.deployments'),
-                    'tone' => 'amber',
-                ],
-                [
-                    'title' => 'Manpower coverage',
-                    'description' => 'Required vs deployed with shortage and surplus.',
-                    'href' => route('manpower.coverage'),
-                    'tone' => 'violet',
-                ],
-                [
-                    'title' => 'HR summary',
-                    'description' => 'Leave, absences and desertions for a selected period.',
-                    'href' => route('reports.hr'),
-                    'tone' => 'rose',
-                ],
-            ],
+            'cards' => $this->cardsFor($request->user()),
         ]);
     }
 
     public function monthlyShifts(Request $request): View
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('monthly_shifts');
 
         $filters = $this->monthFilters($request);
         $rows = $this->monthlyShifts->paginate($filters);
@@ -100,7 +53,7 @@ class ReportController extends Controller
 
     public function exportMonthlyShifts(Request $request): StreamedResponse
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('monthly_shifts');
 
         $filters = $this->monthFilters($request);
         $rows = $this->monthlyShifts->calculate($filters);
@@ -119,7 +72,7 @@ class ReportController extends Controller
 
     public function dailyShifts(Request $request): View
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('daily_shifts');
 
         $filters = $this->dailyFilters($request);
         $report = $this->reports->dailyShifts($filters);
@@ -135,7 +88,7 @@ class ReportController extends Controller
 
     public function exportDailyShifts(Request $request): StreamedResponse
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('daily_shifts');
 
         $filters = $this->dailyFilters($request);
         $report = $this->reports->dailyShifts($filters);
@@ -158,7 +111,7 @@ class ReportController extends Controller
 
     public function weeklyShifts(Request $request): View
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('weekly_shifts');
 
         $filters = $this->weeklyFilters($request);
         $report = $this->reports->weeklyShifts($filters);
@@ -174,7 +127,7 @@ class ReportController extends Controller
 
     public function exportWeeklyShifts(Request $request): StreamedResponse
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('weekly_shifts');
 
         $filters = $this->weeklyFilters($request);
         $report = $this->reports->weeklyShifts($filters);
@@ -202,7 +155,7 @@ class ReportController extends Controller
 
     public function guards(Request $request): View
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('guards');
 
         $filters = $request->only(['region_id', 'employment_status', 'operational_status']);
         $report = $this->reports->guards($filters);
@@ -217,7 +170,7 @@ class ReportController extends Controller
 
     public function exportGuards(Request $request): StreamedResponse
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('guards');
 
         $report = $this->reports->guards($request->only(['region_id', 'employment_status', 'operational_status']));
         $headers = ['#', 'Employment ID', 'Name', 'Region', 'Site', 'Employment', 'Operational'];
@@ -236,7 +189,7 @@ class ReportController extends Controller
 
     public function deployments(Request $request): View
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('deployments');
 
         $filters = $this->deploymentFilters($request);
 
@@ -254,7 +207,7 @@ class ReportController extends Controller
 
     public function exportDeployments(Request $request): StreamedResponse
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('deployments');
 
         $filters = $this->deploymentFilters($request);
         $report = $this->reports->deployments($filters);
@@ -294,7 +247,7 @@ class ReportController extends Controller
 
     public function hr(Request $request): View
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('hr');
 
         $filters = $this->hrFilters($request);
 
@@ -306,7 +259,7 @@ class ReportController extends Controller
 
     public function exportHr(Request $request): StreamedResponse
     {
-        $this->authorizeReports();
+        $this->authorizeReportKey('hr');
 
         $filters = $this->hrFilters($request);
         $report = $this->reports->hr($filters);
@@ -362,6 +315,131 @@ class ReportController extends Controller
             $headers,
             $data,
         );
+    }
+
+    /**
+     * @return list<array{key: string, title: string, description: string, href: string, tone: string}>
+     */
+    private function cardsFor(?User $user): array
+    {
+        $cards = [
+            [
+                'key' => 'purchases',
+                'title' => 'Purchases',
+                'description' => 'Supplier bills for uniforms, kit and operational supplies.',
+                'href' => route('ledger.purchases.index'),
+                'tone' => 'violet',
+            ],
+            [
+                'key' => 'assets',
+                'title' => 'Assets & uniforms',
+                'description' => 'Kit issues, returns and replacement cost recovery.',
+                'href' => route('assets.index'),
+                'tone' => 'indigo',
+            ],
+            [
+                'key' => 'guards',
+                'title' => 'Guards',
+                'description' => 'Employment and operational status across the company.',
+                'href' => route('reports.guards'),
+                'tone' => 'emerald',
+            ],
+            [
+                'key' => 'monthly_shifts',
+                'title' => 'Monthly shift summary',
+                'description' => 'Normal, overtime and totals by guard for payroll-ready month-end review.',
+                'href' => route('reports.monthly-shifts'),
+                'tone' => 'brand',
+            ],
+            [
+                'key' => 'payroll',
+                'title' => 'Payroll runs',
+                'description' => 'Calculate, approve and pay guards from completed shifts with payslips and bank export.',
+                'href' => route('payroll.index'),
+                'tone' => 'emerald',
+            ],
+            [
+                'key' => 'daily_shifts',
+                'title' => 'Daily shifts',
+                'description' => 'Today or any date: scheduled, completed, missed and overtime counts.',
+                'href' => route('reports.daily-shifts'),
+                'tone' => 'sky',
+            ],
+            [
+                'key' => 'weekly_shifts',
+                'title' => 'Weekly shifts',
+                'description' => 'Week board with completion and overtime rollups.',
+                'href' => route('reports.weekly-shifts'),
+                'tone' => 'indigo',
+            ],
+            [
+                'key' => 'deployments',
+                'title' => 'Deployments',
+                'description' => 'Active deployments and recent transfers.',
+                'href' => route('reports.deployments'),
+                'tone' => 'amber',
+            ],
+            [
+                'key' => 'manpower',
+                'title' => 'Manpower coverage',
+                'description' => 'Required vs deployed with shortage and surplus.',
+                'href' => route('manpower.coverage'),
+                'tone' => 'violet',
+            ],
+            [
+                'key' => 'hr',
+                'title' => 'HR summary',
+                'description' => 'Leave, absences and desertions for a selected period.',
+                'href' => route('reports.hr'),
+                'tone' => 'rose',
+            ],
+        ];
+
+        return array_values(array_filter(
+            $cards,
+            fn (array $card) => $this->userCanSeeReport($user, $card['key']),
+        ));
+    }
+
+    private function userCanSeeReport(?User $user, string $key): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        if (in_array($user->role, [UserRole::SuperAdmin, UserRole::ManagingDirector], true)) {
+            return true;
+        }
+
+        if ($user->role === UserRole::ProcurementOfficer) {
+            return in_array($key, ['purchases', 'assets', 'guards'], true);
+        }
+
+        if ($user->role === UserRole::FinanceManager) {
+            return in_array($key, [
+                'monthly_shifts',
+                'payroll',
+                'guards',
+                'purchases',
+                'assets',
+                'deployments',
+                'manpower',
+            ], true);
+        }
+
+        if ($user->role === UserRole::HrManager) {
+            return in_array($key, ['guards', 'hr', 'assets', 'deployments', 'manpower'], true);
+        }
+
+        return in_array($key, [
+            'monthly_shifts',
+            'daily_shifts',
+            'weekly_shifts',
+            'guards',
+            'deployments',
+            'manpower',
+            'hr',
+        ], true);
     }
 
     /** @return array{year: int, month: int, region_id: int|null, site_id: int|null} */
@@ -437,5 +515,12 @@ class ReportController extends Controller
     private function authorizeReports(): void
     {
         Gate::authorize('viewReports');
+    }
+
+    private function authorizeReportKey(string $key): void
+    {
+        $this->authorizeReports();
+
+        abort_unless($this->userCanSeeReport(request()->user(), $key), 403);
     }
 }

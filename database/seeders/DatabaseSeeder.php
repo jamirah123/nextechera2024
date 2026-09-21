@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             DemoDataSeeder::class,
             WorkflowVolumeSeeder::class,
+            DemonstrationScenarioSeeder::class,
         ]);
     }
 }

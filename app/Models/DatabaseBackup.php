@@ -17,9 +17,14 @@ class DatabaseBackup extends Model
         'disk',
         'relative_path',
         'filename',
+        'files_relative_path',
+        'files_filename',
         'driver',
+        'includes_files',
         'size_bytes',
+        'files_size_bytes',
         'checksum_sha256',
+        'files_checksum_sha256',
         'offsite_disk',
         'offsite_path',
         'offsite_synced_at',
@@ -27,11 +32,13 @@ class DatabaseBackup extends Model
         'completed_at',
         'verified_at',
         'restored_at',
+        'restore_tested_at',
         'created_by',
         'verified_by',
         'restored_by',
         'error_message',
         'notes',
+        'restore_test_notes',
     ];
 
     protected function casts(): array
@@ -39,12 +46,15 @@ class DatabaseBackup extends Model
         return [
             'type' => BackupType::class,
             'status' => BackupStatus::class,
+            'includes_files' => 'boolean',
             'size_bytes' => 'integer',
+            'files_size_bytes' => 'integer',
             'offsite_synced_at' => 'datetime',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'verified_at' => 'datetime',
             'restored_at' => 'datetime',
+            'restore_tested_at' => 'datetime',
         ];
     }
 
@@ -75,8 +85,27 @@ class DatabaseBackup extends Model
 
     public function formattedSize(): string
     {
-        $bytes = (int) $this->size_bytes;
+        return $this->formatBytes((int) $this->size_bytes + (int) $this->files_size_bytes);
+    }
 
+    public function formattedDatabaseSize(): string
+    {
+        return $this->formatBytes((int) $this->size_bytes);
+    }
+
+    public function formattedFilesSize(): string
+    {
+        return $this->formatBytes((int) $this->files_size_bytes);
+    }
+
+    public function filesArchiveExists(): bool
+    {
+        return filled($this->files_relative_path)
+            && Storage::disk($this->disk)->exists($this->files_relative_path);
+    }
+
+    private function formatBytes(int $bytes): string
+    {
         if ($bytes < 1024) {
             return $bytes.' B';
         }

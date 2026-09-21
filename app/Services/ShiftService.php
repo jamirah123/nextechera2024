@@ -18,7 +18,9 @@ use App\Models\Site;
 use App\Services\Finance\PayrollCalculationService;
 use App\Services\Shifts\ShiftValidationResult;
 use App\Services\Shifts\ShiftValidationService;
+use App\Support\Historical\HistoricalDates;
 use App\Support\Shifts\ShiftDutyTypeResolver;
+use App\Services\Operations\OperationalPeriodService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Carbon\CarbonPeriod;
@@ -34,6 +36,7 @@ class ShiftService
         private AuditService $audit,
         private DeploymentService $deployments,
         private PayrollCalculationService $payroll,
+        private OperationalPeriodService $operationalPeriods,
     ) {}
 
     /**
@@ -59,6 +62,12 @@ class ShiftService
     public function create(array $data): Shift
     {
         return DB::transaction(function () use ($data) {
+            $this->operationalPeriods->assertWritableForDate(
+                $data['shift_date'],
+                auth()->user(),
+                $data['override_reason'] ?? $data['notes'] ?? null,
+            );
+
             [$startsAt, $endsAt, $isOvernight] = $this->resolveWindow(
                 $data['shift_date'],
                 $data['start_time'],
@@ -79,10 +88,20 @@ class ShiftService
             $this->assertValidation($validation, $data);
 
             $site = Site::query()->findOrFail($data['site_id']);
-            $deployment = Deployment::query()
-                ->current()
-                ->where('guard_id', $data['guard_id'])
-                ->first();
+            $deployment = isset($data['deployment_id'])
+                ? Deployment::query()->find($data['deployment_id'])
+                : Deployment::query()
+                    ->current()
+                    ->permanent()
+                    ->where('guard_id', $data['guard_id'])
+                    ->first();
+
+            if (! $deployment) {
+                $deployment = Deployment::query()
+                    ->current()
+                    ->where('guard_id', $data['guard_id'])
+                    ->first();
+            }
 
             $period = ShiftPeriod::tryFrom($data['period'] ?? $this->inferPeriod($data['start_time'])->value)
                 ?? $this->inferPeriod($data['start_time']);
@@ -291,7 +310,8 @@ class ShiftService
 
             $guard = $shift->assignedGuard()->first();
             if ($guard) {
-                if ($status === ShiftStatus::InProgress) {
+                if ($status === ShiftStatus::InProgress
+                    && ! HistoricalDates::isPastCalendarDay($shift->shift_date)) {
                     $this->guards->updateGuard($guard, [
                         'operational_status' => OperationalStatus::OnDuty->value,
                     ], 'shift_in_progress');

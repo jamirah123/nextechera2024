@@ -7,7 +7,7 @@ return [
     'fallback_favicon' => env('PSG_FAVICON', 'favicon.ico'),
     'tagline' => env('PSG_TAGLINE', 'New Age Security and Protection'),
     'system_subtitle' => env('PSG_SYSTEM_SUBTITLE', 'Operations System'),
-    'login_headline' => env('PSG_LOGIN_HEADLINE', 'Guards, sites, shifts, billing and payroll — one platform'),
+    'login_headline' => env('PSG_LOGIN_HEADLINE', 'Guards, sites, shifts, billing and payroll'),
     'theme' => [
         'primary' => env('PSG_THEME_PRIMARY', '#1845de'),
         'sidebar' => env('PSG_THEME_SIDEBAR', '#070d18'),
@@ -40,7 +40,13 @@ return [
         ),
     ],
     'backup' => [
+        // Legacy fallback count when tiered counts are unset.
         'keep_days' => (int) env('PSG_BACKUP_KEEP', 14),
+        'keep_daily' => (int) env('PSG_BACKUP_KEEP_DAILY', env('PSG_BACKUP_KEEP', 14)),
+        'keep_weekly' => (int) env('PSG_BACKUP_KEEP_WEEKLY', 8),
+        'keep_monthly' => (int) env('PSG_BACKUP_KEEP_MONTHLY', 12),
+        'include_files' => filter_var(env('PSG_BACKUP_INCLUDE_FILES', true), FILTER_VALIDATE_BOOL),
+        'stale_hours' => (int) env('PSG_BACKUP_STALE_HOURS', 36),
         'path' => env('PSG_BACKUP_PATH', 'backups'),
         'disk' => env('PSG_BACKUP_DISK', 'backups'),
         'schedule' => env('PSG_BACKUP_SCHEDULE', 'daily'), // daily | weekly | daily_and_weekly

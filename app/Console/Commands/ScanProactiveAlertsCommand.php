@@ -29,7 +29,7 @@ class ScanProactiveAlertsCommand extends Command
         }
 
         $this->info(sprintf(
-            'Proactive scan complete: %d understaffed, %d leave reminder(s), %d document(s) expiring, %d expired doc(s), %d contract renewal(s), %d expired client contract(s), %d guard contract renewal(s), %d SLA breach(es). Work orders synced: %d.',
+            'Proactive scan complete: %d understaffed, %d leave reminder(s), %d document(s) expiring, %d expired doc(s), %d contract renewal(s), %d expired client contract(s), %d guard contract renewal(s), %d SLA breach(es), %d missed backup alert(s). Work orders synced: %d.',
             $results['understaffed'],
             $results['leave_reminders'],
             $results['documents_expiring'],
@@ -38,6 +38,7 @@ class ScanProactiveAlertsCommand extends Command
             $results['contracts_expired'],
             $results['guard_contracts_expiring'],
             $results['sla_breaches'],
+            $results['missed_backups'] ?? 0,
             $tasksCreated,
         ));
 

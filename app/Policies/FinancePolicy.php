@@ -22,6 +22,18 @@ class FinancePolicy
         return Access::userCan($user, 'finance.manage');
     }
 
+    public function managePurchases(User $user): bool
+    {
+        return Access::userCan($user, 'finance.manage')
+            || Access::userCan($user, 'finance.purchases_manage');
+    }
+
+    public function viewPurchases(User $user): bool
+    {
+        return Access::userCan($user, 'finance.view')
+            || Access::userCan($user, 'finance.purchases_manage');
+    }
+
     public function approvePayroll(User $user): bool
     {
         return Access::userCan($user, 'finance.payroll.approve');

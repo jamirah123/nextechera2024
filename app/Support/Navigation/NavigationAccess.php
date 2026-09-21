@@ -20,6 +20,7 @@ class NavigationAccess
         'clients.index' => 'organization.view',
         'sites.index' => 'organization.view',
         'manpower.coverage' => 'organization.view',
+        'operations.periods.index' => 'operations.periods_manage',
         'users.index' => 'admin.users_manage',
         'roles.index' => 'admin.roles_manage',
         'audit.index' => 'admin.audit_view',
@@ -55,6 +56,7 @@ class NavigationAccess
         'ledger.periods.index' => 'finance.view',
         'ledger.vat.index' => 'finance.view',
         'ledger.bank.index' => 'finance.view',
+        'ledger.purchases.index' => 'finance.purchases_manage',
         'reports.index' => 'reporting.view_export',
         'reports.hr' => 'reporting.view_export',
         'reports.monthly-shifts' => 'reporting.view_export',
@@ -112,6 +114,7 @@ class NavigationAccess
         'profitability.*' => ['finance.view'],
         'payroll.*' => ['finance.view', 'finance.manage'],
         'advances.*' => ['finance.view'],
+        'ledger.purchases*' => ['finance.view', 'finance.purchases_manage'],
         'ledger.*' => ['finance.view', 'finance.manage'],
         'reports.*' => ['reporting.view_export'],
     ];

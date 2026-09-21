@@ -81,8 +81,8 @@ class PermissionCatalog
             [
                 'key' => 'admin.backups_manage',
                 'group' => 'Administration',
-                'label' => 'Manage database backups & restore',
-                'description' => 'Create, download, verify and restore database backups. Restricted critical infrastructure access.',
+                'label' => 'Manage backups & disaster recovery',
+                'description' => 'Create, download, verify, test-restore, and restore database + file backups. Restricted critical infrastructure access.',
                 'roles' => $admin,
             ],
             [
@@ -215,6 +215,29 @@ class PermissionCatalog
                 'roles' => $hrOps,
             ],
             [
+                'key' => 'operations.periods_manage',
+                'group' => 'Operations',
+                'label' => 'Finalize operational periods',
+                'description' => 'Close or re-open monthly operational periods so historical duty records cannot be casually changed after month-end.',
+                'roles' => [
+                    UserRole::SuperAdmin->value,
+                    UserRole::ManagingDirector->value,
+                    UserRole::OperationsManager->value,
+                ],
+            ],
+            [
+                'key' => 'operations.historical_correct',
+                'group' => 'Operations',
+                'label' => 'Correct finalized historical records',
+                'description' => 'Enter or correct past-dated operational records inside a finalized month when a correction reason is provided.',
+                'roles' => [
+                    UserRole::SuperAdmin->value,
+                    UserRole::ManagingDirector->value,
+                    UserRole::OperationsManager->value,
+                    UserRole::ShiftManager->value,
+                ],
+            ],
+            [
                 'key' => 'hr.leaves_manage',
                 'group' => 'HR',
                 'label' => 'Create & update leave requests',
@@ -257,6 +280,7 @@ class PermissionCatalog
                     UserRole::HrManager->value,
                     UserRole::FinanceManager->value,
                     UserRole::OperationsManager->value,
+                    UserRole::ProcurementOfficer->value,
                 ],
             ],
             [
@@ -272,6 +296,18 @@ class PermissionCatalog
                 'label' => 'Manage finance records',
                 'description' => 'Create and edit billing, invoices, payments, GL accounts, bank reconciliation and period close.',
                 'roles' => $financeManage,
+            ],
+            [
+                'key' => 'finance.purchases_manage',
+                'group' => 'Finance',
+                'label' => 'Manage supplier purchases',
+                'description' => 'Create, edit, post and cancel supplier purchase bills (input VAT / accounts payable).',
+                'roles' => [
+                    UserRole::SuperAdmin->value,
+                    UserRole::ManagingDirector->value,
+                    UserRole::FinanceManager->value,
+                    UserRole::ProcurementOfficer->value,
+                ],
             ],
             [
                 'key' => 'finance.payroll.approve',

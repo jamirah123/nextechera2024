@@ -73,6 +73,7 @@ class DemoDataSeeder extends Seeder
             ['name' => 'Shift Manager', 'email' => 'shifts@platinumsecurity.local', 'role' => UserRole::ShiftManager, 'phone' => '+256700000004'],
             ['name' => 'Finance Manager', 'email' => 'finance@platinumsecurity.local', 'role' => UserRole::FinanceManager, 'phone' => '+256700000005'],
             ['name' => 'Managing Director', 'email' => 'md@platinumsecurity.local', 'role' => UserRole::ManagingDirector, 'phone' => '+256700000006'],
+            ['name' => 'Procurement Officer', 'email' => 'procurement@platinumsecurity.local', 'role' => UserRole::ProcurementOfficer, 'phone' => '+256700000007'],
         ];
 
         foreach ($users as $user) {
@@ -88,6 +89,9 @@ class DemoDataSeeder extends Seeder
                 ],
             );
         }
+
+        app(\App\Support\Access\RolePermissionService::class)->mergeMissingPermissions();
+        app(\App\Support\Access\RolePermissionService::class)->ensureRoleDefaults(UserRole::ProcurementOfficer);
     }
 
     /** @return Collection<int, Region> */

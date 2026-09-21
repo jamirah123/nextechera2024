@@ -1,16 +1,16 @@
 @extends('layouts.app')
 
-@section('title', 'Database Backups')
-@section('page-title', 'Database backups')
-@section('page-subtitle', 'Critical infrastructure · recovery & data protection')
+@section('title', 'Backups & Recovery')
+@section('page-title', 'Backups & recovery')
+@section('page-subtitle', 'Critical infrastructure · data protection')
 
 @section('content')
 <div class="mx-auto w-full max-w-5xl space-y-3">
     <div class="flex flex-wrap items-end justify-between gap-2">
         <div>
-            <h1 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Database backups</h1>
+            <h1 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Backups & recovery</h1>
             <p class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                Full database dumps with checksums, retention, optional off-site copy, and controlled restore.
+                Database dumps and private-file archives with checksums, GFS retention, optional off-site copy, restore drills, and controlled restore.
             </p>
         </div>
         <form method="POST" action="{{ route('backups.store') }}">
@@ -23,18 +23,33 @@
         <p class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200">{{ $message }}</p>
     @enderror
 
+    @if ($is_stale)
+        <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+            Backup freshness warning: no successful backup within the last {{ $settings['stale_hours'] }} hours
+            @if ($latest)
+                (latest {{ $latest->reference }} · {{ optional($latest->completed_at)->diffForHumans() }}).
+            @else
+                (none catalogued yet).
+            @endif
+        </p>
+    @endif
+
     <section class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Retention</p>
-            <p class="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">Keep {{ $settings['keep'] }} newest</p>
+            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Retention (GFS)</p>
+            <p class="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {{ $settings['keep_daily'] }}d / {{ $settings['keep_weekly'] }}w / {{ $settings['keep_monthly'] }}m
+            </p>
         </div>
         <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Schedule</p>
-            <p class="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">{{ str_replace('_', ' ', $settings['schedule']) }}</p>
+            <p class="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">{{ str_replace('_', ' ', $settings['schedule']) }} + monthly</p>
         </div>
         <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Storage</p>
-            <p class="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">storage/app/{{ $settings['path'] }}</p>
+            <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Contents</p>
+            <p class="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                DB{{ $settings['include_files'] ? ' + private files' : ' only' }}
+            </p>
         </div>
         <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Off-site</p>
@@ -61,7 +76,7 @@
     </section>
 
     @if ($backups->isEmpty())
-        <x-empty-state title="No backups yet" description="Create a manual backup or wait for the scheduled job (daily 01:30 / weekly Sunday 02:15)." icon="settings" />
+        <x-empty-state title="No backups yet" description="Create a manual backup or wait for the scheduled job (daily 01:30 / weekly Sunday 02:15 / monthly 1st 03:00)." icon="settings" />
     @else
         <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <table class="data-table text-xs">
@@ -80,7 +95,12 @@
                         <tr>
                             <td>
                                 <p class="font-semibold text-slate-900 dark:text-slate-100">{{ $backup->reference }}</p>
-                                <p class="font-mono text-[10px] text-slate-500">{{ $backup->filename ?: '—' }}</p>
+                                <p class="font-mono text-[10px] text-slate-500">
+                                    {{ $backup->filename ?: '—' }}
+                                    @if ($backup->includes_files)
+                                        <span class="text-slate-400">+ files</span>
+                                    @endif
+                                </p>
                             </td>
                             <td class="hidden sm:table-cell">
                                 <x-status-badge :tone="$backup->type->tone()" :label="$backup->type->label()" />
@@ -108,6 +128,8 @@
     <p class="text-[11px] text-slate-500">
         Policy and schedule are configured under
         <a href="{{ route('settings.index') }}" class="font-semibold text-brand-700 hover:underline dark:text-brand-400">Platform Settings</a>.
+        Full recovery procedure:
+        <span class="font-mono text-[10px]">docs/disaster-recovery.md</span>.
         Completed backups cannot be deleted manually — retention prunes oldest files automatically.
     </p>
 </div>

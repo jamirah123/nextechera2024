@@ -53,6 +53,11 @@ class BackupManagementTest extends TestCase
             'psg.backup.disk' => 'backups',
             'psg.backup.path' => 'backups-mgmt-test',
             'psg.backup.keep_days' => 5,
+            'psg.backup.keep_daily' => 5,
+            'psg.backup.keep_weekly' => 3,
+            'psg.backup.keep_monthly' => 2,
+            'psg.backup.include_files' => true,
+            'psg.backup.stale_hours' => 36,
             'psg.backup.notify' => false,
             'psg.backup.offsite_disk' => null,
             'filesystems.disks.backups' => [
@@ -174,5 +179,71 @@ class BackupManagementTest extends TestCase
             'reference' => $backup->reference,
             'status' => BackupStatus::Completed->value,
         ]);
+    }
+
+    public function test_backup_can_include_private_files_archive(): void
+    {
+        $private = storage_path('app/private/guards');
+        File::ensureDirectoryExists($private);
+        $doc = $private.DIRECTORY_SEPARATOR.'backup-test-doc.txt';
+        File::put($doc, 'confidential guard document');
+
+        $backup = app(DatabaseBackupService::class)->create(BackupType::Manual, null, [
+            'include_files' => true,
+        ]);
+
+        $this->assertTrue($backup->includes_files);
+        $this->assertTrue($backup->filesArchiveExists());
+        $this->assertNotEmpty($backup->files_checksum_sha256);
+
+        File::delete($doc);
+    }
+
+    public function test_restore_drill_marks_backup_as_tested(): void
+    {
+        $admin = User::factory()->role(UserRole::SuperAdmin)->create();
+        $service = app(DatabaseBackupService::class);
+        $backup = $service->create(BackupType::Manual, $admin);
+
+        $result = $service->testRestore($backup->fresh(), $admin);
+
+        $this->assertTrue($result['ok']);
+        $fresh = $backup->fresh();
+        $this->assertNotNull($fresh->restore_tested_at);
+        $this->assertSame(BackupStatus::Verified, $fresh->status);
+    }
+
+    public function test_tiered_retention_keeps_weekly_and_monthly_buckets(): void
+    {
+        $service = app(DatabaseBackupService::class);
+        config([
+            'psg.backup.keep_daily' => 1,
+            'psg.backup.keep_weekly' => 1,
+            'psg.backup.keep_monthly' => 1,
+        ]);
+
+        $dailyOld = $service->create(BackupType::ScheduledDaily, null, ['skip_prune' => true, 'include_files' => false]);
+        $dailyNew = $service->create(BackupType::ScheduledDaily, null, ['skip_prune' => true, 'include_files' => false]);
+        $weekly = $service->create(BackupType::ScheduledWeekly, null, ['skip_prune' => true, 'include_files' => false]);
+        $monthly = $service->create(BackupType::ScheduledMonthly, null, ['skip_prune' => true, 'include_files' => false]);
+
+        $service->prune();
+
+        $this->assertNull(DatabaseBackup::query()->find($dailyOld->id));
+        $this->assertNotNull(DatabaseBackup::query()->find($dailyNew->id));
+        $this->assertNotNull(DatabaseBackup::query()->find($weekly->id));
+        $this->assertNotNull(DatabaseBackup::query()->find($monthly->id));
+    }
+
+    public function test_super_admin_can_run_restore_drill_via_http(): void
+    {
+        $admin = User::factory()->role(UserRole::SuperAdmin)->create();
+        $backup = app(DatabaseBackupService::class)->create(BackupType::Manual, $admin);
+
+        $this->actingAs($admin)
+            ->post(route('backups.test-restore', $backup))
+            ->assertRedirect();
+
+        $this->assertNotNull($backup->fresh()->restore_tested_at);
     }
 }

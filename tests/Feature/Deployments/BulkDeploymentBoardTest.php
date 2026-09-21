@@ -81,27 +81,71 @@ class BulkDeploymentBoardTest extends TestCase
         $site = Site::factory()->create();
         $guard = Guard::factory()->create([
             'employment_status' => EmploymentStatus::Active,
-            'operational_status' => OperationalStatus::OffDuty,
+            'operational_status' => OperationalStatus::OnDuty,
             'region_id' => $site->region_id,
-            'full_name' => 'Already Posted',
+            'current_site_id' => $site->id,
         ]);
 
         Deployment::factory()->create([
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
-            'supervisor_id' => $site->supervisor_id,
             'status' => DeploymentStatus::Active,
             'is_current' => true,
+            'shift_type' => DeploymentShiftType::Rotating,
+            'start_date' => now()->toDateString(),
         ]);
 
         $this->actingAs($ops)
             ->get(route('deployments.board'))
             ->assertOk()
-            ->assertDontSee('Already Posted', false);
+            ->assertDontSee($guard->full_name, false);
     }
 
-    public function test_guards_index_syncs_off_duty_deployed_guard_to_on_duty(): void
+    public function test_past_duty_date_lists_guards_free_that_day_even_if_on_duty_today(): void
+    {
+        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+        $site = Site::factory()->create([
+            'required_day_guards' => 10,
+            'required_night_guards' => 10,
+            'required_guards' => 20,
+        ]);
+        $guard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OnDuty,
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+            'date_employed' => now()->subMonths(2)->toDateString(),
+            'full_name' => 'Historical Free Guard',
+        ]);
+
+        Deployment::query()->create([
+            'guard_id' => $guard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'shift_type' => DeploymentShiftType::Rotating->value,
+            'status' => DeploymentStatus::Active->value,
+            'is_current' => true,
+            'start_date' => now()->toDateString(),
+            'end_date' => null,
+        ]);
+
+        $pastDate = now()->subDays(5)->toDateString();
+
+        $this->actingAs($ops)
+            ->get(route('deployments.board', ['start_date' => $pastDate]))
+            ->assertOk()
+            ->assertSee('Historical Free Guard', false)
+            ->assertSee('Historical duty date', false);
+
+        $this->actingAs($ops)
+            ->get(route('deployments.board'))
+            ->assertOk()
+            ->assertDontSee('Historical Free Guard', false);
+    }
+
+    public function test_guards_index_shows_deployed_guard_even_if_status_is_off_duty(): void
     {
         $ops = User::factory()->role(UserRole::OperationsManager)->create();
         $site = Site::factory()->create();
@@ -120,14 +164,15 @@ class BulkDeploymentBoardTest extends TestCase
             'supervisor_id' => $site->supervisor_id,
             'status' => DeploymentStatus::Active,
             'is_current' => true,
+            'shift_type' => DeploymentShiftType::Rotating,
         ]);
 
         $this->actingAs($ops)
             ->get(route('guards.index'))
             ->assertOk()
-            ->assertSee('On Duty', false);
+            ->assertSee('Stale Status Guard', false);
 
-        $this->assertSame(OperationalStatus::OnDuty, $guard->fresh()->operational_status);
+        $this->assertSame(OperationalStatus::OffDuty, $guard->fresh()->operational_status);
     }
 
     public function test_deploy_only_validates_selected_guard_rows(): void

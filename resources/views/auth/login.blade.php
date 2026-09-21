@@ -29,8 +29,8 @@
                     </div>
                 </div>
 
-                <div class="mt-16 max-w-lg">
-                    <h1 class="text-3xl font-semibold tracking-tight text-white xl:text-4xl xl:leading-tight">
+                <div class="mt-16 max-w-none">
+                    <h1 class="whitespace-nowrap text-3xl font-semibold tracking-tight text-white xl:text-4xl xl:leading-tight">
                         {{ config('psg.login_headline') }}
                     </h1>
                 </div>

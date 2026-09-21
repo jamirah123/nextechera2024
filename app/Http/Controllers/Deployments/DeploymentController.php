@@ -25,6 +25,7 @@ use App\Services\Documents\LetterPdfService;
 use App\Services\Shifts\BulkShiftAllocationService;
 use App\Services\Shifts\ShiftLifecycleService;
 use App\Support\Deployments\DeploymentShiftSchedule;
+use App\Support\Historical\HistoricalDates;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -147,8 +148,12 @@ class DeploymentController extends Controller
 
         $user = $request->user();
         $regionId = $user->regionId();
+        $dutyDate = HistoricalDates::parseDate(
+            $request->filled('start_date') ? $request->string('start_date')->toString() : now()->toDateString()
+        )->toDateString();
+        $isHistorical = HistoricalDates::isPastCalendarDay($dutyDate);
         $shiftSchedule = DeploymentShiftSchedule::fromConfig();
-        $baseQuery = $this->boardGuardQuery($request, $user);
+        $baseQuery = $this->boardGuardQuery($request, $user, dutyDate: $dutyDate);
 
         $guards = (clone $baseQuery)
             ->paginate(table_per_page())
@@ -159,7 +164,7 @@ class DeploymentController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code']);
 
-        $regionCounts = (clone $this->boardGuardQuery($request, $user, applyRegionFilter: false))
+        $regionCounts = (clone $this->boardGuardQuery($request, $user, applyRegionFilter: false, dutyDate: $dutyDate))
             ->reorder()
             ->selectRaw('region_id, COUNT(*) as total')
             ->groupBy('region_id')
@@ -186,10 +191,12 @@ class DeploymentController extends Controller
             'regions' => $regions,
             'regionCounts' => $regionCounts,
             'shiftTypes' => DeploymentShiftType::cases(),
-            'filters' => $request->only(['q', 'region_id']),
+            'filters' => array_merge($request->only(['q', 'region_id']), ['start_date' => $dutyDate]),
+            'dutyDate' => $dutyDate,
+            'isHistorical' => $isHistorical,
             'shiftWindows' => $shiftSchedule->labels(),
             'stats' => [
-                'awaiting' => (clone $this->boardGuardQuery($request, $user, applyRegionFilter: false))->count(),
+                'awaiting' => (clone $this->boardGuardQuery($request, $user, applyRegionFilter: false, dutyDate: $dutyDate))->count(),
                 'active' => (clone $activeDeployments)->count(),
                 'day' => (clone $activeDeployments)->where('shift_type', DeploymentShiftType::Day)->count(),
                 'night' => (clone $activeDeployments)->where('shift_type', DeploymentShiftType::Night)->count(),
@@ -213,17 +220,35 @@ class DeploymentController extends Controller
 
         $selectedIds = collect($data['selected'])->map(fn ($id) => (int) $id)->unique()->values();
 
+        $guardsById = Guard::query()
+            ->whereIn('id', $selectedIds)
+            ->get(['id', 'employment_id', 'full_name', 'first_name', 'last_name'])
+            ->keyBy('id');
+
         $rowRules = [];
+        $rowAttributes = [];
+        $rowMessages = [];
         foreach ($selectedIds as $guardId) {
+            $guard = $guardsById->get($guardId);
+            $label = $guard
+                ? trim(($guard->employment_id ? $guard->employment_id.' · ' : '').($guard->full_name ?: trim($guard->first_name.' '.$guard->last_name)))
+                : 'Guard #'.$guardId;
+
             $rowRules["rows.{$guardId}.site_id"] = ['required', 'exists:sites,id'];
             $rowRules["rows.{$guardId}.shift_type"] = ['required', Rule::in(DeploymentShiftType::values())];
             $rowRules["rows.{$guardId}.duty_type"] = ['nullable', Rule::in([
                 ShiftType::Normal->value,
                 ShiftType::Overtime->value,
             ])];
+
+            $rowAttributes["rows.{$guardId}.site_id"] = "site for {$label}";
+            $rowAttributes["rows.{$guardId}.shift_type"] = "posting type for {$label}";
+            $rowAttributes["rows.{$guardId}.duty_type"] = "duty type for {$label}";
+            $rowMessages["rows.{$guardId}.site_id.required"] = "Choose a site for {$label} before deploying.";
+            $rowMessages["rows.{$guardId}.shift_type.required"] = "Choose a posting type for {$label}.";
         }
 
-        $data = array_merge($data, $request->validate($rowRules));
+        $data = array_merge($data, $request->validate($rowRules, $rowMessages, $rowAttributes));
 
         $user = $request->user();
         $rows = [];
@@ -418,9 +443,17 @@ class DeploymentController extends Controller
             ->with('status', 'Deployment ended successfully.');
     }
 
-    private function boardGuardQuery(Request $request, User $user, bool $applyRegionFilter = true): Builder
-    {
+    private function boardGuardQuery(
+        Request $request,
+        User $user,
+        bool $applyRegionFilter = true,
+        ?string $dutyDate = null,
+    ): Builder {
         $regionId = $user->regionId();
+        $dutyDate ??= HistoricalDates::parseDate(
+            $request->filled('start_date') ? $request->string('start_date')->toString() : now()->toDateString()
+        )->toDateString();
+        $isHistorical = HistoricalDates::isPastCalendarDay($dutyDate);
 
         return Guard::query()
             ->activeEmployment()
@@ -437,7 +470,11 @@ class DeploymentController extends Controller
                         ->orWhere('employment_id', 'like', $like);
                 });
             })
-            ->availableForDeployment()
+            ->when(
+                $isHistorical,
+                fn ($q) => $q->availableForDeploymentOnDate($dutyDate),
+                fn ($q) => $q->availableForDeployment(),
+            )
             ->when(
                 $applyRegionFilter && $request->filled('region_id'),
                 fn ($q) => $q->orderBy('full_name'),

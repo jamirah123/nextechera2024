@@ -7,7 +7,7 @@ return [
     'fallback_favicon' => env('PSG_FAVICON', 'favicon.ico'),
     'tagline' => env('PSG_TAGLINE', 'New Age Security and Protection'),
     'system_subtitle' => env('PSG_SYSTEM_SUBTITLE', 'Operations System'),
-    'login_headline' => env('PSG_LOGIN_HEADLINE', 'Guards, sites, shifts, billing and payroll'),
+    'login_headline' => env('PSG_LOGIN_HEADLINE', 'Guards, shifts, billing and payroll'),
     'theme' => [
         'primary' => env('PSG_THEME_PRIMARY', '#1845de'),
         'sidebar' => env('PSG_THEME_SIDEBAR', '#070d18'),
@@ -93,16 +93,16 @@ return [
         'bank_export_format' => env('PSG_PAYROLL_BANK_FORMAT', 'generic'),
     ],
     'seed' => [
-        // Approximate operational volume for local/system testing.
-        'guards' => (int) env('PSG_SEED_GUARDS', 2500),
-        'clients' => (int) env('PSG_SEED_CLIENTS', 40),
-        'sites_per_region' => (int) env('PSG_SEED_SITES_PER_REGION', 16),
-        'supervisors_per_region' => (int) env('PSG_SEED_SUPERVISORS_PER_REGION', 4),
-        'shift_days' => (int) env('PSG_SEED_SHIFT_DAYS', 5),
-        'deployments' => filter_var(env('PSG_SEED_DEPLOYMENTS', false), FILTER_VALIDATE_BOOL),
+        // Kept for optional tooling; default seed uses SmallCompanySeeder (fixed small footprint).
+        'guards' => (int) env('PSG_SEED_GUARDS', 8),
+        'clients' => (int) env('PSG_SEED_CLIENTS', 2),
+        'sites_per_region' => (int) env('PSG_SEED_SITES_PER_REGION', 2),
+        'supervisors_per_region' => (int) env('PSG_SEED_SUPERVISORS_PER_REGION', 1),
+        'shift_days' => (int) env('PSG_SEED_SHIFT_DAYS', 0),
+        'deployments' => filter_var(env('PSG_SEED_DEPLOYMENTS', true), FILTER_VALIDATE_BOOL),
         'shifts' => filter_var(env('PSG_SEED_SHIFTS', false), FILTER_VALIDATE_BOOL),
-        'leaves' => (int) env('PSG_SEED_LEAVES', 200),
-        'absences' => (int) env('PSG_SEED_ABSENCES', 300),
-        'desertions' => (int) env('PSG_SEED_DESERTIONS', 40),
+        'leaves' => (int) env('PSG_SEED_LEAVES', 0),
+        'absences' => (int) env('PSG_SEED_ABSENCES', 0),
+        'desertions' => (int) env('PSG_SEED_DESERTIONS', 0),
     ],
 ];

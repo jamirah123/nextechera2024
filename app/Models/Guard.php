@@ -230,6 +230,32 @@ class Guard extends Model
     }
 
     /**
+     * Guards free to receive a posting that covers the given duty date.
+     * Used for historical board posting: current On Duty status does not hide them
+     * when they had no deployment covering that past day.
+     *
+     * @param  Builder<Guard>  $query
+     */
+    public function scopeAvailableForDeploymentOnDate($query, string $date): void
+    {
+        $query
+            ->regularGuards()
+            ->where(function ($q) use ($date): void {
+                $q->whereNull('date_employed')
+                    ->orWhereDate('date_employed', '<=', $date);
+            })
+            ->where(function ($q) use ($date): void {
+                $q->whereNull('employment_end_date')
+                    ->orWhereDate('employment_end_date', '>=', $date);
+            })
+            ->whereNotIn('operational_status', [
+                OperationalStatus::Deserted->value,
+                OperationalStatus::Suspended->value,
+            ])
+            ->whereDoesntHave('deployments', fn ($q) => $q->activeOnDate($date));
+    }
+
+    /**
      * Regular guards only — exclude supervisor payroll profiles from the deployment board.
      *
      * @param  Builder<Guard>  $query

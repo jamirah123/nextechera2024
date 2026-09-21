@@ -95,17 +95,23 @@ php artisan psg:queue-health
 php artisan migrate:fresh --seed
 ```
 
-Builds:
+Runs **SmallCompanySeeder** — a lean footprint for a small security company:
 
-1. **DemoDataSeeder** — HQ users, 4 regions, baseline org, staff, sample guards  
-2. **WorkflowVolumeSeeder** — large connected ops graph (sites, deployments, shifts, HR, billing, assets)  
-3. **DemonstrationScenarioSeeder** — walkthrough scenarios:
-   - **Pearl Plaza (DEMO-PLAZA)** night shortage + overtime coverage  
-   - Desertion case + HR work orders  
-   - Procurement purchase bills (draft + posted with VAT)  
-   - Attendance check-ins, asset return, GL periods, payroll approve path  
+| Record | Count |
+| --- | --- |
+| HQ users | 5 (admin, ops, HR, shifts, finance) |
+| Region supervisor users | 2 (Kampala + Western) |
+| Regions | 2 (Kampala, Western) |
+| Field supervisors | 2 (1 per region) |
+| Clients | 4 |
+| Sites | 4 (2 per region) |
+| Guards | 16 (8 per region; 12 deployed, 4 awaiting) |
+| Office staff | 3 |
+| Active deployments | 12 |
 
-Password for all demo users: `Password@123`
+Password for all seeded users: `Password@123`  
+Primary login: `admin@platinumsecurity.local`  
+Western supervisor: `supervisor.western@platinumsecurity.local`
 
 Scheduled maintenance (requires `php artisan schedule:work` or cron — full table in [docs/ops-queue-scheduler.md](./docs/ops-queue-scheduler.md)):
 

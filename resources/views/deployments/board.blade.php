@@ -14,11 +14,17 @@
             shift_type: @js(\App\Enums\DeploymentShiftType::Day->value),
             duty_type: @js(\App\Enums\ShiftType::Normal->value),
         },
+        activeChecks() {
+            const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+            const selector = isDesktop ? '[data-board-viewport=desktop]' : '[data-board-viewport=mobile]';
+            const viewport = this.$root.querySelector(selector);
+            return viewport ? viewport.querySelectorAll('[data-row-check]') : this.$root.querySelectorAll('[data-row-check]');
+        },
         sync() {
-            this.selected = this.$root.querySelectorAll('[data-row-check]:checked').length;
+            this.selected = Array.from(this.activeChecks()).filter((el) => el.checked).length;
         },
         toggleAll(checked) {
-            this.$root.querySelectorAll('[data-row-check]').forEach((el) => { el.checked = checked; });
+            this.activeChecks().forEach((el) => { el.checked = checked; });
             this.sync();
         },
         applyDefaultSite() {
@@ -38,6 +44,7 @@
             this.$root.querySelectorAll('[data-row-duty]').forEach((el) => { el.value = this.defaults.duty_type; });
         }
     }"
+    x-init="sync(); window.addEventListener('resize', () => sync())"
 >
     <x-page-header
         title="Site posting board"
@@ -64,7 +71,7 @@
             <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Available by region</p>
             <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
                 <a
-                    href="{{ route('deployments.board', array_filter(['q' => $filters['q'] ?? null])) }}"
+                    href="{{ route('deployments.board', array_filter(['q' => $filters['q'] ?? null, 'start_date' => $filters['start_date'] ?? null])) }}"
                     class="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold {{ empty($filters['region_id']) ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' }}"
                 >
                     All · {{ number_format($stats['awaiting']) }}
@@ -72,7 +79,7 @@
                 @foreach ($regions as $region)
                     @php $count = (int) ($regionCounts[$region->id] ?? 0); @endphp
                     <a
-                        href="{{ route('deployments.board', array_filter(['region_id' => $region->id, 'q' => $filters['q'] ?? null])) }}"
+                        href="{{ route('deployments.board', array_filter(['region_id' => $region->id, 'q' => $filters['q'] ?? null, 'start_date' => $filters['start_date'] ?? null])) }}"
                         class="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold {{ (string) ($filters['region_id'] ?? '') === (string) $region->id ? 'bg-brand-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600' }}"
                     >
                         {{ $region->name }} · {{ number_format($count) }}
@@ -83,7 +90,8 @@
     @endif
 
     <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <form method="GET" action="{{ route('deployments.board') }}" x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-3 xl:items-end">
+        <form method="GET" action="{{ route('deployments.board') }}" x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:items-end">
+            <x-form-field label="Duty date" name="start_date" type="date" :value="$filters['start_date'] ?? now()->toDateString()" x-on:change="$refs.filterForm.requestSubmit()" help="Past dates list guards who had no posting covering that day." />
             <x-form-field label="Search guard" name="q" type="search" :value="$filters['q'] ?? ''" placeholder="Name or ID" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" />
             <x-form-field label="Region" name="region_id" type="select" x-on:change="$refs.filterForm.requestSubmit()">
                 <option value="">All regions</option>
@@ -94,6 +102,14 @@
             <a href="{{ route('deployments.board') }}" class="rounded-xl border border-slate-200 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700">Reset filters</a>
         </form>
     </section>
+
+    @if ($isHistorical)
+        <p class="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
+            Historical duty date <strong>{{ \Illuminate\Support\Carbon::parse($dutyDate)->format('d M Y') }}</strong>:
+            showing guards with no site posting covering that day. Duty-day status is <strong>Awaiting deployment</strong>
+            (their current “Today” status may still be On Duty). Recording a past posting will not change today’s operational status.
+        </p>
+    @endif
 
     @if (session('deployment_errors'))
         <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
@@ -107,17 +123,25 @@
     @endif
 
     @if ($guards->isEmpty())
-        <x-empty-state title="No undeployed guards" description="Every eligible guard already has an active site posting. Check Deployments or end a posting to return someone here." icon="map" />
+        <x-empty-state
+            title="{{ $isHistorical ? 'No guards free on this duty date' : 'No undeployed guards' }}"
+            :description="$isHistorical
+                ? 'Every eligible guard already had a posting covering '.$dutyDate.'. Pick another date or review overlapping historical postings.'
+                : 'Every eligible guard already has an active site posting. Check Deployments or end a posting to return someone here.'"
+            icon="map"
+        />
     @else
         <form method="POST" action="{{ route('deployments.board.store') }}" class="space-y-4">
             @csrf
+            <input type="hidden" name="start_date" value="{{ old('start_date', $dutyDate) }}">
 
             <div class="rounded-lg border border-emerald-200 bg-white p-3 shadow-sm dark:border-emerald-800 dark:bg-slate-800">
                 <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
                     <div class="grid min-w-0 flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
                         <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Shift date
-                            <input type="date" name="start_date" value="{{ old('start_date', now()->toDateString()) }}" required class="mt-0.5 block h-[1.875rem] w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium leading-tight text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
+                            Duty date
+                            <input type="date" value="{{ $dutyDate }}" disabled class="mt-0.5 block h-[1.875rem] w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium leading-tight text-slate-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                            <span class="mt-0.5 block text-[10px] font-normal normal-case tracking-normal text-slate-500">Change via filters above — list refreshes for that day.</span>
                         </label>
                         <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             Through date (optional)
@@ -201,7 +225,12 @@
                                 <p class="text-xs font-medium text-slate-900 dark:text-slate-100">{{ $guard->full_name }}</p>
                                 <p class="mt-0.5 text-[10px] text-slate-500">{{ $guard->employment_id }}</p>
                                 <p class="mt-1.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">{{ $guard->region?->name }}</p>
-                                <p class="mt-0.5 text-[10px] text-slate-500">{{ $guard->operational_status->label() }}</p>
+                                @if ($isHistorical)
+                                    <p class="mt-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">Awaiting deployment</p>
+                                    <p class="text-[9px] text-slate-400">Today: {{ $guard->operational_status->label() }}</p>
+                                @else
+                                    <p class="mt-0.5 text-[10px] text-slate-500">{{ $guard->operational_status->label() }}</p>
+                                @endif
                             </div>
                         </div>
 
@@ -264,7 +293,7 @@
                                 </th>
                                 <th class="px-2.5 py-2">Guard</th>
                                 <th class="px-2.5 py-2">Region</th>
-                                <th class="px-2.5 py-2">Status</th>
+                                <th class="px-2.5 py-2">{{ $isHistorical ? 'Duty-day status' : 'Status' }}</th>
                                 <th class="px-2.5 py-2">Assign to site</th>
                                 <th class="px-2.5 py-2">Posting type</th>
                                 <th class="px-2.5 py-2">Duty type</th>
@@ -288,7 +317,14 @@
                                         <p class="text-[10px] text-slate-500">{{ $guard->employment_id }}</p>
                                     </td>
                                     <td class="px-2.5 py-1.5 text-slate-600 dark:text-slate-300">{{ $guard->region?->name }}</td>
-                                    <td class="px-2.5 py-1.5 text-[10px] text-slate-500">{{ $guard->operational_status->label() }}</td>
+                                    <td class="px-2.5 py-1.5 text-[10px] text-slate-500">
+                                        @if ($isHistorical)
+                                            <p class="font-medium text-amber-700 dark:text-amber-300">Awaiting deployment</p>
+                                            <p class="text-[9px] text-slate-400">Today: {{ $guard->operational_status->label() }}</p>
+                                        @else
+                                            {{ $guard->operational_status->label() }}
+                                        @endif
+                                    </td>
                                     <td class="px-2.5 py-1.5">
                                         <x-board-select
                                             name="rows[{{ $guard->id }}][site_id]"

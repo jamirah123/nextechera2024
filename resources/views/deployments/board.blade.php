@@ -91,7 +91,7 @@
 
     <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <form method="GET" action="{{ route('deployments.board') }}" x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:items-end">
-            <x-form-field label="Duty date" name="start_date" type="date" :value="$filters['start_date'] ?? now()->toDateString()" x-on:change="$refs.filterForm.requestSubmit()" help="Past dates list guards who had no posting covering that day." />
+            <x-form-field label="Duty date" name="start_date" type="date" :value="$filters['start_date'] ?? now()->toDateString()" x-on:change="$refs.filterForm.requestSubmit()" />
             <x-form-field label="Search guard" name="q" type="search" :value="$filters['q'] ?? ''" placeholder="Name or ID" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" />
             <x-form-field label="Region" name="region_id" type="select" x-on:change="$refs.filterForm.requestSubmit()">
                 <option value="">All regions</option>
@@ -141,7 +141,6 @@
                         <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             Duty date
                             <input type="date" value="{{ $dutyDate }}" disabled class="mt-0.5 block h-[1.875rem] w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium leading-tight text-slate-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300">
-                            <span class="mt-0.5 block text-[10px] font-normal normal-case tracking-normal text-slate-500">Change via filters above — list refreshes for that day.</span>
                         </label>
                         <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             Through date (optional)

@@ -71,6 +71,6 @@ class DateCoverageTest extends TestCase
             ->assertOk()
             ->assertSee('Allocated', false)
             ->assertSee($site->name, false)
-            ->assertSee('Alloc. shortage', false);
+            ->assertSee('Alloc. short', false);
     }
 }

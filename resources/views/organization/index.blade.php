@@ -173,19 +173,25 @@
                             $site = $row['site'];
                             $mp = $row['manpower'];
                         @endphp
-                        <li class="flex items-start justify-between gap-3 px-3 py-2.5">
-                            <div class="min-w-0">
-                                <a href="{{ route('sites.show', $site) }}" class="truncate text-sm font-semibold text-slate-900 hover:text-brand-700">
-                                    {{ $site->name }}
-                                </a>
-                                <p class="mt-0.5 text-xs text-slate-500">
+                        <li class="px-3 py-2.5">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <a href="{{ route('sites.show', $site) }}" class="truncate text-sm font-semibold text-slate-900 hover:text-brand-700">
+                                        {{ $site->name }}
+                                    </a>
+                                </div>
+                                <div class="shrink-0 text-right">
+                                    <p class="text-sm font-semibold text-slate-900">{{ $mp['coverage_percent'] }}%</p>
+                                    <x-status-badge class="mt-1" :tone="$mp['status']->tone()" :label="$mp['status']->label()" />
+                                </div>
+                            </div>
+                            @if (! empty($mp['shifts']))
+                                <x-manpower-shift-coverage class="mt-2" :coverage="$mp['shifts']" compact />
+                            @else
+                                <p class="mt-1 text-xs text-slate-500">
                                     Req {{ $mp['required'] }} · Dep {{ $mp['deployed'] }} · Short {{ $mp['shortage'] }}
                                 </p>
-                            </div>
-                            <div class="shrink-0 text-right">
-                                <p class="text-sm font-semibold text-slate-900">{{ $mp['coverage_percent'] }}%</p>
-                                <x-status-badge class="mt-1" :tone="$mp['status']->tone()" :label="$mp['status']->label()" />
-                            </div>
+                            @endif
                         </li>
                     @endforeach
                 </ul>

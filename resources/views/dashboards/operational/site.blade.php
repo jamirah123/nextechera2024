@@ -21,7 +21,7 @@
         @foreach ([
             ['Required', number_format($manpower['required']), 'text-brand-800'],
             ['Deployed', number_format($manpower['deployed']), 'text-emerald-700'],
-            ['Shortage', number_format($manpower['shortage']), 'text-rose-700'],
+            ['Remaining', number_format($manpower['shifts']['remaining'] ?? $manpower['shortage']), 'text-rose-700'],
             ['Today', number_format($kpis['shifts_today']), 'text-slate-700'],
             ['Week OT', number_format($kpis['week_overtime']), 'text-amber-800'],
         ] as [$label, $value, $tone])
@@ -31,6 +31,14 @@
             </div>
         @endforeach
     </section>
+
+    @if (! empty($manpower['shifts']))
+        <section class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+            <h2 class="text-sm font-semibold text-slate-900">Shift coverage</h2>
+            <p class="mt-0.5 text-xs text-slate-500">Day and night requirements vs permanent deployments (overtime shown when used to close a gap).</p>
+            <x-manpower-shift-coverage class="mt-3" :coverage="$manpower['shifts']" />
+        </section>
+    @endif
 
     <div class="grid gap-6 xl:grid-cols-2">
         <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">

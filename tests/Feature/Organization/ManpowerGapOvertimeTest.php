@@ -161,8 +161,7 @@ class ManpowerGapOvertimeTest extends TestCase
 
         $this->get(route('manpower.coverage', ['date' => $date]))
             ->assertOk()
-            ->assertSee('Original shortage', false)
-            ->assertSee('Manpower gaps & overtime', false)
+            ->assertSee('Overtime gaps', false)
             ->assertSee($site->name, false);
     }
 

@@ -41,23 +41,28 @@
                         <tr>
                             <th class="w-14 px-3 py-2">#</th>
                             <th class="px-3 py-2">Site</th>
-                            <th class="px-3 py-2 text-right">Req</th>
-                            <th class="px-3 py-2 text-right">Dep</th>
-                            <th class="px-3 py-2 text-right">Gap</th>
+                            <th class="px-3 py-2">Shift coverage</th>
+                            <th class="px-3 py-2 text-right">Remaining</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($sites as $row)
+                            @php $shifts = $row['manpower']['shifts'] ?? null; @endphp
                             <tr class="hover:bg-slate-50/80">
-                                <td class="px-3 py-2"><x-table-serial :iteration="$loop->iteration" /></td>
-                                <td class="px-3 py-2">
+                                <td class="px-3 py-2 align-top"><x-table-serial :iteration="$loop->iteration" /></td>
+                                <td class="px-3 py-2 align-top">
                                     <a href="{{ $row['href'] }}" class="font-semibold text-brand-800 hover:underline">{{ $row['site']->name }}</a>
                                     <p class="text-xs text-slate-500">{{ $row['site']->code }}</p>
                                 </td>
-                                <td class="px-3 py-2 text-right">{{ $row['manpower']['required'] }}</td>
-                                <td class="px-3 py-2 text-right">{{ $row['manpower']['deployed'] }}</td>
-                                <td class="px-3 py-2 text-right font-medium {{ $row['manpower']['shortage'] > 0 ? 'text-rose-700' : 'text-emerald-700' }}">
-                                    {{ $row['manpower']['shortage'] > 0 ? '-'.$row['manpower']['shortage'] : $row['manpower']['surplus'] }}
+                                <td class="px-3 py-2 align-top">
+                                    @if ($shifts)
+                                        <x-manpower-shift-coverage :coverage="$shifts" compact />
+                                    @else
+                                        <span class="text-xs text-slate-500">Req {{ $row['manpower']['required'] }} · Dep {{ $row['manpower']['deployed'] }}</span>
+                                    @endif
+                                </td>
+                                <td class="px-3 py-2 text-right align-top font-medium {{ ($shifts['remaining'] ?? $row['manpower']['shortage']) > 0 ? 'text-rose-700' : 'text-emerald-700' }}">
+                                    {{ $shifts['remaining'] ?? $row['manpower']['shortage'] }}
                                 </td>
                             </tr>
                         @endforeach

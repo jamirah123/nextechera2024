@@ -142,13 +142,25 @@ class ManpowerService
             'shortage' => $base['shortage'],
             'shortage_day' => $base['shortage_day'],
             'shortage_night' => $base['shortage_night'],
-            'allocation_shortage' => max(0, $required - $allocated),
+            'allocation_shortage' => max(0, $requiredDay - $allocatedDay) + max(0, $requiredNight - $allocatedNight),
             'allocation_shortage_day' => max(0, $requiredDay - $allocatedDay),
             'allocation_shortage_night' => max(0, $requiredNight - $allocatedNight),
             'coverage_percent' => $base['coverage_percent'],
             'allocation_coverage_percent' => $required > 0 ? round(($allocated / $required) * 100, 1) : 0.0,
             'status' => $base['status'],
             'allocation_status' => $this->coverageStatus($required, $allocated),
+            'shifts' => $base['shifts'] ?? $this->shiftCoverageSummary($base),
+            'allocation_shifts' => $this->shiftCoverageSummary([
+                'required' => $required,
+                'required_day' => $requiredDay,
+                'required_night' => $requiredNight,
+                'deployed' => $allocated,
+                'deployed_day' => $allocatedDay,
+                'deployed_night' => $allocatedNight,
+                'shortage_day' => max(0, $requiredDay - $allocatedDay),
+                'shortage_night' => max(0, $requiredNight - $allocatedNight),
+                'shortage' => max(0, $requiredDay - $allocatedDay) + max(0, $requiredNight - $allocatedNight),
+            ]),
         ];
     }
 
@@ -206,13 +218,25 @@ class ManpowerService
                     'shortage' => $base['shortage'],
                     'shortage_day' => $base['shortage_day'],
                     'shortage_night' => $base['shortage_night'],
-                    'allocation_shortage' => max(0, $required - $allocated),
+                    'allocation_shortage' => max(0, $requiredDay - $allocatedDay) + max(0, $requiredNight - $allocatedNight),
                     'allocation_shortage_day' => max(0, $requiredDay - $allocatedDay),
                     'allocation_shortage_night' => max(0, $requiredNight - $allocatedNight),
                     'coverage_percent' => $base['coverage_percent'],
                     'allocation_coverage_percent' => $required > 0 ? round(($allocated / $required) * 100, 1) : 0.0,
                     'status' => $base['status'],
                     'allocation_status' => $this->coverageStatus($required, $allocated),
+                    'shifts' => $base['shifts'] ?? $this->shiftCoverageSummary($base),
+                    'allocation_shifts' => $this->shiftCoverageSummary([
+                        'required' => $required,
+                        'required_day' => $requiredDay,
+                        'required_night' => $requiredNight,
+                        'deployed' => $allocated,
+                        'deployed_day' => $allocatedDay,
+                        'deployed_night' => $allocatedNight,
+                        'shortage_day' => max(0, $requiredDay - $allocatedDay),
+                        'shortage_night' => max(0, $requiredNight - $allocatedNight),
+                        'shortage' => max(0, $requiredDay - $allocatedDay) + max(0, $requiredNight - $allocatedNight),
+                    ]),
                 ],
             ];
         });
@@ -388,16 +412,28 @@ class ManpowerService
         $deployedDay = $counts['day'];
         $deployedNight = $counts['night'];
 
-        $shortage = max(0, $required - $deployed);
-        $surplus = max(0, $deployed - $required);
-        $coverage = $required > 0 ? round(($deployed / $required) * 100, 1) : 0.0;
+        $shortageDay = max(0, $requiredDay - $deployedDay);
+        $shortageNight = max(0, $requiredNight - $deployedNight);
+
+        // Prefer per-shift remaining shortage when day/night requirements are configured.
+        $periodConfigured = ($requiredDay + $requiredNight) > 0;
+        $shortage = $periodConfigured
+            ? ($shortageDay + $shortageNight)
+            : max(0, $required - $deployed);
+        $requiredForCoverage = $periodConfigured ? ($requiredDay + $requiredNight) : $required;
+        if ($requiredForCoverage <= 0) {
+            $requiredForCoverage = $required;
+        }
+
+        $surplus = max(0, $deployed - $requiredForCoverage);
+        $coverage = $requiredForCoverage > 0 ? round(($deployed / $requiredForCoverage) * 100, 1) : 0.0;
 
         $contracted = $billingProfile?->contractedGuardTotal() ?? 0;
         $slaShortage = $contracted > 0 ? max(0, $contracted - $deployed) : 0;
         $slaPercent = $contracted > 0 ? round(($deployed / $contracted) * 100, 1) : null;
 
         return [
-            'required' => $required,
+            'required' => $requiredForCoverage > 0 ? $requiredForCoverage : $required,
             'required_day' => $requiredDay,
             'required_night' => $requiredNight,
             'required_day_armed' => (int) $site->required_day_armed_guards,
@@ -411,14 +447,132 @@ class ManpowerService
             'deployed_night' => $deployedNight,
             'shortage' => $shortage,
             'surplus' => $surplus,
-            'shortage_day' => max(0, $requiredDay - $deployedDay),
-            'shortage_night' => max(0, $requiredNight - $deployedNight),
+            'shortage_day' => $shortageDay,
+            'shortage_night' => $shortageNight,
             'coverage_percent' => $coverage,
-            'status' => $this->coverageStatus($required, $deployed),
+            'status' => $this->coverageStatus($requiredForCoverage > 0 ? $requiredForCoverage : $required, $deployed),
             'contracted' => $contracted,
             'sla_shortage' => $slaShortage,
             'sla_percent' => $slaPercent,
             'billing_profile' => $billingProfile,
+            'shifts' => $this->shiftCoverageSummary([
+                'required_day' => $requiredDay,
+                'required_night' => $requiredNight,
+                'deployed_day' => $deployedDay,
+                'deployed_night' => $deployedNight,
+                'shortage_day' => $shortageDay,
+                'shortage_night' => $shortageNight,
+                'required' => $requiredForCoverage > 0 ? $requiredForCoverage : $required,
+                'deployed' => $deployed,
+                'shortage' => $shortage,
+            ]),
+        ];
+    }
+
+    /**
+     * Shift-aware coverage breakdown for dashboards and site summaries.
+     *
+     * Optional OT gap fields preserve original shortage history while showing
+     * temporary overtime that closes the remaining gap for a period.
+     *
+     * @param  array<string, mixed>  $snapshot
+     * @param  array{day?: array{original_shortage?: int, overtime_covered?: int, remaining_shortage?: int}, night?: array{original_shortage?: int, overtime_covered?: int, remaining_shortage?: int}}  $otGaps
+     * @return array{
+     *     required: int,
+     *     deployed: int,
+     *     remaining: int,
+     *     day: array<string, mixed>,
+     *     night: array<string, mixed>
+     * }
+     */
+    public function shiftCoverageSummary(array $snapshot, array $otGaps = []): array
+    {
+        $day = $this->periodCoverageRow(
+            required: (int) ($snapshot['required_day'] ?? 0),
+            permanent: (int) ($snapshot['deployed_day'] ?? 0),
+            permanentShortage: (int) ($snapshot['shortage_day'] ?? 0),
+            ot: $otGaps['day'] ?? null,
+            label: 'Day',
+        );
+        $night = $this->periodCoverageRow(
+            required: (int) ($snapshot['required_night'] ?? 0),
+            permanent: (int) ($snapshot['deployed_night'] ?? 0),
+            permanentShortage: (int) ($snapshot['shortage_night'] ?? 0),
+            ot: $otGaps['night'] ?? null,
+            label: 'Night',
+        );
+
+        $required = (int) ($snapshot['required'] ?? ($day['required'] + $night['required']));
+        $deployed = (int) ($snapshot['deployed'] ?? ($day['permanent'] + $night['permanent']));
+        $remaining = (int) ($day['remaining'] + $night['remaining']);
+        $deficit = (int) ($day['overtime'] + $night['overtime']);
+
+        return [
+            'required' => $required,
+            'deployed' => $deployed,
+            'remaining' => $remaining,
+            'deficit' => $deficit,
+            'day' => $day,
+            'night' => $night,
+        ];
+    }
+
+    /**
+     * @param  array{original_shortage?: int, overtime_covered?: int, remaining_shortage?: int}|null  $ot
+     * @return array{
+     *     label: string,
+     *     required: int,
+     *     permanent: int,
+     *     overtime: int,
+     *     covered: int,
+     *     remaining: int,
+     *     original_shortage: int,
+     *     status: string,
+     *     headline: string,
+     *     detail: string|null
+     * }
+     */
+    private function periodCoverageRow(int $required, int $permanent, int $permanentShortage, ?array $ot, string $label): array
+    {
+        $overtime = max(0, (int) ($ot['overtime_covered'] ?? 0));
+        $originalShortage = max($permanentShortage, (int) ($ot['original_shortage'] ?? $permanentShortage));
+        $covered = min($required, $permanent + $overtime);
+        // Always derive remaining from live permanent + OT coverage (gap history must not inflate shortage).
+        $remaining = max(0, $required - $covered);
+
+        if ($required <= 0) {
+            $status = 'unconfigured';
+            $headline = "{$label}: not configured";
+            $short = '—';
+            $detail = null;
+        } elseif ($remaining <= 0) {
+            $status = 'covered';
+            $headline = "{$label}: Fully covered ({$covered}/{$required})";
+            $short = "✓ {$covered}/{$required}";
+            $detail = $overtime > 0
+                ? "{$permanent} normal + {$overtime} overtime"
+                : ($originalShortage > 0 && $overtime > 0 ? "original short {$originalShortage}" : null);
+        } else {
+            $status = 'understaffed';
+            $headline = "{$label}: Understaffed by {$remaining} ({$covered}/{$required})";
+            $short = "! {$covered}/{$required}";
+            $detail = $overtime > 0
+                ? "{$permanent} normal + {$overtime} overtime · original short {$originalShortage}"
+                : null;
+        }
+
+        return [
+            'label' => $label,
+            'required' => $required,
+            'permanent' => $permanent,
+            'overtime' => $overtime,
+            'covered' => $covered,
+            'remaining' => $remaining,
+            'original_shortage' => $originalShortage,
+            'status' => $status,
+            'headline' => $headline,
+            'short' => $short,
+            'detail' => $detail,
         ];
     }
 

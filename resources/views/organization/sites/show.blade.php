@@ -148,19 +148,18 @@
         <div class="space-y-4">
             <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                 <h2 class="text-sm font-semibold text-slate-900">Shift manpower</h2>
-                <p class="mt-0.5 text-[11px] text-slate-500">Day vs night, armed vs unarmed.</p>
+                <p class="mt-0.5 text-[11px] text-slate-500">Coverage by shift — required, deployed, and remaining shortage.</p>
+                @if (! empty($manpower['shifts']))
+                    <x-manpower-shift-coverage class="mt-3" :coverage="$manpower['shifts']" />
+                @endif
                 <div class="mt-3 grid gap-2">
                     <div class="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2">
-                        <p class="text-[10px] font-medium uppercase tracking-wide text-sky-700">Day</p>
-                        <p class="mt-0.5 text-sm font-semibold tabular-nums text-sky-950">{{ $manpower['required_day'] }}</p>
+                        <p class="text-[10px] font-medium uppercase tracking-wide text-sky-700">Day requirement split</p>
                         <p class="mt-0.5 text-[11px] text-sky-800">{{ $manpower['required_day_armed'] }} armed · {{ $manpower['required_day_unarmed'] }} unarmed</p>
-                        <p class="mt-0.5 text-[10px] text-sky-700/80">Deployed {{ $manpower['deployed_day'] }} · Short {{ $manpower['shortage_day'] }}</p>
                     </div>
                     <div class="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2">
-                        <p class="text-[10px] font-medium uppercase tracking-wide text-indigo-700">Night</p>
-                        <p class="mt-0.5 text-sm font-semibold tabular-nums text-indigo-950">{{ $manpower['required_night'] }}</p>
+                        <p class="text-[10px] font-medium uppercase tracking-wide text-indigo-700">Night requirement split</p>
                         <p class="mt-0.5 text-[11px] text-indigo-800">{{ $manpower['required_night_armed'] }} armed · {{ $manpower['required_night_unarmed'] }} unarmed</p>
-                        <p class="mt-0.5 text-[10px] text-indigo-700/80">Deployed {{ $manpower['deployed_night'] }} · Short {{ $manpower['shortage_night'] }}</p>
                     </div>
                     <div class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                         <p class="text-[10px] font-medium uppercase tracking-wide text-slate-500">Total</p>

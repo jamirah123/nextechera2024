@@ -80,22 +80,48 @@
                 <h2 class="text-sm font-semibold text-slate-900">Understaffed sites</h2>
                 <a href="{{ route('manpower.coverage') }}" class="text-xs font-semibold text-brand-700 hover:text-brand-800">Coverage report</a>
             </div>
-            <ul class="divide-y divide-slate-100">
-                @forelse ($understaffed_sites as $row)
-                    <li class="flex items-center justify-between gap-3 px-3 py-2">
-                        <div class="min-w-0">
-                            <a href="{{ route('ops-dashboards.site', $row['site']) }}" class="font-semibold text-brand-800 hover:underline">{{ $row['site']->name }}</a>
-                            <p class="text-xs text-slate-500">{{ $row['site']->region?->name }} · {{ $row['site']->client?->name }}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm font-semibold text-rose-700">-{{ $row['manpower']['shortage'] }}</p>
-                            <p class="text-xs text-slate-500">{{ $row['manpower']['coverage_percent'] }}%</p>
-                        </div>
-                    </li>
-                @empty
-                    <li class="px-5 py-8 text-center text-sm text-slate-500">No shortages right now</li>
-                @endforelse
-            </ul>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-left text-[11px]">
+                    <thead class="bg-slate-50 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                        <tr>
+                            <th class="px-3 py-1.5">Site</th>
+                            <th class="px-2 py-1.5">Day</th>
+                            <th class="px-2 py-1.5">Night</th>
+                            <th class="px-3 py-1.5 text-right">Rem</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @forelse ($understaffed_sites as $row)
+                            @php
+                                $shifts = $row['shifts'] ?? [];
+                                $day = $shifts['day'] ?? [];
+                                $night = $shifts['night'] ?? [];
+                                $dayTone = match ($day['status'] ?? '') {
+                                    'covered' => 'text-emerald-700',
+                                    'understaffed' => 'text-rose-700',
+                                    default => 'text-slate-500',
+                                };
+                                $nightTone = match ($night['status'] ?? '') {
+                                    'covered' => 'text-emerald-700',
+                                    'understaffed' => 'text-rose-700',
+                                    default => 'text-slate-500',
+                                };
+                            @endphp
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="px-3 py-1.5">
+                                    <a href="{{ route('ops-dashboards.site', $row['site']) }}" class="font-semibold text-brand-800 hover:underline">{{ $row['site']->name }}</a>
+                                    <span class="text-slate-400"> · {{ $row['site']->region?->name }}</span>
+                                </td>
+                                <td class="px-2 py-1.5 font-medium tabular-nums {{ $dayTone }}">{{ $day['short'] ?? '—' }}</td>
+                                <td class="px-2 py-1.5 font-medium tabular-nums {{ $nightTone }}">{{ $night['short'] ?? '—' }}</td>
+                                <td class="px-3 py-1.5 text-right font-semibold tabular-nums text-rose-700">{{ $shifts['remaining'] ?? $row['manpower']['shortage'] }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="px-5 py-8 text-center text-sm text-slate-500">No shortages right now</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </section>
     </div>
 </div>

@@ -277,6 +277,50 @@ class ManpowerGapService
     }
 
     /**
+     * Batch OT coverage counts per site for a date (day/night), for deficit reporting.
+     *
+     * @param  list<int>  $siteIds
+     * @return array<int, array{day: array{overtime_covered: int, original_shortage: int, remaining_shortage: int}, night: array{overtime_covered: int, original_shortage: int, remaining_shortage: int}}>
+     */
+    public function otCoverageBySite(array $siteIds, string $date): array
+    {
+        $siteIds = array_values(array_unique(array_map('intval', $siteIds)));
+        if ($siteIds === []) {
+            return [];
+        }
+
+        $sites = Site::query()->whereIn('id', $siteIds)->get()->keyBy('id');
+        $result = [];
+
+        foreach ($siteIds as $siteId) {
+            $site = $sites->get($siteId);
+            if (! $site) {
+                continue;
+            }
+
+            foreach ([ShiftPeriod::Day, ShiftPeriod::Night] as $period) {
+                $key = $period === ShiftPeriod::Night ? 'night' : 'day';
+                $required = $period === ShiftPeriod::Night
+                    ? (int) $site->required_night_guards
+                    : (int) $site->required_day_guards;
+                $permanent = $this->permanentDeployedCount($site, $period);
+                $liveShortage = max(0, $required - $permanent);
+                $ot = $this->overtimeCoveredCount($site, $date, $period);
+                // OT used to fill a gap (or standing OT when permanent already full) is the deficit.
+                $otCovered = $liveShortage > 0 ? min($liveShortage, $ot) : $ot;
+
+                $result[$siteId][$key] = [
+                    'original_shortage' => max($liveShortage, $otCovered),
+                    'overtime_covered' => $otCovered,
+                    'remaining_shortage' => max(0, $liveShortage - min($liveShortage, $ot)),
+                ];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Guards eligible for overtime coverage of a gap (same region, active, not already on that period).
      *
      * @return Collection<int, Guard>

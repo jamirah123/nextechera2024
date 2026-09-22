@@ -11,7 +11,10 @@ use Illuminate\Support\Collection;
 
 class ManpowerCoverageReportService
 {
-    public function __construct(private ManpowerService $manpower) {}
+    public function __construct(
+        private ManpowerService $manpower,
+        private ManpowerGapService $gaps,
+    ) {}
 
     /**
      * @return Collection<int, array{site: Site, manpower: array<string, mixed>}>
@@ -47,16 +50,46 @@ class ManpowerCoverageReportService
     }
 
     /**
+     * Total OT deficit across a set of manpower rows.
+     *
+     * @param  Collection<int, array{site?: Site, manpower: array<string, mixed>}>|iterable<array{manpower: array<string, mixed>}>  $rows
+     */
+    public function totalDeficit(iterable $rows): int
+    {
+        $total = 0;
+        foreach ($rows as $row) {
+            $total += (int) ($row['manpower']['deficit'] ?? $row['manpower']['shifts']['deficit'] ?? 0);
+        }
+
+        return $total;
+    }
+
+    /**
      * @param  Collection<int, Site>  $sites
      * @return Collection<int, array<string, mixed>>
      */
     private function manpowerMap(Collection $sites, Request $request): Collection
     {
-        $date = $request->filled('date') ? (string) $request->string('date') : null;
+        $date = $request->filled('date')
+            ? (string) $request->string('date')
+            : now()->toDateString();
 
-        return $date
+        $map = $request->filled('date')
             ? $this->manpower->forSitesOnDate($sites, $date)
             : $this->manpower->forSites($sites);
+
+        $otBySite = $this->gaps->otCoverageBySite(
+            $sites->pluck('id')->map(fn ($id) => (int) $id)->all(),
+            $date,
+        );
+
+        return $map->map(function (array $mp, int|string $siteId) use ($otBySite) {
+            $ot = $otBySite[(int) $siteId] ?? [];
+            $mp['shifts'] = $this->manpower->shiftCoverageSummary($mp, $ot);
+            $mp['deficit'] = (int) ($mp['shifts']['deficit'] ?? 0);
+
+            return $mp;
+        });
     }
 
     /**
@@ -96,11 +129,18 @@ class ManpowerCoverageReportService
                 'Required Day',
                 'Required Night',
                 'Deployed',
+                'Deployed Day',
+                'Deployed Night',
+                'Day Status',
+                'Night Status',
+                'Remaining Shortage',
+                'Manpower Deficit (OT)',
                 'Allocated',
                 'Allocated Day',
                 'Allocated Night',
-                'Deploy Shortage',
-                'Allocation Shortage',
+                'Alloc Day Status',
+                'Alloc Night Status',
+                'Allocation Remaining',
                 'Deploy Coverage %',
                 'Allocation Coverage %',
                 'Deploy Status',
@@ -122,7 +162,12 @@ class ManpowerCoverageReportService
             'Required Night',
             'Contracted (billing)',
             'Deployed',
-            'Shortage',
+            'Deployed Day',
+            'Deployed Night',
+            'Day Status',
+            'Night Status',
+            'Remaining Shortage',
+            'Manpower Deficit (OT)',
             'SLA gap',
             'Surplus',
             'Coverage %',
@@ -143,8 +188,12 @@ class ManpowerCoverageReportService
         return $rows->values()->map(function (array $row, int $index) use ($generatedAt, $dateMode, $request) {
             $site = $row['site'];
             $mp = $row['manpower'];
+            $deficit = (int) ($mp['deficit'] ?? $mp['shifts']['deficit'] ?? 0);
 
             if ($dateMode) {
+                $shifts = $mp['shifts'] ?? [];
+                $allocShifts = $mp['allocation_shifts'] ?? [];
+
                 return [
                     $index + 1,
                     $site->code,
@@ -156,11 +205,18 @@ class ManpowerCoverageReportService
                     $mp['required_day'],
                     $mp['required_night'],
                     $mp['deployed'],
+                    $mp['deployed_day'],
+                    $mp['deployed_night'],
+                    $shifts['day']['short'] ?? '',
+                    $shifts['night']['short'] ?? '',
+                    $shifts['remaining'] ?? $mp['shortage'],
+                    $deficit,
                     $mp['allocated'],
                     $mp['allocated_day'],
                     $mp['allocated_night'],
-                    $mp['shortage'],
-                    $mp['allocation_shortage'],
+                    $allocShifts['day']['short'] ?? '',
+                    $allocShifts['night']['short'] ?? '',
+                    $allocShifts['remaining'] ?? $mp['allocation_shortage'],
                     $mp['coverage_percent'],
                     $mp['allocation_coverage_percent'],
                     $mp['status']->label(),
@@ -168,6 +224,8 @@ class ManpowerCoverageReportService
                     $generatedAt,
                 ];
             }
+
+            $shifts = $mp['shifts'] ?? [];
 
             return [
                 $index + 1,
@@ -182,7 +240,12 @@ class ManpowerCoverageReportService
                 $mp['required_night'],
                 $mp['contracted'] ?? 0,
                 $mp['deployed'],
-                $mp['shortage'],
+                $mp['deployed_day'] ?? 0,
+                $mp['deployed_night'] ?? 0,
+                $shifts['day']['short'] ?? '',
+                $shifts['night']['short'] ?? '',
+                $shifts['remaining'] ?? $mp['shortage'],
+                $deficit,
                 $mp['sla_shortage'] ?? 0,
                 $mp['surplus'],
                 $mp['coverage_percent'],

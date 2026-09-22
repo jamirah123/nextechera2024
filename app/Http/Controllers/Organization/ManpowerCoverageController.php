@@ -69,6 +69,7 @@ class ManpowerCoverageController extends Controller
         return view('organization.manpower.index', [
             'rows' => $rows,
             'company' => $summary,
+            'totalDeficit' => $this->report->totalDeficit($rows),
             'dateMode' => filled($date),
             'coverageDate' => $date,
             'gapSummary' => $gapSummary,

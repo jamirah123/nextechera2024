@@ -246,10 +246,11 @@ class ManpowerGapService
 
     public function overtimeCoveredCount(Site $site, string $date, ShiftPeriod $period): int
     {
+        // All temporary shortage cover (Normal supervisor + OT) fills operational coverage
+        // without changing permanent manpower / original deficit.
         $fromTempDeployments = Deployment::query()
             ->temporary()
             ->where('site_id', $site->id)
-            ->where('duty_type', ShiftType::Overtime)
             ->whereIn('status', [DeploymentStatus::Active, DeploymentStatus::Ended])
             ->whereDate('start_date', '<=', $date)
             ->where(function ($q) use ($date): void {
@@ -264,7 +265,7 @@ class ManpowerGapService
             })
             ->count();
 
-        $fromShifts = Shift::query()
+        $fromOtShifts = Shift::query()
             ->forDate($date)
             ->where('site_id', $site->id)
             ->where('period', $period->value)
@@ -272,8 +273,16 @@ class ManpowerGapService
             ->whereIn('status', ShiftStatus::blockingAllocationValues())
             ->count();
 
-        // Prefer explicit OT shift count when present; otherwise temporary deployments.
-        return max($fromTempDeployments, $fromShifts);
+        $fromNormalTempShifts = Shift::query()
+            ->forDate($date)
+            ->where('site_id', $site->id)
+            ->where('period', $period->value)
+            ->where('shift_type', ShiftType::Normal)
+            ->whereIn('status', ShiftStatus::blockingAllocationValues())
+            ->whereHas('deployment', fn ($q) => $q->temporary())
+            ->count();
+
+        return max($fromTempDeployments, $fromOtShifts + $fromNormalTempShifts);
     }
 
     /**

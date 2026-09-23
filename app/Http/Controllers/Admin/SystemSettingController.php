@@ -32,6 +32,7 @@ class SystemSettingController extends Controller
                 'timezone' => config('app.timezone'),
                 'database' => config('database.default'),
             ],
+            'timezones' => \DateTimeZone::listIdentifiers(\DateTimeZone::ALL),
             'backups' => $this->recentBackups($settings->backup_path),
         ]);
     }
@@ -44,7 +45,13 @@ class SystemSettingController extends Controller
             'company_name' => ['required', 'string', 'max:191'],
             'tagline' => ['nullable', 'string', 'max:191'],
             'system_subtitle' => ['nullable', 'string', 'max:120'],
+            'login_headline' => ['nullable', 'string', 'max:191'],
             'company_short_name' => ['nullable', 'string', 'max:12'],
+            'employment_id_prefix' => ['required', 'string', 'max:12', 'regex:/^[A-Za-z][A-Za-z0-9]*$/'],
+            'invoice_prefix' => ['required', 'string', 'max:12', 'regex:/^[A-Za-z][A-Za-z0-9]*$/'],
+            'payroll_run_prefix' => ['required', 'string', 'max:12', 'regex:/^[A-Za-z][A-Za-z0-9]*$/'],
+            'shift_prefix' => ['required', 'string', 'max:12', 'regex:/^[A-Za-z][A-Za-z0-9]*$/'],
+            'timezone' => ['required', 'timezone:all'],
             'logo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'favicon' => ['nullable', 'file', 'mimes:png,ico,svg', 'max:512'],
             'theme_primary' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -57,22 +64,27 @@ class SystemSettingController extends Controller
             'currency' => ['required', 'string', 'max:8'],
             'currency_label' => ['required', 'string', 'max:80'],
             'currency_decimals' => ['required', 'integer', 'min:0', 'max:4'],
+            'vat_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'invoice_due_days' => ['required', 'integer', 'min:1', 'max:120'],
             'company_bank_name' => ['nullable', 'string', 'max:120'],
             'company_bank_account' => ['nullable', 'string', 'max:80'],
             'company_bank_branch' => ['nullable', 'string', 'max:120'],
             'invoice_payment_terms' => ['nullable', 'string', 'max:1000'],
             'payroll_default_base_shift_rate' => ['required', 'numeric', 'min:0'],
+            'payroll_standard_shifts_per_month' => ['nullable', 'integer', 'min:0', 'max:62'],
             'payroll_overtime_multiplier' => ['required', 'numeric', 'min:1', 'max:5'],
             'payroll_paye_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'payroll_use_progressive_paye' => ['nullable', 'boolean'],
             'payroll_nssf_employee_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'payroll_uniform_charge' => ['required', 'numeric', 'min:0'],
             'payroll_bank_export_format' => ['required', 'string', 'in:generic,centenary,stanbic'],
+            'payroll_send_payslip_email_on_approve' => ['nullable', 'boolean'],
             'default_day_shift_start' => ['required', 'date_format:H:i'],
             'default_day_shift_end' => ['required', 'date_format:H:i'],
             'default_night_shift_start' => ['required', 'date_format:H:i'],
             'default_night_shift_end' => ['required', 'date_format:H:i'],
+            'supervisor_normal_start' => ['required', 'date_format:H:i'],
+            'supervisor_normal_end' => ['required', 'date_format:H:i'],
             'backup_keep_days' => ['required', 'integer', 'min:1', 'max:365'],
             'backup_keep_daily' => ['required', 'integer', 'min:1', 'max:365'],
             'backup_keep_weekly' => ['required', 'integer', 'min:1', 'max:52'],
@@ -89,12 +101,18 @@ class SystemSettingController extends Controller
         $favicon = $request->file('favicon');
         unset($data['logo'], $data['favicon']);
 
+        $data['employment_id_prefix'] = strtoupper((string) $data['employment_id_prefix']);
+        $data['invoice_prefix'] = strtoupper((string) $data['invoice_prefix']);
+        $data['payroll_run_prefix'] = strtoupper((string) $data['payroll_run_prefix']);
+        $data['shift_prefix'] = strtoupper((string) $data['shift_prefix']);
         $data['payroll_use_progressive_paye'] = $request->boolean('payroll_use_progressive_paye');
+        $data['payroll_send_payslip_email_on_approve'] = $request->boolean('payroll_send_payslip_email_on_approve');
         $data['notify_workflow_actions_by_email'] = $request->boolean('notify_workflow_actions_by_email');
         $data['notify_proactive_alerts'] = $request->boolean('notify_proactive_alerts');
         $data['backup_notify'] = $request->boolean('backup_notify');
         $data['backup_include_files'] = $request->boolean('backup_include_files');
         $data['backup_offsite_disk'] = filled($data['backup_offsite_disk'] ?? null) ? $data['backup_offsite_disk'] : null;
+        $data['payroll_standard_shifts_per_month'] = (int) ($data['payroll_standard_shifts_per_month'] ?? 0);
         // Keep legacy keep_days aligned with the daily retention bucket.
         $data['backup_keep_days'] = (int) $data['backup_keep_daily'];
 

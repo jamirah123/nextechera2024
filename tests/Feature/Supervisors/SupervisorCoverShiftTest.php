@@ -4,10 +4,15 @@ namespace Tests\Feature\Supervisors;
 
 use App\Enums\CompensationType;
 use App\Enums\DeploymentShiftType;
+use App\Enums\EmploymentStatus;
+use App\Enums\OperationalStatus;
 use App\Enums\PayrollRunStatus;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Enums\UserRole;
+use App\Models\Deployment;
+use App\Models\Guard;
+use App\Models\ManpowerGap;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollRun;
 use App\Models\Region;
@@ -18,7 +23,10 @@ use App\Models\Supervisor;
 use App\Models\User;
 use App\Services\DeploymentService;
 use App\Services\Finance\PayrollRunService;
+use App\Services\ManpowerGapService;
+use App\Services\ManpowerService;
 use App\Support\Finance\PayrollRates;
+use App\Support\Supervisors\SupervisorCoverageClassifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -26,18 +34,65 @@ class SupervisorCoverShiftTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_supervisor_deploy_creates_guard_profile_and_normal_shift_by_default(): void
+    private function understaffedSite(Region $region, int $requiredDay = 2, int $requiredNight = 2, int $permanentDay = 1, int $permanentNight = 1): Site
+    {
+        $site = Site::factory()->create([
+            'region_id' => $region->id,
+            'required_day_guards' => $requiredDay,
+            'required_night_guards' => $requiredNight,
+            'required_guards' => $requiredDay + $requiredNight,
+        ]);
+
+        for ($i = 0; $i < $permanentDay; $i++) {
+            $guard = Guard::factory()->create([
+                'region_id' => $region->id,
+                'employment_status' => EmploymentStatus::Active,
+                'operational_status' => OperationalStatus::OnDuty,
+                'current_site_id' => $site->id,
+            ]);
+            Deployment::factory()->create([
+                'guard_id' => $guard->id,
+                'site_id' => $site->id,
+                'region_id' => $region->id,
+                'supervisor_id' => $site->supervisor_id,
+                'shift_type' => DeploymentShiftType::Day,
+                'is_current' => true,
+                'is_temporary' => false,
+            ]);
+        }
+
+        for ($i = 0; $i < $permanentNight; $i++) {
+            $guard = Guard::factory()->create([
+                'region_id' => $region->id,
+                'employment_status' => EmploymentStatus::Active,
+                'operational_status' => OperationalStatus::OnDuty,
+                'current_site_id' => $site->id,
+            ]);
+            Deployment::factory()->create([
+                'guard_id' => $guard->id,
+                'site_id' => $site->id,
+                'region_id' => $region->id,
+                'supervisor_id' => $site->supervisor_id,
+                'shift_type' => DeploymentShiftType::Night,
+                'is_current' => true,
+                'is_temporary' => false,
+            ]);
+        }
+
+        return $site;
+    }
+
+    public function test_day_cover_is_normal_supervisor_shift_without_ot(): void
     {
         $ops = User::factory()->role(UserRole::OperationsManager)->create();
         $region = Region::factory()->create();
-        $site = Site::factory()->create(['region_id' => $region->id]);
+        $site = $this->understaffedSite($region);
         $supervisor = Supervisor::factory()->create(['region_id' => $region->id, 'name' => 'James Otieno']);
 
         $this->actingAs($ops)
             ->post(route('supervisors.deploy.store', $supervisor), [
                 'site_id' => $site->id,
                 'shift_type' => DeploymentShiftType::Day->value,
-                'duty_type' => ShiftType::Normal->value,
                 'start_date' => now()->toDateString(),
                 'notes' => 'Covering shortage',
             ])
@@ -49,68 +104,100 @@ class SupervisorCoverShiftTest extends TestCase
         $this->assertSame('Supervisor', $supervisor->guardProfile->rank_designation);
         $this->assertSame(CompensationType::Salary, $supervisor->guardProfile->compensation_type);
 
+        $deployment = Deployment::query()->where('guard_id', $supervisor->guard_id)->latest('id')->firstOrFail();
+        $this->assertTrue($deployment->is_temporary);
+        $this->assertSame(ShiftType::Normal, $deployment->duty_type);
+        $this->assertNotNull($deployment->manpower_gap_id);
+        $this->assertStringContainsString('Normal Supervisor Shift', (string) $deployment->notes);
+        $this->assertStringContainsString('Manpower Shortage', (string) $deployment->notes);
+
         $shift = Shift::query()->where('guard_id', $supervisor->guard_id)->first();
         $this->assertNotNull($shift);
         $this->assertSame(ShiftType::Normal, $shift->shift_type);
         $this->assertSame(ShiftStatus::Recorded, $shift->status);
     }
 
-    public function test_supervisor_deploy_records_overtime_only_when_duty_type_is_overtime(): void
+    public function test_night_cover_is_always_supervisor_overtime(): void
     {
         $ops = User::factory()->role(UserRole::OperationsManager)->create();
         $region = Region::factory()->create();
-        $site = Site::factory()->create(['region_id' => $region->id]);
+        $site = $this->understaffedSite($region);
         $supervisor = Supervisor::factory()->create(['region_id' => $region->id, 'name' => 'James Otieno']);
 
         $this->actingAs($ops)
             ->post(route('supervisors.deploy.store', $supervisor), [
                 'site_id' => $site->id,
                 'shift_type' => DeploymentShiftType::Night->value,
-                'duty_type' => ShiftType::Overtime->value,
+                'duty_type' => ShiftType::Normal->value, // ignored for night
                 'start_date' => now()->toDateString(),
             ])
             ->assertRedirect(route('supervisors.show', $supervisor));
 
         $supervisor->refresh();
 
+        $deployment = Deployment::query()->where('guard_id', $supervisor->guard_id)->latest('id')->firstOrFail();
+        $this->assertTrue($deployment->is_temporary);
+        $this->assertSame(ShiftType::Overtime, $deployment->duty_type);
+        $this->assertStringContainsString('Supervisor Overtime', (string) $deployment->notes);
+
         $shift = Shift::query()->where('guard_id', $supervisor->guard_id)->first();
         $this->assertNotNull($shift);
         $this->assertSame(ShiftType::Overtime, $shift->shift_type);
     }
 
-    public function test_night_cover_is_not_assumed_to_be_overtime(): void
+    public function test_classifier_maps_day_to_normal_and_night_to_overtime(): void
     {
-        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+        $this->assertSame(ShiftType::Normal, SupervisorCoverageClassifier::classify(DeploymentShiftType::Day));
+        $this->assertSame(ShiftType::Overtime, SupervisorCoverageClassifier::classify(DeploymentShiftType::Night));
+        $this->assertSame(ShiftType::Overtime, SupervisorCoverageClassifier::classify(DeploymentShiftType::Rotating));
+    }
+
+    public function test_supervisor_cover_preserves_deficit_while_filling_operational_coverage(): void
+    {
         $region = Region::factory()->create();
-        $site = Site::factory()->create(['region_id' => $region->id]);
+        $site = $this->understaffedSite($region, requiredDay: 2, requiredNight: 2, permanentDay: 1, permanentNight: 1);
         $supervisor = Supervisor::factory()->create(['region_id' => $region->id]);
+        $date = now()->toDateString();
 
-        $this->actingAs($ops)
-            ->post(route('supervisors.deploy.store', $supervisor), [
-                'site_id' => $site->id,
-                'shift_type' => DeploymentShiftType::Night->value,
-                'duty_type' => ShiftType::Normal->value,
-                'start_date' => now()->toDateString(),
-            ])
-            ->assertRedirect();
+        app(DeploymentService::class)->deploySupervisor($supervisor, [
+            'site_id' => $site->id,
+            'shift_type' => DeploymentShiftType::Day->value,
+            'start_date' => $date,
+        ]);
 
-        $supervisor->refresh();
+        $gap = app(ManpowerGapService::class)->syncGap($site->fresh(), $date, \App\Enums\ShiftPeriod::Day);
+        $this->assertSame(1, (int) $gap->original_shortage);
+        $this->assertSame(1, (int) $gap->overtime_covered);
+        $this->assertSame(0, (int) $gap->remaining_shortage);
 
-        $shift = Shift::query()->where('guard_id', $supervisor->guard_id)->firstOrFail();
-        $this->assertSame(ShiftType::Normal, $shift->shift_type);
+        $ot = app(ManpowerGapService::class)->otCoverageBySite([$site->id], $date);
+        $summary = app(ManpowerService::class)->shiftCoverageSummary([
+            'required_day' => 2,
+            'deployed_day' => 1,
+            'shortage_day' => 1,
+            'required_night' => 2,
+            'deployed_night' => 1,
+            'shortage_night' => 1,
+            'required' => 4,
+            'deployed' => 2,
+        ], $ot[$site->id]);
+
+        $this->assertSame(0, $summary['day']['remaining']);
+        $this->assertSame(2, $summary['day']['covered']);
+        $this->assertSame(1, $summary['day']['overtime']);
+        $this->assertSame(1, $summary['deficit']);
     }
 
     public function test_completed_supervisor_shifts_appear_on_monthly_report(): void
     {
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $region = Region::factory()->create();
-        $site = Site::factory()->create(['region_id' => $region->id]);
+        $site = $this->understaffedSite($region);
         $supervisor = Supervisor::factory()->create(['region_id' => $region->id, 'name' => 'Mary Wambui']);
 
         app(DeploymentService::class)->deploySupervisor($supervisor, [
             'site_id' => $site->id,
             'shift_type' => DeploymentShiftType::Day->value,
-            'duty_type' => ShiftType::Overtime->value,
             'start_date' => now()->toDateString(),
         ]);
 
@@ -138,9 +225,8 @@ class SupervisorCoverShiftTest extends TestCase
         $supervisor = Supervisor::factory()->create(['region_id' => $region->id]);
 
         app(DeploymentService::class)->deploySupervisor($supervisor, [
-            'site_id' => Site::factory()->create(['region_id' => $region->id])->id,
+            'site_id' => $this->understaffedSite($region)->id,
             'shift_type' => DeploymentShiftType::Day->value,
-            'duty_type' => ShiftType::Normal->value,
             'start_date' => now()->toDateString(),
         ]);
 
@@ -161,7 +247,7 @@ class SupervisorCoverShiftTest extends TestCase
         $period = PayrollRunService::lastClosedPeriod();
         $start = $period->copy()->startOfMonth();
         $region = Region::factory()->create();
-        $site = Site::factory()->create(['region_id' => $region->id]);
+        $site = $this->understaffedSite($region);
 
         $staff = Staff::factory()->create([
             'region_id' => $region->id,
@@ -180,7 +266,6 @@ class SupervisorCoverShiftTest extends TestCase
         app(DeploymentService::class)->deploySupervisor($supervisor, [
             'site_id' => $site->id,
             'shift_type' => DeploymentShiftType::Day->value,
-            'duty_type' => ShiftType::Normal->value,
             'start_date' => $start->toDateString(),
         ]);
 
@@ -216,7 +301,7 @@ class SupervisorCoverShiftTest extends TestCase
         $period = PayrollRunService::lastClosedPeriod();
         $start = $period->copy()->startOfMonth();
         $region = Region::factory()->create();
-        $site = Site::factory()->create(['region_id' => $region->id]);
+        $site = $this->understaffedSite($region);
 
         $staff = Staff::factory()->create([
             'region_id' => $region->id,
@@ -235,7 +320,6 @@ class SupervisorCoverShiftTest extends TestCase
         app(DeploymentService::class)->deploySupervisor($supervisor, [
             'site_id' => $site->id,
             'shift_type' => DeploymentShiftType::Night->value,
-            'duty_type' => ShiftType::Overtime->value,
             'start_date' => $start->toDateString(),
         ]);
 
@@ -269,5 +353,20 @@ class SupervisorCoverShiftTest extends TestCase
         $this->assertEquals(50_000.0, (float) $payslip->overtime_shift_rate);
         $this->assertEquals(1_550_000.0, (float) $payslip->gross_pay);
         $this->assertEquals(1_500_000.0, (float) $staff->fresh()->monthly_salary);
+    }
+
+    public function test_cannot_cover_when_site_has_no_shortage(): void
+    {
+        $region = Region::factory()->create();
+        $site = $this->understaffedSite($region, requiredDay: 1, requiredNight: 1, permanentDay: 1, permanentNight: 1);
+        $supervisor = Supervisor::factory()->create(['region_id' => $region->id]);
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        app(DeploymentService::class)->deploySupervisor($supervisor, [
+            'site_id' => $site->id,
+            'shift_type' => DeploymentShiftType::Day->value,
+            'start_date' => now()->toDateString(),
+        ]);
     }
 }

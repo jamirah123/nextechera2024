@@ -550,14 +550,14 @@ class ManpowerService
             $headline = "{$label}: Fully covered ({$covered}/{$required})";
             $short = "✓ {$covered}/{$required}";
             $detail = $overtime > 0
-                ? "{$permanent} normal + {$overtime} overtime"
+                ? "{$permanent} normal + {$overtime} temporary cover"
                 : ($originalShortage > 0 && $overtime > 0 ? "original short {$originalShortage}" : null);
         } else {
             $status = 'understaffed';
             $headline = "{$label}: Understaffed by {$remaining} ({$covered}/{$required})";
             $short = "! {$covered}/{$required}";
             $detail = $overtime > 0
-                ? "{$permanent} normal + {$overtime} overtime · original short {$originalShortage}"
+                ? "{$permanent} normal + {$overtime} temporary cover · original short {$originalShortage}"
                 : null;
         }
 

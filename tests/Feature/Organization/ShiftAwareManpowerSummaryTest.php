@@ -140,7 +140,7 @@ class ShiftAwareManpowerSummaryTest extends TestCase
         $this->assertSame(1, $summary['night']['original_shortage']);
         $this->assertSame(1, $summary['night']['overtime']);
         $this->assertSame(1, $summary['deficit']);
-        $this->assertStringContainsString('1 normal + 1 overtime', (string) $summary['night']['detail']);
+        $this->assertStringContainsString('1 normal + 1 temporary cover', (string) $summary['night']['detail']);
     }
 
     public function test_coverage_table_shows_deficit_when_overtime_fills_gap(): void
@@ -188,7 +188,7 @@ class ShiftAwareManpowerSummaryTest extends TestCase
             ->assertOk()
             ->assertSee('Deficit')
             ->assertSee('Deficit Gate')
-            ->assertSee('Deficit (OT)');
+            ->assertSee('Deficit');
     }
 
     public function test_dashboard_ops_pulse_shows_shift_breakdown(): void

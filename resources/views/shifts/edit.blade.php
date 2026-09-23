@@ -17,9 +17,13 @@
         startTime: @js(old('start_time', $shift->starts_at->format('H:i'))),
         endTime: @js(old('end_time', $shift->ends_at->format('H:i'))),
         map: @js($guardSiteMap),
+        dayStart: @js(config('psg.shift_defaults.day.start', '06:00')),
+        dayEnd: @js(config('psg.shift_defaults.day.end', '18:00')),
+        nightStart: @js(config('psg.shift_defaults.night.start', '18:00')),
+        nightEnd: @js(config('psg.shift_defaults.night.end', '06:00')),
         applyPeriod() {
-            if (this.period === 'night') { this.startTime = '18:00'; this.endTime = '06:00'; }
-            else { this.startTime = '06:00'; this.endTime = '18:00'; }
+            if (this.period === 'night') { this.startTime = this.nightStart; this.endTime = this.nightEnd; }
+            else { this.startTime = this.dayStart; this.endTime = this.dayEnd; }
         },
         syncSite() {
             const site = this.map[this.guardId];

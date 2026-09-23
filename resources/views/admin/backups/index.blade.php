@@ -110,7 +110,7 @@
                             </td>
                             <td class="hidden md:table-cell text-slate-600 dark:text-slate-300">{{ $backup->formattedSize() }}</td>
                             <td class="hidden lg:table-cell text-slate-600 dark:text-slate-300">
-                                {{ optional($backup->completed_at ?? $backup->created_at)->timezone(config('app.timezone'))->format('d M Y H:i') }}
+                                {{ ($backup->completed_at ?? $backup->created_at)?->timezone(config('app.timezone'))->format('d M Y H:i') ?? '—' }}
                             </td>
                             <td class="text-right">
                                 <a href="{{ route('backups.show', $backup) }}" class="text-[11px] font-semibold text-brand-700 hover:underline dark:text-brand-400">Open</a>

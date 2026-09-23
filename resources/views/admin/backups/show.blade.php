@@ -30,7 +30,7 @@
                 <div class="flex justify-between gap-3"><dt class="text-slate-500">Files archive</dt><dd class="font-medium">{{ $backup->includes_files ? $backup->formattedFilesSize() : 'Not included' }}</dd></div>
                 <div class="flex justify-between gap-3"><dt class="text-slate-500">DB file present</dt><dd class="font-medium">{{ $fileExists ? 'Yes' : 'Missing' }}</dd></div>
                 <div class="flex justify-between gap-3"><dt class="text-slate-500">Files zip present</dt><dd class="font-medium">{{ $backup->includes_files ? ($filesArchiveExists ? 'Yes' : 'Missing') : '—' }}</dd></div>
-                <div class="flex justify-between gap-3"><dt class="text-slate-500">Created</dt><dd class="font-medium">{{ optional($backup->completed_at ?? $backup->created_at)->timezone(config('app.timezone'))->format('d M Y H:i') }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-slate-500">Created</dt><dd class="font-medium">{{ ($backup->completed_at ?? $backup->created_at)?->timezone(config('app.timezone'))->format('d M Y H:i') ?? '—' }}</dd></div>
                 <div class="flex justify-between gap-3"><dt class="text-slate-500">By</dt><dd class="font-medium">{{ $backup->creator?->name ?? 'System / scheduler' }}</dd></div>
             </dl>
         </section>
@@ -48,10 +48,10 @@
                         <dd class="mt-0.5 break-all font-mono text-[11px] text-slate-800 dark:text-slate-200">{{ $backup->files_checksum_sha256 ?: '—' }}</dd>
                     </div>
                 @endif
-                <div class="flex justify-between gap-3"><dt class="text-slate-500">Verified</dt><dd class="font-medium">{{ optional($backup->verified_at)->timezone(config('app.timezone'))->format('d M Y H:i') ?: 'Not yet' }}</dd></div>
-                <div class="flex justify-between gap-3"><dt class="text-slate-500">Restore drill</dt><dd class="font-medium">{{ optional($backup->restore_tested_at)->timezone(config('app.timezone'))->format('d M Y H:i') ?: 'Not yet' }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-slate-500">Verified</dt><dd class="font-medium">{{ $backup->verified_at?->timezone(config('app.timezone'))->format('d M Y H:i') ?? 'Not yet' }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-slate-500">Restore drill</dt><dd class="font-medium">{{ $backup->restore_tested_at?->timezone(config('app.timezone'))->format('d M Y H:i') ?? 'Not yet' }}</dd></div>
                 <div class="flex justify-between gap-3"><dt class="text-slate-500">Off-site disk</dt><dd class="font-medium">{{ $backup->offsite_disk ?: 'Local only' }}</dd></div>
-                <div class="flex justify-between gap-3"><dt class="text-slate-500">Off-site synced</dt><dd class="font-medium">{{ optional($backup->offsite_synced_at)->timezone(config('app.timezone'))->format('d M Y H:i') ?: '—' }}</dd></div>
+                <div class="flex justify-between gap-3"><dt class="text-slate-500">Off-site synced</dt><dd class="font-medium">{{ $backup->offsite_synced_at?->timezone(config('app.timezone'))->format('d M Y H:i') ?? '—' }}</dd></div>
             </dl>
         </section>
     </div>

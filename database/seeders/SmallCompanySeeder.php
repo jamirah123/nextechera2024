@@ -24,6 +24,7 @@ use App\Services\DeploymentService;
 use App\Services\GuardService;
 use App\Services\OrganizationService;
 use App\Services\StaffService;
+use App\Services\SupervisorGuardService;
 use App\Support\Access\RolePermissionService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Auth;
@@ -179,7 +180,11 @@ class SmallCompanySeeder extends Seeder
             );
         }
 
-        return $supervisor;
+        // Link Guard + Staff payroll profiles so the board shows a company employment ID (PSG…),
+        // not only the internal SUP#### supervisor code.
+        app(SupervisorGuardService::class)->ensureEmployeeProfiles($supervisor->fresh());
+
+        return $supervisor->fresh(['guardProfile', 'staffProfile']);
     }
 
     private function seedRegionSupervisorUser(Supervisor $supervisor, Region $region, string $email): void

@@ -458,7 +458,8 @@ class ShiftService
 
     public function nextReference(Carbon $startsAt): string
     {
-        $prefix = 'SHF-'.$startsAt->format('Ymd').'-';
+        $docPrefix = strtoupper((string) config('psg.prefixes.shift', 'SHF'));
+        $prefix = $docPrefix.'-'.$startsAt->format('Ymd').'-';
         $latest = Shift::query()
             ->where('reference', 'like', $prefix.'%')
             ->orderByDesc('reference')

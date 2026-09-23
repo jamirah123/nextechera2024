@@ -7,12 +7,23 @@ use App\Models\Staff;
 
 class EmploymentIdService
 {
-    public const PREFIX = 'PSG';
-
-    /** Minimum digit width: PSG001 … PSG999, then PSG1000. */
+    /** Minimum digit width: PREFIX001 … PREFIX999, then PREFIX1000. */
     public const MIN_DIGITS = 3;
 
-    public const PATTERN = '/^PSG\d{3,}$/i';
+    /** @deprecated Use prefix() — kept for older call sites that still read the constant. */
+    public const PREFIX = 'PSG';
+
+    public function prefix(): string
+    {
+        $prefix = strtoupper(trim((string) config('psg.prefixes.employment', self::PREFIX)));
+
+        return $prefix !== '' ? $prefix : self::PREFIX;
+    }
+
+    public function pattern(): string
+    {
+        return '/^'.preg_quote($this->prefix(), '/').'\d{3,}$/i';
+    }
 
     public function normalize(string $employmentId): string
     {
@@ -21,7 +32,7 @@ class EmploymentIdService
 
     public function isValidFormat(string $employmentId): bool
     {
-        return (bool) preg_match(self::PATTERN, $this->normalize($employmentId));
+        return (bool) preg_match($this->pattern(), $this->normalize($employmentId));
     }
 
     public function format(int $number): string
@@ -29,11 +40,11 @@ class EmploymentIdService
         $number = max(1, $number);
         $width = max(self::MIN_DIGITS, strlen((string) $number));
 
-        return self::PREFIX.str_pad((string) $number, $width, '0', STR_PAD_LEFT);
+        return $this->prefix().str_pad((string) $number, $width, '0', STR_PAD_LEFT);
     }
 
     /**
-     * Next continuous PSG ID across guards and staff (never resets yearly).
+     * Next continuous employment ID across guards and staff (never resets yearly).
      * Supervisors share this sequence through their linked guard payroll profile.
      */
     public function next(): string
@@ -44,14 +55,16 @@ class EmploymentIdService
     public function currentMaxSequence(): int
     {
         $max = 0;
+        $prefix = $this->prefix();
+        $pattern = '/^'.preg_quote($prefix, '/').'(\d+)$/i';
 
         foreach ([Guard::class, Staff::class] as $model) {
             $ids = $model::withTrashed()
-                ->where('employment_id', 'like', self::PREFIX.'%')
+                ->where('employment_id', 'like', $prefix.'%')
                 ->pluck('employment_id');
 
             foreach ($ids as $id) {
-                if (preg_match('/^'.self::PREFIX.'(\d+)$/i', (string) $id, $matches)) {
+                if (preg_match($pattern, (string) $id, $matches)) {
                     $max = max($max, (int) $matches[1]);
                 }
             }

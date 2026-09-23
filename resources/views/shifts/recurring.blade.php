@@ -15,12 +15,16 @@
         guardId: @js((string) old('guard_id', $selectedGuardId ?? '')),
         siteId: @js((string) old('site_id', $selectedSiteId ?? '')),
         period: @js(old('period', 'day')),
-        startTime: @js(old('start_time', '06:00')),
-        endTime: @js(old('end_time', '18:00')),
+        startTime: @js(old('start_time', config('psg.shift_defaults.day.start', '06:00'))),
+        endTime: @js(old('end_time', config('psg.shift_defaults.day.end', '18:00'))),
         map: @js($guardSiteMap),
+        dayStart: @js(config('psg.shift_defaults.day.start', '06:00')),
+        dayEnd: @js(config('psg.shift_defaults.day.end', '18:00')),
+        nightStart: @js(config('psg.shift_defaults.night.start', '18:00')),
+        nightEnd: @js(config('psg.shift_defaults.night.end', '06:00')),
         applyPeriod() {
-            if (this.period === 'night') { this.startTime = '18:00'; this.endTime = '06:00'; }
-            else { this.startTime = '06:00'; this.endTime = '18:00'; }
+            if (this.period === 'night') { this.startTime = this.nightStart; this.endTime = this.nightEnd; }
+            else { this.startTime = this.dayStart; this.endTime = this.dayEnd; }
         },
         syncSite() {
             const site = this.map[this.guardId];

@@ -21,6 +21,12 @@ return [
     'company_bank_account' => env('PSG_COMPANY_BANK_ACCOUNT'),
     'company_bank_branch' => env('PSG_COMPANY_BANK_BRANCH'),
     'invoice_payment_terms' => env('PSG_INVOICE_PAYMENT_TERMS'),
+    'prefixes' => [
+        'employment' => env('PSG_EMPLOYMENT_ID_PREFIX', 'PSG'),
+        'invoice' => env('PSG_INVOICE_PREFIX', 'INV'),
+        'payroll_run' => env('PSG_PAYROLL_RUN_PREFIX', 'PAY'),
+        'shift' => env('PSG_SHIFT_PREFIX', 'SHF'),
+    ],
     'shift_defaults' => [
         'day' => [
             'start' => env('PSG_DAY_SHIFT_START', '06:00'),
@@ -30,6 +36,12 @@ return [
             'start' => env('PSG_NIGHT_SHIFT_START', '18:00'),
             'end' => env('PSG_NIGHT_SHIFT_END', '06:00'),
         ],
+    ],
+    // Supervisor shortage cover: day within this window = Normal (fixed salary);
+    // night / outside window = Supervisor Overtime.
+    'supervisor_coverage' => [
+        'normal_start' => env('PSG_SUPERVISOR_NORMAL_START', '06:00'),
+        'normal_end' => env('PSG_SUPERVISOR_NORMAL_END', '19:00'),
     ],
     'shifts' => [
         // When true, past-window shifts without attendance become Missed instead of Completed.
@@ -91,6 +103,7 @@ return [
         'nssf_employee_rate' => (float) env('PSG_PAYROLL_NSSF_RATE', 5),
         'uniform_charge' => (float) env('PSG_PAYROLL_UNIFORM_CHARGE', 0),
         'bank_export_format' => env('PSG_PAYROLL_BANK_FORMAT', 'generic'),
+        'send_payslip_email_on_approve' => filter_var(env('PSG_PAYROLL_SEND_PAYSLIP_EMAIL', false), FILTER_VALIDATE_BOOL),
     ],
     'seed' => [
         // Kept for optional tooling; default seed uses SmallCompanySeeder (fixed small footprint).

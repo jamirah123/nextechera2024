@@ -44,6 +44,14 @@ class SupervisorController extends Controller
             ->paginate(table_per_page())
             ->withQueryString();
 
+        // Backfill employment profiles so the list shows PSG… IDs, not only internal SUP codes.
+        foreach ($supervisors as $supervisor) {
+            if (! $supervisor->guard_id) {
+                $this->supervisorGuards->ensureEmployeeProfiles($supervisor);
+                $supervisor->load('guardProfile:id,employment_id');
+            }
+        }
+
         return view('organization.supervisors.index', [
             'supervisors' => $supervisors,
             'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
@@ -87,14 +95,25 @@ class SupervisorController extends Controller
             'updater',
         ]);
 
-        $currentCover = $supervisor->guardProfile?->currentDeployment;
+        $supervisor->load('guardProfile');
+
+        $permanentCover = $supervisor->guardProfile
+            ? \App\Models\Deployment::query()
+                ->current()
+                ->permanent()
+                ->where('guard_id', $supervisor->guardProfile->id)
+                ->first()
+            : null;
+
+        $currentCover = $permanentCover
+            ?? $supervisor->guardProfile?->currentDeployment;
 
         return view('organization.supervisors.show', [
             'supervisor' => $supervisor,
             'currentCover' => $currentCover,
             'canManage' => request()->user()->can('update', $supervisor),
             'canDelete' => request()->user()->can('delete', $supervisor),
-            'canDeployCover' => request()->user()->can('create', Deployment::class) && ! $currentCover,
+            'canDeployCover' => request()->user()->can('create', Deployment::class) && ! $permanentCover,
         ]);
     }
 
@@ -103,12 +122,20 @@ class SupervisorController extends Controller
         $this->authorize('view', $supervisor);
         $this->authorize('create', Deployment::class);
 
-        $supervisor->load('guardProfile.currentDeployment');
+        $supervisor->load('guardProfile');
 
-        if ($supervisor->guardProfile?->currentDeployment) {
+        $permanentCover = $supervisor->guardProfile
+            ? Deployment::query()
+                ->current()
+                ->permanent()
+                ->where('guard_id', $supervisor->guardProfile->id)
+                ->exists()
+            : false;
+
+        if ($permanentCover) {
             return redirect()
                 ->route('supervisors.show', $supervisor)
-                ->withErrors(['deployment' => 'This supervisor is already covering a site. End that deployment before assigning another.']);
+                ->withErrors(['deployment' => 'This supervisor still has a permanent site posting. End that posting before assigning shortage cover.']);
         }
 
         $user = request()->user();

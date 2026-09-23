@@ -605,35 +605,172 @@ class DatabaseBackupService
         $config = config("database.connections.{$connection}");
         $mysqldump = $this->resolveBinary('mysqldump');
 
-        if ($mysqldump === null) {
-            throw new RuntimeException(
-                'mysqldump was not found on PATH. On WAMP, add MySQL bin to PATH or install mysqldump.'
-            );
-        }
-
         File::ensureDirectoryExists(dirname($target));
 
-        $command = [
-            $mysqldump,
-            '--host='.$config['host'],
-            '--port='.$config['port'],
-            '--user='.$config['username'],
-            '--single-transaction',
-            '--routines',
-            '--triggers',
-            '--result-file='.$target,
-            $config['database'],
-        ];
+        $errors = [];
 
-        $process = new Process($command);
-        $process->setTimeout(600);
-        if (! empty($config['password'])) {
-            $process->setEnv(array_merge($_ENV, ['MYSQL_PWD' => $config['password']]));
+        if ($mysqldump !== null) {
+            foreach ($this->mysqlClientConnectionAttempts($config) as $connectionArgs) {
+                for ($attempt = 1; $attempt <= 3; $attempt++) {
+                    if (File::exists($target)) {
+                        File::delete($target);
+                    }
+
+                    $command = array_merge(
+                        [$mysqldump],
+                        $connectionArgs,
+                        [
+                            '--single-transaction',
+                            '--routines',
+                            '--triggers',
+                            '--result-file='.$target,
+                            $config['database'],
+                        ]
+                    );
+
+                    $process = new Process($command);
+                    $process->setTimeout(600);
+                    $this->applyMysqlPasswordEnv($process, $config);
+                    $process->run();
+
+                    if ($process->isSuccessful() && File::exists($target) && File::size($target) > 0) {
+                        return;
+                    }
+
+                    $error = trim($process->getErrorOutput().' '.$process->getOutput());
+                    if ($error !== '') {
+                        $errors[] = $error;
+                    }
+
+                    // Transient Windows Winsock failures (2004 / 10106) often clear on retry.
+                    if ($attempt < 3 && preg_match('/\b(2004|10106)\b/', $error) === 1) {
+                        usleep(400_000);
+
+                        continue;
+                    }
+
+                    break;
+                }
+            }
+        } else {
+            $errors[] = 'mysqldump was not found on PATH.';
         }
-        $process->run();
 
-        if (! $process->isSuccessful() || ! File::exists($target) || File::size($target) === 0) {
-            throw new RuntimeException('mysqldump failed: '.$process->getErrorOutput());
+        // Web/Apache on WAMP often cannot spawn a TCP client even when Laravel's PDO works.
+        // Fall back to dumping through the live DB connection so Backup now still succeeds.
+        try {
+            if (File::exists($target)) {
+                File::delete($target);
+            }
+            $this->backupMysqlViaPhp($target, $connection);
+
+            if (File::exists($target) && File::size($target) > 0) {
+                return;
+            }
+
+            $errors[] = 'PHP dump wrote an empty file.';
+        } catch (Throwable $e) {
+            $errors[] = 'PHP dump fallback failed: '.$e->getMessage();
+        }
+
+        throw new RuntimeException(
+            'mysqldump failed: '.(implode(' | ', array_unique($errors)) ?: 'no dump file was written. Ensure WAMP MySQL is running.')
+        );
+    }
+
+    /**
+     * Schema + data dump via the application's PDO connection (no mysqldump process).
+     */
+    private function backupMysqlViaPhp(string $target, string $connection): void
+    {
+        $pdo = DB::connection($connection)->getPdo();
+        $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+
+        $handle = fopen($target, 'wb');
+        if ($handle === false) {
+            throw new RuntimeException('Unable to open backup target for writing.');
+        }
+
+        try {
+            fwrite($handle, "-- PSG Shifts PHP MySQL dump\n");
+            fwrite($handle, '-- Generated: '.now()->toDateTimeString()."\n\n");
+            fwrite($handle, "SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\nSET UNIQUE_CHECKS=0;\nSET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';\n\n");
+
+            $tables = $pdo->query("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'")->fetchAll(\PDO::FETCH_NUM);
+
+            foreach ($tables as $row) {
+                $table = (string) $row[0];
+                $quoted = str_replace('`', '``', $table);
+
+                $create = $pdo->query('SHOW CREATE TABLE `'.$quoted.'`')->fetch(\PDO::FETCH_ASSOC) ?: [];
+                $createSql = (string) ($create['Create Table'] ?? array_values($create)[1] ?? '');
+                if ($createSql === '') {
+                    throw new RuntimeException("SHOW CREATE TABLE failed for [{$table}].");
+                }
+
+                fwrite($handle, 'DROP TABLE IF EXISTS `'.$quoted."`;\n");
+                fwrite($handle, $createSql.";\n\n");
+
+                $stmt = $pdo->query('SELECT * FROM `'.$quoted.'`');
+                $buffer = [];
+                $columns = null;
+
+                while ($record = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                    if ($columns === null) {
+                        $columns = array_map(
+                            static fn ($col) => '`'.str_replace('`', '``', (string) $col).'`',
+                            array_keys($record)
+                        );
+                    }
+
+                    $values = [];
+                    foreach ($record as $value) {
+                        if ($value === null) {
+                            $values[] = 'NULL';
+                        } elseif (is_int($value) || is_float($value)) {
+                            $values[] = (string) $value;
+                        } else {
+                            $values[] = $pdo->quote((string) $value);
+                        }
+                    }
+
+                    $buffer[] = '('.implode(',', $values).')';
+
+                    if (count($buffer) >= 100) {
+                        fwrite(
+                            $handle,
+                            'INSERT INTO `'.$quoted.'` ('.implode(',', $columns).') VALUES '.implode(",\n", $buffer).";\n"
+                        );
+                        $buffer = [];
+                    }
+                }
+
+                if ($columns !== null && $buffer !== []) {
+                    fwrite(
+                        $handle,
+                        'INSERT INTO `'.$quoted.'` ('.implode(',', $columns).') VALUES '.implode(",\n", $buffer).";\n"
+                    );
+                }
+
+                fwrite($handle, "\n");
+            }
+
+            // Views (after base tables).
+            $views = $pdo->query("SHOW FULL TABLES WHERE Table_type = 'VIEW'")->fetchAll(\PDO::FETCH_NUM);
+            foreach ($views as $row) {
+                $view = (string) $row[0];
+                $quoted = str_replace('`', '``', $view);
+                $create = $pdo->query('SHOW CREATE VIEW `'.$quoted.'`')->fetch(\PDO::FETCH_ASSOC);
+                $createSql = (string) ($create['Create View'] ?? array_values($create ?? [])[1] ?? '');
+                if ($createSql !== '') {
+                    fwrite($handle, 'DROP VIEW IF EXISTS `'.$quoted."`;\n");
+                    fwrite($handle, $createSql.";\n\n");
+                }
+            }
+
+            fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\nSET UNIQUE_CHECKS=1;\n");
+        } finally {
+            fclose($handle);
         }
     }
 
@@ -694,81 +831,145 @@ class DatabaseBackupService
             );
         }
 
-        $command = [
-            $mysql,
-            '--host='.$config['host'],
-            '--port='.$config['port'],
-            '--user='.$config['username'],
-            $config['database'],
-            '-e',
-            'source '.str_replace('\\', '/', $backup->absolutePath()),
-        ];
+        $lastError = '';
+        $source = $backup->absolutePath();
 
-        // Prefer stdin piping for Windows compatibility.
-        $process = Process::fromShellCommandline(
-            $this->quote($mysql)
-            .' --host='.escapeshellarg($config['host'])
-            .' --port='.escapeshellarg((string) $config['port'])
-            .' --user='.escapeshellarg($config['username'])
-            .' '.escapeshellarg($config['database'])
-            .' < '.escapeshellarg($backup->absolutePath())
-        );
-        $process->setTimeout(900);
-        if (! empty($config['password'])) {
-            $process->setEnv(array_merge($_ENV, ['MYSQL_PWD' => $config['password']]));
-        }
-        $process->run();
-
-        if (! $process->isSuccessful()) {
-            // Fallback without shell redirection.
-            $fallback = new Process([
-                $mysql,
-                '--host='.$config['host'],
-                '--port='.$config['port'],
-                '--user='.$config['username'],
-                $config['database'],
-            ]);
-            $fallback->setTimeout(900);
-            if (! empty($config['password'])) {
-                $fallback->setEnv(array_merge($_ENV, ['MYSQL_PWD' => $config['password']]));
+        foreach ($this->mysqlClientConnectionAttempts($config) as $connectionArgs) {
+            $shell = $this->quote($mysql);
+            foreach ($connectionArgs as $arg) {
+                $shell .= ' '.escapeshellarg($arg);
             }
-            $fallback->setInput(File::get($backup->absolutePath()));
+            $shell .= ' '.escapeshellarg($config['database'])
+                .' < '.escapeshellarg($source);
+
+            $process = Process::fromShellCommandline($shell);
+            $process->setTimeout(900);
+            $this->applyMysqlPasswordEnv($process, $config);
+            $process->run();
+
+            if ($process->isSuccessful()) {
+                DB::reconnect($connection);
+
+                return;
+            }
+
+            $lastError = trim($process->getErrorOutput().' '.$process->getOutput());
+
+            // Fallback without shell redirection (some Windows shells mishandle `<`).
+            $fallback = new Process(array_merge([$mysql], $connectionArgs, [$config['database']]));
+            $fallback->setTimeout(900);
+            $this->applyMysqlPasswordEnv($fallback, $config);
+            $fallback->setInput(File::get($source));
             $fallback->run();
 
-            if (! $fallback->isSuccessful()) {
-                throw new RuntimeException('mysql restore failed: '.$fallback->getErrorOutput() ?: $process->getErrorOutput());
+            if ($fallback->isSuccessful()) {
+                DB::reconnect($connection);
+
+                return;
             }
+
+            $lastError = trim($fallback->getErrorOutput().' '.$fallback->getOutput()) ?: $lastError;
         }
 
-        unset($command);
-        DB::reconnect($connection);
+        throw new RuntimeException(
+            'mysql restore failed: '.($lastError !== '' ? $lastError : 'client exited unsuccessfully. Ensure WAMP MySQL is running.')
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @return list<list<string>>
+     */
+    private function mysqlClientConnectionAttempts(array $config): array
+    {
+        $host = (string) ($config['host'] ?? '127.0.0.1');
+        $port = (string) ($config['port'] ?? 3306);
+        $user = (string) ($config['username'] ?? 'root');
+
+        // Under Apache/WAMP, "localhost" often fails DNS (2005/11003). Prefer the loopback IP.
+        if (in_array(strtolower($host), ['localhost', '::1'], true)) {
+            $host = '127.0.0.1';
+        }
+
+        return [[
+            '--host='.$host,
+            '--port='.$port,
+            '--user='.$user,
+            '--protocol=TCP',
+        ]];
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    private function applyMysqlPasswordEnv(Process $process, array $config): void
+    {
+        if (empty($config['password'])) {
+            return;
+        }
+
+        // Process::setEnv replaces the whole environment — keep PATH so the
+        // child can still resolve dependent DLLs under Apache/WAMP.
+        $env = array_merge($_ENV, $_SERVER);
+        $path = getenv('PATH');
+        if (is_string($path) && $path !== '') {
+            $env['PATH'] = $path;
+        }
+        $env['MYSQL_PWD'] = $config['password'];
+        $process->setEnv($env);
     }
 
     private function resolveBinary(string $name): ?string
     {
-        $candidates = [$name];
+        $candidates = [];
 
         if (PHP_OS_FAMILY === 'Windows') {
-            $candidates = array_merge($candidates, [
+            // Absolute paths first so Apache/mod_php (often without MySQL on PATH) still works.
+            $candidates = [
+                'C:\\wamp64\\bin\\mysql\\mysql9.1.0\\bin\\'.$name.'.exe',
+                'C:\\wamp64\\bin\\mysql\\mysql9.0.0\\bin\\'.$name.'.exe',
                 'C:\\wamp64\\bin\\mysql\\mysql8.3.0\\bin\\'.$name.'.exe',
                 'C:\\wamp64\\bin\\mysql\\mysql8.2.0\\bin\\'.$name.'.exe',
                 'C:\\wamp64\\bin\\mysql\\mysql8.1.0\\bin\\'.$name.'.exe',
                 'C:\\wamp64\\bin\\mysql\\mysql8.0.31\\bin\\'.$name.'.exe',
                 'C:\\laragon\\bin\\mysql\\mysql-8.0.30-winx64\\bin\\'.$name.'.exe',
-            ]);
+            ];
 
             foreach (glob('C:\\wamp64\\bin\\mysql\\*\\bin\\'.$name.'.exe') ?: [] as $path) {
                 $candidates[] = $path;
+            }
+
+            $where = Process::fromShellCommandline('where '.$name);
+            $where->run();
+            if ($where->isSuccessful()) {
+                foreach (preg_split('/\r\n|\n|\r/', trim($where->getOutput())) ?: [] as $line) {
+                    $line = trim($line);
+                    if ($line !== '' && is_file($line)) {
+                        $candidates[] = $line;
+                    }
+                }
+            }
+        } else {
+            $candidates[] = $name;
+
+            $which = Process::fromShellCommandline('command -v '.$name);
+            $which->run();
+            if ($which->isSuccessful()) {
+                $found = trim($which->getOutput());
+                if ($found !== '') {
+                    $candidates[] = $found;
+                }
             }
         }
 
         foreach ($candidates as $binary) {
             if ($binary === $name) {
-                $process = Process::fromShellCommandline(
+                // Bare name only when PATH resolution is left to the OS.
+                $probe = Process::fromShellCommandline(
                     PHP_OS_FAMILY === 'Windows' ? 'where '.$name : 'command -v '.$name
                 );
-                $process->run();
-                if ($process->isSuccessful() && filled(trim($process->getOutput()))) {
+                $probe->run();
+                if ($probe->isSuccessful() && filled(trim($probe->getOutput()))) {
                     return $name;
                 }
 

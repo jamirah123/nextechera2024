@@ -43,7 +43,7 @@
                 <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ number_format($company['shortage']) }}</p>
             </div>
             <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-orange-700">Deficit (OT)</p>
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-orange-700">Deficit</p>
                 <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ number_format($totalDeficit ?? 0) }}</p>
             </div>
             @if ($dateMode)

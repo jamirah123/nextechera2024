@@ -185,7 +185,7 @@ class SystemSettingService
         });
     }
 
-    /** @return array{name: string, tagline: string, subtitle: string, short_name: string, logo_url: string, favicon_url: string, theme_primary: string, theme_sidebar: string, theme_css: string, email_footer: string} */
+    /** @return array{name: string, tagline: string, subtitle: string, short_name: string, logo_url: string, favicon_url: string, theme_primary: string, theme_sidebar: string, theme_css: string, email_footer: string, login_headline: string} */
     public function branding(): array
     {
         $settings = $this->current();
@@ -201,6 +201,7 @@ class SystemSettingService
             'theme_sidebar' => $settings->resolvedThemeSidebar(),
             'theme_css' => $settings->themeCss(),
             'email_footer' => (string) config('psg.email_footer', $settings->email_footer_text ?? ''),
+            'login_headline' => (string) config('psg.login_headline', $settings->login_headline ?? ''),
         ];
     }
 
@@ -208,11 +209,17 @@ class SystemSettingService
     {
         $settings ??= $this->current();
 
+        $timezone = filled($settings->timezone)
+            ? (string) $settings->timezone
+            : (string) config('app.timezone', 'UTC');
+
         config([
             'app.name' => $settings->company_name,
+            'app.timezone' => $timezone,
             'psg.company' => $settings->company_name,
             'psg.tagline' => $settings->tagline ?? config('psg.tagline'),
             'psg.system_subtitle' => $settings->system_subtitle ?? config('psg.system_subtitle', 'Operations System'),
+            'psg.login_headline' => $settings->login_headline ?? config('psg.login_headline'),
             'psg.logo_url' => $settings->resolvedLogoUrl(),
             'psg.favicon_url' => $settings->resolvedFaviconUrl(),
             'psg.theme_primary' => $settings->resolvedThemePrimary(),
@@ -223,11 +230,16 @@ class SystemSettingService
             'psg.currency' => $settings->currency,
             'psg.currency_label' => $settings->currency_label,
             'psg.currency_decimals' => $settings->currency_decimals,
+            'psg.vat_rate' => (float) ($settings->vat_rate ?? config('psg.vat_rate', 18)),
             'psg.invoice_due_days' => $settings->invoice_due_days,
             'psg.company_bank_name' => $settings->company_bank_name,
             'psg.company_bank_account' => $settings->company_bank_account,
             'psg.company_bank_branch' => $settings->company_bank_branch,
             'psg.invoice_payment_terms' => $settings->invoice_payment_terms,
+            'psg.prefixes.employment' => strtoupper((string) ($settings->employment_id_prefix ?: config('psg.prefixes.employment', 'PSG'))),
+            'psg.prefixes.invoice' => strtoupper((string) ($settings->invoice_prefix ?: config('psg.prefixes.invoice', 'INV'))),
+            'psg.prefixes.payroll_run' => strtoupper((string) ($settings->payroll_run_prefix ?: config('psg.prefixes.payroll_run', 'PAY'))),
+            'psg.prefixes.shift' => strtoupper((string) ($settings->shift_prefix ?: config('psg.prefixes.shift', 'SHF'))),
             'psg.payroll.default_monthly_gross' => (float) $settings->payroll_default_base_shift_rate,
             'psg.payroll.standard_shifts_per_month' => max(0, (int) ($settings->payroll_standard_shifts_per_month ?? 0)),
             'psg.payroll.default_base_shift_rate' => round(
@@ -240,12 +252,17 @@ class SystemSettingService
             'psg.payroll.nssf_employee_rate' => (float) $settings->payroll_nssf_employee_rate,
             'psg.payroll.uniform_charge' => (float) $settings->payroll_uniform_charge,
             'psg.payroll.bank_export_format' => (string) ($settings->payroll_bank_export_format ?? config('psg.payroll.bank_export_format', 'generic')),
+            'psg.payroll.send_payslip_email_on_approve' => (bool) ($settings->payroll_send_payslip_email_on_approve ?? config('psg.payroll.send_payslip_email_on_approve', false)),
             'psg.support_email' => $settings->support_email,
             'psg.support_phone' => $settings->support_phone,
             'psg.shift_defaults.day.start' => $settings->default_day_shift_start,
             'psg.shift_defaults.day.end' => $settings->default_day_shift_end,
             'psg.shift_defaults.night.start' => $settings->default_night_shift_start,
             'psg.shift_defaults.night.end' => $settings->default_night_shift_end,
+            'psg.supervisor_coverage.normal_start' => $settings->supervisor_normal_start
+                ?? config('psg.supervisor_coverage.normal_start', '06:00'),
+            'psg.supervisor_coverage.normal_end' => $settings->supervisor_normal_end
+                ?? config('psg.supervisor_coverage.normal_end', '19:00'),
             'psg.backup.keep_days' => $settings->backup_keep_days,
             'psg.backup.keep_daily' => (int) ($settings->backup_keep_daily ?? $settings->backup_keep_days ?? config('psg.backup.keep_daily', 14)),
             'psg.backup.keep_weekly' => (int) ($settings->backup_keep_weekly ?? config('psg.backup.keep_weekly', 8)),
@@ -259,6 +276,8 @@ class SystemSettingService
             'filesystems.disks.backups.root' => storage_path('app/'.trim((string) $settings->backup_path, '/\\')),
         ]);
 
+        date_default_timezone_set($timezone);
+
         // Rebuild the backups disk so path changes take effect immediately.
         app('filesystem')->forgetDisk('backups');
     }
@@ -270,9 +289,16 @@ class SystemSettingService
             'company_name' => config('psg.company', 'Platinum Security Group'),
             'tagline' => config('psg.tagline'),
             'system_subtitle' => config('psg.system_subtitle', 'Operations System'),
+            'login_headline' => config('psg.login_headline'),
+            'employment_id_prefix' => config('psg.prefixes.employment', 'PSG'),
+            'invoice_prefix' => config('psg.prefixes.invoice', 'INV'),
+            'payroll_run_prefix' => config('psg.prefixes.payroll_run', 'PAY'),
+            'shift_prefix' => config('psg.prefixes.shift', 'SHF'),
+            'timezone' => config('app.timezone', 'Africa/Dar_es_Salaam'),
             'currency' => config('psg.currency', 'UGX'),
             'currency_label' => config('psg.currency_label', 'Ugandan Shillings'),
             'currency_decimals' => config('psg.currency_decimals', 0),
+            'vat_rate' => config('psg.vat_rate', 18),
             'invoice_due_days' => config('psg.invoice_due_days', 14),
             'company_bank_name' => config('psg.company_bank_name'),
             'company_bank_account' => config('psg.company_bank_account'),
@@ -286,12 +312,15 @@ class SystemSettingService
             'payroll_nssf_employee_rate' => config('psg.payroll.nssf_employee_rate', 5),
             'payroll_uniform_charge' => config('psg.payroll.uniform_charge', 0),
             'payroll_bank_export_format' => config('psg.payroll.bank_export_format', 'generic'),
+            'payroll_send_payslip_email_on_approve' => config('psg.payroll.send_payslip_email_on_approve', false),
             'notify_workflow_actions_by_email' => config('psg.notifications.workflow_email_enabled', true),
             'notify_proactive_alerts' => config('psg.notifications.proactive_alerts_enabled', true),
             'default_day_shift_start' => config('psg.shift_defaults.day.start', '06:00'),
             'default_day_shift_end' => config('psg.shift_defaults.day.end', '18:00'),
             'default_night_shift_start' => config('psg.shift_defaults.night.start', '18:00'),
             'default_night_shift_end' => config('psg.shift_defaults.night.end', '06:00'),
+            'supervisor_normal_start' => config('psg.supervisor_coverage.normal_start', '06:00'),
+            'supervisor_normal_end' => config('psg.supervisor_coverage.normal_end', '19:00'),
             'backup_keep_days' => config('psg.backup.keep_days', 14),
             'backup_keep_daily' => config('psg.backup.keep_daily', config('psg.backup.keep_days', 14)),
             'backup_keep_weekly' => config('psg.backup.keep_weekly', 8),

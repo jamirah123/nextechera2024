@@ -24,15 +24,26 @@ class UpdateStaffRequest extends FormRequest
     {
         /** @var Staff $staff */
         $staff = $this->route('staff');
+        $staff->loadMissing('supervisorProfile.guardProfile:id');
         $canCorrectId = $this->user()?->can('correctEmploymentId', $staff) ?? false;
+        $normalizedInput = is_string($this->input('employment_id'))
+            ? app(EmploymentIdService::class)->normalize((string) $this->input('employment_id'))
+            : null;
         $idChanged = $canCorrectId
-            && is_string($this->input('employment_id'))
-            && app(EmploymentIdService::class)->normalize((string) $this->input('employment_id')) !== $staff->employment_id;
+            && filled($normalizedInput)
+            && $normalizedInput !== $staff->employment_id;
+
+        $employmentIdRules = ['sometimes', 'required', 'string', 'max:32'];
+        if ($idChanged) {
+            $employmentIdRules[] = new UniqueEmploymentId(
+                ignoreGuardId: $staff->supervisorProfile?->guardProfile?->id
+                    ?? $staff->supervisorProfile?->guard_id,
+                ignoreStaffId: $staff->id,
+            );
+        }
 
         return [
-            'employment_id' => $canCorrectId
-                ? ['sometimes', 'required', 'string', 'max:32', new UniqueEmploymentId(ignoreStaffId: $staff->id)]
-                : ['prohibited'],
+            'employment_id' => $canCorrectId ? $employmentIdRules : ['prohibited'],
             'first_name' => ['required', 'string', 'max:100'],
             'middle_name' => ['nullable', 'string', 'max:100'],
             'last_name' => ['required', 'string', 'max:100'],

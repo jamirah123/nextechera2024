@@ -196,7 +196,22 @@ class DeploymentService
      *     notes?: string|null
      * }  $data
      */
-    public function deployTemporaryOvertime(array $data): Deployment
+    /**
+     * Temporary site coverage that does not change permanent manpower.
+     * Duty type drives payroll (Normal = fixed salary history; Overtime = OT pay).
+     *
+     * @param  array{
+     *     guard_id: int,
+     *     site_id: int,
+     *     shift_type?: string,
+     *     duty_type?: string,
+     *     start_date?: string,
+     *     duty_date_to?: string|null,
+     *     manpower_gap_id?: int|null,
+     *     notes?: string|null
+     * }  $data
+     */
+    public function deployTemporaryCoverage(array $data): Deployment
     {
         DB::afterCommit(function (): void {
             DashboardCache::flush();
@@ -208,13 +223,15 @@ class DeploymentService
             $site = Site::query()->with('supervisor')->findOrFail($data['site_id']);
             $shiftType = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
                 ?? DeploymentShiftType::Day;
+            $dutyType = ShiftType::tryFrom((string) ($data['duty_type'] ?? ''))
+                ?? ShiftType::Overtime;
             $dutyFrom = (string) ($data['start_date'] ?? now()->toDateString());
             $dutyTo = (string) ($data['duty_date_to'] ?? $dutyFrom);
 
             $this->assertSameRegion($guard, $site);
 
             if ($guard->employment_status !== EmploymentStatus::Active) {
-                throw new InvalidArgumentException('Only active employment guards can work overtime coverage.');
+                throw new InvalidArgumentException('Only active employment guards can work temporary coverage.');
             }
 
             if (in_array($guard->operational_status, [
@@ -224,14 +241,11 @@ class DeploymentService
                 OperationalStatus::Absent,
                 OperationalStatus::SickUnavailable,
             ], true)) {
-                throw new InvalidArgumentException('This guard is not available for overtime coverage.');
+                throw new InvalidArgumentException('This guard is not available for temporary coverage.');
             }
 
             $workPeriod = ShiftDutyTypeResolver::workPeriodFor($shiftType);
             $this->assertNoSameShiftDutyElsewhere($guard, $site, $workPeriod, $dutyFrom, $dutyTo);
-
-            // Same-period permanent posting at another site already blocks via assertNoSameShiftDutyElsewhere.
-            // Allow a day-posted guard to take night OT (and vice versa).
 
             $this->operationalPeriods->assertWritableForDate(
                 $dutyFrom,
@@ -240,6 +254,10 @@ class DeploymentService
             );
 
             $historicalOnly = HistoricalDates::isHistoricalDutyRange($dutyFrom, $dutyTo);
+
+            $defaultNote = $dutyType === ShiftType::Overtime
+                ? 'Temporary overtime manpower coverage.'
+                : 'Temporary normal manpower coverage (fixed salary — no OT).';
 
             $deployment = Deployment::query()->create([
                 'guard_id' => $guard->id,
@@ -252,9 +270,9 @@ class DeploymentService
                 'end_date' => $dutyTo,
                 'is_current' => ! $historicalOnly,
                 'is_temporary' => true,
-                'duty_type' => ShiftType::Overtime->value,
+                'duty_type' => $dutyType->value,
                 'manpower_gap_id' => $data['manpower_gap_id'] ?? null,
-                'notes' => $data['notes'] ?? 'Temporary overtime manpower coverage.',
+                'notes' => $data['notes'] ?? $defaultNote,
             ]);
 
             $permanent = Deployment::query()
@@ -273,7 +291,7 @@ class DeploymentService
                 [
                     'start_date' => $dutyFrom,
                     'duty_date_to' => $dutyTo,
-                    'duty_type' => ShiftType::Overtime->value,
+                    'duty_type' => $dutyType->value,
                     'notes' => $data['notes'] ?? null,
                     'deployment_id' => $deployment->id,
                 ],
@@ -284,8 +302,10 @@ class DeploymentService
             $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor', 'manpowerGap']);
 
             $this->audit->log(
-                action: 'deployment.overtime_coverage_created',
-                summary: 'Temporary overtime coverage for '.$guard->employment_id
+                action: $dutyType === ShiftType::Overtime
+                    ? 'deployment.overtime_coverage_created'
+                    : 'deployment.temporary_coverage_created',
+                summary: 'Temporary '.$dutyType->value.' coverage for '.$guard->employment_id
                     .' at '.$site->name.' ('.$shiftType->label().') on '.$dutyFrom.'.',
                 category: AuditCategory::Deployment,
                 severity: AuditSeverity::Notice,
@@ -294,7 +314,7 @@ class DeploymentService
                     'guard_id' => $guard->id,
                     'site_id' => $site->id,
                     'shift_type' => $shiftType->value,
-                    'duty_type' => ShiftType::Overtime->value,
+                    'duty_type' => $dutyType->value,
                     'is_temporary' => true,
                     'manpower_gap_id' => $fresh->manpower_gap_id,
                     'duty_date' => $dutyFrom,
@@ -306,9 +326,30 @@ class DeploymentService
     }
 
     /**
-     * Deploy a supervisor to cover a site using their linked guard payroll profile.
-     * A shift is always recorded by deploy(). Pay is driven only by an explicit duty_type:
-     * normal = history only (fixed salary unchanged); overtime = overtime earnings.
+     * @param  array{
+     *     guard_id: int,
+     *     site_id: int,
+     *     shift_type?: string,
+     *     start_date?: string,
+     *     duty_date_to?: string|null,
+     *     manpower_gap_id?: int|null,
+     *     notes?: string|null
+     * }  $data
+     */
+    public function deployTemporaryOvertime(array $data): Deployment
+    {
+        return $this->deployTemporaryCoverage([
+            ...$data,
+            'duty_type' => ShiftType::Overtime->value,
+        ]);
+    }
+
+    /**
+     * Deploy a supervisor as temporary manpower-shortage cover (not a permanent guard posting).
+     *
+     * Day within normal working hours → Normal Supervisor Shift (fixed salary, no OT).
+     * Night / outside normal hours → Supervisor Overtime (OT payable).
+     * Original manpower deficit is preserved; cover only fills operational coverage.
      *
      * @param  array{
      *     site_id: int,
@@ -322,25 +363,55 @@ class DeploymentService
     {
         $guard = app(SupervisorGuardService::class)->ensureEmployeeProfiles($supervisor)['guard'];
         $site = Site::query()->findOrFail($data['site_id']);
+        $shiftType = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
+            ?? DeploymentShiftType::Day;
+        $dutyDate = (string) ($data['start_date'] ?? now()->toDateString());
+        $period = ShiftDutyTypeResolver::workPeriodFor($shiftType);
 
-        $dutyType = ShiftType::tryFrom((string) ($data['duty_type'] ?? '')) ?? ShiftType::Normal;
+        $dutyType = \App\Support\Supervisors\SupervisorCoverageClassifier::classify($shiftType);
+        // Day cover may be promoted to OT (e.g. after-hours day work subject to approval).
+        // Night / rotating cover cannot be downgraded to Normal.
+        $requested = ShiftType::tryFrom((string) ($data['duty_type'] ?? ''));
+        if ($requested === ShiftType::Overtime && $shiftType === DeploymentShiftType::Day) {
+            $dutyType = ShiftType::Overtime;
+        }
 
+        $gaps = app(ManpowerGapService::class);
+        $gap = $gaps->syncGap($site, $dutyDate, $period);
+
+        if ((int) $gap->original_shortage <= 0) {
+            throw new InvalidArgumentException(
+                'No manpower shortage to cover for this site on the '.$period->label().' period.'
+            );
+        }
+
+        if ((int) $gap->remaining_shortage <= 0) {
+            throw new InvalidArgumentException(
+                'This site/period shortage is already fully covered by temporary deployments.'
+            );
+        }
+
+        $classification = \App\Support\Supervisors\SupervisorCoverageClassifier::label($dutyType);
         $noteParts = array_filter([
             $data['notes'] ?? null,
-            'Supervisor cover deployment.',
-            $dutyType === ShiftType::Overtime
-                ? 'Duty type: overtime.'
-                : 'Duty type: normal (no overtime pay).',
+            'Reason: Manpower Shortage.',
+            'Classification: '.$classification.'.',
+            \App\Support\Supervisors\SupervisorCoverageClassifier::payrollHint($dutyType).'.',
+            'Temporary supervisor cover — not a permanent guard posting.',
         ]);
 
-        $deployment = $this->deploy([
+        $deployment = $this->deployTemporaryCoverage([
             'guard_id' => $guard->id,
             'site_id' => $site->id,
-            'shift_type' => $data['shift_type'] ?? DeploymentShiftType::Day->value,
-            'start_date' => $data['start_date'] ?? now()->toDateString(),
+            'shift_type' => $shiftType->value,
+            'start_date' => $dutyDate,
+            'duty_date_to' => $dutyDate,
             'duty_type' => $dutyType->value,
+            'manpower_gap_id' => $gap->id,
             'notes' => implode(' ', $noteParts),
         ]);
+
+        $gaps->syncGap($site->fresh(), $dutyDate, $period);
 
         return $deployment;
     }

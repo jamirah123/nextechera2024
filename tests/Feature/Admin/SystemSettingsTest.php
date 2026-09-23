@@ -23,8 +23,9 @@ class SystemSettingsTest extends TestCase
         $this->actingAs($admin)
             ->get(route('settings.index'))
             ->assertOk()
-            ->assertSee('Platform settings')
+            ->assertSee('System settings')
             ->assertSee('Company branding')
+            ->assertSee('Identifiers')
             ->assertSee('Theme colors')
             ->assertSee('Email & notifications')
             ->assertSee('Finance defaults')
@@ -65,7 +66,7 @@ class SystemSettingsTest extends TestCase
         $logo = UploadedFile::fake()->image('company-logo.png', 120, 120);
 
         $this->actingAs($admin)
-            ->put(route('settings.update'), [
+            ->put(route('settings.update'), $this->baseSettingsPayload([
                 'company_name' => 'Acme Security Ltd',
                 'tagline' => 'Protecting what matters',
                 'system_subtitle' => 'Workforce ERP',
@@ -75,25 +76,8 @@ class SystemSettingsTest extends TestCase
                 'email_footer_text' => 'Confidential workforce communication.',
                 'support_email' => 'hello@acme.test',
                 'support_phone' => '+256700000001',
-                'currency' => 'UGX',
-                'currency_label' => 'Ugandan Shillings',
-                'currency_decimals' => 0,
-                'invoice_due_days' => 14,
-                'payroll_default_base_shift_rate' => 25000,
-                'payroll_overtime_multiplier' => 1.5,
-                'payroll_paye_rate' => 0,
-                'payroll_use_progressive_paye' => '1',
-                'payroll_nssf_employee_rate' => 5,
-                'payroll_uniform_charge' => 0,
-                'payroll_bank_export_format' => 'generic',
-                'default_day_shift_start' => '06:00',
-                'default_day_shift_end' => '18:00',
-                'default_night_shift_start' => '18:00',
-                'default_night_shift_end' => '06:00',
-                'backup_keep_days' => 14,
-                'backup_path' => 'backups',
                 'logo' => $logo,
-            ])
+            ]))
             ->assertRedirect(route('settings.index'));
 
         Cache::forget('system_settings.id');
@@ -157,18 +141,27 @@ class SystemSettingsTest extends TestCase
             'company_name' => SystemSetting::query()->value('company_name'),
             'tagline' => null,
             'system_subtitle' => 'Operations System',
+            'login_headline' => 'Guards, shifts, billing and payroll',
             'company_short_name' => null,
+            'employment_id_prefix' => 'PSG',
+            'invoice_prefix' => 'INV',
+            'payroll_run_prefix' => 'PAY',
+            'shift_prefix' => 'SHF',
+            'timezone' => config('app.timezone', 'Africa/Dar_es_Salaam'),
             'theme_primary' => '#1845de',
             'theme_sidebar' => '#070d18',
             'email_footer_text' => null,
             'notify_workflow_actions_by_email' => '1',
+            'notify_proactive_alerts' => '1',
             'support_email' => null,
             'support_phone' => null,
             'currency' => 'UGX',
             'currency_label' => 'Ugandan Shillings',
             'currency_decimals' => 0,
+            'vat_rate' => 18,
             'invoice_due_days' => 14,
             'payroll_default_base_shift_rate' => 25000,
+            'payroll_standard_shifts_per_month' => 0,
             'payroll_overtime_multiplier' => 1.5,
             'payroll_paye_rate' => 0,
             'payroll_use_progressive_paye' => '1',
@@ -179,8 +172,17 @@ class SystemSettingsTest extends TestCase
             'default_day_shift_end' => '18:00',
             'default_night_shift_start' => '18:00',
             'default_night_shift_end' => '06:00',
+            'supervisor_normal_start' => '06:00',
+            'supervisor_normal_end' => '19:00',
             'backup_keep_days' => 14,
+            'backup_keep_daily' => 14,
+            'backup_keep_weekly' => 8,
+            'backup_keep_monthly' => 12,
+            'backup_stale_hours' => 36,
             'backup_path' => 'backups',
+            'backup_schedule' => 'daily',
+            'backup_notify' => '1',
+            'backup_include_files' => '1',
         ], $overrides);
     }
 
@@ -301,5 +303,74 @@ class SystemSettingsTest extends TestCase
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'system.settings_updated',
         ]);
+    }
+
+    public function test_employment_prefix_change_affects_next_generated_id(): void
+    {
+        $admin = User::factory()->role(UserRole::SuperAdmin)->create();
+
+        $this->actingAs($admin)
+            ->put(route('settings.update'), $this->baseSettingsPayload([
+                'employment_id_prefix' => 'SEC',
+            ]))
+            ->assertRedirect(route('settings.index'));
+
+        Cache::forget('system_settings.id');
+        app(SystemSettingService::class)->flushCache();
+        app(SystemSettingService::class)->applyRuntimeConfig();
+
+        $this->assertSame('SEC', config('psg.prefixes.employment'));
+        $this->assertSame('SEC001', app(\App\Services\Hr\EmploymentIdService::class)->next());
+    }
+
+    public function test_timezone_and_supervisor_hours_apply_at_runtime(): void
+    {
+        $admin = User::factory()->role(UserRole::SuperAdmin)->create();
+
+        $this->actingAs($admin)
+            ->put(route('settings.update'), $this->baseSettingsPayload([
+                'timezone' => 'Africa/Kampala',
+                'supervisor_normal_start' => '07:00',
+                'supervisor_normal_end' => '19:00',
+                'default_day_shift_start' => '07:00',
+                'default_day_shift_end' => '19:00',
+                'vat_rate' => 16,
+                'login_headline' => 'Secure operations, configured your way',
+            ]))
+            ->assertRedirect(route('settings.index'));
+
+        Cache::forget('system_settings.id');
+        app(SystemSettingService::class)->flushCache();
+        app(SystemSettingService::class)->applyRuntimeConfig();
+
+        $this->assertSame('Africa/Kampala', config('app.timezone'));
+        $this->assertSame('07:00', config('psg.supervisor_coverage.normal_start'));
+        $this->assertSame('19:00', config('psg.supervisor_coverage.normal_end'));
+        $this->assertSame('07:00', config('psg.shift_defaults.day.start'));
+        $this->assertSame(16.0, (float) config('psg.vat_rate'));
+        $this->assertSame('Secure operations, configured your way', config('psg.login_headline'));
+    }
+
+    public function test_settings_audit_includes_before_and_after_values(): void
+    {
+        $admin = User::factory()->role(UserRole::SuperAdmin)->create();
+        SystemSetting::query()->first()?->update(['invoice_due_days' => 14]);
+
+        $this->actingAs($admin)
+            ->put(route('settings.update'), $this->baseSettingsPayload([
+                'invoice_due_days' => 45,
+            ]))
+            ->assertRedirect();
+
+        $log = \App\Models\AuditLog::query()
+            ->where('action', 'system.settings_updated')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($log);
+        $context = $log->context;
+        $this->assertIsArray($context);
+        $this->assertSame(14, (int) data_get($context, 'before.invoice_due_days'));
+        $this->assertSame(45, (int) data_get($context, 'after.invoice_due_days'));
     }
 }

@@ -568,7 +568,8 @@ class InvoiceService
 
     public function nextReference(string $periodStart): string
     {
-        $prefix = 'INV-'.Carbon::parse($periodStart)->format('Ym').'-';
+        $docPrefix = strtoupper((string) config('psg.prefixes.invoice', 'INV'));
+        $prefix = $docPrefix.'-'.Carbon::parse($periodStart)->format('Ym').'-';
         $latest = Invoice::withTrashed()
             ->where('reference', 'like', $prefix.'%')
             ->orderByDesc('reference')

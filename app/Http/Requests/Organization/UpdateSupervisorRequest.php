@@ -21,27 +21,27 @@ class UpdateSupervisorRequest extends FormRequest
     {
         /** @var Supervisor $supervisor */
         $supervisor = $this->route('supervisor');
-        $supervisor->loadMissing('guardProfile');
+        $supervisor->loadMissing(['guardProfile:id,employment_id', 'staffProfile:id,employment_id']);
         $canCorrectId = $this->user()?->can('correctEmploymentId', $supervisor) ?? false;
-        $currentId = $supervisor->guardProfile?->employment_id;
+        $currentId = $supervisor->guardProfile?->employment_id
+            ?? $supervisor->staffProfile?->employment_id;
+        $normalizedInput = is_string($this->input('employment_id'))
+            ? app(EmploymentIdService::class)->normalize((string) $this->input('employment_id'))
+            : null;
         $idChanged = $canCorrectId
-            && is_string($this->input('employment_id'))
-            && filled($currentId)
-            && app(EmploymentIdService::class)->normalize((string) $this->input('employment_id')) !== $currentId;
+            && filled($normalizedInput)
+            && $normalizedInput !== (string) ($currentId ?? '');
+
+        $employmentIdRules = ['sometimes', 'required', 'string', 'max:32'];
+        if ($canCorrectId && filled($normalizedInput) && $idChanged) {
+            $employmentIdRules[] = new UniqueEmploymentId(
+                ignoreGuardId: $supervisor->guardProfile?->id ?? $supervisor->guard_id,
+                ignoreStaffId: $supervisor->staffProfile?->id ?? $supervisor->staff_id,
+            );
+        }
 
         return [
-            'employment_id' => $canCorrectId
-                ? [
-                    'sometimes',
-                    'required',
-                    'string',
-                    'max:32',
-                    new UniqueEmploymentId(
-                        ignoreGuardId: $supervisor->guard_id,
-                        ignoreStaffId: $supervisor->staff_id,
-                    ),
-                ]
-                : ['prohibited'],
+            'employment_id' => $canCorrectId ? $employmentIdRules : ['prohibited'],
             'name' => ['required', 'string', 'max:191'],
             'phone' => ['nullable', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:191'],

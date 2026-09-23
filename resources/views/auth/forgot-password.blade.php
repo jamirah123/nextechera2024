@@ -25,7 +25,7 @@
         <div class="border-b border-steel-850/10 bg-steel-950 px-4 py-5 text-white lg:hidden">
             <div class="mx-auto flex max-w-md items-center gap-3">
                 <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/15">
-                    <span class="text-sm font-bold tracking-wide">PSG</span>
+                    <span class="text-sm font-bold tracking-wide">{{ strtoupper(\Illuminate\Support\Str::limit(config('psg.company'), 3, '')) }}</span>
                 </div>
                 <div class="min-w-0">
                     <p class="truncate text-base font-semibold">{{ config('psg.company') }}</p>

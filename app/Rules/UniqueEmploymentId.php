@@ -22,7 +22,8 @@ class UniqueEmploymentId implements ValidationRule
         $ids = app(EmploymentIdService::class);
 
         if (! $ids->isValidFormat($value)) {
-            $fail('The employment ID must match the PSG### format (e.g. PSG001 or PSG1000).');
+            $prefix = $ids->prefix();
+            $fail("The employment ID must match the {$prefix}### format (e.g. {$prefix}001 or {$prefix}1000).");
 
             return;
         }

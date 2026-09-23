@@ -263,7 +263,8 @@ class PayrollRunService
 
     private function nextReference(int $year, int $month): string
     {
-        $prefix = sprintf('PAY-%d-%02d-', $year, $month);
+        $docPrefix = strtoupper((string) config('psg.prefixes.payroll_run', 'PAY'));
+        $prefix = sprintf('%s-%d-%02d-', $docPrefix, $year, $month);
         $latest = PayrollRun::query()
             ->where('reference', 'like', $prefix.'%')
             ->orderByDesc('id')

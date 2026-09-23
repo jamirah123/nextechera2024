@@ -20,17 +20,10 @@ class DeploySupervisorRequest extends FormRequest
         return [
             'site_id' => ['required', 'exists:sites,id'],
             'shift_type' => ['required', Rule::in(['day', 'night', 'rotating'])],
-            'duty_type' => ['required', Rule::in([ShiftType::Normal->value, ShiftType::Overtime->value])],
+            // Optional: day cover may be promoted to OT (after-hours). Night is always OT server-side.
+            'duty_type' => ['nullable', Rule::in([ShiftType::Normal->value, ShiftType::Overtime->value])],
             'start_date' => ['required', 'date'],
             'notes' => ['nullable', 'string', 'max:500'],
-        ];
-    }
-
-    /** @return array<string, string> */
-    public function messages(): array
-    {
-        return [
-            'duty_type.required' => 'Choose whether this cover is a normal shift or overtime.',
         ];
     }
 }

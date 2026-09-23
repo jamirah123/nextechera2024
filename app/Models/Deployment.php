@@ -111,6 +111,16 @@ class Deployment extends Model
         return (bool) $this->is_temporary && $this->duty_type === ShiftType::Overtime;
     }
 
+    public function isTemporaryCoverage(): bool
+    {
+        return (bool) $this->is_temporary;
+    }
+
+    public function isNormalSupervisorCover(): bool
+    {
+        return (bool) $this->is_temporary && $this->duty_type === ShiftType::Normal;
+    }
+
     /**
      * Deployments covering a calendar day (inclusive start/end).
      */

@@ -75,6 +75,18 @@ class SystemSettingController extends Controller
             'payroll_overtime_multiplier' => ['required', 'numeric', 'min:1', 'max:5'],
             'payroll_paye_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'payroll_use_progressive_paye' => ['nullable', 'boolean'],
+            'payroll_paye_brackets' => ['required', 'array'],
+            'payroll_paye_brackets.threshold_tax_free' => ['required', 'numeric', 'min:0'],
+            'payroll_paye_brackets.band_20_max' => ['required', 'numeric', 'min:0'],
+            'payroll_paye_brackets.band_25_max' => ['required', 'numeric', 'min:0'],
+            'payroll_paye_brackets.surtax_threshold' => ['required', 'numeric', 'min:0'],
+            'payroll_paye_brackets.band_25_base' => ['required', 'numeric', 'min:0'],
+            'payroll_paye_brackets.band_30_base' => ['required', 'numeric', 'min:0'],
+            'payroll_paye_brackets.rate_20' => ['required', 'numeric', 'min:0', 'max:100'],
+            'payroll_paye_brackets.rate_25' => ['required', 'numeric', 'min:0', 'max:100'],
+            'payroll_paye_brackets.rate_30' => ['required', 'numeric', 'min:0', 'max:100'],
+            'payroll_paye_brackets.rate_surtax' => ['required', 'numeric', 'min:0', 'max:100'],
+            'payroll_paye_brackets.label' => ['required', 'string', 'max:120'],
             'payroll_nssf_employee_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'payroll_uniform_charge' => ['required', 'numeric', 'min:0'],
             'payroll_bank_export_format' => ['required', 'string', 'in:generic,centenary,stanbic'],
@@ -113,6 +125,23 @@ class SystemSettingController extends Controller
         $data['backup_include_files'] = $request->boolean('backup_include_files');
         $data['backup_offsite_disk'] = filled($data['backup_offsite_disk'] ?? null) ? $data['backup_offsite_disk'] : null;
         $data['payroll_standard_shifts_per_month'] = (int) ($data['payroll_standard_shifts_per_month'] ?? 0);
+        $data['payroll_paye_brackets'] = \App\Support\Finance\PayrollPayeCalculator::bracketsFrom(
+            is_array($data['payroll_paye_brackets'] ?? null) ? $data['payroll_paye_brackets'] : []
+        );
+
+        $brackets = $data['payroll_paye_brackets'];
+        if (
+            $brackets['threshold_tax_free'] >= $brackets['band_20_max']
+            || $brackets['band_20_max'] >= $brackets['band_25_max']
+            || $brackets['band_25_max'] >= $brackets['surtax_threshold']
+        ) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'payroll_paye_brackets.band_20_max' => 'PAYE thresholds must increase: tax-free < 20% band max < 25% band max < surtax threshold.',
+                ]);
+        }
+
         // Keep legacy keep_days aligned with the daily retention bucket.
         $data['backup_keep_days'] = (int) $data['backup_keep_daily'];
 

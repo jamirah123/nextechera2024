@@ -54,7 +54,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full developer workflow. CI run
 
 See [DEPLOY.md](./DEPLOY.md) for deployment, backups, caching, and scheduler setup.  
 Queue workers and the full schedule list: [docs/ops-queue-scheduler.md](./docs/ops-queue-scheduler.md).  
-Backup & disaster recovery runbook: [docs/disaster-recovery.md](./docs/disaster-recovery.md).
+Backup & disaster recovery runbook: [docs/disaster-recovery.md](./docs/disaster-recovery.md).  
+High-concurrency & graceful failure requirement: [docs/high-concurrency.md](./docs/high-concurrency.md).  
+Load-test scaffolding: [tests/load/README.md](./tests/load/README.md).
 
 Useful commands:
 
@@ -112,6 +114,20 @@ Runs **SmallCompanySeeder** — a lean footprint for a small security company:
 Password for all seeded users: `Password@123`  
 Primary login: `admin@platinumsecurity.local`  
 Western supervisor: `supervisor.western@platinumsecurity.local`
+
+### Realistic operational history (Jan → today)
+
+After the lean seed (or on an existing small-company database), load multi-month history **through the same services** used by live users (deployments, duties, absences, leave, billing, invoices, payments, payroll, audits):
+
+```bash
+php artisan psg:seed-realistic
+# optional:
+php artisan psg:seed-realistic --from=2026-01-01 --to=2026-09-24
+# wipe + lean seed + realistic history:
+php artisan psg:seed-realistic --fresh
+```
+
+Does **not** invent orphan rows or bypass validations. Closed months get historical postings; the current month stays on active postings. Payroll is opened only for completed calendar months.
 
 Scheduled maintenance (requires `php artisan schedule:work` or cron — full table in [docs/ops-queue-scheduler.md](./docs/ops-queue-scheduler.md)):
 

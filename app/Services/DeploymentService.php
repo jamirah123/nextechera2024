@@ -52,8 +52,9 @@ class DeploymentService
         });
 
         return DB::transaction(function () use ($data) {
-            $guard = Guard::query()->findOrFail($data['guard_id']);
-            $site = Site::query()->with('supervisor')->findOrFail($data['site_id']);
+            $guard = Guard::query()->lockForUpdate()->findOrFail($data['guard_id']);
+            $site = Site::query()->lockForUpdate()->findOrFail($data['site_id']);
+            $site->load('supervisor');
 
             $this->assertGuardDeployable($guard);
             $this->assertSameRegion($guard, $site);
@@ -219,8 +220,9 @@ class DeploymentService
         });
 
         return DB::transaction(function () use ($data) {
-            $guard = Guard::query()->findOrFail($data['guard_id']);
-            $site = Site::query()->with('supervisor')->findOrFail($data['site_id']);
+            $guard = Guard::query()->lockForUpdate()->findOrFail($data['guard_id']);
+            $site = Site::query()->lockForUpdate()->findOrFail($data['site_id']);
+            $site->load('supervisor');
             $shiftType = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
                 ?? DeploymentShiftType::Day;
             $dutyType = ShiftType::tryFrom((string) ($data['duty_type'] ?? ''))
@@ -565,12 +567,15 @@ class DeploymentService
         });
 
         return DB::transaction(function () use ($deployment, $data) {
+            $deployment = Deployment::query()->lockForUpdate()->findOrFail($deployment->id);
+
             if (! $deployment->isActive()) {
                 throw new InvalidArgumentException('Only active deployments can be transferred.');
             }
 
-            $guard = $deployment->assignedGuard()->firstOrFail();
-            $toSite = Site::query()->with('supervisor')->findOrFail($data['site_id']);
+            $guard = $deployment->assignedGuard()->lockForUpdate()->firstOrFail();
+            $toSite = Site::query()->lockForUpdate()->findOrFail($data['site_id']);
+            $toSite->load('supervisor');
 
             if ((int) $toSite->id === (int) $deployment->site_id) {
                 throw new InvalidArgumentException('Choose a different site for the transfer.');
@@ -718,9 +723,11 @@ class DeploymentService
     public function correct(Deployment $deployment, array $data): Deployment
     {
         return DB::transaction(function () use ($deployment, $data) {
-            $fromGuard = $deployment->assignedGuard()->with('supervisorProfile')->firstOrFail();
-            $toGuard = Guard::query()->with('supervisorProfile')->findOrFail((int) $data['guard_id']);
-            $toSite = Site::query()->with('supervisor')->findOrFail((int) $data['site_id']);
+            $deployment = Deployment::query()->lockForUpdate()->findOrFail($deployment->id);
+            $fromGuard = $deployment->assignedGuard()->with('supervisorProfile')->lockForUpdate()->firstOrFail();
+            $toGuard = Guard::query()->with('supervisorProfile')->lockForUpdate()->findOrFail((int) $data['guard_id']);
+            $toSite = Site::query()->lockForUpdate()->findOrFail((int) $data['site_id']);
+            $toSite->load('supervisor');
             $shiftType = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
                 ?? $deployment->shift_type;
 

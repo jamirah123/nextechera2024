@@ -1158,7 +1158,46 @@ class PayrollManagementTest extends TestCase
         $paye = (float) $payslip->deductions()->where('type', PayrollDeductionType::Paye)->value('amount');
 
         $this->assertSame(188_250.0, $paye);
-        $this->assertStringContainsString('Uganda resident brackets', $payslip->deductions()->where('type', PayrollDeductionType::Paye)->value('label'));
+        $this->assertStringContainsString('PAYE', (string) $payslip->deductions()->where('type', PayrollDeductionType::Paye)->value('label'));
+    }
+
+    public function test_payroll_net_pay_uses_ura_paye_and_nssf_on_900000_gross(): void
+    {
+        config([
+            'psg.payroll.use_progressive_paye' => true,
+            'psg.payroll.nssf_employee_rate' => 5,
+            'psg.payroll.uniform_charge' => 0,
+            'psg.payroll.paye_brackets' => \App\Support\Finance\PayrollPayeCalculator::defaults(),
+        ]);
+
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $period = $this->closedPayrollPeriod();
+
+        Staff::factory()->create([
+            'region_id' => null,
+            'monthly_salary' => 900_000,
+            'date_employed' => $period['start']->toDateString(),
+        ]);
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $payslip = PayrollPayslip::query()->firstOrFail();
+        $paye = (float) $payslip->deductions()->where('type', PayrollDeductionType::Paye)->value('amount');
+        $nssf = (float) $payslip->deductions()->where('type', PayrollDeductionType::Nssf)->value('amount');
+
+        // URA: 33,750 + 30% × (900,000 − 485,000) = 158,250
+        $this->assertSame(158_250.0, $paye);
+        $this->assertSame(45_000.0, $nssf);
+        $this->assertSame(900_000.0, (float) $payslip->gross_pay);
+        $this->assertSame(696_750.0, (float) $payslip->net_pay);
     }
 
     public function test_progressive_paye_is_zero_below_tax_free_threshold(): void

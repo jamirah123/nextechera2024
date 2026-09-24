@@ -20,6 +20,7 @@ use App\Models\Staff;
 use App\Services\ArchiveService;
 use App\Services\AuditService;
 use App\Services\Reports\MonthlyShiftCalculationService;
+use App\Services\SystemSettingService;
 use App\Support\Finance\PayrollPayeCalculator;
 use App\Support\Finance\PayrollRates;
 use Carbon\Carbon;
@@ -82,7 +83,17 @@ class PayrollCalculationService
             throw new InvalidArgumentException('This payroll run cannot be calculated in its current status.');
         }
 
+        // Reload Platform Settings so PAYE brackets / NSSF rates match the admin dashboard.
+        app(SystemSettingService::class)->flushCache();
+        app(SystemSettingService::class)->applyRuntimeConfig();
+
         return DB::transaction(function () use ($run) {
+            $run = PayrollRun::query()->lockForUpdate()->findOrFail($run->id);
+
+            if (! $run->status->canCalculate()) {
+                throw new InvalidArgumentException('This payroll run cannot be calculated in its current status.');
+            }
+
             $this->clearPayslips($run);
 
             $filters = [
@@ -262,6 +273,17 @@ class PayrollCalculationService
         $this->recalculatePayslipTotals($payslip);
     }
 
+    /**
+     * URA resident monthly PAYE on chargeable (gross) pay.
+     *
+     * 0 – 335,000: Nil
+     * 335,001 – 410,000: 20% × (income − 335,000)
+     * 410,001 – 485,000: 15,000 + 25% × (income − 410,000)
+     * 485,001 – 10,000,000: 33,750 + 30% × (income − 485,000)
+     * Above 10,000,000: 33,750 + 30% × (income − 485,000) + 10% × (income − 10,000,000)
+     *
+     * Net pay = gross − PAYE − NSSF − other deductions (see recalculatePayslipTotals).
+     */
     private function calculatePaye(float $gross): float
     {
         if ($gross <= 0) {

@@ -165,6 +165,7 @@ class SystemSettingsTest extends TestCase
             'payroll_overtime_multiplier' => 1.5,
             'payroll_paye_rate' => 0,
             'payroll_use_progressive_paye' => '1',
+            'payroll_paye_brackets' => \App\Support\Finance\PayrollPayeCalculator::defaults(),
             'payroll_nssf_employee_rate' => 5,
             'payroll_uniform_charge' => 0,
             'payroll_bank_export_format' => 'generic',
@@ -222,6 +223,7 @@ class SystemSettingsTest extends TestCase
                 'payroll_overtime_multiplier' => 1.5,
                 'payroll_paye_rate' => 0,
                 'payroll_use_progressive_paye' => '1',
+                'payroll_paye_brackets' => \App\Support\Finance\PayrollPayeCalculator::defaults(),
                 'payroll_nssf_employee_rate' => 5,
                 'payroll_uniform_charge' => 0,
                 'payroll_bank_export_format' => 'generic',
@@ -259,6 +261,41 @@ class SystemSettingsTest extends TestCase
         $this->assertFalse(config('psg.payroll.use_progressive_paye'));
         $this->assertSame(15.0, (float) config('psg.payroll.paye_rate'));
         $this->assertSame('stanbic', config('psg.payroll.bank_export_format'));
+    }
+
+    public function test_super_admin_can_configure_progressive_paye_brackets(): void
+    {
+        $admin = User::factory()->role(UserRole::SuperAdmin)->create();
+
+        $brackets = [
+            'threshold_tax_free' => 300_000,
+            'band_20_max' => 400_000,
+            'band_25_max' => 500_000,
+            'surtax_threshold' => 5_000_000,
+            'band_25_base' => 20_000,
+            'band_30_base' => 45_000,
+            'rate_20' => 10,
+            'rate_25' => 20,
+            'rate_30' => 30,
+            'rate_surtax' => 5,
+            'label' => 'PAYE (custom test brackets)',
+        ];
+
+        $this->actingAs($admin)
+            ->put(route('settings.update'), $this->baseSettingsPayload([
+                'payroll_use_progressive_paye' => '1',
+                'payroll_paye_brackets' => $brackets,
+            ]))
+            ->assertRedirect(route('settings.index'));
+
+        Cache::forget('system_settings.id');
+        app(SystemSettingService::class)->flushCache();
+        app(SystemSettingService::class)->applyRuntimeConfig();
+
+        $this->assertSame(300_000.0, (float) config('psg.payroll.paye_brackets.threshold_tax_free'));
+        $this->assertSame(10.0, (float) config('psg.payroll.paye_brackets.rate_20'));
+        $this->assertSame('PAYE (custom test brackets)', config('psg.payroll.paye_brackets.label'));
+        $this->assertSame(10_000.0, \App\Support\Finance\PayrollPayeCalculator::monthlyTax(400_000));
     }
 
     public function test_super_admin_can_update_payroll_defaults(): void

@@ -249,6 +249,7 @@ class SystemSettingService
             'psg.payroll.overtime_multiplier' => (float) $settings->payroll_overtime_multiplier,
             'psg.payroll.paye_rate' => (float) $settings->payroll_paye_rate,
             'psg.payroll.use_progressive_paye' => (bool) ($settings->payroll_use_progressive_paye ?? config('psg.payroll.use_progressive_paye', true)),
+            'psg.payroll.paye_brackets' => $this->normalizedPayeBrackets($settings->payroll_paye_brackets),
             'psg.payroll.nssf_employee_rate' => (float) $settings->payroll_nssf_employee_rate,
             'psg.payroll.uniform_charge' => (float) $settings->payroll_uniform_charge,
             'psg.payroll.bank_export_format' => (string) ($settings->payroll_bank_export_format ?? config('psg.payroll.bank_export_format', 'generic')),
@@ -309,6 +310,7 @@ class SystemSettingService
             'payroll_overtime_multiplier' => config('psg.payroll.overtime_multiplier', 1.5),
             'payroll_paye_rate' => config('psg.payroll.paye_rate', 0),
             'payroll_use_progressive_paye' => config('psg.payroll.use_progressive_paye', true),
+            'payroll_paye_brackets' => config('psg.payroll.paye_brackets', \App\Support\Finance\PayrollPayeCalculator::defaults()),
             'payroll_nssf_employee_rate' => config('psg.payroll.nssf_employee_rate', 5),
             'payroll_uniform_charge' => config('psg.payroll.uniform_charge', 0),
             'payroll_bank_export_format' => config('psg.payroll.bank_export_format', 'generic'),
@@ -334,6 +336,15 @@ class SystemSettingService
             'accounting_export_enabled' => false,
             'accounting_export_path' => 'exports/accounting',
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $brackets
+     * @return array<string, float|string>
+     */
+    private function normalizedPayeBrackets(?array $brackets): array
+    {
+        return \App\Support\Finance\PayrollPayeCalculator::bracketsFrom(is_array($brackets) ? $brackets : []);
     }
 
     private function deleteStoredFile(?string $path): void

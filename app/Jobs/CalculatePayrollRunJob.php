@@ -4,12 +4,13 @@ namespace App\Jobs;
 
 use App\Models\PayrollRun;
 use App\Services\Finance\PayrollRunService;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class CalculatePayrollRunJob implements ShouldQueue
+class CalculatePayrollRunJob implements ShouldQueue, ShouldBeUnique
 {
     use Queueable;
 
@@ -17,8 +18,14 @@ class CalculatePayrollRunJob implements ShouldQueue
 
     public int $timeout = 300;
 
+    public int $uniqueFor = 600;
+
     public function __construct(public int $payrollRunId) {}
 
+    public function uniqueId(): string
+    {
+        return 'payroll-calculate:'.$this->payrollRunId;
+    }
     public function handle(PayrollRunService $payroll): void
     {
         $run = PayrollRun::query()->find($this->payrollRunId);

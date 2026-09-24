@@ -238,6 +238,26 @@ php artisan psg:production-check
 
 Confirms app key, schema, writable storage, and built frontend assets. Warns if mail is still set to `log` in production.
 
+## 9a. High concurrency & graceful failures (required)
+
+Treat [docs/high-concurrency.md](./docs/high-concurrency.md) as a **core production requirement**.
+
+Summary:
+
+- Concurrent operators across shifts, deployments, HR, payroll, reports, and admin must not take the app down.
+- Unexpected failures show a friendly message (“The request could not be completed at this time. Please try again.”) — never `SQLSTATE`, stack traces, paths, or credentials when `APP_DEBUG=false`.
+- Technical detail stays in logs / APM; transactions must not leave partial writes.
+- Interactive p95 target ≈ **≤ 2s**; heavy work must be queued or throttled.
+- Before go-live, run the load scenarios in [tests/load/README.md](./tests/load/README.md) (k6 smoke included).
+
+Recommended capacity checks:
+
+- [ ] PHP-FPM / Apache worker limit sized for peak concurrent users  
+- [ ] MySQL `max_connections` above PHP workers + queue workers  
+- [ ] `QUEUE_CONNECTION` is not `sync`  
+- [ ] `APP_DEBUG=false` and friendly `resources/views/errors/*` verified  
+- [ ] `psg:queue-health` monitored in production  
+
 ## 10. Security checklist
 
 - [ ] `APP_DEBUG=false`
@@ -250,6 +270,8 @@ Confirms app key, schema, writable storage, and built frontend assets. Warns if 
 - [ ] SMTP configured and verified with `psg:test-mail`
 
 - [ ] Disable directory listing
+- [ ] Rate limits active on auth, search, exports, mutations, and backups
+- [ ] Load/stress checklist in `docs/high-concurrency.md` completed on staging
 
 ## 11. Rollback
 
@@ -268,6 +290,7 @@ Confirms app key, schema, writable storage, and built frontend assets. Warns if 
 5. Confirm a new row appears in Audit Logs  
 6. Send `php artisan psg:test-mail` to an inbox you control  
 7. Request **Forgot password** on the login page and confirm the email arrives  
+8. Force a deliberate 404 and confirm the friendly error page (no stack trace)  
 
 ## Support contacts
 

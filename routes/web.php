@@ -78,14 +78,17 @@ Route::middleware('auth')->group(function () {
     Route::get('/ops-dashboards/regions/{region}', [OperationalDashboardController::class, 'region'])->name('ops-dashboards.region');
     Route::get('/ops-dashboards/sites/{site}', [OperationalDashboardController::class, 'site'])->name('ops-dashboards.site');
     Route::get('/ops-dashboards/guards/{guard}', [OperationalDashboardController::class, 'guard'])->name('ops-dashboards.guard');
-    Route::get('/search', GlobalSearchController::class)->name('search');
+    Route::get('/search', GlobalSearchController::class)->middleware('throttle:search')->name('search');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
 
     Route::get('/organization', OrganizationDashboardController::class)->name('organization.index');
     Route::get('/manpower-coverage', [ManpowerCoverageController::class, 'index'])->name('manpower.coverage');
-    Route::get('/manpower-coverage/export', [ManpowerCoverageController::class, 'export'])->name('manpower.coverage.export');
+    Route::get('/manpower-coverage/export', [ManpowerCoverageController::class, 'export'])
+        ->middleware('throttle:exports')
+        ->name('manpower.coverage.export');
     Route::post('/manpower-coverage/gaps/{gap}/overtime', [ManpowerCoverageController::class, 'resolveOvertime'])
+        ->middleware('throttle:mutations')
         ->name('manpower.gaps.overtime');
     Route::get('/operations/periods', [OperationalPeriodController::class, 'index'])->name('operations.periods.index');
     Route::post('/operations/periods/{period}/close', [OperationalPeriodController::class, 'close'])->name('operations.periods.close');
@@ -94,7 +97,9 @@ Route::middleware('auth')->group(function () {
     Route::resource('regions', RegionController::class);
     Route::resource('supervisors', SupervisorController::class);
     Route::get('/supervisors/{supervisor}/deploy', [SupervisorController::class, 'deployForm'])->name('supervisors.deploy');
-    Route::post('/supervisors/{supervisor}/deploy', [SupervisorController::class, 'deploy'])->name('supervisors.deploy.store');
+    Route::post('/supervisors/{supervisor}/deploy', [SupervisorController::class, 'deploy'])
+        ->middleware('throttle:mutations')
+        ->name('supervisors.deploy.store');
     Route::resource('clients', ClientController::class);
     Route::resource('sites', SiteController::class);
     Route::resource('guards', GuardController::class);
@@ -111,26 +116,40 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/deployments', [DeploymentController::class, 'index'])->name('deployments.index');
     Route::get('/deployments/board', [DeploymentController::class, 'board'])->name('deployments.board');
-    Route::post('/deployments/board', [DeploymentController::class, 'boardStore'])->name('deployments.board.store');
+    Route::post('/deployments/board', [DeploymentController::class, 'boardStore'])
+        ->middleware('throttle:mutations')
+        ->name('deployments.board.store');
     Route::get('/deployments/create', [DeploymentController::class, 'create'])->name('deployments.create');
-    Route::post('/deployments', [DeploymentController::class, 'store'])->name('deployments.store');
+    Route::post('/deployments', [DeploymentController::class, 'store'])
+        ->middleware('throttle:mutations')
+        ->name('deployments.store');
     Route::get('/deployments/{deployment}', [DeploymentController::class, 'show'])->name('deployments.show');
     Route::get('/deployments/{deployment}/edit', [DeploymentController::class, 'edit'])->name('deployments.edit');
     Route::put('/deployments/{deployment}', [DeploymentController::class, 'update'])->name('deployments.update');
     Route::get('/deployments/{deployment}/letter', [DeploymentController::class, 'downloadLetter'])->name('deployments.letter');
     Route::get('/deployments/{deployment}/transfer', [DeploymentController::class, 'transferForm'])->name('deployments.transfer');
     Route::get('/deployments/transfers/{transfer}/letter', [DeploymentController::class, 'downloadTransferLetter'])->name('deployments.transfers.letter');
-    Route::post('/deployments/{deployment}/transfer', [DeploymentController::class, 'transfer'])->name('deployments.transfer.store');
-    Route::post('/deployments/{deployment}/end', [DeploymentController::class, 'end'])->name('deployments.end');
+    Route::post('/deployments/{deployment}/transfer', [DeploymentController::class, 'transfer'])
+        ->middleware('throttle:mutations')
+        ->name('deployments.transfer.store');
+    Route::post('/deployments/{deployment}/end', [DeploymentController::class, 'end'])
+        ->middleware('throttle:mutations')
+        ->name('deployments.end');
 
     Route::get('/shifts', [ShiftController::class, 'index'])->name('shifts.index');
     Route::get('/shifts/calendar', [ShiftController::class, 'calendar'])->name('shifts.calendar');
     Route::get('/shifts/allocate', [ShiftController::class, 'allocate'])->name('shifts.allocate');
-    Route::post('/shifts/allocate', [ShiftController::class, 'allocateStore'])->name('shifts.allocate.store');
+    Route::post('/shifts/allocate', [ShiftController::class, 'allocateStore'])
+        ->middleware('throttle:mutations')
+        ->name('shifts.allocate.store');
     Route::get('/shifts/create', [ShiftController::class, 'create'])->name('shifts.create');
-    Route::post('/shifts', [ShiftController::class, 'store'])->name('shifts.store');
+    Route::post('/shifts', [ShiftController::class, 'store'])
+        ->middleware('throttle:mutations')
+        ->name('shifts.store');
     Route::get('/shifts/recurring/create', [ShiftController::class, 'recurringCreate'])->name('shifts.recurring.create');
-    Route::post('/shifts/recurring', [ShiftController::class, 'recurringStore'])->name('shifts.recurring.store');
+    Route::post('/shifts/recurring', [ShiftController::class, 'recurringStore'])
+        ->middleware('throttle:mutations')
+        ->name('shifts.recurring.store');
     Route::post('/shifts/validate', [ShiftController::class, 'validatePreview'])->name('shifts.validate');
     Route::get('/shifts/{shift}', [ShiftController::class, 'show'])->name('shifts.show');
     Route::get('/shifts/{shift}/edit', [ShiftController::class, 'edit'])->name('shifts.edit');
@@ -139,7 +158,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/replacements', [ReplacementController::class, 'index'])->name('replacements.index');
     Route::get('/replacements/create', [ReplacementController::class, 'create'])->name('replacements.create');
-    Route::post('/replacements', [ReplacementController::class, 'store'])->name('replacements.store');
+    Route::post('/replacements', [ReplacementController::class, 'store'])
+        ->middleware('throttle:mutations')
+        ->name('replacements.store');
     Route::get('/replacements/{replacement}', [ReplacementController::class, 'show'])->name('replacements.show');
 
     Route::get('/leaves', [LeaveController::class, 'index'])->name('leaves.index');
@@ -198,17 +219,29 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/monthly-shifts', [ReportController::class, 'monthlyShifts'])->name('reports.monthly-shifts');
-    Route::get('/reports/monthly-shifts/export', [ReportController::class, 'exportMonthlyShifts'])->name('reports.monthly-shifts.export');
+    Route::get('/reports/monthly-shifts/export', [ReportController::class, 'exportMonthlyShifts'])
+        ->middleware('throttle:exports')
+        ->name('reports.monthly-shifts.export');
     Route::get('/reports/daily-shifts', [ReportController::class, 'dailyShifts'])->name('reports.daily-shifts');
-    Route::get('/reports/daily-shifts/export', [ReportController::class, 'exportDailyShifts'])->name('reports.daily-shifts.export');
+    Route::get('/reports/daily-shifts/export', [ReportController::class, 'exportDailyShifts'])
+        ->middleware('throttle:exports')
+        ->name('reports.daily-shifts.export');
     Route::get('/reports/weekly-shifts', [ReportController::class, 'weeklyShifts'])->name('reports.weekly-shifts');
-    Route::get('/reports/weekly-shifts/export', [ReportController::class, 'exportWeeklyShifts'])->name('reports.weekly-shifts.export');
+    Route::get('/reports/weekly-shifts/export', [ReportController::class, 'exportWeeklyShifts'])
+        ->middleware('throttle:exports')
+        ->name('reports.weekly-shifts.export');
     Route::get('/reports/guards', [ReportController::class, 'guards'])->name('reports.guards');
-    Route::get('/reports/guards/export', [ReportController::class, 'exportGuards'])->name('reports.guards.export');
+    Route::get('/reports/guards/export', [ReportController::class, 'exportGuards'])
+        ->middleware('throttle:exports')
+        ->name('reports.guards.export');
     Route::get('/reports/deployments', [ReportController::class, 'deployments'])->name('reports.deployments');
-    Route::get('/reports/deployments/export', [ReportController::class, 'exportDeployments'])->name('reports.deployments.export');
+    Route::get('/reports/deployments/export', [ReportController::class, 'exportDeployments'])
+        ->middleware('throttle:exports')
+        ->name('reports.deployments.export');
     Route::get('/reports/hr', [ReportController::class, 'hr'])->name('reports.hr');
-    Route::get('/reports/hr/export', [ReportController::class, 'exportHr'])->name('reports.hr.export');
+    Route::get('/reports/hr/export', [ReportController::class, 'exportHr'])
+        ->middleware('throttle:exports')
+        ->name('reports.hr.export');
 
     Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
     Route::get('/billing/export', [BillingController::class, 'export'])->name('billing.export');
@@ -277,14 +310,30 @@ Route::middleware('auth')->group(function () {
     Route::get('/payroll/create', [PayrollRunController::class, 'create'])->name('payroll.create');
     Route::post('/payroll', [PayrollRunController::class, 'store'])->name('payroll.store');
     Route::get('/payroll/{payroll}', [PayrollRunController::class, 'show'])->name('payroll.show');
-    Route::post('/payroll/{payroll}/calculate', [PayrollRunController::class, 'calculate'])->name('payroll.calculate');
-    Route::post('/payroll/{payroll}/submit', [PayrollRunController::class, 'submit'])->name('payroll.submit');
-    Route::post('/payroll/{payroll}/approve', [PayrollRunController::class, 'approve'])->name('payroll.approve');
-    Route::post('/payroll/{payroll}/reject', [PayrollRunController::class, 'reject'])->name('payroll.reject');
-    Route::post('/payroll/{payroll}/pay', [PayrollRunController::class, 'pay'])->name('payroll.pay');
-    Route::post('/payroll/{payroll}/cancel', [PayrollRunController::class, 'cancel'])->name('payroll.cancel');
-    Route::get('/payroll/{payroll}/export/bank', [PayrollRunController::class, 'exportBank'])->name('payroll.export.bank');
-    Route::get('/payroll/{payroll}/export/payslips', [PayrollRunController::class, 'exportPayslips'])->name('payroll.export.payslips');
+    Route::post('/payroll/{payroll}/calculate', [PayrollRunController::class, 'calculate'])
+        ->middleware('throttle:mutations')
+        ->name('payroll.calculate');
+    Route::post('/payroll/{payroll}/submit', [PayrollRunController::class, 'submit'])
+        ->middleware('throttle:mutations')
+        ->name('payroll.submit');
+    Route::post('/payroll/{payroll}/approve', [PayrollRunController::class, 'approve'])
+        ->middleware('throttle:mutations')
+        ->name('payroll.approve');
+    Route::post('/payroll/{payroll}/reject', [PayrollRunController::class, 'reject'])
+        ->middleware('throttle:mutations')
+        ->name('payroll.reject');
+    Route::post('/payroll/{payroll}/pay', [PayrollRunController::class, 'pay'])
+        ->middleware('throttle:mutations')
+        ->name('payroll.pay');
+    Route::post('/payroll/{payroll}/cancel', [PayrollRunController::class, 'cancel'])
+        ->middleware('throttle:mutations')
+        ->name('payroll.cancel');
+    Route::get('/payroll/{payroll}/export/bank', [PayrollRunController::class, 'exportBank'])
+        ->middleware('throttle:exports')
+        ->name('payroll.export.bank');
+    Route::get('/payroll/{payroll}/export/payslips', [PayrollRunController::class, 'exportPayslips'])
+        ->middleware('throttle:exports')
+        ->name('payroll.export.payslips');
     Route::get('/payroll/{payroll}/payslips/{payslip}', [PayrollPayslipController::class, 'show'])->name('payroll.payslips.show');
     Route::get('/payroll/{payroll}/payslips/{payslip}/export', [PayrollPayslipController::class, 'export'])->name('payroll.payslips.export');
     Route::get('/payroll/{payroll}/payslips/{payslip}/print', [PayrollPayslipController::class, 'print'])->name('payroll.payslips.print');
@@ -295,7 +344,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/guards/{guard}/advances/{advance}/write-off', [GuardAdvanceController::class, 'writeOff'])->name('guards.advances.write-off');
 
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
-    Route::get('/audit-logs/export', [AuditLogController::class, 'export'])->name('audit.export');
+    Route::get('/audit-logs/export', [AuditLogController::class, 'export'])
+        ->middleware('throttle:exports')
+        ->name('audit.export');
     Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show'])->name('audit.show');
 
     Route::get('/archived-records', [ArchivedRecordController::class, 'index'])->name('archived.index');
@@ -303,14 +354,28 @@ Route::middleware('auth')->group(function () {
     Route::post('/archived-records/{deletedRecordSnapshot}/restore', [ArchivedRecordController::class, 'restore'])->name('archived.restore');
 
     Route::get('/backups', [BackupController::class, 'index'])->name('backups.index');
-    Route::post('/backups', [BackupController::class, 'store'])->name('backups.store');
+    Route::post('/backups', [BackupController::class, 'store'])
+        ->middleware('throttle:backups')
+        ->name('backups.store');
     Route::get('/backups/{backup}', [BackupController::class, 'show'])->name('backups.show');
-    Route::get('/backups/{backup}/download', [BackupController::class, 'download'])->name('backups.download');
-    Route::get('/backups/{backup}/download-files', [BackupController::class, 'downloadFiles'])->name('backups.download-files');
-    Route::post('/backups/{backup}/verify', [BackupController::class, 'verify'])->name('backups.verify');
-    Route::post('/backups/{backup}/test-restore', [BackupController::class, 'testRestore'])->name('backups.test-restore');
-    Route::post('/backups/{backup}/restore', [BackupController::class, 'restore'])->name('backups.restore');
-    Route::post('/backups/{backup}/restore-files', [BackupController::class, 'restoreFiles'])->name('backups.restore-files');
+    Route::get('/backups/{backup}/download', [BackupController::class, 'download'])
+        ->middleware('throttle:exports')
+        ->name('backups.download');
+    Route::get('/backups/{backup}/download-files', [BackupController::class, 'downloadFiles'])
+        ->middleware('throttle:exports')
+        ->name('backups.download-files');
+    Route::post('/backups/{backup}/verify', [BackupController::class, 'verify'])
+        ->middleware('throttle:backups')
+        ->name('backups.verify');
+    Route::post('/backups/{backup}/test-restore', [BackupController::class, 'testRestore'])
+        ->middleware('throttle:backups')
+        ->name('backups.test-restore');
+    Route::post('/backups/{backup}/restore', [BackupController::class, 'restore'])
+        ->middleware('throttle:backups')
+        ->name('backups.restore');
+    Route::post('/backups/{backup}/restore-files', [BackupController::class, 'restoreFiles'])
+        ->middleware('throttle:backups')
+        ->name('backups.restore-files');
     Route::delete('/backups/{backup}', [BackupController::class, 'destroy'])->name('backups.destroy');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -335,7 +400,9 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings', [SystemSettingController::class, 'update'])->name('settings.update');
     Route::delete('/settings/logo', [SystemSettingController::class, 'removeLogo'])->name('settings.logo.remove');
     Route::delete('/settings/favicon', [SystemSettingController::class, 'removeFavicon'])->name('settings.favicon.remove');
-    Route::post('/settings/backup', [SystemSettingController::class, 'backup'])->name('settings.backup');
+    Route::post('/settings/backup', [SystemSettingController::class, 'backup'])
+        ->middleware('throttle:backups')
+        ->name('settings.backup');
     Route::post('/settings/production-check', [SystemSettingController::class, 'productionCheck'])->name('settings.production-check');
 
     Route::get('/data-import', [DataImportController::class, 'index'])->name('data-import.index');

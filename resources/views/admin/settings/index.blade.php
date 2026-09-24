@@ -122,9 +122,9 @@
                     <x-form-field label="Standard shifts / month" name="payroll_standard_shifts_per_month" type="number" min="0" max="62" :value="old('payroll_standard_shifts_per_month', $settings->payroll_standard_shifts_per_month ?? 0)" help="When > 0, daily rate = monthly ÷ this value (useful for supervisor OT). 0 = use calendar days in month." />
                     <x-form-field label="Overtime multiplier" name="payroll_overtime_multiplier" type="number" step="0.01" min="1" max="5" :value="old('payroll_overtime_multiplier', $settings->payroll_overtime_multiplier)" :required="true" />
                     <div class="sm:col-span-2">
-                        <x-form-checkbox name="payroll_use_progressive_paye" label="Use Uganda progressive PAYE (2026)" :checked="old('payroll_use_progressive_paye', $settings->payroll_use_progressive_paye ?? true)" />
+                        <x-form-checkbox name="payroll_use_progressive_paye" label="Use progressive PAYE brackets (recommended)" :checked="old('payroll_use_progressive_paye', $settings->payroll_use_progressive_paye ?? true)" />
                     </div>
-                    <x-form-field label="PAYE rate (%) — flat fallback" name="payroll_paye_rate" type="number" step="0.01" min="0" max="100" :value="old('payroll_paye_rate', $settings->payroll_paye_rate)" :required="true" />
+                    <x-form-field label="PAYE rate (%) — flat fallback" name="payroll_paye_rate" type="number" step="0.01" min="0" max="100" :value="old('payroll_paye_rate', $settings->payroll_paye_rate)" :required="true" help="Used only when progressive PAYE is turned off." />
                     <x-form-field label="NSSF employee rate (%)" name="payroll_nssf_employee_rate" type="number" step="0.01" min="0" max="100" :value="old('payroll_nssf_employee_rate', $settings->payroll_nssf_employee_rate)" :required="true" />
                     <x-form-field label="Uniform charge ({{ $settings->currency }})" name="payroll_uniform_charge" type="number" step="0.01" min="0" :value="old('payroll_uniform_charge', $settings->payroll_uniform_charge)" :required="true" />
                     <x-form-field label="Bank export format" name="payroll_bank_export_format" type="select" :required="true" class="sm:col-span-2">
@@ -135,6 +135,55 @@
                     <div class="sm:col-span-2">
                         <x-form-checkbox name="payroll_send_payslip_email_on_approve" label="Email payslips when a payroll run is approved" :checked="old('payroll_send_payslip_email_on_approve', $settings->payroll_send_payslip_email_on_approve ?? false)" />
                     </div>
+                </x-form-group>
+
+                @php
+                    $payeDefaults = \App\Support\Finance\PayrollPayeCalculator::defaults();
+                    $paye = old('payroll_paye_brackets', $settings->payroll_paye_brackets ?? $payeDefaults);
+                    if (! is_array($paye)) {
+                        $paye = $payeDefaults;
+                    }
+                    $paye = array_merge($payeDefaults, $paye);
+                    $uraSchedule = \App\Support\Finance\PayrollPayeCalculator::officialSchedule();
+                    $examplePaye = \App\Support\Finance\PayrollPayeCalculator::monthlyTax(900_000);
+                @endphp
+                <x-form-group title="URA monthly PAYE schedule" description="Official resident individual bands (from 1 July 2026). Payroll uses these formulas when progressive PAYE is enabled.">
+                    <div class="sm:col-span-2 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+                        <table class="min-w-full text-left text-xs">
+                            <thead class="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
+                                <tr>
+                                    <th class="px-3 py-2 font-semibold">Monthly chargeable income</th>
+                                    <th class="px-3 py-2 font-semibold">Rate of tax for resident individuals</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-800">
+                                @foreach ($uraSchedule as $row)
+                                    <tr>
+                                        <td class="whitespace-nowrap px-3 py-2 font-medium text-slate-800 dark:text-slate-100">{{ $row['income'] }}</td>
+                                        <td class="px-3 py-2 text-slate-600 dark:text-slate-300">{{ $row['rate'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="sm:col-span-2 text-[11px] text-slate-500 dark:text-slate-400">
+                        Example: chargeable income {{ number_format(900000) }} → PAYE <strong>{{ number_format($examplePaye) }}</strong> {{ $settings->currency }}
+                        (33,750 + 30% × (900,000 − 485,000)).
+                    </p>
+                </x-form-group>
+
+                <x-form-group title="Progressive PAYE brackets (editable)" description="Defaults match the URA table above. Change only if tax law changes — thresholds must increase left-to-right.">
+                    <x-form-field label="Deduction label" name="payroll_paye_brackets[label]" :value="$paye['label']" :required="true" class="sm:col-span-2" help="Shown on payslip deduction lines." />
+                    <x-form-field label="Nil band up to ({{ $settings->currency }})" name="payroll_paye_brackets[threshold_tax_free]" type="number" step="1" min="0" :value="$paye['threshold_tax_free']" :required="true" help="URA: 335,000" />
+                    <x-form-field label="20% band max ({{ $settings->currency }})" name="payroll_paye_brackets[band_20_max]" type="number" step="1" min="0" :value="$paye['band_20_max']" :required="true" help="URA: 20% × (income − 335,000) up to 410,000" />
+                    <x-form-field label="20% rate (%)" name="payroll_paye_brackets[rate_20]" type="number" step="0.01" min="0" max="100" :value="$paye['rate_20']" :required="true" />
+                    <x-form-field label="25% band max ({{ $settings->currency }})" name="payroll_paye_brackets[band_25_max]" type="number" step="1" min="0" :value="$paye['band_25_max']" :required="true" help="URA: 15,000 + 25% × (income − 410,000) up to 485,000" />
+                    <x-form-field label="25% band fixed tax ({{ $settings->currency }})" name="payroll_paye_brackets[band_25_base]" type="number" step="1" min="0" :value="$paye['band_25_base']" :required="true" help="URA fixed amount: 15,000" />
+                    <x-form-field label="25% rate (%)" name="payroll_paye_brackets[rate_25]" type="number" step="0.01" min="0" max="100" :value="$paye['rate_25']" :required="true" />
+                    <x-form-field label="Surtax threshold ({{ $settings->currency }})" name="payroll_paye_brackets[surtax_threshold]" type="number" step="1" min="0" :value="$paye['surtax_threshold']" :required="true" help="URA: 10,000,000 — above this add surtax" />
+                    <x-form-field label="30% band fixed tax ({{ $settings->currency }})" name="payroll_paye_brackets[band_30_base]" type="number" step="1" min="0" :value="$paye['band_30_base']" :required="true" help="URA fixed amount: 33,750 (from 485,001 upward)" />
+                    <x-form-field label="30% rate (%)" name="payroll_paye_brackets[rate_30]" type="number" step="0.01" min="0" max="100" :value="$paye['rate_30']" :required="true" help="URA: 33,750 + 30% × (income − 485,000)" />
+                    <x-form-field label="Surtax rate above 10M (%)" name="payroll_paye_brackets[rate_surtax]" type="number" step="0.01" min="0" max="100" :value="$paye['rate_surtax']" :required="true" help="URA: additional 10% × (income − 10,000,000)" />
                 </x-form-group>
             </div>
 

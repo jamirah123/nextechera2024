@@ -143,10 +143,6 @@
                             <input type="date" value="{{ $dutyDate }}" disabled class="mt-0.5 block h-[1.875rem] w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium leading-tight text-slate-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300">
                         </label>
                         <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                            Through date (optional)
-                            <input type="date" name="duty_date_to" value="{{ old('duty_date_to') }}" class="mt-0.5 block h-[1.875rem] w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium leading-tight text-slate-800 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
-                        </label>
-                        <label class="block min-w-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             Default site
                             <x-board-select x-model="defaults.site_id" class="mt-0.5">
                                 <option value="">Choose a site…</option>

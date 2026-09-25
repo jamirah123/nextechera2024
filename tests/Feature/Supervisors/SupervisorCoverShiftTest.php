@@ -20,11 +20,13 @@ use App\Models\Shift;
 use App\Models\Site;
 use App\Models\Staff;
 use App\Models\Supervisor;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\DeploymentService;
 use App\Services\Finance\PayrollRunService;
 use App\Services\ManpowerGapService;
 use App\Services\ManpowerService;
+use App\Services\SystemSettingService;
 use App\Support\Finance\PayrollRates;
 use App\Support\Supervisors\SupervisorCoverageClassifier;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -240,8 +242,11 @@ class SupervisorCoverShiftTest extends TestCase
 
     public function test_normal_cover_does_not_add_overtime_to_supervisor_payroll(): void
     {
-        config(['psg.payroll.overtime_multiplier' => 1.0]);
-        config(['psg.payroll.standard_shifts_per_month' => 30]);
+        SystemSetting::query()->first()?->update([
+            'payroll_overtime_multiplier' => 1.0,
+            'payroll_standard_shifts_per_month' => 30,
+        ]);
+        app(SystemSettingService::class)->applyRuntimeConfig();
 
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $period = PayrollRunService::lastClosedPeriod();
@@ -294,8 +299,11 @@ class SupervisorCoverShiftTest extends TestCase
 
     public function test_overtime_cover_adds_daily_rate_to_supervisor_payroll_without_changing_salary(): void
     {
-        config(['psg.payroll.overtime_multiplier' => 1.0]);
-        config(['psg.payroll.standard_shifts_per_month' => 30]);
+        SystemSetting::query()->first()?->update([
+            'payroll_overtime_multiplier' => 1.0,
+            'payroll_standard_shifts_per_month' => 30,
+        ]);
+        app(SystemSettingService::class)->applyRuntimeConfig();
 
         $finance = User::factory()->role(UserRole::FinanceManager)->create();
         $period = PayrollRunService::lastClosedPeriod();

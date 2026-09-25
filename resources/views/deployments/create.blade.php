@@ -52,13 +52,6 @@
                     :required="true"
                     help="Date the guard actually worked this duty (can be a past missed day). Entry time is stored separately."
                 />
-                <x-form-field
-                    label="Through date (optional)"
-                    name="duty_date_to"
-                    type="date"
-                    :value="old('duty_date_to')"
-                    help="Backfill several days (max 31). Each day keeps its own shift date; created-at stays when you save."
-                />
                 <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes')" class="sm:col-span-2" />
             </div>
 

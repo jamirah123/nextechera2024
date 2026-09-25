@@ -80,7 +80,8 @@ class ComplianceSnapshotTest extends TestCase
         $snapshot = app(ComplianceSnapshotService::class)->snapshot();
 
         $this->assertSame(1, $snapshot['sla_breach_sites']);
-        $this->assertSame(4, $snapshot['sla_breaches']->first()['contracted']);
+        $this->assertSame(4, $snapshot['sla_breaches'][0]['contracted']);
+        $this->assertIsInt($snapshot['sla_breaches'][0]['site_id']);
     }
 
     public function test_dashboard_shows_compliance_widget_for_hr(): void

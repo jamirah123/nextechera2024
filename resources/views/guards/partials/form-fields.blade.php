@@ -100,7 +100,7 @@
 </x-form-group>
 
 <x-form-group title="Payroll & banking">
-    <x-form-field label="Monthly gross salary ({{ config('psg.currency') }})" name="base_shift_rate" type="number" step="0.01" min="0" :value="old('base_shift_rate', $guard?->base_shift_rate ?? config('psg.payroll.default_monthly_gross'))" help="Full-month gross before deductions. Pay per completed shift ≈ salary ÷ days in the payroll month." />
+    <x-form-field label="Monthly gross salary ({{ config('psg.currency') }})" name="base_shift_rate" type="number" step="0.01" min="0" :value="old('base_shift_rate', $guard?->base_shift_rate ?? config('psg.payroll.default_monthly_gross'))" help="Monthly package before deductions. Per-shift rate = this ÷ configured standard shifts / month. Gross = payable recorded shifts × that rate." />
     <x-form-field label="Overtime rate per shift ({{ config('psg.currency') }})" name="overtime_shift_rate" type="number" step="0.01" min="0" :value="old('overtime_shift_rate', $guard?->overtime_shift_rate)" help="Leave blank to use {{ config('psg.payroll.overtime_multiplier') }}× the normal shift rate." />
     <x-form-field label="Bank name" name="bank_name" :value="old('bank_name', $guard?->bank_name)" />
     <x-form-field label="Bank account" name="bank_account" :value="old('bank_account', $guard?->bank_account)" />

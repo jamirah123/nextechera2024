@@ -186,9 +186,9 @@ class InvoiceService
         });
     }
 
-    public function issue(Invoice $invoice): Invoice
+    public function issue(Invoice $invoice, ?string $issueDate = null): Invoice
     {
-        return DB::transaction(function () use ($invoice) {
+        return DB::transaction(function () use ($invoice, $issueDate) {
             if (! $invoice->isEditable()) {
                 throw new InvalidArgumentException('Only draft invoices can be issued.');
             }
@@ -204,9 +204,18 @@ class InvoiceService
                 throw new InvalidArgumentException('Cannot issue an invoice with zero total.');
             }
 
+            $issuedOn = Carbon::parse($issueDate ?? now()->toDateString())->startOfDay();
+            $dueOn = $invoice->due_date?->copy()->startOfDay();
+
+            // Due date must never precede issue date (common when a past-period draft is issued later).
+            if ($dueOn === null || $dueOn->lt($issuedOn)) {
+                $dueOn = $issuedOn->copy()->addDays((int) config('psg.invoice_due_days', 14));
+            }
+
             $invoice->update([
                 'status' => InvoiceStatus::Issued,
-                'issue_date' => now()->toDateString(),
+                'issue_date' => $issuedOn->toDateString(),
+                'due_date' => $dueOn->toDateString(),
                 'approved_by' => auth()->id(),
                 'approved_at' => now(),
             ]);

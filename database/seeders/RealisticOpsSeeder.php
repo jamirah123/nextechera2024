@@ -3,12 +3,11 @@
 namespace Database\Seeders;
 
 use App\Enums\AbsenceReason;
-use App\Enums\BillingMode;
+use App\Enums\CompensationType;
 use App\Enums\DeploymentShiftType;
 use App\Enums\LeaveType;
-use App\Enums\PaymentMethod;
+use App\Enums\PayrollRunStatus;
 use App\Models\BillingProfile;
-use App\Models\Client;
 use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Invoice;
@@ -20,15 +19,15 @@ use App\Models\Staff;
 use App\Models\User;
 use App\Services\AbsenceService;
 use App\Services\DeploymentService;
-use App\Services\Finance\BillingService;
-use App\Services\Finance\InvoiceService;
-use App\Services\Finance\PaymentService;
 use App\Services\Finance\PayrollRunService;
 use App\Services\GuardService;
 use App\Services\LeaveService;
 use App\Services\Operations\OperationalPeriodService;
+use App\Services\StaffService;
+use App\Services\SystemSettingService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
+use Database\Seeders\Concerns\SeedsBillingAndInvoices;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Auth;
 use Throwable;
@@ -42,6 +41,8 @@ use Throwable;
  */
 class RealisticOpsSeeder extends Seeder
 {
+    use SeedsBillingAndInvoices;
+
     private Carbon $from;
 
     private Carbon $to;
@@ -83,17 +84,103 @@ class RealisticOpsSeeder extends Seeder
         ));
 
         $this->ensureOperationalPeriodsOpen();
+        $this->ensurePayrollDefaults();
+        $this->ensureGuardCompensation();
         $this->backdateEmploymentDates();
         $this->rebuildPostingHistory();
         $this->seedAbsences();
         $this->seedCompletedLeave();
-        $this->seedBillingProfiles();
-        $this->seedInvoicesAndPayments();
+        $this->seedRealisticBillingProfiles($this->from->copy()->startOfMonth());
+        $this->seedInvoicesFromBillingProfiles($this->from, $this->to);
         $this->seedPayrollRuns();
 
         Auth::logout();
 
         $this->printSummary();
+    }
+
+    /**
+     * Platform fallback used when a guard has no monthly gross on file.
+     * Admin setting payroll_default_base_shift_rate is the monthly gross (not per-shift).
+     */
+    private function ensurePayrollDefaults(): void
+    {
+        $settings = app(SystemSettingService::class);
+        $current = $settings->current();
+        $patch = [];
+
+        if ((float) $current->payroll_default_base_shift_rate <= 0) {
+            $patch['payroll_default_base_shift_rate'] = 170000;
+        }
+
+        if ((int) ($current->payroll_standard_shifts_per_month ?? 0) <= 0) {
+            $patch['payroll_standard_shifts_per_month'] = 30;
+        }
+
+        if ((float) $current->payroll_overtime_multiplier < 1.25) {
+            $patch['payroll_overtime_multiplier'] = 1.5;
+        }
+
+        if ($patch === []) {
+            $settings->applyRuntimeConfig($current);
+
+            return;
+        }
+
+        $updated = $settings->update($patch);
+        $this->command?->info('Payroll defaults updated: '.collect($patch)->map(
+            fn ($value, $key) => "{$key}={$value}"
+        )->implode(', '));
+        $settings->applyRuntimeConfig($updated);
+    }
+
+    /**
+     * Shift-pay gross = Σ(shift counts × (monthlyGross / standard_shifts)).
+     * Seed field guards with realistic monthly gross on guards.base_shift_rate.
+     */
+    private function ensureGuardCompensation(): void
+    {
+        $guards = app(GuardService::class);
+        $staff = app(StaffService::class);
+        $monthlyGross = (float) config('psg.payroll.default_monthly_gross', 170000);
+        if ($monthlyGross <= 0) {
+            $monthlyGross = 170000;
+        }
+        $updated = 0;
+
+        Guard::query()
+            ->whereDoesntHave('supervisorProfile')
+            ->orderBy('employment_id')
+            ->each(function (Guard $guard) use ($guards, $monthlyGross, &$updated): void {
+                if ((float) $guard->base_shift_rate > 0) {
+                    return;
+                }
+
+                $guards->updateGuard($guard, [
+                    'compensation_type' => CompensationType::Shift->value,
+                    'base_shift_rate' => $monthlyGross,
+                    'bank_name' => $guard->bank_name ?: 'Centenary Bank',
+                    'bank_account' => $guard->bank_account ?: '30'.str_pad((string) $guard->id, 8, '0', STR_PAD_LEFT),
+                    'nssf_number' => $guard->nssf_number ?: 'NSSF'.str_pad((string) $guard->id, 6, '0', STR_PAD_LEFT),
+                ], 'realistic_ops_seed_salary');
+                $updated++;
+            });
+
+        // Supervisors are paid via staff.monthly_salary (synced onto the linked guard profile).
+        Staff::query()
+            ->whereHas('supervisorProfile')
+            ->orderBy('id')
+            ->each(function (Staff $member) use ($staff): void {
+                if ((float) $member->monthly_salary >= 1000000) {
+                    return;
+                }
+
+                $staff->updateStaff($member, [
+                    'monthly_salary' => 1200000,
+                ], 'realistic_ops_seed_supervisor_salary');
+            });
+
+        $this->command?->info("Guard compensation ensured ({$updated} shift guards updated).");
     }
 
     private function ensureOperationalPeriodsOpen(): void
@@ -328,114 +415,6 @@ class RealisticOpsSeeder extends Seeder
         }
     }
 
-    private function seedBillingProfiles(): void
-    {
-        $billing = app(BillingService::class);
-
-        Site::query()->with('client')->orderBy('id')->each(function (Site $site) use ($billing): void {
-            if ($site->client_id === null) {
-                return;
-            }
-
-            $exists = BillingProfile::query()
-                ->where('client_id', $site->client_id)
-                ->where('site_id', $site->id)
-                ->where('is_active', true)
-                ->exists();
-
-            if ($exists) {
-                return;
-            }
-
-            try {
-                $billing->create([
-                    'client_id' => $site->client_id,
-                    'site_id' => $site->id,
-                    'billing_mode' => BillingMode::Monthly->value,
-                    'monthly_rate_per_unarmed_guard' => 450_000,
-                    'monthly_rate_per_armed_guard' => 650_000,
-                    'monthly_rate_per_unarmed_day_guard' => 450_000,
-                    'monthly_rate_per_unarmed_night_guard' => 480_000,
-                    'monthly_rate_per_armed_day_guard' => 650_000,
-                    'monthly_rate_per_armed_night_guard' => 700_000,
-                    'effective_from' => $this->from->toDateString(),
-                    'is_active' => true,
-                ]);
-            } catch (Throwable $e) {
-                $this->command?->warn('Billing profile skipped for site '.$site->code.': '.$e->getMessage());
-            }
-        });
-    }
-
-    private function seedInvoicesAndPayments(): void
-    {
-        $invoices = app(InvoiceService::class);
-        $payments = app(PaymentService::class);
-        $finance = User::query()->where('email', 'finance@platinumsecurity.local')->first() ?? Auth::user();
-
-        $month = $this->from->copy()->startOfMonth();
-        $lastInvoiceMonth = $this->to->copy()->startOfMonth()->subMonth();
-
-        while ($month->lte($lastInvoiceMonth)) {
-            $periodStart = $month->copy()->startOfMonth()->toDateString();
-            $periodEnd = $month->copy()->endOfMonth()->toDateString();
-
-            Client::query()->orderBy('id')->each(function (Client $client) use (
-                $invoices,
-                $payments,
-                $finance,
-                $periodStart,
-                $periodEnd,
-                $month,
-            ): void {
-                $already = Invoice::query()
-                    ->where('client_id', $client->id)
-                    ->whereDate('period_start', $periodStart)
-                    ->whereDate('period_end', $periodEnd)
-                    ->exists();
-
-                if ($already) {
-                    return;
-                }
-
-                try {
-                    $invoice = $invoices->createDraft([
-                        'client_id' => $client->id,
-                        'period_start' => $periodStart,
-                        'period_end' => $periodEnd,
-                        'auto_generate' => true,
-                        'notes' => 'Realistic ops seed invoice for '.$month->format('F Y').'.',
-                    ]);
-
-                    if ((float) $invoice->total <= 0) {
-                        return;
-                    }
-
-                    $invoice = $invoices->issue($invoice);
-
-                    // Pay most months in full; leave one older month open for AR dashboards.
-                    if ((int) $month->month !== 2) {
-                        $invoice = $invoice->fresh();
-                        $payments->record([
-                            'invoice_id' => $invoice->id,
-                            'amount' => (float) ($invoice->balance > 0 ? $invoice->balance : $invoice->total),
-                            'payment_date' => Carbon::parse($periodEnd)->addDays(7)->min($this->to)->toDateString(),
-                            'method' => PaymentMethod::BankTransfer->value,
-                            'external_reference' => 'SEED-'.$invoice->reference,
-                            'notes' => 'Realistic ops seed payment',
-                        ]);
-                    }
-                } catch (Throwable $e) {
-                    $this->command?->warn(
-                        "Invoice seed skipped for client #{$client->id} {$month->format('Y-m')}: ".$e->getMessage()
-                    );
-                }
-            });
-
-            $month->addMonth();
-        }
-    }
-
     private function seedPayrollRuns(): void
     {
         $payroll = app(PayrollRunService::class);
@@ -454,24 +433,29 @@ class RealisticOpsSeeder extends Seeder
                 continue;
             }
 
-            $exists = PayrollRun::query()
+            // Cancel prior company-wide runs for this month so salaries recalculate through services.
+            PayrollRun::query()
                 ->where('period_year', $year)
                 ->where('period_month', $monthNo)
                 ->whereNull('region_id')
                 ->whereNull('site_id')
-                ->exists();
-
-            if ($exists) {
-                $month->addMonth();
-
-                continue;
-            }
+                ->where('status', '!=', PayrollRunStatus::Cancelled->value)
+                ->orderBy('id')
+                ->each(function (PayrollRun $existing) use ($payroll): void {
+                    try {
+                        $payroll->cancel($existing);
+                    } catch (Throwable $e) {
+                        $this->command?->warn(
+                            "Could not cancel payroll {$existing->reference}: ".$e->getMessage()
+                        );
+                    }
+                });
 
             try {
                 $run = $payroll->createDraft([
                     'period_year' => $year,
                     'period_month' => $monthNo,
-                    'notes' => 'Realistic ops seed payroll '.$month->format('F Y').'.',
+                    'notes' => 'Company payroll for '.$month->format('F Y').'.',
                 ], $finance);
 
                 $run = $payroll->calculate($run);
@@ -482,6 +466,14 @@ class RealisticOpsSeeder extends Seeder
                 if (! $month->isSameMonth($lastPayrollMonth)) {
                     $payroll->markPaid($run, $finance);
                 }
+
+                $this->command?->info(sprintf(
+                    'Payroll %s: gross=%s net=%s (%d payslips)',
+                    $month->format('Y-m'),
+                    number_format((float) $run->gross_total, 0),
+                    number_format((float) $run->net_total, 0),
+                    $run->payslips()->count(),
+                ));
             } catch (Throwable $e) {
                 $this->command?->warn('Payroll seed skipped for '.$month->format('Y-m').': '.$e->getMessage());
             }

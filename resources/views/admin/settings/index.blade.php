@@ -118,15 +118,43 @@
 
             <div id="payroll" class="scroll-mt-16">
                 <x-form-group title="Payroll defaults" description="Rates and rules applied when calculating guard and staff payslips.">
-                    <x-form-field label="Default monthly gross salary ({{ $settings->currency }})" name="payroll_default_base_shift_rate" type="number" step="0.01" min="0" :value="old('payroll_default_base_shift_rate', $settings->payroll_default_base_shift_rate)" :required="true" class="sm:col-span-2" help="Per-shift / daily rate = this amount ÷ days in the payroll month (or ÷ standard shifts when set)." />
-                    <x-form-field label="Standard shifts / month" name="payroll_standard_shifts_per_month" type="number" min="0" max="62" :value="old('payroll_standard_shifts_per_month', $settings->payroll_standard_shifts_per_month ?? 0)" help="When > 0, daily rate = monthly ÷ this value (useful for supervisor OT). 0 = use calendar days in month." />
+                    <x-form-field
+                        label="Default guard monthly gross ({{ $settings->currency }})"
+                        name="payroll_default_base_shift_rate"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        :value="old('payroll_default_base_shift_rate', $settings->payroll_default_base_shift_rate)"
+                        :required="true"
+                        class="sm:col-span-2"
+                        help="Company default monthly package for field guards. Per-shift rate = this amount ÷ standard shifts / month. Gross pay = payable recorded shifts × that rate (not days in the calendar month)."
+                    />
+                    <x-form-field
+                        label="Standard shifts / month (salary basis)"
+                        name="payroll_standard_shifts_per_month"
+                        type="number"
+                        min="1"
+                        max="62"
+                        :value="old('payroll_standard_shifts_per_month', $settings->payroll_standard_shifts_per_month ?? 30)"
+                        :required="true"
+                        help="Configured pay basis only — not calendar days. Example: monthly 170,000 ÷ 26 = per-shift rate; a guard with 24 payable shifts earns 24 × that rate."
+                    />
                     <x-form-field label="Overtime multiplier" name="payroll_overtime_multiplier" type="number" step="0.01" min="1" max="5" :value="old('payroll_overtime_multiplier', $settings->payroll_overtime_multiplier)" :required="true" />
                     <div class="sm:col-span-2">
                         <x-form-checkbox name="payroll_use_progressive_paye" label="Use progressive PAYE brackets (recommended)" :checked="old('payroll_use_progressive_paye', $settings->payroll_use_progressive_paye ?? true)" />
                     </div>
                     <x-form-field label="PAYE rate (%) — flat fallback" name="payroll_paye_rate" type="number" step="0.01" min="0" max="100" :value="old('payroll_paye_rate', $settings->payroll_paye_rate)" :required="true" help="Used only when progressive PAYE is turned off." />
                     <x-form-field label="NSSF employee rate (%)" name="payroll_nssf_employee_rate" type="number" step="0.01" min="0" max="100" :value="old('payroll_nssf_employee_rate', $settings->payroll_nssf_employee_rate)" :required="true" />
-                    <x-form-field label="Uniform charge ({{ $settings->currency }})" name="payroll_uniform_charge" type="number" step="0.01" min="0" :value="old('payroll_uniform_charge', $settings->payroll_uniform_charge)" :required="true" />
+                    <x-form-field
+                        label="Uniform charge ({{ $settings->currency }})"
+                        name="payroll_uniform_charge"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        :value="old('payroll_uniform_charge', $settings->payroll_uniform_charge)"
+                        :required="true"
+                        help="Applied to guard payslips only. Office staff and supervisors on salary are not charged."
+                    />
                     <x-form-field label="Bank export format" name="payroll_bank_export_format" type="select" :required="true" class="sm:col-span-2">
                         <option value="generic" @selected(old('payroll_bank_export_format', $settings->payroll_bank_export_format ?? 'generic') === 'generic')>Generic CSV</option>
                         <option value="centenary" @selected(old('payroll_bank_export_format', $settings->payroll_bank_export_format ?? 'generic') === 'centenary')>Centenary Bank</option>

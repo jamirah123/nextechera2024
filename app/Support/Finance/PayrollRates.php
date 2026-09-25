@@ -31,8 +31,10 @@ class PayrollRates
     }
 
     /**
-     * Divisor for converting monthly gross to a daily/shift equivalent.
-     * Uses configured standard days when set (e.g. 30); otherwise calendar days in the run.
+     * Divisor for converting monthly gross into a per-shift rate (the configured salary basis).
+     *
+     * Shift-pay never uses calendar days in the month (28/29/30/31). Gross pay is always:
+     * payable recorded shifts × (monthly gross ÷ this basis).
      */
     public static function rateDivisor(?PayrollRun $run = null): int
     {
@@ -42,9 +44,8 @@ class PayrollRates
             return $standard;
         }
 
-        return $run !== null
-            ? self::calendarDays($run)
-            : max(1, now()->daysInMonth);
+        // Admin unset / zero → company default basis (not days-in-month).
+        return 30;
     }
 
     public static function dailyRateFromMonthly(float $monthlyGross, ?PayrollRun $run = null): float
@@ -56,7 +57,7 @@ class PayrollRates
         return round($monthlyGross / self::rateDivisor($run), 2);
     }
 
-    /** Earnings per completed normal (or equivalent) shift. */
+    /** Earnings per completed normal (or equivalent) payable shift. */
     public static function perShiftRate(Guard $guard, ?PayrollRun $run = null): float
     {
         return self::dailyRateFromMonthly(self::monthlyGross($guard), $run);
@@ -97,7 +98,7 @@ class PayrollRates
         return round($daily * (float) config('psg.payroll.overtime_multiplier', 1.5), 2);
     }
 
-    /** Fixed monthly gross pro-rated for mid-period joiners and leavers. */
+    /** Fixed monthly gross pro-rated for mid-period joiners and leavers (calendar employment window). */
     public static function fixedPeriodGross(Guard $guard, PayrollRun $run): float
     {
         $monthly = self::monthlyGross($guard);
@@ -123,6 +124,34 @@ class PayrollRates
             $guard->date_employed,
             $guard->employment_end_date,
         );
+    }
+
+    /**
+     * First duty date in the run that may count for this guard (employment start clipped to period).
+     */
+    public static function effectiveShiftStart(Guard $guard, PayrollRun $run): CarbonInterface
+    {
+        $periodStart = $run->period_start->copy()->startOfDay();
+
+        if ($guard->date_employed !== null && $guard->date_employed->greaterThan($periodStart)) {
+            return $guard->date_employed->copy()->startOfDay();
+        }
+
+        return $periodStart;
+    }
+
+    /**
+     * Last duty date in the run that may count for this guard (employment end clipped to period).
+     */
+    public static function effectiveShiftEnd(Guard $guard, PayrollRun $run): CarbonInterface
+    {
+        $periodEnd = $run->period_end->copy()->startOfDay();
+
+        if ($guard->employment_end_date !== null && $guard->employment_end_date->lessThan($periodEnd)) {
+            return $guard->employment_end_date->copy()->startOfDay();
+        }
+
+        return $periodEnd;
     }
 
     public static function staffMonthlyGross(Staff $staff): float
@@ -155,17 +184,6 @@ class PayrollRates
             $staff->date_employed,
             $staff->employment_end_date,
         );
-    }
-
-    public static function effectiveShiftEnd(Guard $guard, PayrollRun $run): CarbonInterface
-    {
-        $periodEnd = $run->period_end->copy()->startOfDay();
-
-        if ($guard->employment_end_date !== null && $guard->employment_end_date->lessThan($periodEnd)) {
-            return $guard->employment_end_date->copy()->startOfDay();
-        }
-
-        return $periodEnd;
     }
 
     public static function eligibleDaysInPeriod(

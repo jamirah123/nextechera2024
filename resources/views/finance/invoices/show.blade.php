@@ -39,7 +39,7 @@
     />
 
     <div class="report-print-area space-y-3">
-        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm print:overflow-visible print:rounded-none print:border-0 print:shadow-none">
+        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900 print:overflow-visible print:rounded-none print:border-0 print:shadow-none print:bg-white">
             @include('documents.invoice.document', [
                 'invoice' => $invoice,
                 'paymentTerms' => $paymentTerms,
@@ -49,13 +49,13 @@
         </div>
 
         @if ($invoice->payments->isNotEmpty())
-            <section class="no-print overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-100 px-3 py-2.5">
-                    <h2 class="text-sm font-semibold text-slate-900">Payment history</h2>
-                    <p class="mt-0.5 text-xs text-slate-500">All collections applied to this invoice.</p>
+            <section class="no-print overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div class="border-b border-slate-100 px-3 py-2.5 dark:border-slate-700">
+                    <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Payment history</h2>
+                    <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">All collections applied to this invoice.</p>
                 </div>
-                <table class="min-w-full divide-y divide-slate-100 text-xs">
-                    <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                <table class="min-w-full divide-y divide-slate-100 text-xs dark:divide-slate-700">
+                    <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                         <tr>
                             <th class="px-3 py-2 text-left">Reference</th>
                             <th class="px-3 py-2 text-left">Date</th>
@@ -63,13 +63,13 @@
                             <th class="px-3 py-2 text-right">Amount</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                         @foreach ($invoice->payments as $payment)
                             <tr>
-                                <td class="px-3 py-2"><a href="{{ route('payments.show', $payment) }}" class="font-semibold text-brand-700 hover:text-brand-800">{{ $payment->reference }}</a></td>
-                                <td class="px-3 py-2">{{ $payment->payment_date->format('d M Y') }}</td>
+                                <td class="px-3 py-2"><a href="{{ route('payments.show', $payment) }}" class="font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-300">{{ $payment->reference }}</a></td>
+                                <td class="px-3 py-2 text-slate-700 dark:text-slate-200">{{ $payment->payment_date->format('d M Y') }}</td>
                                 <td class="px-3 py-2"><x-status-badge :tone="$payment->method->tone()" :label="$payment->method->label()" /></td>
-                                <td class="px-3 py-2 text-right font-semibold">{{ \App\Support\Money::format($payment->amount, $invoice->currency) }}</td>
+                                <td class="px-3 py-2 text-right font-semibold text-slate-900 dark:text-slate-100">{{ \App\Support\Money::format($payment->amount, $invoice->currency) }}</td>
                             </tr>
                         @endforeach
                     </tbody>

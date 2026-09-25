@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\CompensationType;
 use App\Enums\ContractStatus;
 use App\Enums\DeploymentShiftType;
 use App\Enums\EmploymentStatus;
@@ -412,10 +413,26 @@ class SmallCompanySeeder extends Seeder
         $service = app(GuardService::class);
         $guards = [];
 
+        // Monthly gross from platform setting (Admin → Payroll defaults). Stored on guards.base_shift_rate.
+        $monthlyGross = (float) config('psg.payroll.default_monthly_gross', 170000);
+        if ($monthlyGross <= 0) {
+            $monthlyGross = 170000;
+        }
+
         foreach ($defs as $offset => $def) {
             $existing = Guard::query()->where('employment_id', $def['employment_id'])->first();
             if ($existing) {
-                $guards[] = $existing;
+                if ((float) $existing->base_shift_rate <= 0) {
+                    $guards[] = $service->updateGuard($existing, [
+                        'compensation_type' => CompensationType::Shift->value,
+                        'base_shift_rate' => $monthlyGross,
+                        'bank_name' => $existing->bank_name ?: 'Centenary Bank',
+                        'bank_account' => $existing->bank_account ?: '30'.str_pad((string) ($existing->id), 8, '0', STR_PAD_LEFT),
+                        'nssf_number' => $existing->nssf_number ?: 'NSSF'.str_pad((string) ($existing->id), 6, '0', STR_PAD_LEFT),
+                    ], 'seed_guard_salary');
+                } else {
+                    $guards[] = $existing;
+                }
 
                 continue;
             }
@@ -435,6 +452,11 @@ class SmallCompanySeeder extends Seeder
                 'rank_designation' => 'Security Guard',
                 'guard_classification' => GuardClassification::Unarmed->value,
                 'address' => $address,
+                'compensation_type' => CompensationType::Shift->value,
+                'base_shift_rate' => $monthlyGross,
+                'bank_name' => 'Centenary Bank',
+                'bank_account' => '30'.str_pad((string) ($phoneIndex), 8, '0', STR_PAD_LEFT),
+                'nssf_number' => 'NSSF'.str_pad((string) ($phoneIndex), 6, '0', STR_PAD_LEFT),
             ]);
         }
 

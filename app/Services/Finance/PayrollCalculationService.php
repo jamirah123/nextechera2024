@@ -260,7 +260,13 @@ class PayrollCalculationService
 
         $uniformCharge = (float) config('psg.payroll.uniform_charge', 0);
 
-        if ($includeUniform && $uniformCharge > 0) {
+        // Uniform is a field-kit deduction for guards only — never office/staff payslips.
+        $chargeUniform = $includeUniform
+            && $uniformCharge > 0
+            && $payslip->staff_id === null
+            && $payslip->guard_id !== null;
+
+        if ($chargeUniform) {
             PayrollDeduction::query()->create([
                 'payroll_payslip_id' => $payslip->id,
                 'type' => PayrollDeductionType::Uniform,
@@ -308,14 +314,34 @@ class PayrollCalculationService
      */
     private function createShiftPayslip(PayrollRun $run, Guard $guard, array $row, string $start, string $end): PayrollPayslip
     {
-        $effectiveEnd = PayrollRates::effectiveShiftEnd($guard, $run)->toDateString();
+        $windowStart = PayrollRates::effectiveShiftStart($guard, $run)->toDateString();
+        $windowEnd = PayrollRates::effectiveShiftEnd($guard, $run)->toDateString();
+
+        // Always recount payable shifts inside the employment-effective window for this period.
+        // Do not assume calendar days in the month are payable — only recorded duties count.
+        if ($windowStart !== $start || $windowEnd !== $end) {
+            $from = max($start, $windowStart);
+            $to = min($end, $windowEnd);
+
+            $row = $from <= $to
+                ? $this->shiftTotals->guardRowForPeriod($guard->id, $from, $to, $run)
+                : [
+                    'guard_id' => $guard->id,
+                    'employment_id' => $guard->employment_id,
+                    'full_name' => $guard->full_name,
+                    'normal_shifts' => 0,
+                    'overtime_shifts' => 0,
+                    'relief_shifts' => 0,
+                    'replacement_shifts' => 0,
+                    'special_duty_shifts' => 0,
+                    'total_shifts' => 0,
+                ];
+        }
+
         $baseRate = PayrollRates::baseShiftRate($guard, $run);
         $overtimeRate = PayrollRates::overtimeShiftRate($guard, $run);
 
-        if ($effectiveEnd < $end) {
-            $row = $this->shiftTotals->guardRowForPeriod($guard->id, $start, $effectiveEnd, $run);
-        }
-
+        // Gross = Σ(payable shift counts × configured per-shift rates). Missed/scheduled do not pay.
         $gross = round(
             ((int) $row['normal_shifts'] * $baseRate)
             + ((int) $row['overtime_shifts'] * $overtimeRate)
@@ -349,7 +375,13 @@ class PayrollCalculationService
         $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true);
         $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
         $this->applyAssetRecoveryDeductions($payslip, guardId: $guard->id);
-        $this->linkShifts($payslip, $guard->id, $start, $effectiveEnd, $run);
+        $this->linkShifts(
+            $payslip,
+            $guard->id,
+            max($start, $windowStart),
+            min($end, $windowEnd),
+            $run,
+        );
 
         return $payslip->refresh();
     }

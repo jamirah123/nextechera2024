@@ -53,6 +53,18 @@ class ComplianceSnapshotService
             ->count();
 
         $slaBreaches = $this->slaBreaches();
+        $slaBreachRows = $slaBreaches
+            ->take(5)
+            ->map(fn (array $row) => [
+                'site_id' => (int) $row['site']->id,
+                'site_name' => (string) $row['site']->name,
+                'contracted' => (int) $row['contracted'],
+                'deployed' => (int) $row['deployed'],
+                'shortage' => (int) $row['shortage'],
+            ])
+            ->values()
+            ->all();
+
         $activeSites = Site::query()
             ->where('status', SiteStatus::Active)
             ->where('required_guards', '>', 0)
@@ -72,24 +84,55 @@ class ComplianceSnapshotService
             'sites_expiring_contracts' => $sitesExpiring,
             'sla_breach_sites' => $slaBreaches->count(),
             'understaffed_sites' => $understaffed,
-            'expired_document_guards' => $this->expiredDocumentGuardSamples(),
-            'expiring_contracts' => $this->expiringContractSamples($withinDays),
-            'sla_breaches' => $slaBreaches->take(5)->values(),
+            'expired_document_guards' => $this->expiredDocumentGuardSamples()->all(),
+            'expiring_contracts' => $this->expiringContractSamples($withinDays)->all(),
+            'sla_breaches' => $slaBreachRows,
         ];
     }
 
     /**
      * Cached snapshot for dashboards (short TTL — ops data changes often).
      *
+     * Cache-safe: nested lists are plain arrays (no Eloquent / Collection),
+     * so database cache unserialization cannot yield __PHP_Incomplete_Class.
+     *
      * @return array<string, mixed>
      */
     public function cachedSnapshot(?int $ttlSeconds = 45): array
     {
-        return Cache::remember(
-            'psg.compliance.snapshot',
-            max(15, $ttlSeconds ?? (int) config('psg.performance.dashboard_cache_seconds', 45)),
-            fn () => $this->snapshot(),
-        );
+        $ttl = max(15, $ttlSeconds ?? (int) config('psg.performance.dashboard_cache_seconds', 45));
+        $payload = Cache::remember('psg.compliance.snapshot', $ttl, fn () => $this->snapshot());
+
+        if (! $this->snapshotIsCacheSafe($payload)) {
+            Cache::forget('psg.compliance.snapshot');
+            $payload = Cache::remember('psg.compliance.snapshot', $ttl, fn () => $this->snapshot());
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  mixed  $payload
+     */
+    private function snapshotIsCacheSafe(mixed $payload): bool
+    {
+        if (! is_array($payload)) {
+            return false;
+        }
+
+        foreach (['sla_breaches', 'expiring_contracts', 'expired_document_guards'] as $key) {
+            if (! array_key_exists($key, $payload) || ! is_array($payload[$key])) {
+                return false;
+            }
+        }
+
+        foreach ($payload['sla_breaches'] as $row) {
+            if (! is_array($row) || ! isset($row['site_id'], $row['site_name'], $row['shortage'])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function renewalWindowDays(): int
@@ -217,11 +260,11 @@ class ComplianceSnapshotService
             ->unique('guard_id')
             ->take(5)
             ->map(fn (GuardAttachment $attachment) => [
-                'guard' => $attachment->guardRecord,
+                'guard_id' => (int) $attachment->guard_id,
+                'guard_name' => (string) ($attachment->guardRecord?->full_name ?? $attachment->guardRecord?->employment_id ?? 'Guard'),
                 'label' => $attachment->displayName(),
                 'expires_at' => $attachment->expires_at?->format('d M Y') ?? '—',
             ])
-            ->filter(fn (array $row) => $row['guard'] !== null)
             ->values();
     }
 

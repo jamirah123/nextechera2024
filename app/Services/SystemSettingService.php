@@ -241,7 +241,7 @@ class SystemSettingService
             'psg.prefixes.payroll_run' => strtoupper((string) ($settings->payroll_run_prefix ?: config('psg.prefixes.payroll_run', 'PAY'))),
             'psg.prefixes.shift' => strtoupper((string) ($settings->shift_prefix ?: config('psg.prefixes.shift', 'SHF'))),
             'psg.payroll.default_monthly_gross' => (float) $settings->payroll_default_base_shift_rate,
-            'psg.payroll.standard_shifts_per_month' => max(0, (int) ($settings->payroll_standard_shifts_per_month ?? 0)),
+            'psg.payroll.standard_shifts_per_month' => max(1, (int) ($settings->payroll_standard_shifts_per_month ?? 30)),
             'psg.payroll.default_base_shift_rate' => round(
                 (float) $settings->payroll_default_base_shift_rate / max(1, now()->daysInMonth),
                 2,
@@ -306,7 +306,7 @@ class SystemSettingService
             'company_bank_branch' => config('psg.company_bank_branch'),
             'invoice_payment_terms' => config('psg.invoice_payment_terms'),
             'payroll_default_base_shift_rate' => config('psg.payroll.default_monthly_gross', config('psg.payroll.default_base_shift_rate', 25000)),
-            'payroll_standard_shifts_per_month' => config('psg.payroll.standard_shifts_per_month', 0),
+            'payroll_standard_shifts_per_month' => config('psg.payroll.standard_shifts_per_month', 30),
             'payroll_overtime_multiplier' => config('psg.payroll.overtime_multiplier', 1.5),
             'payroll_paye_rate' => config('psg.payroll.paye_rate', 0),
             'payroll_use_progressive_paye' => config('psg.payroll.use_progressive_paye', true),

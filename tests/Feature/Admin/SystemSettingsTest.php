@@ -161,7 +161,7 @@ class SystemSettingsTest extends TestCase
             'vat_rate' => 18,
             'invoice_due_days' => 14,
             'payroll_default_base_shift_rate' => 25000,
-            'payroll_standard_shifts_per_month' => 0,
+            'payroll_standard_shifts_per_month' => 30,
             'payroll_overtime_multiplier' => 1.5,
             'payroll_paye_rate' => 0,
             'payroll_use_progressive_paye' => '1',

@@ -225,6 +225,98 @@
         padding-top: 8px;
         text-align: center;
     }
+
+    /* On-screen dark mode (app preview). Print/PDF stay light paper. */
+    html.dark .invoice-doc {
+        background: #0f172a;
+        color: #e2e8f0;
+    }
+    html.dark .invoice-doc .company-name,
+    html.dark .invoice-doc .doc-title,
+    html.dark .invoice-doc .doc-meta .v,
+    html.dark .invoice-doc .party-name,
+    html.dark .invoice-doc .items .desc,
+    html.dark .invoice-doc .payment-bank {
+        color: #f8fafc;
+    }
+    html.dark .invoice-doc .company-contact,
+    html.dark .invoice-doc .doc-meta .k,
+    html.dark .invoice-doc .party-line,
+    html.dark .invoice-doc .totals .label,
+    html.dark .invoice-doc .sig-caption,
+    html.dark .invoice-doc .doc-footer,
+    html.dark .invoice-doc .items .muted {
+        color: #94a3b8;
+    }
+    html.dark .invoice-doc .notes-text,
+    html.dark .invoice-doc .payment-text {
+        color: #cbd5e1;
+    }
+    html.dark .invoice-doc .doc-panel,
+    html.dark .invoice-doc .payment-box {
+        background: #1e293b;
+        border-color: #334155;
+    }
+    html.dark .invoice-doc .party-box,
+    html.dark .invoice-doc .totals {
+        border-color: #334155;
+    }
+    html.dark .invoice-doc .items tbody td {
+        border-color: #334155;
+    }
+    html.dark .invoice-doc .items tbody tr:nth-child(even) td {
+        background: #1e293b;
+    }
+    html.dark .invoice-doc .totals .value {
+        border-left-color: #334155;
+    }
+    html.dark .invoice-doc .totals tr.divider td {
+        border-top-color: #334155;
+    }
+    html.dark .invoice-doc .totals tr.total td {
+        background: #064e3b;
+        border-top-color: #059669;
+        color: #a7f3d0;
+    }
+    html.dark .invoice-doc .totals tr.due td {
+        background: #4c0519;
+        border-top-color: #be123c;
+        color: #fecdd3;
+    }
+    html.dark .invoice-doc .sig-line {
+        border-top-color: #64748b;
+    }
+    html.dark .invoice-doc .doc-footer {
+        border-top-color: #334155;
+    }
+
+    @media print {
+        html.dark .invoice-doc {
+            background: #fff !important;
+            color: #0f172a !important;
+        }
+        html.dark .invoice-doc .company-name,
+        html.dark .invoice-doc .doc-title,
+        html.dark .invoice-doc .doc-meta .v,
+        html.dark .invoice-doc .party-name,
+        html.dark .invoice-doc .items .desc,
+        html.dark .invoice-doc .payment-bank {
+            color: #0f172a !important;
+        }
+        html.dark .invoice-doc .doc-panel,
+        html.dark .invoice-doc .payment-box,
+        html.dark .invoice-doc .items tbody tr:nth-child(even) td {
+            background: #f8fafc !important;
+        }
+        html.dark .invoice-doc .totals tr.total td {
+            background: #ecfdf5 !important;
+            color: #14532d !important;
+        }
+        html.dark .invoice-doc .totals tr.due td {
+            background: #fff1f2 !important;
+            color: #9f1239 !important;
+        }
+    }
 </style>
 
 <div class="invoice-doc">

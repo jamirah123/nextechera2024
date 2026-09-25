@@ -94,9 +94,9 @@ return [
         'dashboard_cache_seconds' => (int) env('PSG_DASHBOARD_CACHE_SECONDS', 45),
     ],
     'payroll' => [
-        'default_base_shift_rate' => (float) env('PSG_PAYROLL_DEFAULT_SHIFT_RATE', 25000),
-        'default_monthly_gross' => (float) env('PSG_PAYROLL_DEFAULT_MONTHLY_GROSS', 25000),
-        'standard_shifts_per_month' => (int) env('PSG_PAYROLL_STANDARD_SHIFTS', 0),
+        'default_base_shift_rate' => (float) env('PSG_PAYROLL_DEFAULT_SHIFT_RATE', 5667),
+        'default_monthly_gross' => (float) env('PSG_PAYROLL_DEFAULT_MONTHLY_GROSS', 170000),
+        'standard_shifts_per_month' => (int) env('PSG_PAYROLL_STANDARD_SHIFTS', 30),
         'overtime_multiplier' => (float) env('PSG_PAYROLL_OVERTIME_MULTIPLIER', 1.5),
         'paye_rate' => (float) env('PSG_PAYROLL_PAYE_RATE', 0),
         'use_progressive_paye' => filter_var(env('PSG_PAYROLL_PROGRESSIVE_PAYE', true), FILTER_VALIDATE_BOOL),

@@ -13,6 +13,9 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             SmallCompanySeeder::class,
+            ExpandOrgSeeder::class,
+            ExpandHrModulesSeeder::class,
+            RealisticOpsSeeder::class,
         ]);
     }
 }

@@ -71,7 +71,7 @@ class SystemSettingController extends Controller
             'company_bank_branch' => ['nullable', 'string', 'max:120'],
             'invoice_payment_terms' => ['nullable', 'string', 'max:1000'],
             'payroll_default_base_shift_rate' => ['required', 'numeric', 'min:0'],
-            'payroll_standard_shifts_per_month' => ['nullable', 'integer', 'min:0', 'max:62'],
+            'payroll_standard_shifts_per_month' => ['required', 'integer', 'min:1', 'max:62'],
             'payroll_overtime_multiplier' => ['required', 'numeric', 'min:1', 'max:5'],
             'payroll_paye_rate' => ['required', 'numeric', 'min:0', 'max:100'],
             'payroll_use_progressive_paye' => ['nullable', 'boolean'],
@@ -124,7 +124,7 @@ class SystemSettingController extends Controller
         $data['backup_notify'] = $request->boolean('backup_notify');
         $data['backup_include_files'] = $request->boolean('backup_include_files');
         $data['backup_offsite_disk'] = filled($data['backup_offsite_disk'] ?? null) ? $data['backup_offsite_disk'] : null;
-        $data['payroll_standard_shifts_per_month'] = (int) ($data['payroll_standard_shifts_per_month'] ?? 0);
+        $data['payroll_standard_shifts_per_month'] = max(1, (int) ($data['payroll_standard_shifts_per_month'] ?? 30));
         $data['payroll_paye_brackets'] = \App\Support\Finance\PayrollPayeCalculator::bracketsFrom(
             is_array($data['payroll_paye_brackets'] ?? null) ? $data['payroll_paye_brackets'] : []
         );

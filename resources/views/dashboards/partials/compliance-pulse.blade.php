@@ -30,7 +30,7 @@
         </div>
     @endif
 
-    @if (($compliance['sla_breaches'] ?? collect())->isNotEmpty())
+    @if (! empty($compliance['sla_breaches']))
         <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-100 px-3 py-2">
                 <h3 class="text-xs font-semibold text-slate-700">SLA breaches (contracted vs deployed)</h3>
@@ -38,8 +38,8 @@
             <ul class="divide-y divide-slate-100">
                 @foreach ($compliance['sla_breaches'] as $row)
                     <li class="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                        <a href="{{ route('ops-dashboards.site', $row['site']) }}" class="min-w-0 font-medium text-brand-800 hover:underline">
-                            {{ $row['site']->name }}
+                        <a href="{{ route('ops-dashboards.site', $row['site_id']) }}" class="min-w-0 font-medium text-brand-800 hover:underline">
+                            {{ $row['site_name'] }}
                             <span class="text-xs text-slate-500">{{ $row['deployed'] }}/{{ $row['contracted'] }} contracted</span>
                         </a>
                         <span class="text-xs font-semibold text-rose-700">-{{ $row['shortage'] }}</span>
@@ -49,7 +49,7 @@
         </div>
     @endif
 
-    @if (($compliance['expiring_contracts'] ?? collect())->isNotEmpty())
+    @if (! empty($compliance['expiring_contracts']))
         <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-100 px-3 py-2">
                 <h3 class="text-xs font-semibold text-slate-700">Contract renewals (next {{ $window }} days)</h3>

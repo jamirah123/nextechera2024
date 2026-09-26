@@ -57,7 +57,7 @@
                 </tbody>
             </table>
         </div>
-        <div>{{ $attendances->links() }}</div>
+        <x-table-pagination :paginator="$attendances" />
     @endif
 </div>
 @endsection

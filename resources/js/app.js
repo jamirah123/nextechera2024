@@ -2,11 +2,111 @@ import Alpine from 'alpinejs';
 import './searchable-selects';
 import { initAppearance } from './theme';
 import { registerDashboardCharts } from './charts';
+import { initAutoHideScrollbars } from './scrollbars';
 
 window.Alpine = Alpine;
 
 initAppearance();
 registerDashboardCharts();
+initAutoHideScrollbars();
+
+const SIDEBAR_COLLAPSED_KEY = 'psg.sidebar.collapsed';
+
+Alpine.store('sidebar', {
+    collapsed: (() => {
+        try {
+            return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+        } catch {
+            return false;
+        }
+    })(),
+    toggle() {
+        this.collapsed = ! this.collapsed;
+        try {
+            window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, this.collapsed ? '1' : '0');
+        } catch {
+            // Ignore private-mode storage failures.
+        }
+    },
+    expand() {
+        if (this.collapsed) {
+            this.collapsed = false;
+            try {
+                window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, '0');
+            } catch {
+                // Ignore.
+            }
+        }
+    },
+});
+
+Alpine.data('sidebarNav', (config = {}) => ({
+    query: '',
+    accountOpen: false,
+    activeGroups: Array.isArray(config.activeGroups) ? config.activeGroups : [],
+    haystacks: Array.isArray(config.haystacks) ? config.haystacks : [],
+    groupState: {},
+    storageKey: config.storageKey || 'psg.sidebar.groups',
+
+    init() {
+        try {
+            this.groupState = JSON.parse(window.localStorage.getItem(this.storageKey) || '{}') || {};
+        } catch {
+            this.groupState = {};
+        }
+
+        this.activeGroups.forEach((key) => {
+            if (this.groupState[key] === undefined) {
+                this.groupState[key] = true;
+            }
+        });
+    },
+
+    isGroupOpen(key) {
+        if (this.groupState[key] !== undefined) {
+            return !! this.groupState[key];
+        }
+
+        // First visit: keep sections expanded; active groups stay open after toggles.
+        return true;
+    },
+
+    toggleGroup(key, open) {
+        this.groupState[key] = open;
+        try {
+            window.localStorage.setItem(this.storageKey, JSON.stringify(this.groupState));
+        } catch {
+            // Ignore.
+        }
+    },
+
+    itemMatches(haystack) {
+        const q = this.query.trim().toLowerCase();
+        if (! q) {
+            return true;
+        }
+
+        return String(haystack || '').includes(q);
+    },
+
+    groupVisible(items) {
+        const q = this.query.trim().toLowerCase();
+        if (! q) {
+            return true;
+        }
+
+        return (items || []).some((item) => String(item.haystack || item.label || '').includes(q));
+    },
+
+    anyVisible() {
+        const q = this.query.trim().toLowerCase();
+        if (! q) {
+            return true;
+        }
+
+        return (this.haystacks || []).some((haystack) => String(haystack).includes(q));
+    },
+}));
 
 /**
  * Show a clear busy state on POST/PUT/PATCH/DELETE forms so users get feedback

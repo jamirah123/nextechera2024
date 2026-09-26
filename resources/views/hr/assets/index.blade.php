@@ -95,10 +95,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs text-slate-500 dark:text-slate-400">Showing {{ $issuances->firstItem() ?? 0 }}–{{ $issuances->lastItem() ?? 0 }} of {{ $issuances->total() }}</p>
-            <div>{{ $issuances->links() }}</div>
-        </div>
+        <x-table-pagination :paginator="$issuances" />
     @endif
 </div>
 @endsection

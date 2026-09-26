@@ -38,6 +38,152 @@ class RoleNavigation
     }
 
     /**
+     * Role-filtered nav organized into sidebar sections.
+     *
+     * @return list<array{key: string, label: string, items: list<array<string, mixed>>}>
+     */
+    public static function groups(User $user): array
+    {
+        $badges = NavigationBadges::for($user);
+        $items = array_map(function (array $item) use ($badges) {
+            $item['badge'] = $badges[$item['href']] ?? null;
+
+            if (! empty($item['children'])) {
+                $item['children'] = array_map(function (array $child) use ($badges) {
+                    $child['badge'] = $badges[$child['href']] ?? null;
+
+                    return $child;
+                }, $item['children']);
+            }
+
+            return $item;
+        }, self::for($user));
+
+        $order = [
+            'overview' => 'Overview',
+            'operations' => 'Operations',
+            'people' => 'People',
+            'clients' => 'Clients & Sites',
+            'finance' => 'Finance',
+            'admin' => 'Administration',
+            'reports' => 'Reports',
+            'more' => 'More',
+        ];
+
+        $buckets = [];
+        foreach ($order as $key => $label) {
+            $buckets[$key] = ['key' => $key, 'label' => $label, 'items' => []];
+        }
+
+        foreach ($items as $item) {
+            $key = self::classifyGroup($item);
+            $buckets[$key]['items'][] = $item;
+        }
+
+        return array_values(array_filter(
+            $buckets,
+            static fn (array $group): bool => $group['items'] !== [],
+        ));
+    }
+
+    /** @param  array{label: string, href: string, route_pattern?: string|null}  $item */
+    private static function classifyGroup(array $item): string
+    {
+        $label = strtolower($item['label']);
+        $pattern = strtolower((string) ($item['route_pattern'] ?? ''));
+
+        if ($label === 'dashboard') {
+            return 'overview';
+        }
+
+        if (
+            str_contains($label, 'ops dashboard')
+            || str_contains($pattern, 'ops-dashboards')
+            || str_contains($pattern, 'deploy')
+            || str_contains($pattern, 'shift')
+            || str_contains($pattern, 'replacement')
+            || str_contains($pattern, 'incident')
+            || str_contains($pattern, 'work-order')
+            || str_contains($label, 'duty')
+            || str_contains($label, 'posting')
+            || str_contains($label, 'occurrence')
+            || str_contains($label, 'work order')
+            || $label === 'operations'
+        ) {
+            return 'operations';
+        }
+
+        if (
+            str_contains($pattern, 'guard')
+            || str_contains($pattern, 'staff')
+            || str_contains($pattern, 'leave')
+            || str_contains($pattern, 'absence')
+            || str_contains($pattern, 'desertion')
+            || str_contains($pattern, 'attendance')
+            || str_contains($pattern, 'assets')
+            || str_contains($label, 'guard')
+            || $label === 'staff'
+            || str_contains($label, 'leave')
+            || str_contains($label, 'absence')
+            || str_contains($label, 'desertion')
+            || str_contains($label, 'attendance')
+            || str_contains($label, 'asset')
+        ) {
+            return 'people';
+        }
+
+        if (
+            str_contains($pattern, 'organization')
+            || str_contains($pattern, 'region')
+            || str_contains($pattern, 'client')
+            || str_contains($pattern, 'site')
+            || str_contains($pattern, 'supervisor')
+            || str_contains($pattern, 'manpower')
+            || str_contains($pattern, 'operations.periods')
+            || str_contains($label, 'organization')
+            || $label === 'sites'
+        ) {
+            return 'clients';
+        }
+
+        if (
+            str_contains($pattern, 'billing')
+            || str_contains($pattern, 'invoice')
+            || str_contains($pattern, 'payment')
+            || str_contains($pattern, 'payroll')
+            || str_contains($pattern, 'profit')
+            || str_contains($pattern, 'advance')
+            || str_contains($pattern, 'ledger')
+            || $label === 'finance'
+            || str_contains($label, 'billing')
+            || str_contains($label, 'payroll')
+            || str_contains($label, 'purchase')
+        ) {
+            return 'finance';
+        }
+
+        if (
+            str_contains($pattern, 'user')
+            || str_contains($pattern, 'role')
+            || str_contains($pattern, 'audit')
+            || str_contains($pattern, 'backup')
+            || str_contains($pattern, 'setting')
+            || str_contains($pattern, 'archived')
+            || str_contains($pattern, 'data-import')
+            || $label === 'administration'
+            || str_contains($label, 'audit')
+        ) {
+            return 'admin';
+        }
+
+        if (str_contains($pattern, 'report') || str_contains($label, 'report') || str_contains($label, 'export')) {
+            return 'reports';
+        }
+
+        return 'more';
+    }
+
+    /**
      * @return list<array{title: string, description: string, icon: string, href: string, badge?: string|null, tone: string}>
      */
     public static function modules(User $user): array

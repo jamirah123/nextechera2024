@@ -56,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
             $user = Auth::user();
 
             $view->with('navigation', $user ? RoleNavigation::for($user) : []);
+            $view->with('navigationGroups', $user ? RoleNavigation::groups($user) : []);
         });
 
         View::composer(['layouts.app', 'layouts.guest', 'auth.login', 'admin.settings.index'], function ($view): void {

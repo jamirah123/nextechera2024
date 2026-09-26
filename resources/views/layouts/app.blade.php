@@ -51,78 +51,66 @@
 
     <div
         class="flex h-full"
-        x-data="{ sidebarOpen: false }"
-        @keydown.escape.window="sidebarOpen = false"
+        x-data="{ mobileOpen: false }"
+        @keydown.escape.window="mobileOpen = false"
+        @sidebar-navigate.window="mobileOpen = false"
     >
         {{-- Mobile overlay --}}
         <div
             x-cloak
-            x-show="sidebarOpen"
+            x-show="mobileOpen"
             x-transition.opacity
             class="no-print fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-sm lg:hidden"
-            @click="sidebarOpen = false"
+            @click="mobileOpen = false"
         ></div>
 
-        {{-- Sidebar: fixed in viewport, does not scroll with page --}}
+        {{-- Sidebar --}}
         <aside
-            class="no-print fixed inset-y-0 left-0 z-50 flex h-dvh w-[15rem] max-w-[85vw] -translate-x-full flex-col bg-steel-950 text-white transition-transform duration-300 lg:static lg:z-0 lg:h-full lg:max-w-none lg:w-60 lg:shrink-0 lg:translate-x-0"
-            :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+            class="no-print fixed inset-y-0 left-0 z-50 flex h-dvh max-w-[85vw] flex-col bg-steel-950 text-white transition-[transform,width] duration-300 ease-out lg:static lg:z-0 lg:h-full lg:max-w-none lg:shrink-0"
+            :class="{
+                'translate-x-0': mobileOpen,
+                '-translate-x-full lg:translate-x-0': ! mobileOpen,
+                'w-[15.5rem] lg:w-60': ! $store.sidebar.collapsed,
+                'w-[15.5rem] lg:w-[4.25rem]': $store.sidebar.collapsed,
+            }"
         >
-            <div class="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2.5">
-                <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-2">
+            <div class="flex shrink-0 items-center gap-2 border-b border-white/10 px-2.5 py-2.5" :class="$store.sidebar.collapsed ? 'lg:justify-center lg:px-1.5' : 'justify-between'">
+                <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-2" :class="$store.sidebar.collapsed ? 'lg:justify-center' : ''">
                     <x-company-logo size="md" rounded="lg" class="ring-0 shadow-none bg-transparent" />
-                    <div class="min-w-0">
+                    <div class="min-w-0" x-show="! $store.sidebar.collapsed" x-cloak>
                         <p class="truncate text-xs font-semibold">{{ $brand['name'] ?? config('psg.company') }}</p>
                         <p class="truncate text-[10px] text-slate-400">{{ $brand['subtitle'] ?? config('psg.system_subtitle', 'Operations System') }}</p>
                     </div>
                 </a>
-                <button
-                    type="button"
-                    class="rounded-lg p-2 text-slate-300 hover:bg-white/5 lg:hidden"
-                    @click="sidebarOpen = false"
-                    aria-label="Close menu"
-                >
-                    <x-icon name="close" class="h-5 w-5" />
-                </button>
-            </div>
-
-            <div class="shrink-0 border-b border-white/10 px-3 py-2">
-                <p class="text-[9px] font-semibold uppercase tracking-[0.18em] text-brand-300">Signed in as</p>
-                <p class="mt-0.5 truncate text-xs font-medium text-white">{{ auth()->user()->name }}</p>
-            </div>
-
-            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                <x-sidebar-nav :navigation="$navigation" />
-            </div>
-
-            <div class="shrink-0 border-t border-white/10 p-2">
-                <form method="POST" action="{{ route('logout') }}" x-data="{ confirming: false }">
-                    @csrf
+                <div class="flex items-center gap-1">
                     <button
                         type="button"
-                        class="flex w-full items-center gap-3 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-rose-500/10 hover:text-rose-200"
-                        x-show="!confirming"
-                        @click="confirming = true"
+                        class="hidden rounded-lg p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white lg:inline-flex"
+                        @click="$store.sidebar.toggle()"
+                        :aria-label="$store.sidebar.collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+                        :title="$store.sidebar.collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
                     >
-                        <x-icon name="logout" class="h-5 w-5" />
-                        Sign out
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" :d="$store.sidebar.collapsed ? 'M4 6h16M4 12h10M4 18h16' : 'M4 6h16M4 12h16M4 18h10'" />
+                        </svg>
                     </button>
-                    <div x-cloak x-show="confirming" class="space-y-2 rounded-xl bg-rose-500/10 p-3 ring-1 ring-rose-400/20">
-                        <p class="text-xs text-rose-100">End this session?</p>
-                        <div class="flex gap-2">
-                            <button type="submit" class="flex-1 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-500">
-                                Confirm
-                            </button>
-                            <button type="button" class="flex-1 rounded-lg bg-white/5 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/10" @click="confirming = false">
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </form>
+                    <button
+                        type="button"
+                        class="rounded-lg p-2 text-slate-300 hover:bg-white/5 lg:hidden"
+                        @click="mobileOpen = false"
+                        aria-label="Close menu"
+                    >
+                        <x-icon name="close" class="h-5 w-5" />
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex min-h-0 flex-1 flex-col">
+                <x-sidebar-nav :groups="$navigationGroups ?? []" :user="auth()->user()" />
             </div>
         </aside>
 
-        {{-- Main column: header fixed, content scrolls --}}
+        {{-- Main column --}}
         <div class="flex min-h-0 min-w-0 flex-1 flex-col">
             <header class="no-print z-30 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
                 <div class="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 lg:px-6">
@@ -130,7 +118,7 @@
                         <button
                             type="button"
                             class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 lg:hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-                            @click="sidebarOpen = true"
+                            @click="mobileOpen = true"
                             aria-label="Open menu"
                         >
                             <x-icon name="menu" class="h-5 w-5" />

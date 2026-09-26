@@ -85,7 +85,7 @@
                 </table>
             </div>
         </div>
-        <div class="flex justify-between gap-3"><p class="text-xs text-slate-500">Showing {{ $leaves->firstItem() ?? 0 }}–{{ $leaves->lastItem() ?? 0 }} of {{ $leaves->total() }}</p><div>{{ $leaves->links() }}</div></div>
+        <x-table-pagination :paginator="$leaves" />
     @endif
 </div>
 @endsection

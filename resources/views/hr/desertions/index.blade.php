@@ -79,7 +79,7 @@
                 </table>
             </div>
         </div>
-        <div>{{ $desertions->links() }}</div>
+        <x-table-pagination :paginator="$desertions" />
     @endif
 </div>
 @endsection

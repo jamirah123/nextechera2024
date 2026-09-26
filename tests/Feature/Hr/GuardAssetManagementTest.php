@@ -229,7 +229,7 @@ class GuardAssetManagementTest extends TestCase
             'region_id' => $site->region_id,
             'shift_date' => $periodStart->toDateString(),
             'shift_type' => ShiftType::Normal,
-            'status' => ShiftStatus::Completed,
+            'status' => ShiftStatus::Recorded,
         ]);
 
         $this->actingAs(User::factory()->role(UserRole::HrManager)->create())

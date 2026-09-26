@@ -171,7 +171,7 @@ class RegionSupervisorAccessTest extends TestCase
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('Region Supervisor Dashboard', false)
-            ->assertSee('Deployments', false)
+            ->assertSee('Site Postings', false)
             ->assertSee('Absences', false)
             ->assertSee('Desertions', false);
     }

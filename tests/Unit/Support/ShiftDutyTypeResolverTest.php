@@ -26,6 +26,14 @@ class ShiftDutyTypeResolverTest extends TestCase
         );
     }
 
+    public function test_explicit_normal_cannot_downgrade_cross_period_work(): void
+    {
+        $this->assertSame(
+            ShiftType::Overtime,
+            ShiftDutyTypeResolver::resolve(DeploymentShiftType::Night, ShiftPeriod::Day, ShiftType::Normal),
+        );
+    }
+
     public function test_matching_posting_and_period_is_normal(): void
     {
         $this->assertSame(

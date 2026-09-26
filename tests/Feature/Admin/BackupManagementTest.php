@@ -85,6 +85,15 @@ class BackupManagementTest extends TestCase
         if (is_dir($this->backupRoot)) {
             $this->deleteTree($this->backupRoot);
         }
+
+        // These tests point SQLite at a file. Restore the suite default
+        // so later tests keep using the in-memory database.
+        putenv('DB_CONNECTION=sqlite');
+        putenv('DB_DATABASE=:memory:');
+        $_ENV['DB_CONNECTION'] = 'sqlite';
+        $_ENV['DB_DATABASE'] = ':memory:';
+        $_SERVER['DB_CONNECTION'] = 'sqlite';
+        $_SERVER['DB_DATABASE'] = ':memory:';
     }
 
     private function deleteTree(string $dir): void

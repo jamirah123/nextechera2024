@@ -170,6 +170,8 @@ class ProactiveAlertTest extends TestCase
             'ends_at' => now()->subHour(),
         ]);
 
+        config(['psg.shifts.require_attendance_to_complete' => true]);
+
         $this->artisan('psg:sync-shift-statuses')->assertSuccessful();
 
         Mail::assertQueued(WorkflowActionMail::class, fn (WorkflowActionMail $mail) => $mail->hasTo($ops->email));

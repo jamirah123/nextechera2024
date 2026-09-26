@@ -19,11 +19,27 @@ use App\Models\User;
 use App\Services\ManpowerGapService;
 use App\Services\ManpowerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class ManpowerGapOvertimeTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Night duties before dawn are stored on the previous calendar day.
+        Carbon::setTestNow('2026-09-26 14:00:00');
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     public function test_original_shortage_is_preserved_when_overtime_covers_gap(): void
     {

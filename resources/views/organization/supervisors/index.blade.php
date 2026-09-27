@@ -34,7 +34,6 @@
                 type="search"
                 :value="$filters['q'] ?? ''"
                 placeholder="Name, employment ID, phone"
-                help="Results update as you type"
                 class="lg:col-span-2"
                 autocomplete="off"
                 x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()"

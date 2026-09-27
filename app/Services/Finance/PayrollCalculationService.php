@@ -19,6 +19,7 @@ use App\Models\Shift;
 use App\Models\Staff;
 use App\Services\ArchiveService;
 use App\Services\AuditService;
+use App\Services\EmployeePromotionService;
 use App\Services\Reports\MonthlyShiftCalculationService;
 use App\Services\SystemSettingService;
 use App\Support\Finance\PayrollPayeCalculator;
@@ -83,6 +84,8 @@ class PayrollCalculationService
             throw new InvalidArgumentException('This payroll run cannot be calculated in its current status.');
         }
 
+        app(EmployeePromotionService::class)->applyDue();
+
         // Reload Platform Settings so PAYE brackets / NSSF rates match the admin dashboard.
         app(SystemSettingService::class)->flushCache();
         app(SystemSettingService::class)->applyRuntimeConfig();
@@ -115,9 +118,13 @@ class PayrollCalculationService
             $count = 0;
 
             foreach ($rows as $row) {
-                $guard = Guard::query()->find($row['guard_id']);
+                $guard = Guard::query()->with('salaryRevisions')->find($row['guard_id']);
 
                 if ($guard === null || $guard->isSalaryStaff()) {
+                    continue;
+                }
+
+                if (PayrollRates::effectiveShiftEnd($guard, $run)->lt($run->period_start->copy()->startOfDay())) {
                     continue;
                 }
 
@@ -312,6 +319,39 @@ class PayrollCalculationService
     /**
      * @param  array<string, mixed>  $row
      */
+    private function shiftGross(array $row, float $baseRate, float $overtimeRate): float
+    {
+        return round(
+            ((int) $row['normal_shifts'] * $baseRate)
+            + ((int) $row['overtime_shifts'] * $overtimeRate)
+            + ((int) $row['relief_shifts'] * $baseRate)
+            + ((int) $row['replacement_shifts'] * $baseRate)
+            + ((int) $row['special_duty_shifts'] * $baseRate),
+            2,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyShiftRow(Guard $guard): array
+    {
+        return [
+            'guard_id' => $guard->id,
+            'employment_id' => $guard->employment_id,
+            'full_name' => $guard->full_name,
+            'normal_shifts' => 0,
+            'overtime_shifts' => 0,
+            'relief_shifts' => 0,
+            'replacement_shifts' => 0,
+            'special_duty_shifts' => 0,
+            'total_shifts' => 0,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
     private function createShiftPayslip(PayrollRun $run, Guard $guard, array $row, string $start, string $end): PayrollPayslip
     {
         $windowStart = PayrollRates::effectiveShiftStart($guard, $run)->toDateString();
@@ -319,10 +359,10 @@ class PayrollCalculationService
 
         // Always recount payable shifts inside the employment-effective window for this period.
         // Do not assume calendar days in the month are payable — only recorded duties count.
-        if ($windowStart !== $start || $windowEnd !== $end) {
-            $from = max($start, $windowStart);
-            $to = min($end, $windowEnd);
+        $from = max($start, $windowStart);
+        $to = min($end, $windowEnd);
 
+        if ($windowStart !== $start || $windowEnd !== $end) {
             $row = $from <= $to
                 ? $this->shiftTotals->guardRowForPeriod($guard->id, $from, $to, $run)
                 : [
@@ -338,18 +378,54 @@ class PayrollCalculationService
                 ];
         }
 
-        $baseRate = PayrollRates::baseShiftRate($guard, $run);
-        $overtimeRate = PayrollRates::overtimeShiftRate($guard, $run);
+        $guard->loadMissing('salaryRevisions');
+        $segments = $from <= $to
+            ? PayrollRates::segments($guard, Carbon::parse($from), Carbon::parse($to))
+            : [];
 
-        // Gross = Σ(payable shift counts × configured per-shift rates). Missed/scheduled do not pay.
-        $gross = round(
-            ((int) $row['normal_shifts'] * $baseRate)
-            + ((int) $row['overtime_shifts'] * $overtimeRate)
-            + ((int) $row['relief_shifts'] * $baseRate)
-            + ((int) $row['replacement_shifts'] * $baseRate)
-            + ((int) $row['special_duty_shifts'] * $baseRate),
-            2,
-        );
+        $breakdown = null;
+
+        if (count($segments) <= 1) {
+            $monthly = $segments[0]['monthly'] ?? PayrollRates::monthlyGross($guard);
+            $baseRate = PayrollRates::dailyRateFromMonthly($monthly, $run);
+            $overtimeRate = PayrollRates::salaryOvertimeShiftRate($monthly, $guard, $run);
+            $gross = $this->shiftGross($row, $baseRate, $overtimeRate);
+        } else {
+            $gross = 0.0;
+            $baseRate = 0.0;
+            $overtimeRate = 0.0;
+            $row = $this->emptyShiftRow($guard);
+            $breakdown = [];
+
+            foreach ($segments as $segment) {
+                $part = $this->shiftTotals->guardRowForPeriod($guard->id, $segment['from'], $segment['to'], $run);
+                $partBase = PayrollRates::dailyRateFromMonthly((float) $segment['monthly'], $run);
+                $partOvertime = PayrollRates::salaryOvertimeShiftRate((float) $segment['monthly'], $guard, $run);
+                $partGross = $this->shiftGross($part, $partBase, $partOvertime);
+                $gross += $partGross;
+                $baseRate = $partBase;
+                $overtimeRate = $partOvertime;
+                $row['normal_shifts'] += (int) $part['normal_shifts'];
+                $row['overtime_shifts'] += (int) $part['overtime_shifts'];
+                $row['relief_shifts'] += (int) $part['relief_shifts'];
+                $row['replacement_shifts'] += (int) $part['replacement_shifts'];
+                $row['special_duty_shifts'] += (int) $part['special_duty_shifts'];
+                $row['total_shifts'] += (int) $part['total_shifts'];
+                $breakdown[] = [
+                    'from' => $segment['from'],
+                    'to' => $segment['to'],
+                    'monthly_gross' => (float) $segment['monthly'],
+                    'per_shift_rate' => $partBase,
+                    'overtime_rate' => $partOvertime,
+                    'normal_shifts' => (int) $part['normal_shifts'],
+                    'overtime_shifts' => (int) $part['overtime_shifts'],
+                    'other_shifts' => (int) $part['relief_shifts'] + (int) $part['replacement_shifts'] + (int) $part['special_duty_shifts'],
+                    'amount' => $partGross,
+                ];
+            }
+
+            $gross = round($gross, 2);
+        }
 
         $payslip = PayrollPayslip::query()->create([
             'payroll_run_id' => $run->id,
@@ -365,6 +441,7 @@ class PayrollCalculationService
             'total_shifts' => $row['total_shifts'],
             'base_shift_rate' => $baseRate,
             'overtime_shift_rate' => $overtimeRate,
+            'salary_breakdown' => $breakdown,
             'gross_pay' => $gross,
             'bank_name' => $guard->bank_name,
             'bank_account' => $guard->bank_account,
@@ -388,10 +465,36 @@ class PayrollCalculationService
 
     private function createSalaryGuardPayslip(PayrollRun $run, Guard $guard): PayrollPayslip
     {
-        $monthlyGross = PayrollRates::monthlyGross($guard);
+        $guard->loadMissing('salaryRevisions');
+        $segments = PayrollRates::employmentSegments($guard, $run);
+        $monthlyGross = $segments === []
+            ? PayrollRates::monthlyGross($guard)
+            : (float) $segments[array_key_last($segments)]['monthly'];
         $salaryGross = PayrollRates::fixedPeriodGross($guard, $run);
-        $overtime = $this->salaryOvertimeEarnings($guard, $monthlyGross, $run);
+        $overtime = $this->salaryOvertimeEarnings($guard, $run);
         $gross = round($salaryGross + $overtime['pay'], 2);
+        $breakdown = null;
+
+        if (count($segments) > 1) {
+            $breakdown = [];
+
+            foreach ($segments as $segment) {
+                $otCount = $this->overtimeShiftCountForGuard($guard->id, $segment['from'], $segment['to'], $run);
+                $otRate = PayrollRates::salaryOvertimeShiftRate((float) $segment['monthly'], $guard, $run);
+                $otPay = round($otCount * $otRate, 2);
+                $breakdown[] = [
+                    'from' => $segment['from'],
+                    'to' => $segment['to'],
+                    'monthly_gross' => (float) $segment['monthly'],
+                    'days' => (int) $segment['days'],
+                    'salary_amount' => (float) $segment['amount'],
+                    'overtime_shifts' => $otCount,
+                    'overtime_rate' => $otRate,
+                    'overtime_amount' => $otPay,
+                    'amount' => round((float) $segment['amount'] + $otPay, 2),
+                ];
+            }
+        }
 
         $payslip = PayrollPayslip::query()->create([
             'payroll_run_id' => $run->id,
@@ -407,6 +510,7 @@ class PayrollCalculationService
             'total_shifts' => $overtime['count'],
             'base_shift_rate' => $monthlyGross,
             'overtime_shift_rate' => $overtime['rate'],
+            'salary_breakdown' => $breakdown,
             'gross_pay' => $gross,
             'bank_name' => $guard->bank_name,
             'bank_account' => $guard->bank_account,
@@ -434,15 +538,65 @@ class PayrollCalculationService
 
     private function createStaffPayslip(PayrollRun $run, Staff $member): PayrollPayslip
     {
-        $member->loadMissing(['supervisorProfile.guardProfile']);
+        $member->loadMissing(['supervisorProfile.guardProfile', 'salaryRevisions']);
 
-        $monthlyGross = PayrollRates::staffMonthlyGross($member);
+        $segments = PayrollRates::staffEmploymentSegments($member, $run);
+        $monthlyGross = $segments === []
+            ? PayrollRates::staffMonthlyGross($member)
+            : (float) $segments[array_key_last($segments)]['monthly'];
         $salaryGross = PayrollRates::staffPeriodGross($member, $run);
 
         $coverGuard = $member->supervisorProfile?->guardProfile;
-        $overtime = $coverGuard !== null
-            ? $this->salaryOvertimeEarnings($coverGuard, $monthlyGross, $run)
-            : ['count' => 0, 'rate' => 0.0, 'pay' => 0.0];
+        $overtime = ['count' => 0, 'rate' => 0.0, 'pay' => 0.0];
+        $breakdown = null;
+
+        if (count($segments) > 1) {
+            $breakdown = [];
+            $windowStart = $coverGuard !== null ? $run->period_start->copy()->startOfDay()->toDateString() : null;
+            $windowEnd = $coverGuard !== null
+                ? PayrollRates::effectiveShiftEnd($coverGuard, $run)->toDateString()
+                : null;
+
+            foreach ($segments as $segment) {
+                $otCount = 0;
+                $otRate = 0.0;
+                $otPay = 0.0;
+
+                if ($coverGuard !== null && $windowStart !== null && $windowEnd !== null) {
+                    $from = max($segment['from'], $windowStart);
+                    $to = min($segment['to'], $windowEnd);
+
+                    if ($from <= $to) {
+                        $otCount = $this->overtimeShiftCountForGuard($coverGuard->id, $from, $to, $run);
+                        $otRate = PayrollRates::salaryOvertimeShiftRate((float) $segment['monthly'], $coverGuard, $run);
+                        $otPay = $otCount > 0 && $otRate > 0 ? round($otCount * $otRate, 2) : 0.0;
+                    }
+                }
+
+                $overtime['count'] += $otCount;
+                $overtime['pay'] += $otPay;
+
+                if ($otRate > 0) {
+                    $overtime['rate'] = $otRate;
+                }
+
+                $breakdown[] = [
+                    'from' => $segment['from'],
+                    'to' => $segment['to'],
+                    'monthly_gross' => (float) $segment['monthly'],
+                    'days' => (int) $segment['days'],
+                    'salary_amount' => (float) $segment['amount'],
+                    'overtime_shifts' => $otCount,
+                    'overtime_rate' => $otRate,
+                    'overtime_amount' => $otPay,
+                    'amount' => round((float) $segment['amount'] + $otPay, 2),
+                ];
+            }
+
+            $overtime['pay'] = round($overtime['pay'], 2);
+        } elseif ($coverGuard !== null) {
+            $overtime = $this->salaryOvertimeEarnings($coverGuard, $run, $monthlyGross);
+        }
 
         $gross = round($salaryGross + $overtime['pay'], 2);
 
@@ -460,6 +614,7 @@ class PayrollCalculationService
             'total_shifts' => $overtime['count'],
             'base_shift_rate' => $monthlyGross,
             'overtime_shift_rate' => $overtime['rate'],
+            'salary_breakdown' => $breakdown,
             'gross_pay' => $gross,
             'bank_name' => $member->bank_name,
             'bank_account' => $member->bank_account,
@@ -488,30 +643,51 @@ class PayrollCalculationService
     /**
      * @return array{count: int, rate: float, pay: float}
      */
-    private function salaryOvertimeEarnings(Guard $guard, float $monthlyGross, PayrollRun $run): array
+    private function salaryOvertimeEarnings(Guard $guard, PayrollRun $run, ?float $fixedMonthly = null): array
     {
-        $end = PayrollRates::effectiveShiftEnd($guard, $run)->toDateString();
-        $count = $this->overtimeShiftCountForGuard(
-            $guard->id,
-            $run->period_start->toDateString(),
-            $end,
-            $run,
-        );
+        $start = $run->period_start->copy()->startOfDay();
+        $end = PayrollRates::effectiveShiftEnd($guard, $run)->startOfDay();
 
-        if ($count <= 0) {
+        if ($start->greaterThan($end)) {
             return ['count' => 0, 'rate' => 0.0, 'pay' => 0.0];
         }
 
-        $rate = PayrollRates::salaryOvertimeShiftRate($monthlyGross, $guard, $run);
+        if ($fixedMonthly !== null) {
+            $count = $this->overtimeShiftCountForGuard(
+                $guard->id,
+                $start->toDateString(),
+                $end->toDateString(),
+                $run,
+            );
+            $rate = PayrollRates::salaryOvertimeShiftRate($fixedMonthly, $guard, $run);
 
-        if ($rate <= 0) {
-            return ['count' => $count, 'rate' => 0.0, 'pay' => 0.0];
+            return [
+                'count' => $count,
+                'rate' => $rate,
+                'pay' => $count > 0 && $rate > 0 ? round($count * $rate, 2) : 0.0,
+            ];
+        }
+
+        $guard->loadMissing('salaryRevisions');
+        $segments = PayrollRates::segments($guard, $start, $end);
+        $count = 0;
+        $pay = 0.0;
+        $rate = 0.0;
+
+        foreach ($segments as $segment) {
+            $part = $this->overtimeShiftCountForGuard($guard->id, $segment['from'], $segment['to'], $run);
+            $partRate = PayrollRates::salaryOvertimeShiftRate((float) $segment['monthly'], $guard, $run);
+            $count += $part;
+            $pay += $part > 0 && $partRate > 0 ? round($part * $partRate, 2) : 0.0;
+            if ($partRate > 0) {
+                $rate = $partRate;
+            }
         }
 
         return [
             'count' => $count,
             'rate' => $rate,
-            'pay' => round($count * $rate, 2),
+            'pay' => round($pay, 2),
         ];
     }
 
@@ -535,6 +711,7 @@ class PayrollCalculationService
         }
 
         return Staff::query()
+            ->with('salaryRevisions')
             ->employedDuringPeriod($run->period_start, $run->period_end)
             ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
             ->orderBy('employment_id')
@@ -563,9 +740,11 @@ class PayrollCalculationService
     private function salaryGuardsForRun(PayrollRun $run): Collection
     {
         return Guard::query()
+            ->with('salaryRevisions')
             ->onSalaryPay()
             // Supervisors are paid via their staff payslip (fixed salary + optional overtime).
             ->whereDoesntHave('supervisorProfile')
+            ->whereDoesntHave('linkedStaff')
             ->employedDuringPeriod($run->period_start, $run->period_end)
             ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
             ->when($run->site_id, fn ($q) => $q->where('current_site_id', $run->site_id))

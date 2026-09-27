@@ -32,12 +32,16 @@ use App\Http\Controllers\Finance\ProfitabilityController;
 use App\Http\Controllers\Finance\StaffAdvanceController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\Guards\GuardController;
+use App\Http\Controllers\Guards\GuardSalaryRevisionController;
 use App\Http\Controllers\Hr\AbsenceController;
 use App\Http\Controllers\Hr\AttendanceController;
 use App\Http\Controllers\Hr\DesertionController;
 use App\Http\Controllers\Hr\GuardAssetController;
 use App\Http\Controllers\Hr\LeaveController;
+use App\Http\Controllers\Hr\EmployeePromotionController;
+use App\Http\Controllers\Hr\PositionController;
 use App\Http\Controllers\Hr\StaffController;
+use App\Http\Controllers\Hr\StaffSalaryRevisionController;
 use App\Http\Controllers\NavigationBadgeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Operations\IncidentController;
@@ -99,12 +103,21 @@ Route::middleware('auth')->group(function () {
     Route::resource('regions', RegionController::class);
     Route::resource('supervisors', SupervisorController::class);
     Route::get('/supervisors/{supervisor}/deploy', [SupervisorController::class, 'deployForm'])->name('supervisors.deploy');
+    Route::post('/supervisors/{supervisor}/region-transfers', [SupervisorController::class, 'transfer'])
+        ->middleware('throttle:mutations')
+        ->name('supervisors.region-transfers.store');
     Route::post('/supervisors/{supervisor}/deploy', [SupervisorController::class, 'deploy'])
         ->middleware('throttle:mutations')
         ->name('supervisors.deploy.store');
     Route::resource('clients', ClientController::class);
     Route::resource('sites', SiteController::class);
     Route::resource('guards', GuardController::class);
+    Route::post('/guards/{guard}/promotions', [EmployeePromotionController::class, 'store'])
+        ->middleware('throttle:mutations')
+        ->name('guards.promotions.store');
+    Route::post('/guards/{guard}/salary-revisions', [GuardSalaryRevisionController::class, 'store'])
+        ->middleware('throttle:mutations')
+        ->name('guards.salary-revisions.store');
     Route::get('/guards/{guard}/attachments/{attachment}', [GuardController::class, 'showAttachment'])->name('guards.attachments.show');
     Route::get('/guards/{guard}/attachments/{attachment}/stream', [GuardController::class, 'streamAttachment'])->name('guards.attachments.stream');
     Route::get('/guards/{guard}/attachments/{attachment}/download', [GuardController::class, 'downloadAttachment'])->name('guards.attachments.download');
@@ -112,7 +125,13 @@ Route::middleware('auth')->group(function () {
     Route::patch('/guards/{guard}/attachments/{attachment}', [GuardController::class, 'updateAttachment'])->name('guards.attachments.update');
     Route::delete('/guards/{guard}/attachments/{attachment}', [GuardController::class, 'destroyAttachment'])->name('guards.attachments.destroy');
 
+    Route::get('/positions', [PositionController::class, 'index'])->name('positions.index');
+    Route::post('/positions', [PositionController::class, 'store'])->middleware('throttle:mutations')->name('positions.store');
+    Route::put('/positions/{position}', [PositionController::class, 'update'])->middleware('throttle:mutations')->name('positions.update');
     Route::resource('staff', StaffController::class);
+    Route::post('/staff/{staff}/salary-revisions', [StaffSalaryRevisionController::class, 'store'])
+        ->middleware('throttle:mutations')
+        ->name('staff.salary-revisions.store');
     Route::post('/staff/{staff}/advances', [StaffAdvanceController::class, 'store'])->name('staff.advances.store');
     Route::post('/staff/{staff}/advances/{advance}/write-off', [StaffAdvanceController::class, 'writeOff'])->name('staff.advances.write-off');
 

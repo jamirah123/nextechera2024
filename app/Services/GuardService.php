@@ -8,6 +8,7 @@ use App\Enums\OperationalStatus;
 use App\Models\Guard;
 use App\Models\GuardStatusHistory;
 use App\Services\Hr\EmploymentIdService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -69,6 +70,18 @@ class GuardService
                 'Initial operational status set.',
             );
 
+            $openingSalary = (float) ($guard->base_shift_rate ?? 0);
+
+            if ($openingSalary > 0) {
+                app(GuardSalaryService::class)->recordOpening(
+                    $guard,
+                    $openingSalary,
+                    $guard->date_employed ?? Carbon::parse($data['date_employed'] ?? now()->toDateString()),
+                    Auth::user(),
+                    'Opening salary recorded when the guard was registered.',
+                );
+            }
+
             return $guard;
         });
     }
@@ -93,6 +106,10 @@ class GuardService
                         unset($data['employment_id']);
                     }
                 }
+            }
+
+            if (array_key_exists('base_shift_rate', $data) && $guard->salaryRevisions()->exists()) {
+                unset($data['base_shift_rate']);
             }
 
             if (isset($data['first_name']) || isset($data['middle_name']) || isset($data['last_name'])) {

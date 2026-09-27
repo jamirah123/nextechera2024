@@ -91,8 +91,13 @@
                 <dd class="mt-0.5 text-xs font-medium text-slate-900">{{ optional($guard->date_employed)->format('d M Y') ?: '—' }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2">
-                <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Monthly gross</dt>
-                <dd class="mt-0.5 text-xs font-medium text-slate-900">{{ \App\Support\Money::format($guard->base_shift_rate) }}</dd>
+                <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Current salary</dt>
+                <dd class="mt-0.5 text-xs font-medium text-slate-900">
+                    {{ \App\Support\Money::format($currentSalary ?? $guard->base_shift_rate) }}
+                    @if ($currentRevision ?? null)
+                        <span class="block text-[10px] font-normal text-slate-500">From {{ $currentRevision->effective_from->format('d M Y') }}</span>
+                    @endif
+                </dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2 sm:border-r">
                 <dt class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">Current site</dt>
@@ -218,6 +223,15 @@
             </ul>
         @endif
     </section>
+
+    @include('guards.partials.promotion', ['guard' => $guard])
+
+    @include('guards.partials.salary-history', [
+        'guard' => $guard,
+        'currentSalary' => $currentSalary ?? $guard->base_shift_rate,
+        'currentRevision' => $currentRevision ?? null,
+        'canManageSalary' => $canManageSalary ?? false,
+    ])
 
     @include('guards.partials.salary-advances', ['guard' => $guard, 'canManageFinance' => $canManageFinance ?? false])
 

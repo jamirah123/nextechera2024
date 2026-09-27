@@ -7,11 +7,15 @@ use App\Enums\CompensationType;
 use App\Enums\DeploymentShiftType;
 use App\Enums\LeaveType;
 use App\Enums\PayrollRunStatus;
+use App\Enums\SalaryChangeReason;
+use App\Enums\StaffSalaryChangeType;
+use App\Enums\UserRole;
 use App\Models\BillingProfile;
 use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Invoice;
 use App\Models\Leave;
+use App\Models\PayrollPayslip;
 use App\Models\PayrollRun;
 use App\Models\Shift;
 use App\Models\Site;
@@ -20,9 +24,11 @@ use App\Models\User;
 use App\Services\AbsenceService;
 use App\Services\DeploymentService;
 use App\Services\Finance\PayrollRunService;
+use App\Services\GuardSalaryService;
 use App\Services\GuardService;
 use App\Services\LeaveService;
 use App\Services\Operations\OperationalPeriodService;
+use App\Services\StaffSalaryService;
 use App\Services\StaffService;
 use App\Services\SystemSettingService;
 use Carbon\Carbon;
@@ -87,6 +93,8 @@ class RealisticOpsSeeder extends Seeder
         $this->ensurePayrollDefaults();
         $this->ensureGuardCompensation();
         $this->backdateEmploymentDates();
+        $this->seedSalaryHistory();
+        $this->seedStaffSalaryHistory();
         $this->rebuildPostingHistory();
         $this->seedAbsences();
         $this->seedCompletedLeave();
@@ -181,6 +189,304 @@ class RealisticOpsSeeder extends Seeder
             });
 
         $this->command?->info("Guard compensation ensured ({$updated} shift guards updated).");
+    }
+
+    /**
+     * Effective-dated salaries for shift guards. Payroll later in this seeder
+     * reads these rows through PayrollRates and PayrollCalculationService.
+     */
+    private function seedSalaryHistory(): void
+    {
+        $salaries = app(GuardSalaryService::class);
+        $actor = User::query()->where('email', 'hr@platinumsecurity.local')->first()
+            ?? User::query()->where('role', UserRole::HrManager)->first()
+            ?? Auth::user();
+
+        $levels = [150000, 170000, 180000, 200000, 220000, 250000];
+        $written = 0;
+        $index = 0;
+
+        Guard::query()
+            ->whereDoesntHave('supervisorProfile')
+            ->orderBy('employment_id')
+            ->each(function (Guard $guard) use ($salaries, $actor, $levels, &$written, &$index): void {
+                $revisionCount = $guard->salaryRevisions()->count();
+                $hasPayslips = PayrollPayslip::query()->where('guard_id', $guard->id)->exists();
+
+                if ($revisionCount > 1 || ($revisionCount === 1 && $hasPayslips)) {
+                    return;
+                }
+
+                if ($revisionCount === 1) {
+                    $guard->salaryRevisions()->delete();
+                }
+
+                if ($guard->employment_id === 'PSG0001') {
+                    $salaries->recordOpening($guard, 1700000, Carbon::parse('2025-01-01'), $actor, 'Opening monthly gross.');
+                    $salaries->increment($guard, 180000, Carbon::parse('2025-07-01'), SalaryChangeReason::LengthOfService, $actor, 'Length of service review.');
+                    $salaries->increment($guard, 200000, Carbon::parse('2026-07-01'), SalaryChangeReason::LengthOfService, $actor, 'Length of service increment.');
+                    $written++;
+
+                    return;
+                }
+
+                $opening = $levels[$index % count($levels)];
+                $employed = $guard->date_employed?->copy()->startOfDay() ?? Carbon::parse('2025-01-01');
+
+                if ($employed->greaterThan(Carbon::parse('2025-07-01'))) {
+                    $employed = Carbon::parse('2025-07-01');
+                }
+
+                $salaries->recordOpening($guard, $opening, $employed, $actor, 'Opening monthly gross.');
+
+                if ($index % 5 === 1) {
+                    $salaries->increment(
+                        $guard->fresh(),
+                        $opening + 10000,
+                        Carbon::parse('2026-03-15'),
+                        SalaryChangeReason::LengthOfService,
+                        $actor,
+                        'Length of service increment.',
+                    );
+                } elseif ($index % 5 === 2) {
+                    $salaries->increment(
+                        $guard->fresh(),
+                        $opening + 20000,
+                        Carbon::parse('2026-07-01'),
+                        SalaryChangeReason::Promotion,
+                        $actor,
+                        'Promotion increment.',
+                    );
+                } elseif ($index % 5 === 3) {
+                    $salaries->increment(
+                        $guard->fresh(),
+                        $opening + 10000,
+                        Carbon::parse('2026-02-01'),
+                        SalaryChangeReason::Performance,
+                        $actor,
+                        'Performance review.',
+                    );
+                    $salaries->increment(
+                        $guard->fresh(),
+                        $opening + 25000,
+                        Carbon::parse('2026-08-01'),
+                        SalaryChangeReason::ContractChange,
+                        $actor,
+                        'Contract change.',
+                    );
+                }
+
+                $index++;
+                $written++;
+            });
+
+        $this->command?->info("Salary history recorded for {$written} guards.");
+    }
+
+    /**
+     * Effective-dated staff and supervisor salaries. Payroll generation later
+     * in this seeder reads these rows through PayrollCalculationService.
+     */
+    private function seedStaffSalaryHistory(): void
+    {
+        $salaries = app(StaffSalaryService::class);
+        $actor = User::query()->where('email', 'hr@platinumsecurity.local')->first()
+            ?? User::query()->where('role', UserRole::HrManager)->first()
+            ?? Auth::user();
+
+        $story = $this->staffSalaryStorySubject();
+        $demotion = Staff::query()
+            ->when($story, fn ($query) => $query->whereKeyNot($story->id))
+            ->whereHas('supervisorProfile')
+            ->orderBy('id')
+            ->first()
+            ?? Staff::query()
+                ->when($story, fn ($query) => $query->whereKeyNot($story->id))
+                ->orderBy('id')
+                ->skip(1)
+                ->first();
+
+        $written = 0;
+        $index = 0;
+
+        Staff::query()->orderBy('employment_id')->each(function (Staff $member) use ($salaries, $actor, $story, $demotion, &$written, &$index): void {
+            $revisionCount = $member->salaryRevisions()->count();
+            $hasPayslips = PayrollPayslip::query()->where('staff_id', $member->id)->exists();
+
+            if ($revisionCount > 1 || ($revisionCount === 1 && $hasPayslips)) {
+                return;
+            }
+
+            if ($revisionCount === 1) {
+                $member->salaryRevisions()->delete();
+                $member->unsetRelation('salaryRevisions');
+            }
+
+            $member = $member->fresh();
+            $openingOn = $member->date_employed?->copy()->startOfDay() ?? Carbon::parse('2025-01-01');
+
+            if ($openingOn->greaterThan(Carbon::parse('2025-07-01'))) {
+                $openingOn = Carbon::parse('2025-07-01');
+                $member->update(['date_employed' => $openingOn->toDateString()]);
+            }
+
+            if ($story !== null && $member->id === $story->id) {
+                $member->update(['date_employed' => '2025-01-01']);
+                $salaries->recordOpening($member, 800000, Carbon::parse('2025-01-01'), $actor, 'Security Officer', 'G2', 'Opening salary.');
+                $salaries->change(
+                    $member->fresh(),
+                    1200000,
+                    Carbon::parse('2026-07-01'),
+                    StaffSalaryChangeType::Promotion,
+                    'Promotion approved by HR Manager',
+                    $actor,
+                    'Operations Supervisor',
+                    'G4',
+                    'Promoted from Security Officer.',
+                );
+                $written++;
+
+                return;
+            }
+
+            if ($demotion !== null && $member->id === $demotion->id) {
+                $salaries->recordOpening($member, 1200000, $openingOn, $actor, $member->job_title ?: 'Operations Supervisor', 'G4');
+                $salaries->change(
+                    $member->fresh(),
+                    1000000,
+                    Carbon::parse('2026-09-01'),
+                    StaffSalaryChangeType::Demotion,
+                    'Approved management decision',
+                    $actor,
+                    $member->job_title ?: 'Operations Supervisor',
+                    'G3',
+                    'Salary reduced after an approved management decision.',
+                );
+                $written++;
+
+                return;
+            }
+
+            $opening = (float) $member->monthly_salary;
+            if ($opening <= 0) {
+                $opening = 750000;
+            }
+
+            if ($member->supervisorProfile()->exists() && $opening < 1000000) {
+                $opening = 1200000;
+            }
+
+            $title = $member->job_title ?: 'Staff';
+            $bucket = $index % 6;
+            $index++;
+
+            $salaries->recordOpening($member, $opening, $openingOn, $actor, $title, $member->job_grade);
+
+            if ($bucket === 0) {
+                $written++;
+
+                return;
+            }
+
+            if ($bucket === 1) {
+                $salaries->change(
+                    $member->fresh(),
+                    $opening + 150000,
+                    Carbon::parse('2026-06-01'),
+                    StaffSalaryChangeType::Promotion,
+                    'Promotion with salary increase',
+                    $actor,
+                    'Senior '.$title,
+                    'G3',
+                );
+            } elseif ($bucket === 2) {
+                $salaries->change(
+                    $member->fresh(),
+                    $opening,
+                    Carbon::parse('2026-05-01'),
+                    StaffSalaryChangeType::Promotion,
+                    'Promotion with no salary change',
+                    $actor,
+                    'Senior '.$title,
+                    $member->job_grade,
+                );
+            } elseif ($bucket === 3) {
+                $salaries->change(
+                    $member->fresh(),
+                    max(0, $opening - 50000),
+                    Carbon::parse('2026-04-01'),
+                    StaffSalaryChangeType::Reduction,
+                    'Annual salary review',
+                    $actor,
+                    $title,
+                    $member->job_grade,
+                );
+            } elseif ($bucket === 4) {
+                $salaries->change(
+                    $member->fresh(),
+                    $opening + 40000,
+                    Carbon::parse('2026-03-15'),
+                    StaffSalaryChangeType::Increment,
+                    'Salary increment',
+                    $actor,
+                    $title,
+                    $member->job_grade,
+                );
+            } else {
+                $salaries->change(
+                    $member->fresh(),
+                    $opening + 20000,
+                    Carbon::parse('2026-02-01'),
+                    StaffSalaryChangeType::Increment,
+                    'Salary increment',
+                    $actor,
+                    $title,
+                    $member->job_grade,
+                );
+                $salaries->change(
+                    $member->fresh(),
+                    $opening + 60000,
+                    Carbon::parse('2026-08-01'),
+                    StaffSalaryChangeType::Other,
+                    'Management-approved salary adjustment',
+                    $actor,
+                    $title,
+                    $member->job_grade,
+                    'Second change in the same year.',
+                );
+            }
+
+            $written++;
+        });
+
+        $this->command?->info("Salary history recorded for {$written} staff.");
+    }
+
+    private function staffSalaryStorySubject(): ?Staff
+    {
+        $existing = Staff::query()->where('employment_id', 'PSG015')->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $candidate = Staff::query()
+            ->whereDoesntHave('supervisorProfile')
+            ->orderBy('id')
+            ->first();
+
+        if ($candidate === null) {
+            return null;
+        }
+
+        $taken = Staff::query()->where('employment_id', 'PSG015')->exists()
+            || Guard::query()->where('employment_id', 'PSG015')->exists();
+
+        if (! $taken) {
+            $candidate->update(['employment_id' => 'PSG015']);
+        }
+
+        return $candidate->fresh();
     }
 
     private function ensureOperationalPeriodsOpen(): void

@@ -7,6 +7,7 @@ use App\Enums\EmployeeType;
 use App\Enums\EmploymentStatus;
 use App\Models\Staff;
 use App\Services\Hr\EmploymentIdService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -79,6 +80,17 @@ class StaffService
                 ]);
             }
 
+            if ((float) $staff->monthly_salary > 0) {
+                app(StaffSalaryService::class)->recordOpening(
+                    $staff,
+                    (float) $staff->monthly_salary,
+                    $staff->date_employed ?? Carbon::today(),
+                    Auth::user(),
+                    $staff->job_title,
+                    $staff->job_grade,
+                );
+            }
+
             return $staff->fresh(['supervisorProfile.guardProfile']);
         });
     }
@@ -114,6 +126,10 @@ class StaffService
                     array_key_exists('middle_name', $data) ? $data['middle_name'] : $staff->middle_name,
                     $data['last_name'] ?? $staff->last_name,
                 );
+            }
+
+            if ($staff->salaryRevisions()->exists()) {
+                unset($data['monthly_salary'], $data['job_title'], $data['job_grade']);
             }
 
             $staff->update($data);

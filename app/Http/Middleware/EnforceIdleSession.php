@@ -56,13 +56,13 @@ class EnforceIdleSession
 
         if ($request->expectsJson()) {
             return response()->json([
-                'message' => 'Session expired due to inactivity.',
+                'message' => 'Your session expired after a period of inactivity. Please sign in again.',
                 'redirect' => route('login'),
             ], 401);
         }
 
         return redirect()
             ->route('login')
-            ->with('status', 'You were signed out because your session was inactive.');
+            ->with('error', 'Your session expired after a period of inactivity. Please sign in again.');
     }
 }

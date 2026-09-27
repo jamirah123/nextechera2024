@@ -72,6 +72,13 @@
                 </x-form-group>
 
                 <x-form-group title="Payroll & banking">
+                    @if ($staff->salaryRevisions()->exists())
+                        <div class="sm:col-span-2 text-xs text-slate-600">
+                            Current salary {{ \App\Support\Money::format($staff->monthly_salary) }}.
+                            Record a promotion, demotion, or other salary change on the
+                            <a href="{{ route('staff.show', $staff) }}" class="font-semibold text-brand-700 hover:text-brand-800">staff profile</a>.
+                        </div>
+                    @else
                     <x-form-field
                         label="Monthly salary ({{ config('psg.currency') }})"
                         name="monthly_salary"
@@ -81,8 +88,9 @@
                         :value="old('monthly_salary', $staff->monthly_salary)"
                         :required="true"
                         class="sm:col-span-2"
-                        help="Fixed monthly gross before deductions. Pro-rated by calendar days when hired or leaving mid-month."
+                        help="Opening monthly gross. Later changes are recorded on the staff profile."
                     />
+                    @endif
                     <x-form-field label="Bank name" name="bank_name" :value="old('bank_name', $staff->bank_name)" />
                     <x-form-field label="Bank account" name="bank_account" :value="old('bank_account', $staff->bank_account)" />
                     <x-form-field label="NSSF number" name="nssf_number" :value="old('nssf_number', $staff->nssf_number)" />

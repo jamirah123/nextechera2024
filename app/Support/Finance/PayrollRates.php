@@ -3,9 +3,13 @@
 namespace App\Support\Finance;
 
 use App\Models\Guard;
+use App\Models\GuardSalaryRevision;
 use App\Models\PayrollRun;
 use App\Models\Staff;
+use App\Models\StaffSalaryRevision;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 
 class PayrollRates
 {
@@ -98,22 +102,167 @@ class PayrollRates
         return round($daily * (float) config('psg.payroll.overtime_multiplier', 1.5), 2);
     }
 
-    /** Fixed monthly gross pro-rated for mid-period joiners and leavers (calendar employment window). */
+    /**
+     * Monthly gross in force on a date.
+     * Guards without salary history keep using guards.base_shift_rate (or the company default).
+     */
+    public static function salaryOn(Guard $guard, CarbonInterface $date): float
+    {
+        return self::salaryFromRevisions(self::loadedRevisions($guard), $date, $guard);
+    }
+
+    /**
+     * Non-overlapping salary slices covering the inclusive date window.
+     *
+     * @return list<array{from: string, to: string, monthly: float}>
+     */
+    public static function segments(Guard $guard, CarbonInterface $start, CarbonInterface $end): array
+    {
+        $start = $start->copy()->startOfDay();
+        $end = $end->copy()->startOfDay();
+
+        if ($start->greaterThan($end)) {
+            return [];
+        }
+
+        $revisions = self::loadedRevisions($guard);
+
+        if ($revisions->isEmpty()) {
+            return [[
+                'from' => $start->toDateString(),
+                'to' => $end->toDateString(),
+                'monthly' => self::monthlyGross($guard),
+            ]];
+        }
+
+        $points = collect([$start]);
+
+        foreach ($revisions as $revision) {
+            $from = $revision->effective_from->copy()->startOfDay();
+
+            if ($from->greaterThan($start) && $from->lessThanOrEqualTo($end)) {
+                $points->push($from);
+            }
+        }
+
+        $points = $points
+            ->unique(fn (CarbonInterface $day) => $day->toDateString())
+            ->sortBy(fn (CarbonInterface $day) => $day->toDateString())
+            ->values();
+
+        $segments = [];
+
+        foreach ($points as $index => $point) {
+            $segStart = $point->copy()->startOfDay();
+            $segEnd = isset($points[$index + 1])
+                ? $points[$index + 1]->copy()->startOfDay()->subDay()
+                : $end->copy();
+
+            if ($segEnd->greaterThan($end)) {
+                $segEnd = $end->copy();
+            }
+
+            if ($segStart->greaterThan($segEnd)) {
+                continue;
+            }
+
+            $segments[] = [
+                'from' => $segStart->toDateString(),
+                'to' => $segEnd->toDateString(),
+                'monthly' => self::salaryFromRevisions($revisions, $segStart, $guard),
+            ];
+        }
+
+        return $segments;
+    }
+
+    /**
+     * Employment-clipped salary slices for a payroll run, with calendar-day proration.
+     *
+     * @return list<array{from: string, to: string, monthly: float, days: int, amount: float}>
+     */
+    public static function employmentSegments(Guard $guard, PayrollRun $run): array
+    {
+        $start = self::effectiveShiftStart($guard, $run);
+        $end = self::effectiveShiftEnd($guard, $run);
+
+        if ($start->greaterThan($end)) {
+            return [];
+        }
+
+        $calendar = self::calendarDays($run);
+        $segments = self::segments($guard, $start, $end);
+
+        foreach ($segments as &$segment) {
+            $from = Carbon::parse($segment['from'])->startOfDay();
+            $to = Carbon::parse($segment['to'])->startOfDay();
+            $days = (int) $from->diffInDays($to) + 1;
+            $segment['days'] = $days;
+            $segment['amount'] = round(((float) $segment['monthly']) * ($days / $calendar), 2);
+        }
+        unset($segment);
+
+        return $segments;
+    }
+
+    /** Fixed monthly gross pro-rated for mid-period joiners, leavers, and mid-period salary changes. */
     public static function fixedPeriodGross(Guard $guard, PayrollRun $run): float
     {
-        $monthly = self::monthlyGross($guard);
+        $segments = self::employmentSegments($guard, $run);
 
-        if ($monthly <= 0) {
-            return 0;
+        if ($segments === []) {
+            return 0.0;
         }
 
-        $eligibleDays = self::guardEligibleDays($guard, $run);
+        return round(array_sum(array_column($segments, 'amount')), 2);
+    }
 
-        if ($eligibleDays <= 0) {
-            return 0;
+    /**
+     * @param  Collection<int, GuardSalaryRevision>  $revisions
+     */
+    private static function salaryFromRevisions(Collection $revisions, CarbonInterface $date, Guard $guard): float
+    {
+        if ($revisions->isEmpty()) {
+            return self::monthlyGross($guard);
         }
 
-        return round($monthly * ($eligibleDays / self::calendarDays($run)), 2);
+        $day = $date->copy()->startOfDay();
+        $covering = $revisions
+            ->sortByDesc(fn (GuardSalaryRevision $revision) => $revision->effective_from->toDateString())
+            ->first(function (GuardSalaryRevision $revision) use ($day) {
+                $from = $revision->effective_from->copy()->startOfDay();
+                $to = $revision->effective_to?->copy()->startOfDay();
+
+                return $from->lessThanOrEqualTo($day) && ($to === null || $to->greaterThanOrEqualTo($day));
+            });
+
+        if ($covering !== null) {
+            return (float) $covering->salary;
+        }
+
+        $earliest = $revisions->sortBy(fn (GuardSalaryRevision $revision) => $revision->effective_from->toDateString())->first();
+
+        if ($earliest !== null && $day->lessThan($earliest->effective_from->copy()->startOfDay())) {
+            return $earliest->previous_salary !== null
+                ? (float) $earliest->previous_salary
+                : (float) $earliest->salary;
+        }
+
+        $latest = $revisions->sortByDesc(fn (GuardSalaryRevision $revision) => $revision->effective_from->toDateString())->first();
+
+        return $latest !== null ? (float) $latest->salary : self::monthlyGross($guard);
+    }
+
+    /**
+     * @return Collection<int, GuardSalaryRevision>
+     */
+    private static function loadedRevisions(Guard $guard): Collection
+    {
+        $revisions = $guard->relationLoaded('salaryRevisions')
+            ? $guard->salaryRevisions
+            : $guard->salaryRevisions()->get();
+
+        return $revisions->sortBy(fn (GuardSalaryRevision $revision) => $revision->effective_from->toDateString())->values();
     }
 
     public static function guardEligibleDays(Guard $guard, PayrollRun $run): int
@@ -148,7 +297,11 @@ class PayrollRates
         $periodEnd = $run->period_end->copy()->startOfDay();
 
         if ($guard->employment_end_date !== null && $guard->employment_end_date->lessThan($periodEnd)) {
-            return $guard->employment_end_date->copy()->startOfDay();
+            $periodEnd = $guard->employment_end_date->copy()->startOfDay();
+        }
+
+        if ($guard->guard_pay_until !== null && $guard->guard_pay_until->lessThan($periodEnd)) {
+            return $guard->guard_pay_until->copy()->startOfDay();
         }
 
         return $periodEnd;
@@ -159,29 +312,184 @@ class PayrollRates
         return max(0, (float) $staff->monthly_salary);
     }
 
+    public static function staffSalaryOn(Staff $staff, CarbonInterface $date): float
+    {
+        return self::staffSalaryFromRevisions(self::loadedStaffRevisions($staff), $date, $staff);
+    }
+
+    /**
+     * @return list<array{from: string, to: string, monthly: float}>
+     */
+    public static function staffSegments(Staff $staff, CarbonInterface $start, CarbonInterface $end): array
+    {
+        $start = $start->copy()->startOfDay();
+        $end = $end->copy()->startOfDay();
+
+        if ($start->greaterThan($end)) {
+            return [];
+        }
+
+        $revisions = self::loadedStaffRevisions($staff);
+
+        if ($revisions->isEmpty()) {
+            return [[
+                'from' => $start->toDateString(),
+                'to' => $end->toDateString(),
+                'monthly' => self::staffMonthlyGross($staff),
+            ]];
+        }
+
+        $points = collect([$start]);
+
+        foreach ($revisions as $revision) {
+            $from = $revision->effective_from->copy()->startOfDay();
+
+            if ($from->greaterThan($start) && $from->lessThanOrEqualTo($end)) {
+                $points->push($from);
+            }
+        }
+
+        $points = $points
+            ->unique(fn (CarbonInterface $day) => $day->toDateString())
+            ->sortBy(fn (CarbonInterface $day) => $day->toDateString())
+            ->values();
+
+        $segments = [];
+
+        foreach ($points as $index => $point) {
+            $segStart = $point->copy()->startOfDay();
+            $segEnd = isset($points[$index + 1])
+                ? $points[$index + 1]->copy()->startOfDay()->subDay()
+                : $end->copy();
+
+            if ($segEnd->greaterThan($end)) {
+                $segEnd = $end->copy();
+            }
+
+            if ($segStart->greaterThan($segEnd)) {
+                continue;
+            }
+
+            $segments[] = [
+                'from' => $segStart->toDateString(),
+                'to' => $segEnd->toDateString(),
+                'monthly' => self::staffSalaryFromRevisions($revisions, $segStart, $staff),
+            ];
+        }
+
+        return $segments;
+    }
+
+    /**
+     * @return list<array{from: string, to: string, monthly: float, days: int, amount: float}>
+     */
+    public static function staffEmploymentSegments(Staff $staff, PayrollRun $run): array
+    {
+        $start = $run->period_start->copy()->startOfDay();
+        $end = $run->period_end->copy()->startOfDay();
+
+        if ($staff->date_employed !== null && $staff->date_employed->greaterThan($start)) {
+            $start = $staff->date_employed->copy()->startOfDay();
+        }
+
+        if ($staff->compensation_from !== null && $staff->compensation_from->greaterThan($start)) {
+            $start = $staff->compensation_from->copy()->startOfDay();
+        }
+
+        if ($staff->employment_end_date !== null && $staff->employment_end_date->lessThan($end)) {
+            $end = $staff->employment_end_date->copy()->startOfDay();
+        }
+
+        if ($start->greaterThan($end)) {
+            return [];
+        }
+
+        $calendar = self::calendarDays($run);
+        $segments = self::staffSegments($staff, $start, $end);
+
+        foreach ($segments as &$segment) {
+            $from = Carbon::parse($segment['from'])->startOfDay();
+            $to = Carbon::parse($segment['to'])->startOfDay();
+            $days = (int) $from->diffInDays($to) + 1;
+            $segment['days'] = $days;
+            $segment['amount'] = round(((float) $segment['monthly']) * ($days / $calendar), 2);
+        }
+        unset($segment);
+
+        return $segments;
+    }
+
     public static function staffPeriodGross(Staff $staff, PayrollRun $run): float
     {
-        $monthly = self::staffMonthlyGross($staff);
+        $segments = self::staffEmploymentSegments($staff, $run);
 
-        if ($monthly <= 0) {
-            return 0;
+        if ($segments === []) {
+            return 0.0;
         }
 
-        $eligibleDays = self::staffEligibleDays($staff, $run);
+        return round(array_sum(array_column($segments, 'amount')), 2);
+    }
 
-        if ($eligibleDays <= 0) {
-            return 0;
+    /**
+     * @param  Collection<int, StaffSalaryRevision>  $revisions
+     */
+    private static function staffSalaryFromRevisions(Collection $revisions, CarbonInterface $date, Staff $staff): float
+    {
+        if ($revisions->isEmpty()) {
+            return self::staffMonthlyGross($staff);
         }
 
-        return round($monthly * ($eligibleDays / self::calendarDays($run)), 2);
+        $day = $date->copy()->startOfDay();
+        $covering = $revisions
+            ->sortByDesc(fn (StaffSalaryRevision $revision) => $revision->effective_from->toDateString())
+            ->first(function (StaffSalaryRevision $revision) use ($day) {
+                $from = $revision->effective_from->copy()->startOfDay();
+                $to = $revision->effective_to?->copy()->startOfDay();
+
+                return $from->lessThanOrEqualTo($day) && ($to === null || $to->greaterThanOrEqualTo($day));
+            });
+
+        if ($covering !== null) {
+            return (float) $covering->salary;
+        }
+
+        $earliest = $revisions->sortBy(fn (StaffSalaryRevision $revision) => $revision->effective_from->toDateString())->first();
+
+        if ($earliest !== null && $day->lessThan($earliest->effective_from->copy()->startOfDay())) {
+            return $earliest->previous_salary !== null
+                ? (float) $earliest->previous_salary
+                : (float) $earliest->salary;
+        }
+
+        $latest = $revisions->sortByDesc(fn (StaffSalaryRevision $revision) => $revision->effective_from->toDateString())->first();
+
+        return $latest !== null ? (float) $latest->salary : self::staffMonthlyGross($staff);
+    }
+
+    /**
+     * @return Collection<int, StaffSalaryRevision>
+     */
+    private static function loadedStaffRevisions(Staff $staff): Collection
+    {
+        $revisions = $staff->relationLoaded('salaryRevisions')
+            ? $staff->salaryRevisions
+            : $staff->salaryRevisions()->get();
+
+        return $revisions->sortBy(fn (StaffSalaryRevision $revision) => $revision->effective_from->toDateString())->values();
     }
 
     public static function staffEligibleDays(Staff $staff, PayrollRun $run): int
     {
+        $employed = $staff->date_employed;
+
+        if ($staff->compensation_from !== null && ($employed === null || $staff->compensation_from->greaterThan($employed))) {
+            $employed = $staff->compensation_from;
+        }
+
         return self::eligibleDaysInPeriod(
             $run->period_start,
             $run->period_end,
-            $staff->date_employed,
+            $employed,
             $staff->employment_end_date,
         );
     }

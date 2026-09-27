@@ -278,4 +278,22 @@ Alpine.data('idleSession', (config = {}) => ({
     },
 }));
 
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+
+    if (! (form instanceof HTMLFormElement) || form.dataset.allowRepeat === 'true') {
+        return;
+    }
+
+    window.setTimeout(() => {
+        if (event.defaultPrevented) {
+            return;
+        }
+
+        form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((control) => {
+            control.disabled = true;
+        });
+    }, 0);
+});
+
 Alpine.start();

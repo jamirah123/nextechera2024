@@ -98,6 +98,10 @@
         </dl>
     </section>
 
+    @if ($supervisor->staffProfile)
+        @include('staff.partials.salary-history', ['staff' => $supervisor->staffProfile])
+    @endif
+
     @if ($supervisor->guardProfile)
         <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-100 px-3 py-2.5">
@@ -170,6 +174,25 @@
                 <h2 class="text-base font-semibold text-slate-900">Assignment history</h2>
                 <p class="mt-0.5 text-sm text-slate-500">Region transfers and initial assignment.</p>
             </div>
+            @if ($canTransfer ?? false)
+                <form method="POST" action="{{ route('supervisors.region-transfers.store', $supervisor) }}" class="grid gap-3 border-b border-slate-100 px-3 py-3 sm:grid-cols-2">
+                    @csrf
+                    <div class="sm:col-span-2">
+                        <h3 class="text-xs font-semibold text-slate-900">Assign or transfer region</h3>
+                        <p class="mt-1 text-xs text-slate-500">The previous region assignment is closed. It is not overwritten.</p>
+                    </div>
+                    <x-form-field label="Region" name="region_id" type="select" :required="true">
+                        @foreach ($regions as $region)
+                            <option value="{{ $region->id }}" @selected((string) old('region_id') === (string) $region->id)>{{ $region->name }}</option>
+                        @endforeach
+                    </x-form-field>
+                    <x-form-field label="Assignment start" name="starts_on" type="date" :value="old('starts_on')" :required="true" />
+                    <x-form-field label="Remarks" name="remarks" :value="old('remarks')" class="sm:col-span-2" />
+                    <div class="sm:col-span-2">
+                        <button type="submit" class="inline-flex items-center rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">Record region assignment</button>
+                    </div>
+                </form>
+            @endif
             @if ($supervisor->assignmentHistories->isEmpty())
                 <div class="p-5 sm:p-6">
                     <x-empty-state title="No history yet" description="Assignment changes will be recorded on this timeline." icon="swap" />
@@ -190,7 +213,9 @@
                                         {{ str_replace('_', ' ', ucfirst($history->change_type)) }}
                                     </p>
                                     <span class="text-xs text-slate-500">
-                                        {{ optional($history->effective_at)->format('d M Y, H:i') }}
+                                        {{ ($history->starts_on ?? $history->effective_at)?->format('d M Y') }}
+                                        –
+                                        {{ $history->ends_on?->format('d M Y') ?? 'Current' }}
                                     </span>
                                 </div>
                                 <p class="mt-1 text-sm text-slate-600">

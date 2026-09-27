@@ -253,7 +253,14 @@
         <td>
             <div class="panel">
                 <p class="section-title">{{ $payslip->isFixedSalary() ? 'Salary earnings' : 'Shift earnings' }}</p>
-                @if ($payslip->isFixedSalary())
+                @if ($payslip->hasMixedSalary())
+                    @foreach ($payslip->salary_breakdown as $slice)
+                        <div class="row">
+                            <span class="row-label">{{ \Carbon\Carbon::parse($slice['from'])->format('d M') }} – {{ \Carbon\Carbon::parse($slice['to'])->format('d M') }}</span>
+                            <span class="row-value">{{ \App\Support\Money::format($slice['amount'], $run->currency) }}</span>
+                        </div>
+                    @endforeach
+                @elseif ($payslip->isFixedSalary())
                     <div class="row">
                         <span class="row-label">Monthly gross</span>
                         <span class="row-value">{{ \App\Support\Money::format($payslip->base_shift_rate, $run->currency) }}</span>

@@ -10,9 +10,13 @@ use App\Support\Access\RolePermissionService;
 use App\Support\Navigation\RoleNavigation;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Console\Events\ScheduledTaskFailed;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
@@ -57,6 +61,24 @@ class AppServiceProvider extends ServiceProvider
 
             $view->with('navigation', $user ? RoleNavigation::for($user) : []);
             $view->with('navigationGroups', $user ? RoleNavigation::groups($user) : []);
+        });
+
+        Event::listen(function (JobFailed $event): void {
+            Log::error('Queued job failed.', [
+                'job' => $event->job->resolveName(),
+                'connection' => $event->connectionName,
+                'queue' => $event->job->getQueue(),
+                'exception' => $event->exception::class,
+                'message' => $event->exception->getMessage(),
+            ]);
+        });
+
+        Event::listen(function (ScheduledTaskFailed $event): void {
+            Log::critical('Scheduled task failed.', [
+                'command' => $event->task->command ?? $event->task->description,
+                'exception' => $event->exception::class,
+                'message' => $event->exception->getMessage(),
+            ]);
         });
 
         View::composer(['layouts.app', 'layouts.guest', 'auth.login', 'admin.settings.index'], function ($view): void {

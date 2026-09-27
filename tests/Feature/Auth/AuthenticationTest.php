@@ -126,7 +126,7 @@ class AuthenticationTest extends TestCase
             ->withSession(['last_activity_at' => now()->subMinutes(20)->getTimestamp()])
             ->get(route('dashboard'))
             ->assertRedirect(route('login'))
-            ->assertSessionHas('status');
+            ->assertSessionHas('error', 'Your session expired after a period of inactivity. Please sign in again.');
 
         $this->assertGuest();
     }

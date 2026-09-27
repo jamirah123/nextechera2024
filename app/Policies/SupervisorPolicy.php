@@ -12,4 +12,9 @@ class SupervisorPolicy extends OrganizationPolicy
     {
         return Access::userCan($user, 'employees.correct_employment_id');
     }
+
+    public function transfer(User $user, Supervisor $supervisor): bool
+    {
+        return Access::userCan($user, 'hr.promotions_manage') || $user->can('update', $supervisor);
+    }
 }

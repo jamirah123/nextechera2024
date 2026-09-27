@@ -3,6 +3,7 @@
     $staff = $staff ?? null;
     $isEdit = (bool) $staff;
     $isSupervisorProfile = (bool) ($staff?->supervisorProfile);
+    $salaryLocked = $isEdit && $staff?->salaryRevisions()->exists();
     $canRegisterStaff = $canRegisterStaff ?? true;
     $canRegisterSupervisor = $canRegisterSupervisor ?? true;
     $defaultEmployeeType = old(
@@ -120,6 +121,12 @@
                     x-bind:placeholder="employeeType === 'supervisor' ? 'Supervisor' : 'e.g. Finance Officer'"
                 />
                 <x-form-field
+                    label="Job grade"
+                    name="job_grade"
+                    :value="old('job_grade', $staff?->job_grade)"
+                    placeholder="Optional"
+                />
+                <x-form-field
                     label="Department"
                     name="department"
                     :value="old('department', $staff?->department)"
@@ -141,12 +148,28 @@
                     @endforeach
                 </x-form-field>
             @else
+                @if ($salaryLocked)
+                    <div class="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+                        Position: {{ $staff->job_title ?: '—' }}
+                        @if ($staff->job_grade)
+                            · Grade {{ $staff->job_grade }}
+                        @endif
+                        . Change position or salary from the employee profile so the previous record stays on file.
+                    </div>
+                @else
                 <x-form-field
                     label="Job title"
                     name="job_title"
                     :value="old('job_title', $staff?->job_title)"
                     :placeholder="$isSupervisorProfile ? 'Supervisor' : 'e.g. Finance Officer'"
                 />
+                <x-form-field
+                    label="Job grade"
+                    name="job_grade"
+                    :value="old('job_grade', $staff?->job_grade)"
+                    placeholder="Optional"
+                />
+                @endif
                 <x-form-field
                     label="Department"
                     name="department"
@@ -206,7 +229,13 @@
     </x-form-group>
 
     <x-form-group title="Payroll & banking">
-        <x-form-field label="Monthly salary ({{ config('psg.currency') }})" name="monthly_salary" type="number" step="0.01" min="0" :value="old('monthly_salary', $staff?->monthly_salary ?? 0)" :required="true" help="Fixed monthly gross before deductions. Pro-rated by calendar days when hired or leaving mid-month." class="sm:col-span-2" />
+        @if ($salaryLocked)
+            <div class="sm:col-span-2 text-xs text-slate-600 dark:text-slate-300">
+                Current salary {{ \App\Support\Money::format($staff->monthly_salary) }}. Record a salary change on the profile to keep the earlier amount.
+            </div>
+        @else
+            <x-form-field label="Monthly salary ({{ config('psg.currency') }})" name="monthly_salary" type="number" step="0.01" min="0" :value="old('monthly_salary', $staff?->monthly_salary ?? 0)" :required="true" help="Opening monthly gross. Later changes are recorded on the profile and do not replace this history." class="sm:col-span-2" />
+        @endif
         <x-form-field label="Bank name" name="bank_name" :value="old('bank_name', $staff?->bank_name)" />
         <x-form-field label="Bank account" name="bank_account" :value="old('bank_account', $staff?->bank_account)" />
         <x-form-field label="NSSF number" name="nssf_number" :value="old('nssf_number', $staff?->nssf_number)" />

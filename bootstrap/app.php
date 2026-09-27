@@ -1,12 +1,14 @@
 <?php
 
+use App\Http\Middleware\AssignRequestId;
 use App\Http\Middleware\EnforceIdleSession;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\PreventRapidDuplicatePosts;
+use App\Support\Errors\UserFacingExceptionRenderer;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -17,12 +19,14 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo('/login');
         $middleware->redirectUsersTo('/dashboard');
+        $middleware->prepend(AssignRequestId::class);
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
         ]);
         $middleware->appendToGroup('web', [
             EnsureUserIsActive::class,
             EnforceIdleSession::class,
+            PreventRapidDuplicatePosts::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -30,23 +34,15 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
 
-        $exceptions->render(function (\Throwable $e, Request $request) {
-            if (config('app.debug') || $request->expectsJson() || $request->is('api/*')) {
-                return null;
-            }
+        $exceptions->dontReportWhen(function (Throwable $exception): bool {
+            return UserFacingExceptionRenderer::shouldSilenceReport($exception);
+        });
 
-            // Framework HTTP / auth / validation flows keep their normal responses.
-            if ($e instanceof HttpExceptionInterface
-                || $e instanceof \Illuminate\Validation\ValidationException
-                || $e instanceof \Illuminate\Auth\AuthenticationException
-                || $e instanceof \Illuminate\Auth\Access\AuthorizationException
-                || $e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException
-                || $e instanceof \Illuminate\Session\TokenMismatchException
-            ) {
-                return null;
-            }
+        $exceptions->context(function (Throwable $exception, array $context = []): array {
+            return UserFacingExceptionRenderer::logContext();
+        });
 
-            // Unexpected failures: friendly page only. Laravel still logs the exception.
-            return response()->view('errors.500', [], 500);
+        $exceptions->render(function (Throwable $exception, Request $request) {
+            return app(UserFacingExceptionRenderer::class)->render($exception, $request);
         });
     })->create();

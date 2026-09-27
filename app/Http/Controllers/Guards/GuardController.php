@@ -21,6 +21,7 @@ use App\Services\EntityTimelineService;
 use App\Services\GuardAttachmentService;
 use App\Services\GuardService;
 use App\Support\Attachments\InlineAttachmentResponse;
+use App\Support\Finance\PayrollRates;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -47,7 +48,10 @@ class GuardController extends Controller
         $user = $request->user();
         $regionId = $user->regionId();
 
+        app(\App\Services\EmployeePromotionService::class)->applyDue($user);
+
         $guards = Guard::query()
+            ->onGuardRoster()
             ->with(['region:id,name,code', 'currentSite:id,name,code', 'currentSupervisor:id,name'])
             ->search($request->string('q')->toString())
             ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
@@ -58,7 +62,7 @@ class GuardController extends Controller
             ->paginate(table_per_page())
             ->withQueryString();
 
-        $statsBase = Guard::query()->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId));
+        $statsBase = Guard::query()->onGuardRoster()->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId));
         $employmentCounts = status_counts((clone $statsBase), 'employment_status');
         $operationalCounts = status_counts((clone $statsBase), 'operational_status');
 
@@ -131,14 +135,34 @@ class GuardController extends Controller
             'updater',
             'attachments.uploader',
             'salaryAdvances',
+            'salaryRevisions.approver',
+            'salaryRevisions.creator',
+            'position',
+            'linkedStaff',
+            'promotions.position',
+            'promotions.approver',
+            'promotions.creator',
+            'promotions.region',
             'assetIssuances.lines',
             'assetRecoveries',
         ]);
 
+        $today = now()->startOfDay();
+        $currentRevision = $guard->salaryRevisions->first(
+            fn ($revision) => $revision->effective_from->copy()->startOfDay()->lessThanOrEqualTo($today)
+                && ($revision->effective_to === null || $revision->effective_to->copy()->startOfDay()->greaterThanOrEqualTo($today))
+        );
+
         return view('guards.show', [
             'guard' => $guard,
+            'currentSalary' => PayrollRates::salaryOn($guard, $today),
+            'currentRevision' => $currentRevision,
             'currentDeployment' => $guard->currentDeployment,
             'canManage' => request()->user()->can('update', $guard),
+            'canManageSalary' => request()->user()->can('manageSalary', $guard),
+            'canPromote' => request()->user()->can('promote', $guard),
+            'positions' => \App\Models\Position::query()->where('is_active', true)->orderBy('name')->get(),
+            'promotionRegions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
             'canManageAssets' => request()->user()->can('create', GuardAssetIssuance::class),
             'canManageFinance' => request()->user()->can('manageFinance'),
             'canDelete' => request()->user()->can('delete', $guard),

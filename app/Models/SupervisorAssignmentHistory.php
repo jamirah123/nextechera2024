@@ -17,6 +17,10 @@ class SupervisorAssignmentHistory extends Model
         'meta',
         'changed_by',
         'effective_at',
+        'starts_on',
+        'ends_on',
+        'status',
+        'remarks',
     ];
 
     protected function casts(): array
@@ -24,6 +28,8 @@ class SupervisorAssignmentHistory extends Model
         return [
             'meta' => 'array',
             'effective_at' => 'datetime',
+            'starts_on' => 'date',
+            'ends_on' => 'date',
         ];
     }
 

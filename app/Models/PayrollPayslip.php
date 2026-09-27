@@ -25,6 +25,7 @@ class PayrollPayslip extends Model
         'total_shifts',
         'base_shift_rate',
         'overtime_shift_rate',
+        'salary_breakdown',
         'gross_pay',
         'total_deductions',
         'net_pay',
@@ -42,6 +43,7 @@ class PayrollPayslip extends Model
             'compensation_type' => CompensationType::class,
             'base_shift_rate' => 'decimal:2',
             'overtime_shift_rate' => 'decimal:2',
+            'salary_breakdown' => 'array',
             'gross_pay' => 'decimal:2',
             'total_deductions' => 'decimal:2',
             'net_pay' => 'decimal:2',
@@ -77,5 +79,10 @@ class PayrollPayslip extends Model
     public function isFixedSalary(): bool
     {
         return $this->compensation_type === CompensationType::Salary;
+    }
+
+    public function hasMixedSalary(): bool
+    {
+        return is_array($this->salary_breakdown) && count($this->salary_breakdown) > 1;
     }
 }

@@ -8,6 +8,9 @@
 <div class="space-y-6">
     <x-page-header title="Staff registry" subtitle="Register admin, finance, HR and other salaried employees.">
         <x-slot:actions>
+            @if ($canManagePositions ?? false)
+                <a href="{{ route('positions.index') }}" class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">Positions</a>
+            @endif
             @if ($canManage)
                 <a href="{{ route('staff.create') }}" class="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-800">
                     <x-icon name="plus" class="h-4 w-4" />

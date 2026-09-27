@@ -12,7 +12,7 @@
         ->implode('');
 @endphp
 
-<div class="mx-auto w-full max-w-3xl space-y-2">
+<div class="mx-auto w-full max-w-6xl space-y-2">
     <div class="flex flex-wrap items-center justify-between gap-2">
         <a href="{{ route('staff.index') }}" class="inline-flex items-center gap-1 text-[10px] font-semibold text-brand-700 hover:text-brand-800 dark:text-brand-400 dark:hover:text-brand-300">
             <x-icon name="chevron" class="h-3 w-3 rotate-180" />
@@ -70,8 +70,17 @@
                 </div>
             @endif
             <div class="border-b border-slate-100 px-3 py-1.5 sm:border-r dark:border-slate-700">
-                <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Monthly salary</dt>
-                <dd class="mt-0.5 text-xs font-semibold text-brand-700 dark:text-brand-400">{{ \App\Support\Money::format($staff->monthly_salary) }}</dd>
+                <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Current salary</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-brand-700 dark:text-brand-400">
+                    {{ \App\Support\Money::format($currentSalary ?? $staff->monthly_salary) }}
+                    @if ($currentRevision)
+                        <span class="block font-normal text-slate-500">From {{ $currentRevision->effective_from->format('d M Y') }}</span>
+                    @endif
+                </dd>
+            </div>
+            <div class="border-b border-slate-100 px-3 py-1.5 lg:border-r dark:border-slate-700">
+                <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Salary type</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">{{ $staff->position?->salaryLabel() ?? 'Fixed monthly' }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-1.5 lg:border-r dark:border-slate-700">
                 <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Date employed</dt>
@@ -118,6 +127,26 @@
             @endif
         </dl>
     </section>
+
+    @if ($staff->linkedGuard && $staff->linkedGuard->promotions->isNotEmpty())
+        <section class="form-card">
+            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Position history</h2>
+            <p class="mt-1 text-xs text-slate-500">Same employee {{ $staff->employment_id }}. Guard duties recorded before the promotion stay on the guard profile.</p>
+            <ul class="mt-3 space-y-2 text-xs">
+                @foreach ($staff->linkedGuard->promotions->sortByDesc(fn ($promotion) => $promotion->effective_from->toDateString()) as $promotion)
+                    <li class="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                        <span class="font-semibold">{{ $promotion->effective_from->format('d M Y') }}</span>
+                        {{ $promotion->previous_position ?: 'Guard' }} → {{ $promotion->position?->name }}
+                        · {{ \App\Support\Money::format($promotion->new_salary) }}
+                        · {{ $promotion->isScheduled() ? 'Scheduled' : 'Applied' }}
+                    </li>
+                @endforeach
+            </ul>
+            <a href="{{ route('guards.show', $staff->linkedGuard) }}" class="mt-2 inline-flex text-xs font-semibold text-brand-700 hover:text-brand-800">Open guard history</a>
+        </section>
+    @endif
+
+    @include('staff.partials.salary-history', ['staff' => $staff])
 
     @include('staff.partials.salary-advances', ['staff' => $staff])
 </div>

@@ -40,6 +40,10 @@ class Staff extends Model
         'employment_end_date',
         'employment_status',
         'job_title',
+        'job_grade',
+        'position_id',
+        'guard_id',
+        'compensation_from',
         'department',
         'region_id',
         'monthly_salary',
@@ -60,6 +64,7 @@ class Staff extends Model
             'date_of_birth' => 'date',
             'date_employed' => 'date',
             'employment_end_date' => 'date',
+            'compensation_from' => 'date',
             'monthly_salary' => 'decimal:2',
         ];
     }
@@ -72,6 +77,26 @@ class Staff extends Model
     public function salaryAdvances(): HasMany
     {
         return $this->hasMany(GuardSalaryAdvance::class)->latest('id');
+    }
+
+    public function position(): BelongsTo
+    {
+        return $this->belongsTo(Position::class);
+    }
+
+    public function linkedGuard(): BelongsTo
+    {
+        return $this->belongsTo(Guard::class, 'guard_id');
+    }
+
+    public function promotions(): HasMany
+    {
+        return $this->hasMany(EmployeePromotion::class, 'staff_id')->orderBy('effective_from')->orderBy('id');
+    }
+
+    public function salaryRevisions(): HasMany
+    {
+        return $this->hasMany(StaffSalaryRevision::class)->orderBy('effective_from')->orderBy('id');
     }
 
     public function payslips(): HasMany

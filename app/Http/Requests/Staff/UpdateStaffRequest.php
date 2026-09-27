@@ -58,6 +58,7 @@ class UpdateStaffRequest extends FormRequest
             'employment_end_date' => ['nullable', 'date', 'after_or_equal:date_employed'],
             'employment_status' => ['required', Rule::in(EmploymentStatus::values())],
             'job_title' => ['nullable', 'string', 'max:100'],
+            'job_grade' => ['nullable', 'string', 'max:40'],
             'department' => ['nullable', 'string', 'max:100'],
             'region_id' => ['nullable', 'exists:regions,id'],
             'monthly_salary' => ['nullable', 'numeric', 'min:0'],

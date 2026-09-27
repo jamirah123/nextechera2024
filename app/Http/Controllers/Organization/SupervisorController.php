@@ -86,7 +86,8 @@ class SupervisorController extends Controller
             'region',
             'guardProfile.currentDeployment.site',
             'guardProfile.region',
-            'staffProfile',
+            'staffProfile.salaryRevisions.approver',
+            'staffProfile.salaryRevisions.creator',
             'sites.client',
             'assignmentHistories.previousRegion',
             'assignmentHistories.newRegion',
@@ -108,9 +109,20 @@ class SupervisorController extends Controller
         $currentCover = $permanentCover
             ?? $supervisor->guardProfile?->currentDeployment;
 
+        $staffProfile = $supervisor->staffProfile;
+        $currentRevision = $staffProfile?->salaryRevisions->first(fn ($revision) => $revision->isCurrent());
+
         return view('organization.supervisors.show', [
             'supervisor' => $supervisor,
             'currentCover' => $currentCover,
+            'staff' => $staffProfile,
+            'currentSalary' => $staffProfile
+                ? \App\Support\Finance\PayrollRates::staffSalaryOn($staffProfile, now())
+                : 0,
+            'currentRevision' => $currentRevision,
+            'canManageSalary' => $staffProfile ? request()->user()->can('manageSalary', $staffProfile) : false,
+            'canTransfer' => request()->user()->can('transfer', $supervisor),
+            'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
             'canManage' => request()->user()->can('update', $supervisor),
             'canDelete' => request()->user()->can('delete', $supervisor),
             'canDeployCover' => request()->user()->can('create', Deployment::class) && ! $permanentCover,
@@ -184,6 +196,33 @@ class SupervisorController extends Controller
                 ? request()->user()->can('update', $supervisor->staffProfile)
                 : false,
         ]);
+    }
+
+    public function transfer(Request $request, Supervisor $supervisor): RedirectResponse
+    {
+        $this->authorize('transfer', $supervisor);
+
+        $data = $request->validate([
+            'region_id' => ['required', 'exists:regions,id'],
+            'starts_on' => ['required', 'date'],
+            'remarks' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        try {
+            $this->organization->transferSupervisor(
+                $supervisor,
+                (int) $data['region_id'],
+                \Carbon\Carbon::parse($data['starts_on']),
+                $data['remarks'] ?? null,
+                $request->user(),
+            );
+        } catch (\InvalidArgumentException $exception) {
+            return back()->withInput()->withErrors(['region_id' => $exception->getMessage()]);
+        }
+
+        return redirect()
+            ->route('supervisors.show', $supervisor)
+            ->with('status', 'Region assignment recorded. The previous assignment stays on file.');
     }
 
     public function update(UpdateSupervisorRequest $request, Supervisor $supervisor): RedirectResponse

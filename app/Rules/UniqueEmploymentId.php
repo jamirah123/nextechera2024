@@ -29,7 +29,7 @@ class UniqueEmploymentId implements ValidationRule
         }
 
         if ($ids->isTaken($value, $this->ignoreGuardId, $this->ignoreStaffId)) {
-            $fail('This employment ID is already assigned to another employee.');
+            $fail('Employee ID '.$ids->normalize($value).' already exists.');
         }
     }
 }

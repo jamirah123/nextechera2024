@@ -57,7 +57,26 @@
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
                     <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{{ $payslip->isFixedSalary() ? 'Salary earnings' : 'Shift earnings' }}</p>
                     <dl class="mt-2 space-y-1 text-sm">
-                        @if ($payslip->isFixedSalary())
+                        @if ($payslip->hasMixedSalary())
+                            @foreach ($payslip->salary_breakdown as $slice)
+                                <div class="flex justify-between gap-3">
+                                    <dt>
+                                        {{ \Carbon\Carbon::parse($slice['from'])->format('d M') }} – {{ \Carbon\Carbon::parse($slice['to'])->format('d M') }}
+                                        <span class="block text-[10px] font-normal text-slate-500">
+                                            @if (! empty($slice['days']))
+                                                {{ $slice['days'] }} days at {{ \App\Support\Money::format($slice['monthly_gross'], $run->currency) }}
+                                            @else
+                                                {{ ($slice['normal_shifts'] ?? 0) + ($slice['other_shifts'] ?? 0) }} shifts at {{ \App\Support\Money::format($slice['per_shift_rate'] ?? 0, $run->currency) }}
+                                            @endif
+                                            @if (($slice['overtime_shifts'] ?? 0) > 0)
+                                                · OT {{ $slice['overtime_shifts'] }}
+                                            @endif
+                                        </span>
+                                    </dt>
+                                    <dd>{{ \App\Support\Money::format($slice['amount'], $run->currency) }}</dd>
+                                </div>
+                            @endforeach
+                        @elseif ($payslip->isFixedSalary())
                             @php
                                 $eligibleDays = $payslip->assignedStaff
                                     ? \App\Support\Finance\PayrollRates::staffEligibleDays($payslip->assignedStaff, $run)

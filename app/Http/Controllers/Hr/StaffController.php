@@ -24,6 +24,8 @@ class StaffController extends Controller
     {
         $this->authorize('viewAny', Staff::class);
 
+        app(\App\Services\EmployeePromotionService::class)->applyDue($request->user());
+
         $staffMembers = Staff::query()
             ->with(['region:id,name,code', 'supervisorProfile:id,staff_id,supervisor_code'])
             ->search($request->string('q')->toString())
@@ -41,6 +43,7 @@ class StaffController extends Controller
             'employmentStatuses' => EmploymentStatus::cases(),
             'filters' => $request->only(['q', 'employment_status', 'region_id']),
             'canManage' => $request->user()->can('create', Staff::class),
+            'canManagePositions' => $request->user()->can('manage', \App\Models\Position::class),
             'canDelete' => $request->user()->can('deleteAny', Staff::class),
             'stats' => [
                 'total' => array_sum($employmentCounts),
@@ -96,14 +99,24 @@ class StaffController extends Controller
         $staff->load([
             'region',
             'salaryAdvances',
+            'salaryRevisions.approver',
+            'salaryRevisions.creator',
             'creator',
             'updater',
             'supervisorProfile.guardProfile:id,employment_id',
+            'linkedGuard.promotions.position',
+            'linkedGuard.promotions.approver',
+            'position',
         ]);
+
+        $currentRevision = $staff->salaryRevisions->first(fn ($revision) => $revision->isCurrent());
 
         return view('staff.show', [
             'staff' => $staff,
+            'currentSalary' => \App\Support\Finance\PayrollRates::staffSalaryOn($staff, now()),
+            'currentRevision' => $currentRevision,
             'canManage' => request()->user()->can('update', $staff),
+            'canManageSalary' => request()->user()->can('manageSalary', $staff),
             'canManageFinance' => request()->user()->can('manageFinance'),
             'canDelete' => request()->user()->can('delete', $staff),
         ]);

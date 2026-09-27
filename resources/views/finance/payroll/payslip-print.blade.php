@@ -23,7 +23,14 @@
             <div class="rounded-xl border border-slate-100 bg-slate-50 p-4">
                 <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{{ $payslip->isFixedSalary() ? 'Salary earnings' : 'Shift earnings' }}</p>
                 <dl class="mt-2 space-y-1 text-sm">
-                    @if ($payslip->isFixedSalary())
+                    @if ($payslip->hasMixedSalary())
+                        @foreach ($payslip->salary_breakdown as $slice)
+                            <div class="flex justify-between gap-3">
+                                <dt>{{ \Carbon\Carbon::parse($slice['from'])->format('d M') }} – {{ \Carbon\Carbon::parse($slice['to'])->format('d M') }}</dt>
+                                <dd>{{ \App\Support\Money::format($slice['amount'], $run->currency) }}</dd>
+                            </div>
+                        @endforeach
+                    @elseif ($payslip->isFixedSalary())
                         @php
                             $eligibleDays = $payslip->assignedStaff
                                 ? \App\Support\Finance\PayrollRates::staffEligibleDays($payslip->assignedStaff, $run)

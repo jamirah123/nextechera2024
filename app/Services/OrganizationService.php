@@ -6,6 +6,7 @@ use App\Models\Site;
 use App\Models\SiteManpowerRequirement;
 use App\Models\Supervisor;
 use App\Models\SupervisorAssignmentHistory;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class OrganizationService
@@ -79,7 +80,32 @@ class OrganizationService
         ?string $reason = null,
         ?string $notes = null,
         ?array $meta = null,
+        ?\Carbon\CarbonInterface $startsOn = null,
     ): SupervisorAssignmentHistory {
+        $startsOn = ($startsOn ?? now())->copy()->startOfDay();
+
+        $open = SupervisorAssignmentHistory::query()
+            ->where('supervisor_id', $supervisor->id)
+            ->where(function ($query): void {
+                $query->whereNull('ends_on')->orWhereNull('status');
+            })
+            ->where(function ($query): void {
+                $query->whereNull('status')->orWhere('status', 'current');
+            })
+            ->orderByDesc('effective_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($open !== null && (int) $open->new_region_id !== $newRegionId) {
+            $end = $startsOn->copy()->subDay();
+            if ($open->starts_on === null || $end->greaterThanOrEqualTo($open->starts_on->copy()->startOfDay())) {
+                $open->update([
+                    'ends_on' => $end->toDateString(),
+                    'status' => 'ended',
+                ]);
+            }
+        }
+
         return SupervisorAssignmentHistory::query()->create([
             'supervisor_id' => $supervisor->id,
             'previous_region_id' => $previousRegionId,
@@ -87,10 +113,54 @@ class OrganizationService
             'change_type' => $changeType,
             'reason' => $reason,
             'notes' => $notes,
+            'remarks' => $notes,
             'meta' => $meta,
             'changed_by' => auth()->id(),
-            'effective_at' => now(),
+            'effective_at' => $startsOn,
+            'starts_on' => $startsOn->toDateString(),
+            'ends_on' => null,
+            'status' => 'current',
         ]);
+    }
+
+    public function transferSupervisor(
+        Supervisor $supervisor,
+        int $regionId,
+        \Carbon\CarbonInterface $startsOn,
+        ?string $remarks = null,
+        ?User $actor = null,
+    ): Supervisor {
+        if ((int) $supervisor->region_id === $regionId) {
+            throw new \InvalidArgumentException('Choose a different region.');
+        }
+
+        return DB::transaction(function () use ($supervisor, $regionId, $startsOn, $remarks) {
+            $previous = (int) $supervisor->region_id;
+            $supervisor->update([
+                'region_id' => $regionId,
+                'assignment_date' => $startsOn->toDateString(),
+            ]);
+
+            $this->recordSupervisorAssignment(
+                $supervisor,
+                $previous,
+                $regionId,
+                'region_transfer',
+                $remarks,
+                $remarks,
+                null,
+                $startsOn,
+            );
+
+            $supervisor->load('guardProfile');
+            if ($supervisor->guardProfile) {
+                app(GuardService::class)->updateGuard($supervisor->guardProfile, [
+                    'region_id' => $regionId,
+                ], 'supervisor_region_transfer');
+            }
+
+            return $supervisor->fresh(['region', 'assignmentHistories']);
+        });
     }
 
     public function nextSupervisorCode(): string

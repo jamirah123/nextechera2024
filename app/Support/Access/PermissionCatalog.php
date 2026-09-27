@@ -159,6 +159,27 @@ class PermissionCatalog
                 'roles' => $hrCore,
             ],
             [
+                'key' => 'hr.promotions_manage',
+                'group' => 'Staff',
+                'label' => 'Promote employees',
+                'description' => 'Change an employee position and salary without creating a new employee record.',
+                'roles' => $hrCore,
+            ],
+            [
+                'key' => 'hr.positions_manage',
+                'group' => 'Staff',
+                'label' => 'Manage positions',
+                'description' => 'Configure whether a position is guard, staff, supervisor, or management, and how it is paid.',
+                'roles' => $hrCore,
+            ],
+            [
+                'key' => 'staff.salary_manage',
+                'group' => 'Staff',
+                'label' => 'Manage staff salaries',
+                'description' => 'Record salary changes, promotions and demotions. Does not rewrite earlier pay.',
+                'roles' => $hrCore,
+            ],
+            [
                 'key' => 'staff.view',
                 'group' => 'Staff',
                 'label' => 'View staff registry',
@@ -269,6 +290,18 @@ class PermissionCatalog
                 'label' => 'Manage desertions',
                 'description' => 'Record and follow up desertion cases. Region supervisors are region-scoped.',
                 'roles' => $hrOps,
+            ],
+            [
+                'key' => 'hr.salary_manage',
+                'group' => 'HR',
+                'label' => 'Manage guard salaries',
+                'description' => 'Record salary increments and view salary history. Does not rewrite earlier pay.',
+                'roles' => [
+                    UserRole::SuperAdmin->value,
+                    UserRole::ManagingDirector->value,
+                    UserRole::HrManager->value,
+                    UserRole::FinanceManager->value,
+                ],
             ],
             [
                 'key' => 'hr.assets_manage',

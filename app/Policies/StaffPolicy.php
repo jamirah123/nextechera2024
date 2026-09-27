@@ -28,6 +28,11 @@ class StaffPolicy
         return Access::userCan($user, 'staff.manage');
     }
 
+    public function manageSalary(User $user, Staff $staff): bool
+    {
+        return Access::userCan($user, 'staff.salary_manage');
+    }
+
     public function correctEmploymentId(User $user, Staff $staff): bool
     {
         return Access::userCan($user, 'employees.correct_employment_id');

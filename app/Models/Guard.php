@@ -42,6 +42,8 @@ class Guard extends Model
         'employment_end_date',
         'employment_status',
         'rank_designation',
+        'position_id',
+        'guard_pay_until',
         'guard_classification',
         'region_id',
         'current_site_id',
@@ -72,6 +74,7 @@ class Guard extends Model
             'date_of_birth' => 'date',
             'date_employed' => 'date',
             'employment_end_date' => 'date',
+            'guard_pay_until' => 'date',
             'base_shift_rate' => 'decimal:2',
             'overtime_shift_rate' => 'decimal:2',
         ];
@@ -127,6 +130,21 @@ class Guard extends Model
         return $this->hasMany(GuardAttachment::class)->latest('created_at');
     }
 
+    public function position(): BelongsTo
+    {
+        return $this->belongsTo(Position::class);
+    }
+
+    public function linkedStaff(): HasOne
+    {
+        return $this->hasOne(Staff::class, 'guard_id');
+    }
+
+    public function promotions(): HasMany
+    {
+        return $this->hasMany(EmployeePromotion::class)->orderBy('effective_from')->orderBy('id');
+    }
+
     public function supervisorProfile(): HasOne
     {
         return $this->hasOne(Supervisor::class, 'guard_id');
@@ -145,6 +163,11 @@ class Guard extends Model
     public function salaryAdvances(): HasMany
     {
         return $this->hasMany(GuardSalaryAdvance::class)->latest('id');
+    }
+
+    public function salaryRevisions(): HasMany
+    {
+        return $this->hasMany(GuardSalaryRevision::class)->orderBy('effective_from')->orderBy('id');
     }
 
     public function assetIssuances(): HasMany
@@ -263,6 +286,21 @@ class Guard extends Model
     public function scopeRegularGuards($query): void
     {
         $query->whereDoesntHave('supervisorProfile');
+    }
+
+    /**
+     * Active guard roster: current position is a guard position.
+     * Employees promoted off the guard roster stay in this table for history.
+     *
+     * @param  Builder<Guard>  $query
+     */
+    public function scopeOnGuardRoster($query): void
+    {
+        $query->whereDoesntHave('supervisorProfile')
+            ->where(function ($q): void {
+                $q->whereNull('position_id')
+                    ->orWhereHas('position', fn ($position) => $position->where('is_guard_position', true));
+            });
     }
 
     public function scopeSearch($query, ?string $term)

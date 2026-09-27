@@ -29,8 +29,8 @@
                     </div>
                 </div>
 
-                <div class="mt-16 max-w-none">
-                    <h1 class="text-3xl font-semibold tracking-tight text-white xl:text-4xl xl:leading-tight">
+                <div class="mt-16">
+                    <h1 class="whitespace-nowrap text-xl font-semibold tracking-tight text-white xl:text-2xl 2xl:text-3xl">
                         {{ config('psg.login_headline') }}
                     </h1>
                 </div>
@@ -84,6 +84,12 @@
                     <div class="mb-6">
                         <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-700">Secure Sign In</p>
                     </div>
+
+                    @if (session('error'))
+                        <div class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+                            {{ session('error') }}
+                        </div>
+                    @endif
 
                     @if (session('status'))
                         <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">

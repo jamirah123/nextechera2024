@@ -58,42 +58,71 @@
         @if ($payments->isEmpty())
             <x-empty-state title="No payments recorded" description="Client collections appear when recorded against invoices. Payroll disbursements appear when a payroll run is marked as paid." icon="payment" />
         @else
-            <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
-                    <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                        <tr>
-                            <th class="w-14 px-3 py-2">#</th>
-                            <th class="px-3 py-2">Payment</th>
-                            <th class="px-3 py-2">Client / payroll</th>
-                            <th class="px-3 py-2">Amount</th>
-                            <th class="px-3 py-2">Method</th>
-                            <th class="px-3 py-2 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @foreach ($payments as $payment)
+            <div class="grid gap-2 sm:grid-cols-2 lg:hidden print:hidden">
+                @foreach ($payments as $payment)
+                    <article class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <a href="{{ route('payments.show', $payment) }}" class="font-mono text-xs font-semibold text-slate-900 hover:text-brand-700 dark:text-slate-100">{{ $payment->reference }}</a>
+                                <p class="mt-0.5 text-xs text-slate-500">{{ $payment->payment_date->format('d M Y') }}</p>
+                            </div>
+                            <x-status-badge :tone="$payment->method->tone()" :label="$payment->method->label()" />
+                        </div>
+                        <div class="mt-2">
+                            @if ($payment->isDisbursement())
+                                <p class="text-xs font-medium text-slate-800 dark:text-slate-200">Payroll disbursement</p>
+                                <p class="text-xs text-slate-500">{{ $payment->payrollRun?->reference }}</p>
+                            @else
+                                <p class="text-xs font-medium text-slate-800 dark:text-slate-200">{{ $payment->client?->name }}</p>
+                                <p class="text-xs text-slate-500">{{ $payment->invoice?->reference }}</p>
+                            @endif
+                        </div>
+                        <div class="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+                            <p class="text-xs font-semibold text-slate-900 dark:text-slate-100">{{ \App\Support\Money::format($payment->amount) }}</p>
+                            <x-action-icon :href="route('payments.show', $payment)" label="View" icon="eye" />
+                        </div>
+                    </article>
+                @endforeach
+            </div>
+
+            <div class="hidden lg:block print:block">
+                <div class="data-table-shell">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <td class="px-3 py-2"><x-table-serial :paginator="$payments" :index="$loop->index" /></td>
-                                <td class="px-3 py-2">
-                                    <p class="font-semibold font-mono">{{ $payment->reference }}</p>
-                                    <p class="text-xs text-slate-500">{{ $payment->payment_date->format('d M Y') }}</p>
-                                </td>
-                                <td class="px-3 py-2">
-                                    @if ($payment->isDisbursement())
-                                        <p>Payroll disbursement</p>
-                                        <p class="text-xs text-slate-500">{{ $payment->payrollRun?->reference }}</p>
-                                    @else
-                                        <p>{{ $payment->client?->name }}</p>
-                                        <p class="text-xs text-slate-500">{{ $payment->invoice?->reference }}</p>
-                                    @endif
-                                </td>
-                                <td class="px-3 py-2 font-semibold">{{ \App\Support\Money::format($payment->amount) }}</td>
-                                <td class="px-3 py-2"><x-status-badge :tone="$payment->method->tone()" :label="$payment->method->label()" /></td>
-                                <td class="px-3 py-2 text-right"><x-action-icon :href="route('payments.show', $payment)" label="View" icon="eye" /></td>
+                                <th class="w-14">#</th>
+                                <th>Payment</th>
+                                <th>Client / payroll</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th class="text-right">Actions</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach ($payments as $payment)
+                                <tr>
+                                    <td class="whitespace-nowrap"><x-table-serial :paginator="$payments" :index="$loop->index" /></td>
+                                    <td class="whitespace-nowrap">
+                                        <p class="font-semibold font-mono text-slate-900 dark:text-slate-100">{{ $payment->reference }}</p>
+                                        <p class="text-xs text-slate-500">{{ $payment->payment_date->format('d M Y') }}</p>
+                                    </td>
+                                    <td class="whitespace-nowrap">
+                                        @if ($payment->isDisbursement())
+                                            <p>Payroll disbursement</p>
+                                            <p class="text-xs text-slate-500">{{ $payment->payrollRun?->reference }}</p>
+                                        @else
+                                            <p>{{ $payment->client?->name }}</p>
+                                            <p class="text-xs text-slate-500">{{ $payment->invoice?->reference }}</p>
+                                        @endif
+                                    </td>
+                                    <td class="whitespace-nowrap font-semibold">{{ \App\Support\Money::format($payment->amount) }}</td>
+                                    <td class="whitespace-nowrap"><x-status-badge :tone="$payment->method->tone()" :label="$payment->method->label()" /></td>
+                                    <td class="whitespace-nowrap text-right"><x-action-icon :href="route('payments.show', $payment)" label="View" icon="eye" /></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <div class="no-print">{{ $payments->links() }}</div>
         @endif

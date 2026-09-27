@@ -38,6 +38,7 @@ use App\Http\Controllers\Hr\DesertionController;
 use App\Http\Controllers\Hr\GuardAssetController;
 use App\Http\Controllers\Hr\LeaveController;
 use App\Http\Controllers\Hr\StaffController;
+use App\Http\Controllers\NavigationBadgeController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Operations\IncidentController;
 use App\Http\Controllers\Operations\WorkOrderController;
@@ -79,6 +80,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/ops-dashboards/sites/{site}', [OperationalDashboardController::class, 'site'])->name('ops-dashboards.site');
     Route::get('/ops-dashboards/guards/{guard}', [OperationalDashboardController::class, 'guard'])->name('ops-dashboards.guard');
     Route::get('/search', GlobalSearchController::class)->middleware('throttle:search')->name('search');
+    Route::get('/navigation/badges', NavigationBadgeController::class)->name('navigation.badges');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
 

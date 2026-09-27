@@ -24,7 +24,7 @@
             placeholder="Search invoices, payroll, guards, sites…"
             autocomplete="off"
             aria-label="Search"
-            class="h-8 w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs text-slate-900 shadow-sm placeholder:text-slate-400 transition hover:bg-slate-50 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
+            class="h-8 w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs text-slate-900 shadow-sm placeholder:text-slate-600 transition hover:bg-slate-50 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-300 dark:hover:bg-slate-800 dark:focus:bg-slate-800"
         >
         <button
             type="button"

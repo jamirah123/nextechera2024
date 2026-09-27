@@ -19,7 +19,7 @@
                         <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Existing payroll periods</h2>
                         <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Paid months are closed for the same scope. Other statuses mean a run is already open for that period.</p>
                     </div>
-                    <div class="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
                         <table class="data-table text-xs">
                             <thead>
                                 <tr>
@@ -31,8 +31,8 @@
                             <tbody>
                                 @foreach ($existingRuns as $existingRun)
                                     <tr>
-                                        <td class="font-semibold">{{ $existingRun->periodLabel() }}</td>
-                                        <td class="text-slate-600 dark:text-slate-400">
+                                        <td class="font-semibold" data-label="Period">{{ $existingRun->periodLabel() }}</td>
+                                        <td class="text-slate-600 dark:text-slate-400" data-label="Scope">
                                             @if ($existingRun->site)
                                                 {{ $existingRun->site->name }}
                                             @elseif ($existingRun->region)
@@ -41,7 +41,7 @@
                                                 Company-wide
                                             @endif
                                         </td>
-                                        <td>
+                                        <td data-label="Status">
                                             <x-status-badge :tone="$existingRun->status->tone()" :label="$existingRun->status->label()" />
                                         </td>
                                     </tr>

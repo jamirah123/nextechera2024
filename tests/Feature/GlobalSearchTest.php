@@ -33,6 +33,8 @@ class GlobalSearchTest extends TestCase
                 ->assertOk()
                 ->assertSee('id="global-search"', false)
                 ->assertSee('aria-label="Search"', false)
+                ->assertSee('placeholder:text-slate-600', false)
+                ->assertSee($user->name, false)
                 ->assertDontSee('>Search system<', false)
                 ->assertSee('globalSearch', false)
                 ->assertSee('/search', false);

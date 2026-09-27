@@ -110,11 +110,11 @@ class SmallCompanySeeder extends Seeder
     private function seedUsers(): void
     {
         $users = [
-            ['name' => 'System Administrator', 'email' => 'admin@platinumsecurity.local', 'role' => UserRole::SuperAdmin, 'phone' => '+256700000001'],
-            ['name' => 'Operations Manager', 'email' => 'operations@platinumsecurity.local', 'role' => UserRole::OperationsManager, 'phone' => '+256700000002'],
-            ['name' => 'HR Manager', 'email' => 'hr@platinumsecurity.local', 'role' => UserRole::HrManager, 'phone' => '+256700000003'],
-            ['name' => 'Shift Manager', 'email' => 'shifts@platinumsecurity.local', 'role' => UserRole::ShiftManager, 'phone' => '+256700000004'],
-            ['name' => 'Finance Manager', 'email' => 'finance@platinumsecurity.local', 'role' => UserRole::FinanceManager, 'phone' => '+256700000005'],
+            ['name' => 'Grace Namuli', 'email' => 'admin@platinumsecurity.local', 'role' => UserRole::SuperAdmin, 'phone' => '+256700000001'],
+            ['name' => 'David Okello', 'email' => 'operations@platinumsecurity.local', 'role' => UserRole::OperationsManager, 'phone' => '+256700000002'],
+            ['name' => 'Sarah Nalwoga', 'email' => 'hr@platinumsecurity.local', 'role' => UserRole::HrManager, 'phone' => '+256700000003'],
+            ['name' => 'Alex Smith', 'email' => 'shifts@platinumsecurity.local', 'role' => UserRole::ShiftManager, 'phone' => '+256700000004'],
+            ['name' => 'Peter Mugisha', 'email' => 'finance@platinumsecurity.local', 'role' => UserRole::FinanceManager, 'phone' => '+256700000005'],
         ];
 
         foreach ($users as $user) {

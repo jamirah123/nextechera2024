@@ -19,18 +19,18 @@
         <div class="relative z-10 flex flex-1 flex-col justify-between px-10 py-12 xl:px-16">
             <div>
                 <div class="inline-flex items-center gap-3">
-                    <x-company-logo size="lg" rounded="xl" class="ring-1 ring-white/20 shadow-sm" />
+                    <x-company-logo size="lg" plain />
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-300">Authorized Access</p>
                         <p class="text-xl font-semibold tracking-tight">{{ $brand['name'] ?? config('psg.company') }}</p>
                         @if (filled($brand['tagline'] ?? config('psg.tagline')))
-                            <p class="mt-0.5 text-sm text-slate-400">{{ $brand['tagline'] ?? config('psg.tagline') }}</p>
+                            <p class="mt-0.5 text-sm text-slate-300">{{ $brand['tagline'] ?? config('psg.tagline') }}</p>
                         @endif
                     </div>
                 </div>
 
                 <div class="mt-16 max-w-none">
-                    <h1 class="whitespace-nowrap text-3xl font-semibold tracking-tight text-white xl:text-4xl xl:leading-tight">
+                    <h1 class="text-3xl font-semibold tracking-tight text-white xl:text-4xl xl:leading-tight">
                         {{ config('psg.login_headline') }}
                     </h1>
                 </div>
@@ -57,7 +57,7 @@
                 </ul>
             </div>
 
-            <p class="mt-10 text-xs text-slate-500">
+            <p class="mt-10 text-xs text-slate-400">
                 Authorized personnel only. Sign-in activity is recorded for security audit.
             </p>
         </div>
@@ -70,7 +70,7 @@
         </div>
         <div class="border-b border-steel-850/10 bg-steel-950 px-4 py-4 text-white sm:px-8 lg:hidden">
             <div class="mx-auto flex max-w-md items-center gap-3">
-                <x-company-logo size="md" rounded="xl" class="ring-0 shadow-none" />
+                <x-company-logo size="md" plain />
                 <div class="min-w-0">
                     <p class="truncate text-base font-semibold tracking-tight">{{ $brand['name'] ?? config('psg.company') }}</p>
                     <p class="truncate text-xs text-slate-300">{{ $brand['subtitle'] ?? config('psg.system_subtitle', 'Operations System') }}</p>
@@ -160,23 +160,34 @@
                             </div>
                         </div>
 
+                        <div class="flex items-center justify-between gap-3">
+                            <label for="remember" class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                                <input
+                                    id="remember"
+                                    type="checkbox"
+                                    name="remember"
+                                    value="1"
+                                    class="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-500"
+                                    @checked(old('remember'))
+                                >
+                                Keep me signed in
+                            </label>
+                            <a href="{{ route('password.request') }}" class="text-xs font-semibold text-brand-700 hover:text-brand-800">Forgot password?</a>
+                        </div>
+
                         <button
                             type="submit"
                             class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
                             :disabled="submitting"
                         >
-                            <span x-text="submitting ? 'Signing in…' : 'Sign in to dashboard'"></span>
+                            <span x-text="submitting ? 'Signing In…' : 'Sign In to Dashboard'"></span>
                         </button>
-
-                        <p class="text-center">
-                            <a href="{{ route('password.request') }}" class="text-xs font-semibold text-brand-700 hover:text-brand-800">Forgot password?</a>
-                        </p>
                     </form>
                 </div>
 
-                <p class="mt-6 px-1 text-center text-xs leading-relaxed text-slate-500">
+                <p class="mt-6 text-center text-xs leading-relaxed text-slate-500">
                     &copy; {{ date('Y') }} {{ config('psg.company') }}.
-                    {{ config('psg.system_subtitle', 'Operations System') }} — {{ config('psg.tagline') }}.
+                    {{ config('psg.system_subtitle', 'Operations System') }}.
                 </p>
             </div>
         </div>

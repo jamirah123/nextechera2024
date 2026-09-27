@@ -32,7 +32,7 @@
     @if ($bills->isEmpty())
         <x-empty-state title="No purchase invoices" description="Record a supplier bill to capture operating expense and recoverable VAT." icon="invoice" />
     @else
-        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
                 <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
@@ -47,15 +47,15 @@
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                     @foreach ($bills as $bill)
                         <tr>
-                            <td class="px-3 py-2">
+                            <td class="px-3 py-2" data-label="Bill">
                                 <p class="font-semibold">{{ $bill->reference }}</p>
                                 <p class="text-[11px] text-slate-500">{{ $bill->bill_date?->format('d M Y') }}</p>
                             </td>
-                            <td class="px-3 py-2">{{ $bill->supplier_name }}</td>
-                            <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($bill->total) }}</td>
-                            <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($bill->tax_amount) }}</td>
-                            <td class="px-3 py-2"><x-status-badge :tone="$bill->status->tone()" :label="$bill->status->label()" /></td>
-                            <td class="px-3 py-2 text-right"><a href="{{ route('ledger.purchases.show', $bill) }}" class="font-semibold text-brand-700 hover:underline">Open</a></td>
+                            <td class="px-3 py-2" data-label="Supplier">{{ $bill->supplier_name }}</td>
+                            <td class="px-3 py-2 tabular-nums" data-label="Total">{{ \App\Support\Money::format($bill->total) }}</td>
+                            <td class="px-3 py-2 tabular-nums" data-label="VAT">{{ \App\Support\Money::format($bill->tax_amount) }}</td>
+                            <td class="px-3 py-2" data-label="Status"><x-status-badge :tone="$bill->status->tone()" :label="$bill->status->label()" /></td>
+                            <td class="px-3 py-2 text-right" data-label="Actions"><a href="{{ route('ledger.purchases.show', $bill) }}" class="font-semibold text-brand-700 hover:underline">Open</a></td>
                         </tr>
                     @endforeach
                 </tbody>

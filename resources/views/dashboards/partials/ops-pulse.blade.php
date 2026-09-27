@@ -11,7 +11,7 @@
         <a href="{{ route('ops-dashboards.company') }}" class="text-[11px] font-semibold text-brand-700 hover:text-brand-800">Company dashboard →</a>
     </div>
 
-    <div class="flex flex-row gap-2">
+    <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
         @foreach ([
             ['Coverage', ($ops['manpower']['coverage_percent'] ?? 0).'%', 'text-brand-800'],
             ['Shortage', number_format($ops['manpower']['shortage'] ?? 0), 'text-rose-700'],

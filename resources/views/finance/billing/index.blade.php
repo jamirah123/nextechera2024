@@ -59,7 +59,7 @@
         @if ($profiles->isEmpty())
             <x-empty-state title="No billing profiles" description="Add monthly fees and shift rates for clients or sites." icon="wallet" />
         @else
-            <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
                     <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                         <tr>
@@ -76,25 +76,25 @@
                     <tbody class="divide-y divide-slate-100">
                         @foreach ($profiles as $profile)
                             <tr>
-                                <td class="px-3 py-2"><x-table-serial :paginator="$profiles" :index="$loop->index" /></td>
-                                <td class="px-3 py-2">
+                                <td class="px-3 py-2" data-label="#"><x-table-serial :paginator="$profiles" :index="$loop->index" /></td>
+                                <td class="px-3 py-2" data-label="Client">
                                     <p class="font-semibold">{{ $profile->client?->name }}</p>
                                     <p class="text-xs text-slate-500">{{ $profile->site?->name ?? 'Client-wide default' }}</p>
                                 </td>
-                                <td class="px-3 py-2">
+                                <td class="px-3 py-2" data-label="Mode">
                                     <x-status-badge :tone="$profile->billing_mode?->tone() ?? 'brand'" :label="$profile->billing_mode?->label() ?? 'Monthly'" />
                                     @if ($profile->cash_no_tax)
                                         <p class="mt-1"><x-status-badge tone="amber" label="Cash / no VAT" /></p>
                                     @endif
                                 </td>
-                                <td class="px-3 py-2">
+                                <td class="px-3 py-2" data-label="Guards">
                                     <p class="font-semibold">{{ $profile->contractedGuardTotal() }} posts</p>
                                     <p class="text-xs text-slate-500">
                                         Day {{ (int) $profile->contracted_day_armed_guards }}A/{{ (int) $profile->contracted_day_unarmed_guards }}U
                                         · Night {{ (int) $profile->contracted_night_armed_guards }}A/{{ (int) $profile->contracted_night_unarmed_guards }}U
                                     </p>
                                 </td>
-                                <td class="px-3 py-2">
+                                <td class="px-3 py-2" data-label="Rates">
                                     @if (($profile->billing_mode?->usesMonthlyRates() ?? true))
                                         <p class="text-xs font-semibold text-slate-600">Total {{ \App\Support\Money::format($profile->estimatedMonthlyTotal(), $profile->currency) }}/mo</p>
                                     @endif
@@ -102,12 +102,12 @@
                                         <p class="text-xs text-slate-500">Shift rates set</p>
                                     @endif
                                 </td>
-                                <td class="px-3 py-2 text-xs text-slate-600">
+                                <td class="px-3 py-2 text-xs text-slate-600" data-label="Effective">
                                     {{ $profile->effective_from->format('d M Y') }}
                                     @if ($profile->effective_to) – {{ $profile->effective_to->format('d M Y') }} @endif
                                 </td>
-                                <td class="px-3 py-2"><x-status-badge :tone="$profile->is_active ? 'emerald' : 'slate'" :label="$profile->is_active ? 'Active' : 'Inactive'" /></td>
-                                <td class="px-3 py-2 text-right"><x-action-icon :href="route('billing.show', $profile)" label="View" icon="eye" /></td>
+                                <td class="px-3 py-2" data-label="Status"><x-status-badge :tone="$profile->is_active ? 'emerald' : 'slate'" :label="$profile->is_active ? 'Active' : 'Inactive'" /></td>
+                                <td class="px-3 py-2 text-right" data-label="Actions"><x-action-icon :href="route('billing.show', $profile)" label="View" icon="eye" /></td>
                             </tr>
                         @endforeach
                     </tbody>

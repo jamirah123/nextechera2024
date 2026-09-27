@@ -11,6 +11,19 @@
         ->pluck('key')
         ->values()
         ->all();
+    $initialBadges = [];
+    foreach ($groups as $group) {
+        foreach ($group['items'] as $item) {
+            if (is_numeric($item['badge'] ?? null) && filled($item['href'] ?? null)) {
+                $initialBadges[$item['href']] = (int) $item['badge'];
+            }
+            foreach ($item['children'] ?? [] as $child) {
+                if (is_numeric($child['badge'] ?? null) && filled($child['href'] ?? null)) {
+                    $initialBadges[$child['href']] = (int) $child['badge'];
+                }
+            }
+        }
+    }
 @endphp
 
 <nav
@@ -21,6 +34,9 @@
         haystacks: @js(collect($groups)->flatMap(fn ($g) => collect($g['items'])->map(function ($item) {
             return strtolower($item['label'].' '.collect($item['children'] ?? [])->pluck('label')->implode(' '));
         }))->values()->all()),
+        badges: @js($initialBadges),
+        pollUrl: @js(route('navigation.badges')),
+        pollSeconds: @js((int) config('psg.notifications.poll_seconds', 30)),
     })"
     @keydown.escape.window="accountOpen = false"
 >
@@ -131,8 +147,15 @@
                                                 @click="$dispatch('sidebar-navigate')"
                                             >
                                                 <span class="truncate">{{ $child['label'] }}</span>
-                                                @if (! empty($child['badge']))
-                                                    <span class="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-rose-200 ring-1 ring-rose-400/20">{{ $child['badge'] > 99 ? '99+' : $child['badge'] }}</span>
+                                                @if (is_numeric($child['badge'] ?? null) || filled($child['href'] ?? null))
+                                                    <span
+                                                        class="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-rose-200 ring-1 ring-rose-400/20"
+                                                        x-show="badgeCount(@js($child['href'])) > 0"
+                                                        x-text="badgeText(@js($child['href']))"
+                                                        x-cloak
+                                                    ></span>
+                                                @elseif (! empty($child['badge']))
+                                                    <span class="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-rose-200 ring-1 ring-rose-400/20">{{ $child['badge'] }}</span>
                                                 @endif
                                             </a>
                                         @endforeach
@@ -160,18 +183,25 @@
                                         'opacity-80' => ! ($item['active'] ?? false),
                                     ]) />
                                     <span class="min-w-0 flex-1 truncate" x-show="! $store.sidebar.collapsed" x-cloak>{{ $item['label'] }}</span>
-                                    @if (! empty($item['badge']))
+                                    @if (is_numeric($item['badge'] ?? null) || filled($item['href'] ?? null))
+                                        <span
+                                            class="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-rose-200 ring-1 ring-rose-400/20"
+                                            x-show="! $store.sidebar.collapsed && badgeCount(@js($item['href'])) > 0"
+                                            x-text="badgeText(@js($item['href']))"
+                                            x-cloak
+                                        ></span>
+                                        <span
+                                            class="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-rose-400"
+                                            x-show="$store.sidebar.collapsed && badgeCount(@js($item['href'])) > 0"
+                                            x-cloak
+                                            aria-hidden="true"
+                                        ></span>
+                                    @elseif (! empty($item['badge']))
                                         <span
                                             class="rounded-full bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-bold tabular-nums text-rose-200 ring-1 ring-rose-400/20"
                                             x-show="! $store.sidebar.collapsed"
                                             x-cloak
-                                        >{{ $item['badge'] > 99 ? '99+' : $item['badge'] }}</span>
-                                        <span
-                                            class="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-rose-400"
-                                            x-show="$store.sidebar.collapsed"
-                                            x-cloak
-                                            aria-hidden="true"
-                                        ></span>
+                                        >{{ $item['badge'] }}</span>
                                     @endif
                                 </a>
                             @endif

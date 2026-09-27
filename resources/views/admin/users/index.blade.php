@@ -19,23 +19,18 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="flex flex-row gap-2 sm:gap-3">
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-600 sm:text-[11px]">Total</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['total'] }}</p>
-        </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-emerald-700 sm:text-[11px]">Active</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['active'] }}</p>
-        </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-amber-800 sm:text-[11px]">Inactive</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['inactive'] }}</p>
-        </div>
-        <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-            <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-rose-700 sm:text-[11px]">Super Admins</p>
-            <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $stats['super_admins'] }}</p>
-        </div>
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        @foreach ([
+            ['Total', $stats['total'], 'text-slate-600'],
+            ['Active', $stats['active'], 'text-emerald-700'],
+            ['Inactive', $stats['inactive'], 'text-amber-800'],
+            ['Super Admins', $stats['super_admins'], 'text-rose-700'],
+        ] as [$label, $value, $tone])
+            <div class="flex flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
+            </div>
+        @endforeach
     </section>
 
     <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
@@ -63,31 +58,31 @@
             <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
                 <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
-                        <th class="w-14 px-3 py-2">#</th>
-                        <th class="px-3 py-2">User</th>
-                        <th class="px-3 py-2">Role</th>
-                        <th class="px-3 py-2">Status</th>
-                        <th class="px-3 py-2">Last login</th>
-                        <th class="px-3 py-2 text-right">Actions</th>
+                        <th class="w-10 px-2.5 py-1.5">#</th>
+                        <th class="px-2.5 py-1.5">User</th>
+                        <th class="px-2.5 py-1.5">Role</th>
+                        <th class="px-2.5 py-1.5">Status</th>
+                        <th class="px-2.5 py-1.5">Last login</th>
+                        <th class="px-2.5 py-1.5 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     @foreach ($users as $account)
                         <tr>
-                            <td class="px-3 py-2"><x-table-serial :paginator="$users" :index="$loop->index" /></td>
-                            <td class="px-3 py-2">
-                                <p class="font-semibold text-slate-900">{{ $account->name }}</p>
-                                <p class="text-xs text-slate-500">{{ $account->email }}</p>
+                            <td class="px-2.5 py-1.5"><x-table-serial :paginator="$users" :index="$loop->index" /></td>
+                            <td class="px-2.5 py-1.5">
+                                <p class="font-semibold leading-tight text-slate-900">{{ $account->name }}</p>
+                                <p class="text-[11px] leading-tight text-slate-500">{{ $account->email }}</p>
                             </td>
-                            <td class="px-3 py-2"><x-status-badge :tone="$account->role->tone()" :label="$account->role->label()" /></td>
-                            <td class="px-3 py-2">
+                            <td class="px-2.5 py-1.5"><x-status-badge :tone="$account->role->tone()" :label="$account->role->label()" /></td>
+                            <td class="px-2.5 py-1.5">
                                 <x-status-badge :tone="$account->is_active ? 'emerald' : 'slate'" :label="$account->is_active ? 'Active' : 'Inactive'" />
                             </td>
-                            <td class="px-3 py-2 text-slate-600">
+                            <td class="px-2.5 py-1.5 text-slate-600">
                                 {{ $account->last_login_at?->format('d M Y, H:i') ?? 'Never' }}
                             </td>
-                            <td class="px-3 py-2 text-right">
-                                <x-action-icon :href="route('users.show', $account)" label="View" icon="eye" />
+                            <td class="px-2.5 py-1.5 text-right">
+                                <x-action-icon :href="route('users.show', $account)" label="View" icon="eye" class="!h-6 !w-6" />
                             </td>
                         </tr>
                     @endforeach

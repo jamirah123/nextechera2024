@@ -39,32 +39,32 @@
     </section>
 
     <div class="grid gap-3 lg:grid-cols-2">
-        <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <section class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <h2 class="px-3 py-2 text-sm font-semibold">Revenue</h2>
             <table class="min-w-full divide-y divide-slate-100 text-xs">
                 <tbody class="divide-y divide-slate-100">
                     @forelse ($report['revenue'] as $row)
                         <tr>
-                            <td class="px-3 py-2">{{ $row['account']->label() }}</td>
-                            <td class="px-3 py-2 text-right tabular-nums">{{ \App\Support\Money::format($row['amount']) }}</td>
+                            <td class="px-3 py-2" data-label="Account">{{ $row['account']->label() }}</td>
+                            <td class="px-3 py-2 text-right tabular-nums" data-label="Amount">{{ \App\Support\Money::format($row['amount']) }}</td>
                         </tr>
                     @empty
-                        <tr><td class="px-3 py-3 text-slate-500" colspan="2">No revenue in this period.</td></tr>
+                        <tr><td class="px-3 py-3 text-slate-500" colspan="2" data-label="">No revenue in this period.</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </section>
-        <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <section class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <h2 class="px-3 py-2 text-sm font-semibold">Expenses</h2>
             <table class="min-w-full divide-y divide-slate-100 text-xs">
                 <tbody class="divide-y divide-slate-100">
                     @forelse ($report['expenses'] as $row)
                         <tr>
-                            <td class="px-3 py-2">{{ $row['account']->label() }}</td>
-                            <td class="px-3 py-2 text-right tabular-nums">{{ \App\Support\Money::format($row['amount']) }}</td>
+                            <td class="px-3 py-2" data-label="Account">{{ $row['account']->label() }}</td>
+                            <td class="px-3 py-2 text-right tabular-nums" data-label="Amount">{{ \App\Support\Money::format($row['amount']) }}</td>
                         </tr>
                     @empty
-                        <tr><td class="px-3 py-3 text-slate-500" colspan="2">No expenses in this period.</td></tr>
+                        <tr><td class="px-3 py-3 text-slate-500" colspan="2" data-label="">No expenses in this period.</td></tr>
                     @endforelse
                 </tbody>
             </table>

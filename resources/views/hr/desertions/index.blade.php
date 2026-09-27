@@ -14,7 +14,7 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="flex flex-row gap-2 sm:gap-3">
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <div class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <p class="truncate text-[10px] font-semibold uppercase tracking-wide text-rose-700">Open</p>
             <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $stats['open'] }}</p>

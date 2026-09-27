@@ -18,7 +18,7 @@
         @endif
     </div>
     @isset($actions)
-        <div class="no-print flex shrink-0 flex-nowrap items-center gap-1.5 sm:justify-end">
+        <div class="no-print flex max-w-full flex-wrap items-center gap-1.5 sm:justify-end">
             {{ $actions }}
         </div>
     @endisset

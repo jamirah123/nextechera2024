@@ -8,16 +8,17 @@
 >
     <button
         type="button"
-        class="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:focus:ring-offset-slate-900 sm:px-2.5"
+        class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-1.5 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:focus:ring-offset-slate-900 sm:pr-2.5"
         @click="open = !open"
         :aria-expanded="open.toString()"
         aria-haspopup="menu"
+        aria-label="{{ $user->name }}"
     >
-        <span class="flex h-7 w-7 items-center justify-center rounded-md bg-brand-950 text-xs font-bold text-white">
+        <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-brand-950 text-[10px] font-bold text-white">
             {{ $user->initials() }}
         </span>
         <span class="hidden min-w-0 sm:block">
-            <span class="block max-w-[10rem] truncate text-sm font-semibold text-slate-900 dark:text-slate-100 lg:max-w-[14rem]">{{ $user->name }}</span>
+            <span class="block max-w-[9rem] truncate text-xs font-semibold text-slate-900 dark:text-slate-100 lg:max-w-[12rem]">{{ $user->name }}</span>
         </span>
         <svg class="hidden h-3.5 w-3.5 text-slate-400 sm:block" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>

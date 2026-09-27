@@ -17,7 +17,7 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="flex flex-row gap-2 sm:gap-3">
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         @foreach ([
             ['Coverage', $manpower['coverage_percent'].'%', 'text-brand-800'],
             ['Shortage', number_format($manpower['shortage']), 'text-rose-700'],

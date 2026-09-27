@@ -49,6 +49,30 @@
         >
             {{ $slot }}
         </select>
+    @elseif ($type === 'password')
+        <div class="relative" x-data="{ show: false }">
+            <input
+                id="{{ $name }}"
+                type="password"
+                :type="show ? 'text' : 'password'"
+                name="{{ $name }}"
+                value="{{ $fieldValue }}"
+                @if ($required) required @endif
+                @if ($placeholder) placeholder="{{ $placeholder }}" @endif
+                {{ $attributes->except('class') }}
+                @class(['field__control field__control--password', 'field__control--error' => $hasError])
+            >
+            <button
+                type="button"
+                class="absolute inset-y-0 right-0 flex items-center px-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                @click="show = !show"
+                :aria-label="show ? 'Hide password' : 'Show password'"
+                :aria-pressed="show"
+            >
+                <x-icon name="eye" class="h-3.5 w-3.5" x-show="!show" />
+                <x-icon name="eye-off" class="h-3.5 w-3.5" x-cloak x-show="show" />
+            </button>
+        </div>
     @else
         <input
             id="{{ $name }}"

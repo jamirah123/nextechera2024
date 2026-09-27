@@ -40,7 +40,7 @@
             @if ($recent->isEmpty())
                 <p class="mt-3 text-xs text-slate-500">Journals post automatically when invoices are issued, payments recorded, and payroll is approved or paid.</p>
             @else
-                <div class="mt-2 overflow-hidden rounded-md border border-slate-100 dark:border-slate-800">
+                <div class="psg-stack mt-2 overflow-hidden rounded-md border border-slate-100 dark:border-slate-800">
                     <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
                         <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60">
                             <tr>
@@ -53,13 +53,13 @@
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                             @foreach ($recent as $journal)
                                 <tr>
-                                    <td class="px-3 py-2">
+                                    <td class="px-3 py-2" data-label="Journal">
                                         <a href="{{ route('ledger.journals.show', $journal) }}" class="font-semibold text-brand-700 hover:underline">{{ $journal->reference }}</a>
                                         <p class="text-[11px] text-slate-500">{{ $journal->journal_date?->format('d M Y') }} · {{ $journal->description }}</p>
                                     </td>
-                                    <td class="px-3 py-2"><x-status-badge :tone="$journal->source->tone()" :label="$journal->source->label()" /></td>
-                                    <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($journal->debitTotal()) }}</td>
-                                    <td class="px-3 py-2"><x-status-badge :tone="$journal->status->tone()" :label="$journal->status->label()" /></td>
+                                    <td class="px-3 py-2" data-label="Source"><x-status-badge :tone="$journal->source->tone()" :label="$journal->source->label()" /></td>
+                                    <td class="px-3 py-2 tabular-nums" data-label="Amount">{{ \App\Support\Money::format($journal->debitTotal()) }}</td>
+                                    <td class="px-3 py-2" data-label="Status"><x-status-badge :tone="$journal->status->tone()" :label="$journal->status->label()" /></td>
                                 </tr>
                             @endforeach
                         </tbody>

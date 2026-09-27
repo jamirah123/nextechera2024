@@ -17,6 +17,8 @@ class AuthenticationTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Secure Sign In');
+        $response->assertSee('Keep me signed in');
+        $response->assertSee('Sign In to Dashboard');
         $response->assertSee('Platinum Security Group');
     }
 
@@ -38,6 +40,23 @@ class AuthenticationTest extends TestCase
         $user->refresh();
         $this->assertNotNull($user->last_login_at);
         $this->assertNotNull($user->last_login_ip);
+    }
+
+    public function test_remember_me_keeps_the_login(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'remember@example.com',
+            'password' => 'Password@123',
+        ]);
+
+        $this->post(route('login.store'), [
+            'email' => $user->email,
+            'password' => 'Password@123',
+            'remember' => '1',
+        ])->assertRedirect(route('dashboard'));
+
+        $this->assertAuthenticatedAs($user);
+        $this->assertNotNull($user->fresh()->remember_token);
     }
 
     public function test_users_cannot_authenticate_with_invalid_password(): void

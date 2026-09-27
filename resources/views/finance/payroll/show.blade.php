@@ -127,7 +127,7 @@
     @if ($run->guard_count === 0)
         <x-empty-state title="No payslips yet" description="Calculate this run to pull shift-based guards with completed shifts and fixed-salary staff for the period." icon="payroll" />
     @else
-        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -144,23 +144,23 @@
                 <tbody>
                     @foreach ($payslips as $payslip)
                         <tr>
-                            <td><x-table-serial :paginator="$payslips" :index="$loop->index" /></td>
-                            <td>
+                            <td data-label="#"><x-table-serial :paginator="$payslips" :index="$loop->index" /></td>
+                            <td data-label="Employee">
                                 <p class="font-semibold">{{ $payslip->full_name }}</p>
                                 <p class="text-[10px] text-slate-500 font-mono">{{ $payslip->employment_id }}</p>
                             </td>
-                            <td>{{ $payslip->compensation_type?->shortLabel() ?? 'Shift pay' }}</td>
-                            <td>
+                            <td data-label="Pay type">{{ $payslip->compensation_type?->shortLabel() ?? 'Shift pay' }}</td>
+                            <td data-label="Basis">
                                 @if ($payslip->isFixedSalary())
                                     <span class="text-slate-600 dark:text-slate-400">Fixed salary</span>
                                 @else
                                     {{ $payslip->total_shifts }} <span class="text-slate-500">({{ $payslip->normal_shifts }}N / {{ $payslip->overtime_shifts }}OT)</span>
                                 @endif
                             </td>
-                            <td>{{ \App\Support\Money::format($payslip->gross_pay, $run->currency) }}</td>
-                            <td>{{ \App\Support\Money::format($payslip->total_deductions, $run->currency) }}</td>
-                            <td class="font-semibold">{{ \App\Support\Money::format($payslip->net_pay, $run->currency) }}</td>
-                            <td class="text-right">
+                            <td data-label="Gross">{{ \App\Support\Money::format($payslip->gross_pay, $run->currency) }}</td>
+                            <td data-label="Deductions">{{ \App\Support\Money::format($payslip->total_deductions, $run->currency) }}</td>
+                            <td class="font-semibold" data-label="Net pay">{{ \App\Support\Money::format($payslip->net_pay, $run->currency) }}</td>
+                            <td class="text-right" data-label="Payslip">
                                 <a href="{{ route('payroll.payslips.show', [$run, $payslip]) }}" class="text-brand-700 hover:underline dark:text-brand-400">View</a>
                             </td>
                         </tr>

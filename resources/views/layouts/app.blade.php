@@ -113,17 +113,17 @@
         {{-- Main column --}}
         <div class="flex min-h-0 min-w-0 flex-1 flex-col">
             <header class="no-print z-30 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
-                <div class="flex items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 lg:px-6">
-                    <div class="flex min-w-0 shrink-0 items-center gap-3 sm:w-48 lg:w-56 xl:w-64">
+                <div class="flex flex-wrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 lg:px-6">
+                    <div class="flex min-w-0 flex-1 items-center gap-2 md:w-56 md:flex-none lg:w-64">
                         <button
                             type="button"
-                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 lg:hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                            class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-50 lg:hidden dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                             @click="mobileOpen = true"
                             aria-label="Open menu"
                         >
                             <x-icon name="menu" class="h-5 w-5" />
                         </button>
-                        <div class="min-w-0 hidden sm:block">
+                        <div class="min-w-0">
                             <p class="truncate text-sm font-semibold leading-tight text-slate-900 dark:text-slate-100">
                                 @yield('page-title', 'Dashboard')
                             </p>
@@ -133,27 +133,19 @@
                         </div>
                     </div>
 
-                    <div class="flex min-w-0 flex-1 justify-center px-1 sm:px-2">
+                    <div class="order-last w-full min-w-0 md:order-none md:w-auto md:flex-1 md:px-2">
                         <x-global-search />
                     </div>
 
-                    <div class="flex h-8 shrink-0 items-center gap-1.5 sm:gap-2">
+                    <div class="flex h-10 shrink-0 items-center gap-1.5 sm:gap-2">
                         <x-theme-toggle />
                         <x-notification-bell />
                         <x-profile-menu :user="auth()->user()" />
                     </div>
                 </div>
-                <div class="border-t border-slate-100 px-4 py-2 dark:border-slate-800 sm:hidden">
-                    <p class="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        @yield('page-title', 'Dashboard')
-                    </p>
-                    <p class="truncate text-xs text-slate-500">
-                        @yield('page-subtitle', auth()->user()->role?->description() ?? config('psg.company'))
-                    </p>
-                </div>
             </header>
 
-            <main class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2 sm:px-4 sm:py-3 lg:px-5">
+            <main class="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-2 sm:px-4 sm:py-3 lg:px-5">
                 <x-flash-status />
 
                 @if ($errors->any())

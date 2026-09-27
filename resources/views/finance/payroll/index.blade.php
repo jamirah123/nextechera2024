@@ -54,7 +54,7 @@
     @if ($runs->isEmpty())
         <x-empty-state title="No payroll runs" description="Open a payroll period to calculate guard pay from completed shifts." icon="payroll" />
     @else
-        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -71,12 +71,12 @@
                 <tbody>
                     @foreach ($runs as $run)
                         <tr>
-                            <td class="text-slate-500">
+                            <td class="text-slate-500" data-label="#">
                                 <x-table-serial :paginator="$runs" :index="$loop->index" />
                             </td>
-                            <td class="font-mono font-semibold">{{ $run->reference }}</td>
-                            <td>{{ $run->periodLabel() }}</td>
-                            <td class="text-slate-600 dark:text-slate-400">
+                            <td class="font-mono font-semibold" data-label="Reference">{{ $run->reference }}</td>
+                            <td data-label="Period">{{ $run->periodLabel() }}</td>
+                            <td class="text-slate-600 dark:text-slate-400" data-label="Scope">
                                 @if ($run->site)
                                     {{ $run->site->name }}
                                 @elseif ($run->region)
@@ -85,10 +85,10 @@
                                     Company-wide
                                 @endif
                             </td>
-                            <td>{{ $run->guard_count }}</td>
-                            <td>{{ \App\Support\Money::format($run->net_total, $run->currency) }}</td>
-                            <td><x-status-badge :tone="$run->status->tone()" :label="$run->status->label()" /></td>
-                            <td class="text-right">
+                            <td data-label="People">{{ $run->guard_count }}</td>
+                            <td data-label="Net pay">{{ \App\Support\Money::format($run->net_total, $run->currency) }}</td>
+                            <td data-label="Status"><x-status-badge :tone="$run->status->tone()" :label="$run->status->label()" /></td>
+                            <td class="text-right" data-label="Actions">
                                 <div class="inline-flex items-center justify-end gap-3">
                                     <a href="{{ route('payroll.show', $run) }}" class="text-brand-700 hover:underline dark:text-brand-400">View</a>
                                     @if (\App\Support\Finance\PayrollAccess::canCancel(auth()->user(), $run))

@@ -61,7 +61,7 @@
     @if ($lines->isEmpty())
         <x-empty-state title="No statement lines" description="Add lines from the bank statement, then match them to payments." icon="wallet" />
     @else
-        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
                 <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60">
                     <tr>
@@ -76,16 +76,16 @@
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                     @foreach ($lines as $line)
                         <tr>
-                            <td class="px-3 py-2">{{ $line->transaction_date?->format('d M Y') }}</td>
-                            <td class="px-3 py-2">
+                            <td class="px-3 py-2" data-label="Date">{{ $line->transaction_date?->format('d M Y') }}</td>
+                            <td class="px-3 py-2" data-label="Description">
                                 <p class="font-semibold">{{ $line->description }}</p>
                                 @if ($line->external_reference)
                                     <p class="text-[11px] text-slate-500">Ref {{ $line->external_reference }}</p>
                                 @endif
                             </td>
-                            <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($line->amount) }}</td>
-                            <td class="px-3 py-2"><x-status-badge :tone="$line->status->tone()" :label="$line->status->label()" /></td>
-                            <td class="px-3 py-2">
+                            <td class="px-3 py-2 tabular-nums" data-label="Amount">{{ \App\Support\Money::format($line->amount) }}</td>
+                            <td class="px-3 py-2" data-label="Status"><x-status-badge :tone="$line->status->tone()" :label="$line->status->label()" /></td>
+                            <td class="px-3 py-2" data-label="Match">
                                 @if ($line->matchedPayment)
                                     <a href="{{ route('payments.show', $line->matchedPayment) }}" class="font-semibold text-brand-700 hover:underline">{{ $line->matchedPayment->reference }}</a>
                                 @elseif ($canManage && $line->status->value === 'unmatched')
@@ -107,7 +107,7 @@
                                     —
                                 @endif
                             </td>
-                            <td class="px-3 py-2 text-right">
+                            <td class="px-3 py-2 text-right" data-label="Actions">
                                 @if ($canManage && $line->status->value === 'matched')
                                     <form method="POST" action="{{ route('ledger.bank.lines.unmatch', [$account, $line]) }}" class="inline">@csrf<button class="font-semibold text-amber-700 hover:underline">Unmatch</button></form>
                                 @elseif ($canManage && $line->status->value === 'unmatched')

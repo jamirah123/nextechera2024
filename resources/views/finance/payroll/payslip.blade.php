@@ -104,7 +104,7 @@
                 </div>
             </div>
 
-            <div class="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+            <div class="psg-stack overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
                 <table class="min-w-full divide-y divide-slate-100 text-sm dark:divide-slate-700">
                     <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800">
                         <tr>
@@ -118,15 +118,15 @@
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                         @forelse ($payslip->deductions as $deduction)
                             <tr>
-                                <td class="px-4 py-3">
+                                <td class="px-4 py-3" data-label="Deduction">
                                     {{ $deduction->label }}
                                     @if ($deduction->is_statutory)
                                         <span class="ml-1 text-[10px] uppercase text-slate-400">Statutory</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3 text-right">{{ \App\Support\Money::format($deduction->amount, $run->currency) }}</td>
+                                <td class="px-4 py-3 text-right" data-label="Amount">{{ \App\Support\Money::format($deduction->amount, $run->currency) }}</td>
                                 @if ($canManage && $run->status->canAddDeductions())
-                                    <td class="px-4 py-3 text-right no-print">
+                                    <td class="px-4 py-3 text-right no-print" data-label="Actions">
                                         @if (! $deduction->is_statutory)
                                             <form method="POST" action="{{ route('payroll.payslips.deductions.destroy', [$run, $payslip, $deduction]) }}" class="inline" onsubmit="return confirm('Remove this deduction?')">
                                                 @csrf
@@ -139,7 +139,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="3" class="px-4 py-6 text-center text-slate-500">No deductions recorded.</td>
+                                <td colspan="3" class="px-4 py-6 text-center text-slate-500" data-label="">No deductions recorded.</td>
                             </tr>
                         @endforelse
                     </tbody>

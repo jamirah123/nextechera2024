@@ -55,7 +55,7 @@
         @if ($advances->isEmpty())
             <x-empty-state title="No salary advances found" description="Record an advance on a guard or staff profile to start recovering it through payroll." icon="wallet" />
         @else
-            <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
                     <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/80">
                         <tr>
@@ -80,24 +80,24 @@
                                 $active = $advance->is_active && (float) $advance->balance_remaining > 0;
                             @endphp
                             <tr>
-                                <td class="px-3 py-2"><x-table-serial :paginator="$advances" :index="$loop->index" /></td>
-                                <td class="px-3 py-2">
+                                <td class="px-3 py-2" data-label="#"><x-table-serial :paginator="$advances" :index="$loop->index" /></td>
+                                <td class="px-3 py-2" data-label="Person">
                                     <p class="font-semibold text-slate-900 dark:text-slate-100">{{ $personName }}</p>
                                     <p class="text-[11px] text-slate-500">
                                         {{ $advance->guard_id ? 'Guard' : 'Staff' }}
                                         @if ($personCode) · {{ $personCode }} @endif
                                     </p>
                                 </td>
-                                <td class="px-3 py-2">{{ $advance->label }}</td>
-                                <td class="px-3 py-2 font-medium tabular-nums">{{ \App\Support\Money::format($advance->original_amount) }}</td>
-                                <td class="px-3 py-2 font-semibold tabular-nums text-rose-700 dark:text-rose-300">{{ \App\Support\Money::format($advance->balance_remaining) }}</td>
-                                <td class="px-3 py-2 tabular-nums text-slate-600 dark:text-slate-300">
+                                <td class="px-3 py-2" data-label="Label">{{ $advance->label }}</td>
+                                <td class="px-3 py-2 font-medium tabular-nums" data-label="Original">{{ \App\Support\Money::format($advance->original_amount) }}</td>
+                                <td class="px-3 py-2 font-semibold tabular-nums text-rose-700 dark:text-rose-300" data-label="Balance">{{ \App\Support\Money::format($advance->balance_remaining) }}</td>
+                                <td class="px-3 py-2 tabular-nums text-slate-600 dark:text-slate-300" data-label="Installment">
                                     {{ $advance->monthly_installment !== null ? \App\Support\Money::format($advance->monthly_installment) : '—' }}
                                 </td>
-                                <td class="px-3 py-2">
+                                <td class="px-3 py-2" data-label="Status">
                                     <x-status-badge :tone="$active ? 'amber' : 'slate'" :label="$active ? 'Active' : 'Closed'" />
                                 </td>
-                                <td class="px-3 py-2 text-right">
+                                <td class="px-3 py-2 text-right" data-label="Open">
                                     @if ($personUrl)
                                         <x-action-icon :href="$personUrl" label="Open profile" icon="eye" />
                                     @endif

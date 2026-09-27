@@ -41,7 +41,7 @@
         </section>
     @endif
 
-    <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
             <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60">
                 <tr>
@@ -55,11 +55,11 @@
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                 @foreach ($accounts as $account)
                     <tr>
-                        <td class="px-3 py-2 font-semibold tabular-nums">{{ $account->code }}</td>
-                        <td class="px-3 py-2">{{ $account->name }}</td>
-                        <td class="px-3 py-2"><x-status-badge :tone="$account->type->tone()" :label="$account->type->label()" /></td>
-                        <td class="px-3 py-2 text-slate-500">{{ $account->system_role ?: '—' }}</td>
-                        <td class="px-3 py-2">
+                        <td class="px-3 py-2 font-semibold tabular-nums" data-label="Code">{{ $account->code }}</td>
+                        <td class="px-3 py-2" data-label="Name">{{ $account->name }}</td>
+                        <td class="px-3 py-2" data-label="Type"><x-status-badge :tone="$account->type->tone()" :label="$account->type->label()" /></td>
+                        <td class="px-3 py-2 text-slate-500" data-label="System role">{{ $account->system_role ?: '—' }}</td>
+                        <td class="px-3 py-2" data-label="Status">
                             <x-status-badge :tone="$account->is_active ? 'emerald' : 'slate'" :label="$account->is_active ? 'Active' : 'Inactive'" />
                         </td>
                     </tr>

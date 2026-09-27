@@ -15,22 +15,24 @@
 >
     <button
         type="button"
-        class="relative inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:focus:ring-offset-slate-900"
+        class="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:focus:ring-offset-slate-900"
         @click="toggle()"
         :aria-expanded="open.toString()"
         aria-haspopup="menu"
         aria-label="Notifications"
         :title="unreadCount ? (unreadCount + ' unread notification' + (unreadCount === 1 ? '' : 's')) : 'Notifications'"
     >
-        <x-icon name="bell" class="h-5 w-5" />
-        <span
-            x-cloak
-            x-show="unreadCount > 0"
-            x-transition.scale.origin.top
-            class="absolute -right-1 -top-1 flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-slate-900"
-            :class="pulse ? 'animate-pulse' : ''"
-            x-text="unreadCount > 99 ? '99+' : unreadCount"
-        ></span>
+        <span class="relative inline-flex">
+            <x-icon name="bell" class="h-4 w-4" />
+            <span
+                x-cloak
+                x-show="unreadCount > 0"
+                x-transition.scale.origin.top
+                class="absolute -right-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-slate-900"
+                :class="pulse ? 'animate-pulse' : ''"
+                x-text="unreadCount > 99 ? '99+' : unreadCount"
+            ></span>
+        </span>
     </button>
 
     <div

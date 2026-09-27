@@ -47,6 +47,11 @@ Alpine.data('sidebarNav', (config = {}) => ({
     haystacks: Array.isArray(config.haystacks) ? config.haystacks : [],
     groupState: {},
     storageKey: config.storageKey || 'psg.sidebar.groups',
+    badges: config.badges && typeof config.badges === 'object' ? { ...config.badges } : {},
+    pollUrl: config.pollUrl || null,
+    pollSeconds: Number(config.pollSeconds) > 0 ? Number(config.pollSeconds) : 30,
+    pollTimer: null,
+    badgeController: null,
 
     init() {
         try {
@@ -60,6 +65,70 @@ Alpine.data('sidebarNav', (config = {}) => ({
                 this.groupState[key] = true;
             }
         });
+
+        if (! this.pollUrl) {
+            return;
+        }
+
+        this.fetchBadges();
+        this.pollTimer = window.setInterval(() => {
+            if (document.hidden) {
+                return;
+            }
+
+            this.fetchBadges();
+        }, this.pollSeconds * 1000);
+
+        document.addEventListener('visibilitychange', () => {
+            if (! document.hidden) {
+                this.fetchBadges();
+            }
+        });
+    },
+
+    badgeCount(href) {
+        const count = Number(this.badges?.[href] || 0);
+
+        return Number.isFinite(count) && count > 0 ? count : 0;
+    },
+
+    badgeText(href) {
+        const count = this.badgeCount(href);
+
+        return count > 99 ? '99+' : String(count);
+    },
+
+    async fetchBadges() {
+        if (! this.pollUrl) {
+            return;
+        }
+
+        if (this.badgeController) {
+            this.badgeController.abort();
+        }
+
+        this.badgeController = new AbortController();
+
+        try {
+            const response = await fetch(this.pollUrl, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                signal: this.badgeController.signal,
+            });
+
+            if (! response.ok) {
+                return;
+            }
+
+            const data = await response.json();
+            this.badges = data.badges || {};
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                // Keep the last counts if a poll fails.
+            }
+        }
     },
 
     isGroupOpen(key) {

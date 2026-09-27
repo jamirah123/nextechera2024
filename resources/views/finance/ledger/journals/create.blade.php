@@ -22,7 +22,7 @@
             <x-form-field label="Description" name="description" :value="old('description')" class="sm:col-span-2" required />
         </section>
 
-        <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <section class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
                 <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
@@ -36,7 +36,7 @@
                 <tbody>
                     <template x-for="(line, index) in lines" :key="index">
                         <tr class="border-t border-slate-100 dark:border-slate-800">
-                            <td class="px-3 py-2">
+                            <td class="px-3 py-2" data-label="Account">
                                 <select :name="'lines['+index+'][account_id]'" x-model="line.account_id" class="field__control" required>
                                     <option value="">Select</option>
                                     @foreach ($accounts as $account)
@@ -44,19 +44,19 @@
                                     @endforeach
                                 </select>
                             </td>
-                            <td class="px-3 py-2"><input type="text" :name="'lines['+index+'][memo]'" x-model="line.memo" class="field__control"></td>
-                            <td class="px-3 py-2"><input type="number" step="0.01" min="0" :name="'lines['+index+'][debit]'" x-model="line.debit" class="field__control"></td>
-                            <td class="px-3 py-2"><input type="number" step="0.01" min="0" :name="'lines['+index+'][credit]'" x-model="line.credit" class="field__control"></td>
-                            <td class="px-3 py-2"><button type="button" class="text-rose-600" @click="remove(index)" x-show="lines.length > 2">×</button></td>
+                            <td class="px-3 py-2" data-label="Memo"><input type="text" :name="'lines['+index+'][memo]'" x-model="line.memo" class="field__control"></td>
+                            <td class="px-3 py-2" data-label="Debit"><input type="number" step="0.01" min="0" :name="'lines['+index+'][debit]'" x-model="line.debit" class="field__control"></td>
+                            <td class="px-3 py-2" data-label="Credit"><input type="number" step="0.01" min="0" :name="'lines['+index+'][credit]'" x-model="line.credit" class="field__control"></td>
+                            <td class="px-3 py-2" data-label=""><button type="button" class="text-rose-600" @click="remove(index)" x-show="lines.length > 2">Remove line</button></td>
                         </tr>
                     </template>
                 </tbody>
                 <tfoot class="bg-slate-50 text-xs font-semibold">
                     <tr>
-                        <td class="px-3 py-2" colspan="2">Totals</td>
-                        <td class="px-3 py-2 tabular-nums" x-text="format(debitTotal())"></td>
-                        <td class="px-3 py-2 tabular-nums" x-text="format(creditTotal())"></td>
-                        <td></td>
+                        <td class="px-3 py-2" colspan="2" data-label="">Totals</td>
+                        <td class="px-3 py-2 tabular-nums" data-label="Debit" x-text="format(debitTotal())"></td>
+                        <td class="px-3 py-2 tabular-nums" data-label="Credit" x-text="format(creditTotal())"></td>
+                        <td data-label="#"></td>
                     </tr>
                 </tfoot>
             </table>

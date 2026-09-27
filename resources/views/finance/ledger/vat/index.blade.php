@@ -44,7 +44,7 @@
     @if ($pack['invoices']->isEmpty())
         <x-empty-state title="No issued invoices in this period" description="Issue invoices with VAT (or cash/no-VAT) to populate the return." icon="invoice" />
     @else
-        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
                 <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60">
                     <tr>
@@ -59,15 +59,15 @@
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                     @foreach ($pack['invoices'] as $invoice)
                         <tr>
-                            <td class="px-3 py-2">
+                            <td class="px-3 py-2" data-label="Invoice">
                                 <a href="{{ route('invoices.show', $invoice) }}" class="font-semibold text-brand-700 hover:underline">{{ $invoice->reference }}</a>
                                 <p class="text-[11px] text-slate-500">{{ optional($invoice->issue_date)?->format('d M Y') }}</p>
                             </td>
-                            <td class="px-3 py-2">{{ $invoice->client?->name }}</td>
-                            <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($invoice->subtotal) }}</td>
-                            <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($invoice->tax_amount) }}</td>
-                            <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($invoice->total) }}</td>
-                            <td class="px-3 py-2"><x-status-badge :tone="$invoice->status->tone()" :label="$invoice->status->label()" /></td>
+                            <td class="px-3 py-2" data-label="Client">{{ $invoice->client?->name }}</td>
+                            <td class="px-3 py-2 tabular-nums" data-label="Taxable">{{ \App\Support\Money::format($invoice->subtotal) }}</td>
+                            <td class="px-3 py-2 tabular-nums" data-label="VAT">{{ \App\Support\Money::format($invoice->tax_amount) }}</td>
+                            <td class="px-3 py-2 tabular-nums" data-label="Total">{{ \App\Support\Money::format($invoice->total) }}</td>
+                            <td class="px-3 py-2" data-label="Status"><x-status-badge :tone="$invoice->status->tone()" :label="$invoice->status->label()" /></td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -77,7 +77,7 @@
 
     @if ($pack['purchases']->isNotEmpty())
         <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Purchases (input VAT)</h2>
-        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
                 <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
@@ -91,14 +91,14 @@
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                     @foreach ($pack['purchases'] as $bill)
                         <tr>
-                            <td class="px-3 py-2">
+                            <td class="px-3 py-2" data-label="Bill">
                                 <a href="{{ route('ledger.purchases.show', $bill) }}" class="font-semibold text-brand-700 hover:underline">{{ $bill->reference }}</a>
                                 <p class="text-[11px] text-slate-500">{{ $bill->bill_date?->format('d M Y') }}</p>
                             </td>
-                            <td class="px-3 py-2">{{ $bill->supplier_name }}</td>
-                            <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($bill->subtotal) }}</td>
-                            <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($bill->tax_amount) }}</td>
-                            <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($bill->total) }}</td>
+                            <td class="px-3 py-2" data-label="Supplier">{{ $bill->supplier_name }}</td>
+                            <td class="px-3 py-2 tabular-nums" data-label="Taxable">{{ \App\Support\Money::format($bill->subtotal) }}</td>
+                            <td class="px-3 py-2 tabular-nums" data-label="Input VAT">{{ \App\Support\Money::format($bill->tax_amount) }}</td>
+                            <td class="px-3 py-2 tabular-nums" data-label="Total">{{ \App\Support\Money::format($bill->total) }}</td>
                         </tr>
                     @endforeach
                 </tbody>

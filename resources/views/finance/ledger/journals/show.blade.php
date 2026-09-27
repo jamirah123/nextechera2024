@@ -30,7 +30,7 @@
         </div>
     </section>
 
-    <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
             <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60">
                 <tr>
@@ -43,18 +43,18 @@
             <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                 @foreach ($journal->lines as $line)
                     <tr>
-                        <td class="px-3 py-2 font-semibold">{{ $line->account?->label() }}</td>
-                        <td class="px-3 py-2 text-slate-500">{{ $line->memo ?: '—' }}</td>
-                        <td class="px-3 py-2 text-right tabular-nums">{{ (float) $line->debit > 0 ? \App\Support\Money::format($line->debit) : '—' }}</td>
-                        <td class="px-3 py-2 text-right tabular-nums">{{ (float) $line->credit > 0 ? \App\Support\Money::format($line->credit) : '—' }}</td>
+                        <td class="px-3 py-2 font-semibold" data-label="Account">{{ $line->account?->label() }}</td>
+                        <td class="px-3 py-2 text-slate-500" data-label="Memo">{{ $line->memo ?: '—' }}</td>
+                        <td class="px-3 py-2 text-right tabular-nums" data-label="Debit">{{ (float) $line->debit > 0 ? \App\Support\Money::format($line->debit) : '—' }}</td>
+                        <td class="px-3 py-2 text-right tabular-nums" data-label="Credit">{{ (float) $line->credit > 0 ? \App\Support\Money::format($line->credit) : '—' }}</td>
                     </tr>
                 @endforeach
             </tbody>
             <tfoot class="bg-slate-50 text-xs font-semibold dark:bg-slate-800/60">
                 <tr>
-                    <td class="px-3 py-2" colspan="2">Totals</td>
-                    <td class="px-3 py-2 text-right tabular-nums">{{ \App\Support\Money::format($journal->debitTotal()) }}</td>
-                    <td class="px-3 py-2 text-right tabular-nums">{{ \App\Support\Money::format($journal->creditTotal()) }}</td>
+                    <td class="px-3 py-2" colspan="2" data-label="">Totals</td>
+                    <td class="px-3 py-2 text-right tabular-nums" data-label="Debit">{{ \App\Support\Money::format($journal->debitTotal()) }}</td>
+                    <td class="px-3 py-2 text-right tabular-nums" data-label="Credit">{{ \App\Support\Money::format($journal->creditTotal()) }}</td>
                 </tr>
             </tfoot>
         </table>

@@ -61,41 +61,71 @@
         @if ($invoices->isEmpty())
             <x-empty-state title="No invoices found" description="Create a draft invoice from contracted guard billing profiles." icon="invoice" />
         @else
-            <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
-                    <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                        <tr>
-                            <th class="w-14 px-3 py-2">#</th>
-                            <th class="px-3 py-2">Invoice</th>
-                            <th class="px-3 py-2">Client</th>
-                            <th class="px-3 py-2">Total / balance</th>
-                            <th class="px-3 py-2">Status</th>
-                            <th class="px-3 py-2">Created</th>
-                            <th class="px-3 py-2 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @foreach ($invoices as $invoice)
-                            <tr @class(['opacity-70' => $invoice->trashed()])>
-                                <td class="px-3 py-2"><x-table-serial :paginator="$invoices" :index="$loop->index" /></td>
-                                <td class="px-3 py-2">
-                                    <p class="font-semibold font-mono text-slate-900">{{ $invoice->reference }}</p>
-                                    <p class="text-xs text-slate-500">{{ $invoice->period_start->format('d M Y') }} – {{ $invoice->period_end->format('d M Y') }}</p>
-                                </td>
-                                <td class="px-3 py-2">{{ $invoice->client?->name }}</td>
-                                <td class="px-3 py-2">
-                                    <p class="font-semibold">{{ \App\Support\Money::format($invoice->total, $invoice->currency) }}</p>
-                                    <p class="text-xs text-slate-500">Bal {{ \App\Support\Money::format($invoice->balance, $invoice->currency) }}</p>
-                                </td>
-                                <td class="px-3 py-2"><x-status-badge :tone="$invoice->status->tone()" :label="$invoice->status->label()" /></td>
-                                <td class="px-3 py-2 text-xs text-slate-500">{{ $invoice->created_at?->format('d M Y') }}</td>
-                                <td class="px-3 py-2 text-right"><x-action-icon :href="route('invoices.show', $invoice)" label="View" icon="eye" /></td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+            <div class="grid gap-2 sm:grid-cols-2 lg:hidden print:hidden">
+                @foreach ($invoices as $invoice)
+                    <article @class([
+                        'rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900',
+                        'opacity-70' => $invoice->trashed(),
+                    ])>
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <a href="{{ route('invoices.show', $invoice) }}" class="font-mono text-xs font-semibold text-slate-900 hover:text-brand-700 dark:text-slate-100">{{ $invoice->reference }}</a>
+                                <p class="mt-0.5 text-xs text-slate-500">{{ $invoice->period_start->format('d M Y') }} – {{ $invoice->period_end->format('d M Y') }}</p>
+                            </div>
+                            <x-status-badge :tone="$invoice->status->tone()" :label="$invoice->status->label()" />
+                        </div>
+                        <p class="mt-2 text-xs font-medium text-slate-800 dark:text-slate-200">{{ $invoice->client?->name }}</p>
+                        <div class="mt-3 flex items-end justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold text-slate-900 dark:text-slate-100">{{ \App\Support\Money::format($invoice->total, $invoice->currency) }}</p>
+                                <p class="text-xs text-slate-500">Bal {{ \App\Support\Money::format($invoice->balance, $invoice->currency) }}</p>
+                            </div>
+                            <div class="flex shrink-0 items-center gap-2">
+                                <p class="text-xs text-slate-500">{{ $invoice->created_at?->format('d M Y') }}</p>
+                                <x-action-icon :href="route('invoices.show', $invoice)" label="View" icon="eye" />
+                            </div>
+                        </div>
+                    </article>
+                @endforeach
             </div>
-            <div class="no-print">{{ $invoices->links() }}</div>
+
+            <div class="hidden lg:block print:block">
+                <div class="data-table-shell">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="w-14">#</th>
+                                <th>Invoice</th>
+                                <th>Client</th>
+                                <th>Total / balance</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th class="text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($invoices as $invoice)
+                                <tr @class(['opacity-70' => $invoice->trashed()])>
+                                    <td class="whitespace-nowrap"><x-table-serial :paginator="$invoices" :index="$loop->index" /></td>
+                                    <td class="whitespace-nowrap">
+                                        <p class="font-semibold font-mono text-slate-900 dark:text-slate-100">{{ $invoice->reference }}</p>
+                                        <p class="text-xs text-slate-500">{{ $invoice->period_start->format('d M Y') }} – {{ $invoice->period_end->format('d M Y') }}</p>
+                                    </td>
+                                    <td class="whitespace-nowrap">{{ $invoice->client?->name }}</td>
+                                    <td class="whitespace-nowrap">
+                                        <p class="font-semibold">{{ \App\Support\Money::format($invoice->total, $invoice->currency) }}</p>
+                                        <p class="text-xs text-slate-500">Bal {{ \App\Support\Money::format($invoice->balance, $invoice->currency) }}</p>
+                                    </td>
+                                    <td class="whitespace-nowrap"><x-status-badge :tone="$invoice->status->tone()" :label="$invoice->status->label()" /></td>
+                                    <td class="whitespace-nowrap text-xs text-slate-500">{{ $invoice->created_at?->format('d M Y') }}</td>
+                                    <td class="whitespace-nowrap text-right"><x-action-icon :href="route('invoices.show', $invoice)" label="View" icon="eye" /></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <x-table-pagination :paginator="$invoices" />
         @endif
     </div>
 </div>

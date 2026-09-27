@@ -41,7 +41,7 @@
     @if ($report['rows']->isEmpty())
         <x-empty-state title="No posted activity" description="Issue invoices, post purchases or record a manual journal first." icon="wallet" />
     @else
-        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
                 <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                     <tr>
@@ -54,18 +54,18 @@
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                     @foreach ($report['rows'] as $row)
                         <tr>
-                            <td class="px-3 py-2 font-semibold">{{ $row['account']->label() }}</td>
-                            <td class="px-3 py-2"><x-status-badge :tone="$row['account']->type->tone()" :label="$row['account']->type->label()" /></td>
-                            <td class="px-3 py-2 text-right tabular-nums">{{ $row['debit'] > 0 ? \App\Support\Money::format($row['debit']) : '—' }}</td>
-                            <td class="px-3 py-2 text-right tabular-nums">{{ $row['credit'] > 0 ? \App\Support\Money::format($row['credit']) : '—' }}</td>
+                            <td class="px-3 py-2 font-semibold" data-label="Account">{{ $row['account']->label() }}</td>
+                            <td class="px-3 py-2" data-label="Type"><x-status-badge :tone="$row['account']->type->tone()" :label="$row['account']->type->label()" /></td>
+                            <td class="px-3 py-2 text-right tabular-nums" data-label="Debit">{{ $row['debit'] > 0 ? \App\Support\Money::format($row['debit']) : '—' }}</td>
+                            <td class="px-3 py-2 text-right tabular-nums" data-label="Credit">{{ $row['credit'] > 0 ? \App\Support\Money::format($row['credit']) : '—' }}</td>
                         </tr>
                     @endforeach
                 </tbody>
                 <tfoot class="bg-slate-50 text-xs font-semibold">
                     <tr>
-                        <td class="px-3 py-2" colspan="2">Totals</td>
-                        <td class="px-3 py-2 text-right tabular-nums">{{ \App\Support\Money::format($report['debit_total']) }}</td>
-                        <td class="px-3 py-2 text-right tabular-nums">{{ \App\Support\Money::format($report['credit_total']) }}</td>
+                        <td class="px-3 py-2" colspan="2" data-label="">Totals</td>
+                        <td class="px-3 py-2 text-right tabular-nums" data-label="Debit">{{ \App\Support\Money::format($report['debit_total']) }}</td>
+                        <td class="px-3 py-2 text-right tabular-nums" data-label="Credit">{{ \App\Support\Money::format($report['credit_total']) }}</td>
                     </tr>
                 </tfoot>
             </table>

@@ -61,7 +61,7 @@
                 @if ($rows->isEmpty())
                     <p class="px-3 py-4 text-xs text-slate-500 dark:text-slate-400">No activity in this period.</p>
                 @else
-                    <div class="overflow-x-auto">
+                    <div class="psg-stack overflow-x-auto">
                         <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-700">
                             <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                                 <tr>
@@ -76,18 +76,18 @@
                             <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                                 @foreach ($rows as $row)
                                     <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/60">
-                                        <td class="px-3 py-2"><x-table-serial :paginator="$rows" :index="$loop->index" /></td>
-                                        <td class="px-3 py-2">
+                                        <td class="px-3 py-2" data-label="#"><x-table-serial :paginator="$rows" :index="$loop->index" /></td>
+                                        <td class="px-3 py-2" data-label="Name">
                                             <p class="font-semibold text-slate-900 dark:text-slate-100">{{ $row['label'] }}</p>
                                             <p class="text-[11px] text-slate-500 dark:text-slate-400">{{ $row['code'] ?? '' }}{{ isset($row['client']) ? ' · '.$row['client'] : '' }}</p>
                                         </td>
-                                        <td class="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100">{{ \App\Support\Money::format($row['revenue']) }}</td>
-                                        <td class="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100">
+                                        <td class="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100" data-label="Revenue">{{ \App\Support\Money::format($row['revenue']) }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100" data-label="Payroll cost">
                                             {{ \App\Support\Money::format($row['cost']) }}
                                             <span class="block text-[10px] font-normal text-slate-500 dark:text-slate-400">{{ ($row['cost_source'] ?? 'estimated') === 'actual' ? 'Paid' : 'Est.' }}</span>
                                         </td>
-                                        <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums @if($row['profit'] >= 0) text-emerald-700 dark:text-emerald-400 @else text-rose-700 dark:text-rose-400 @endif">{{ \App\Support\Money::format($row['profit']) }}</td>
-                                        <td class="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100">{{ $row['margin'] !== null ? $row['margin'].'%' : '—' }}</td>
+                                        <td class="px-3 py-2 text-right text-xs font-semibold tabular-nums @if($row['profit'] >= 0) text-emerald-700 dark:text-emerald-400 @else text-rose-700 dark:text-rose-400 @endif" data-label="Profit">{{ \App\Support\Money::format($row['profit']) }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums text-slate-900 dark:text-slate-100" data-label="Margin">{{ $row['margin'] !== null ? $row['margin'].'%' : '—' }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

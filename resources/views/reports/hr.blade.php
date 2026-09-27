@@ -23,7 +23,7 @@
             title="HR summary report"
             :subtitle="'Leave, absences and desertions for '.\Carbon\Carbon::parse($from)->format('d M Y').' – '.\Carbon\Carbon::parse($to)->format('d M Y')"
         />
-        <section class="flex flex-row gap-2 sm:gap-3">
+        <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
             @foreach ([['Leaves','leaves','text-sky-700'],['Approved','approved_leaves','text-emerald-700'],['Absences','absences','text-amber-800'],['Desertions','desertions','text-rose-700']] as [$label,$key,$tone])
                 <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
                     <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }} sm:text-[11px]">{{ $label }}</p>

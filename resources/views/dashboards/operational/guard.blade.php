@@ -32,7 +32,7 @@
         </div>
     </section>
 
-    <section class="flex flex-row gap-2 sm:gap-3">
+    <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         @foreach ([
             ['Normal (mo)', number_format($kpis['month_normal']), 'text-brand-800'],
             ['OT (mo)', number_format($kpis['month_overtime']), 'text-amber-800'],

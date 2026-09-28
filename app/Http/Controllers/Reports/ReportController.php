@@ -274,7 +274,7 @@ class ReportController extends Controller
                 'Leave',
                 $leave->assignedGuard?->employment_id,
                 $leave->assignedGuard?->full_name,
-                $leave->leave_type->label(),
+                $leave->typeLabel(),
                 $leave->status->label(),
                 $leave->start_date->toDateString(),
                 $leave->end_date->toDateString(),

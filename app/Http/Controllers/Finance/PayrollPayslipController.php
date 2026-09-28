@@ -10,6 +10,7 @@ use App\Models\PayrollRun;
 use App\Services\Finance\PayrollCalculationService;
 use App\Services\Finance\PayrollPayslipExportService;
 use App\Services\Finance\PayrollPayslipPdfService;
+use App\Support\Access\SupervisorPayAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -32,6 +33,7 @@ class PayrollPayslipController extends Controller
         Gate::authorize('viewFinance');
 
         abort_unless((int) $payslip->payroll_run_id === (int) $payroll->id, 404);
+        $this->denyHiddenSupervisorPay($payslip);
 
         $payslip->load(['deductions', 'shifts.site:id,name,code', 'assignedGuard:id,employment_id,nssf_number', 'assignedStaff']);
 
@@ -85,6 +87,7 @@ class PayrollPayslipController extends Controller
     {
         Gate::authorize('viewFinance');
         abort_unless((int) $payslip->payroll_run_id === (int) $payroll->id, 404);
+        $this->denyHiddenSupervisorPay($payslip);
 
         return $this->exports->downloadCsv($payroll, $payslip);
     }
@@ -93,6 +96,7 @@ class PayrollPayslipController extends Controller
     {
         Gate::authorize('viewFinance');
         abort_unless((int) $payslip->payroll_run_id === (int) $payroll->id, 404);
+        $this->denyHiddenSupervisorPay($payslip);
 
         $payslip->load(['deductions', 'assignedGuard:id,employment_id,nssf_number', 'assignedStaff']);
 
@@ -108,5 +112,21 @@ class PayrollPayslipController extends Controller
             'payslip' => $payslip,
             'autoPrint' => request()->boolean('download'),
         ]);
+    }
+
+    private function denyHiddenSupervisorPay(PayrollPayslip $payslip): void
+    {
+        $user = request()->user();
+
+        if (! $user || ! SupervisorPayAccess::hidesSupervisorPay($user)) {
+            return;
+        }
+
+        $payslip->loadMissing([
+            'assignedStaff.supervisorProfile:id,staff_id',
+            'assignedGuard.supervisorProfile:id,guard_id',
+        ]);
+
+        abort_unless(SupervisorPayAccess::canViewPayslip($user, $payslip), 403);
     }
 }

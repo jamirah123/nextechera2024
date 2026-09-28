@@ -98,7 +98,7 @@ class EntityRelatedRecordsService
                 'count' => $recentLeaves->count(),
                 'href' => route('leaves.index', ['q' => $guard->employment_id]),
                 'items' => $recentLeaves->map(fn (Leave $leave) => [
-                    'label' => $leave->leave_type->label(),
+                    'label' => $leave->typeLabel(),
                     'meta' => $leave->start_date->format('d M').' – '.$leave->end_date->format('d M Y'),
                     'href' => route('leaves.show', $leave),
                     'tone' => $leave->status->tone(),

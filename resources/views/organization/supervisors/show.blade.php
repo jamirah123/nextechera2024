@@ -10,6 +10,7 @@
         :title="$supervisor->name"
         :subtitle="'Supervisor '.($supervisor->guardProfile?->employment_id ?? $supervisor->supervisor_code)"
         :back="route('supervisors.index')"
+        size="sm"
     >
         <x-slot:actions>
             @if ($canDeployCover ?? false)
@@ -35,13 +36,13 @@
 
     <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
         <div class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-2.5">
-            <h2 class="text-base font-semibold text-slate-900">Profile</h2>
+            <h2 class="text-sm font-semibold text-slate-900">Profile</h2>
             <x-status-badge :tone="$supervisor->status->tone()" :label="$supervisor->status->label()" />
         </div>
         <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Employment ID</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                     @if ($supervisor->guardProfile)
                         <a href="{{ route('guards.show', $supervisor->guardProfile) }}" class="text-brand-700 hover:text-brand-800">
                             {{ $supervisor->guardProfile->employment_id }}
@@ -53,11 +54,11 @@
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Internal code</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $supervisor->supervisor_code }}</dd>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $supervisor->supervisor_code }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Region</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                     @if ($supervisor->region)
                         <a href="{{ route('regions.show', $supervisor->region) }}" class="text-brand-700 hover:text-brand-800">
                             {{ $supervisor->region->name }}
@@ -69,7 +70,7 @@
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Staff profile</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                     @if ($supervisor->staffProfile)
                         <a href="{{ route('staff.show', $supervisor->staffProfile) }}" class="text-brand-700 hover:text-brand-800">
                             View in staff list
@@ -81,37 +82,37 @@
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Assignment date</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($supervisor->assignment_date)->format('d M Y') ?: '—' }}</dd>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ optional($supervisor->assignment_date)->format('d M Y') ?: '—' }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Phone</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $supervisor->phone ?: '—' }}</dd>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $supervisor->phone ?: '—' }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Email</dt>
-                <dd class="mt-1 break-all text-sm font-semibold text-slate-900">{{ $supervisor->email ?: '—' }}</dd>
+                <dd class="mt-0.5 break-all text-xs font-semibold text-slate-900">{{ $supervisor->email ?: '—' }}</dd>
             </div>
             <div class="border-t border-slate-100 px-3 py-2.5 sm:col-span-2 lg:col-span-3">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notes</dt>
-                <dd class="mt-1 text-sm text-slate-700">{{ $supervisor->notes ?: '—' }}</dd>
+                <dd class="mt-0.5 text-xs text-slate-700">{{ $supervisor->notes ?: '—' }}</dd>
             </div>
         </dl>
     </section>
 
-    @if ($supervisor->staffProfile)
+    @if ($supervisor->staffProfile && ($canViewSalary ?? false))
         @include('staff.partials.salary-history', ['staff' => $supervisor->staffProfile])
     @endif
 
     @if ($supervisor->guardProfile)
         <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-100 px-3 py-2.5">
-                <h2 class="text-base font-semibold text-slate-900">Shift payroll profile</h2>
-                <p class="mt-0.5 text-sm text-slate-500">Linked guard record used for deployments, shifts and monthly reporting.</p>
+                <h2 class="text-sm font-semibold text-slate-900">Shift payroll profile</h2>
+                <p class="mt-0.5 text-xs text-slate-500">Linked guard record used for deployments, shifts and monthly reporting.</p>
             </div>
             <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
                 <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
                     <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Employment ID</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">
+                    <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                         <a href="{{ route('guards.show', $supervisor->guardProfile) }}" class="text-brand-700 hover:text-brand-800">
                             {{ $supervisor->guardProfile->employment_id }}
                         </a>
@@ -125,7 +126,7 @@
                 </div>
                 <div class="border-b border-slate-100 px-3 py-2.5 lg:border-b-0">
                     <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Current cover site</dt>
-                    <dd class="mt-1 text-sm font-semibold text-slate-900">
+                    <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                         @if ($currentCover?->site)
                             <a href="{{ route('sites.show', $currentCover->site) }}" class="text-brand-700 hover:text-brand-800">
                                 {{ $currentCover->site->name }}
@@ -142,7 +143,7 @@
     <section class="grid gap-4 lg:grid-cols-2">
         <div class="rounded-lg border border-slate-200 bg-white shadow-sm">
             <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2.5">
-                <h2 class="text-base font-semibold text-slate-900">Assigned sites</h2>
+                <h2 class="text-sm font-semibold text-slate-900">Assigned sites</h2>
                 <span class="text-xs font-medium text-slate-500">{{ $supervisor->sites->count() }}</span>
             </div>
             @if ($supervisor->sites->isEmpty())
@@ -155,7 +156,7 @@
                         <li>
                             <a href="{{ route('sites.show', $site) }}" class="flex items-center justify-between gap-3 px-3 py-2 hover:bg-slate-50 sm:px-6">
                                 <div class="min-w-0">
-                                    <p class="truncate text-sm font-semibold text-slate-900">{{ $site->name }}</p>
+                                    <p class="truncate text-xs font-semibold text-slate-900">{{ $site->name }}</p>
                                     <p class="text-xs text-slate-500">
                                         {{ $site->code }}
                                         @if ($site->client) · {{ $site->client->name }} @endif
@@ -171,8 +172,8 @@
 
         <div class="rounded-lg border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-100 px-3 py-2.5">
-                <h2 class="text-base font-semibold text-slate-900">Assignment history</h2>
-                <p class="mt-0.5 text-sm text-slate-500">Region transfers and initial assignment.</p>
+                <h2 class="text-sm font-semibold text-slate-900">Assignment history</h2>
+                <p class="mt-0.5 text-xs text-slate-500">Region transfers and initial assignment.</p>
             </div>
             @if ($canTransfer ?? false)
                 <form method="POST" action="{{ route('supervisors.region-transfers.store', $supervisor) }}" class="grid gap-3 border-b border-slate-100 px-3 py-3 sm:grid-cols-2">
@@ -209,7 +210,7 @@
                             </div>
                             <div class="min-w-0 flex-1 pb-1">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <p class="text-sm font-semibold text-slate-900">
+                                    <p class="text-xs font-semibold text-slate-900">
                                         {{ str_replace('_', ' ', ucfirst($history->change_type)) }}
                                     </p>
                                     <span class="text-xs text-slate-500">
@@ -218,7 +219,7 @@
                                         {{ $history->ends_on?->format('d M Y') ?? 'Current' }}
                                     </span>
                                 </div>
-                                <p class="mt-1 text-sm text-slate-600">
+                                <p class="mt-1 text-xs text-slate-600">
                                     {{ $history->previousRegion?->name ?? 'None' }}
                                     →
                                     {{ $history->newRegion?->name ?? 'None' }}

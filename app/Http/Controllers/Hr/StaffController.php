@@ -116,6 +116,7 @@ class StaffController extends Controller
             'currentSalary' => \App\Support\Finance\PayrollRates::staffSalaryOn($staff, now()),
             'currentRevision' => $currentRevision,
             'canManage' => request()->user()->can('update', $staff),
+            'canViewSalary' => request()->user()->can('viewSalary', $staff),
             'canManageSalary' => request()->user()->can('manageSalary', $staff),
             'canManageFinance' => request()->user()->can('manageFinance'),
             'canDelete' => request()->user()->can('delete', $staff),

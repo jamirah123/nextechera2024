@@ -32,8 +32,9 @@
     </section>
 
     <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-        <form method="GET" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5 xl:items-end" x-data x-ref="filterForm">
+        <form method="GET" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-6 xl:items-end" x-data x-ref="filterForm">
             <x-form-field label="Search" name="q" type="search" :value="$filters['q'] ?? ''" class="sm:col-span-2" placeholder="Reference, guard, serial" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" />
+            <x-form-field label="Issued date" name="date" type="date" :value="$filters['date'] ?? ''" x-on:change="$refs.filterForm.requestSubmit()" />
             <x-form-field label="Region" name="region_id" type="select" x-on:change="$refs.filterForm.requestSubmit()">
                 <option value="">All regions</option>
                 @foreach ($regions as $region)

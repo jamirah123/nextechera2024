@@ -3,20 +3,28 @@
 namespace App\Http\Controllers\Hr;
 
 use App\Enums\LeaveStatus;
-use App\Enums\LeaveType;
 use App\Enums\UserRole;
 use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Hr\StoreLeaveRequest;
 use App\Models\Guard;
 use App\Models\Leave;
+use App\Models\LeaveEntitlement;
+use App\Models\LeaveTypeConfig;
+use App\Models\Region;
+use App\Models\Site;
+use App\Models\Staff;
+use App\Models\Supervisor;
 use App\Services\Documents\LetterPdfService;
 use App\Services\LeaveService;
+use App\Services\ReportExportService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LeaveController extends Controller
 {
@@ -25,34 +33,114 @@ class LeaveController extends Controller
     public function __construct(
         private LeaveService $leaves,
         private LetterPdfService $letters,
+        private ReportExportService $exports,
     ) {}
 
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Leave::class);
+        $this->leaves->syncDue();
 
-        $leaves = Leave::query()
-            ->with(['assignedGuard:id,employment_id,full_name', 'approver:id,name'])
-            ->search($request->string('q')->toString())
-            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
-            ->when($request->filled('leave_type'), fn ($q) => $q->where('leave_type', $request->string('leave_type')))
+        $today = now()->toDateString();
+        $weekEnd = now()->addDays(7)->toDateString();
+
+        $leaves = $this->filteredLeaves($request)
+            ->with([
+                'assignedGuard:id,employment_id,full_name,region_id,current_site_id,position_id',
+                'assignedGuard.region:id,name',
+                'assignedGuard.position:id,name',
+                'assignedGuard.currentSite:id,name',
+                'staffMember:id,employment_id,full_name,region_id,job_title,department,position_id',
+                'staffMember.region:id,name',
+                'staffMember.position:id,name',
+                'leaveTypeConfig:id,name,code',
+                'approver:id,name',
+            ])
             ->latest('start_date')
             ->paginate(table_per_page())
             ->withQueryString();
 
+        $onLeave = Leave::query()->where('status', LeaveStatus::Approved)->whereDate('start_date', '<=', $today)->whereDate('end_date', '>=', $today);
+
         return view('hr.leaves.index', [
             'leaves' => $leaves,
             'statuses' => LeaveStatus::cases(),
-            'types' => LeaveType::cases(),
-            'filters' => $request->only(['q', 'status', 'leave_type']),
+            'types' => LeaveTypeConfig::query()->where('is_active', true)->orderBy('name')->get(),
+            'regions' => Region::query()->orderBy('name')->get(['id', 'name']),
+            'sites' => Site::query()->orderBy('name')->get(['id', 'name']),
+            'supervisors' => Supervisor::query()->orderBy('name')->get(['id', 'name']),
+            'filters' => $request->only(['q', 'status', 'leave_type', 'leave_type_id', 'from', 'to', 'employee_type', 'region_id', 'site_id', 'supervisor_id']),
             'canManage' => $request->user()->can('create', Leave::class),
+            'canManageTypes' => $request->user()->can('create', LeaveTypeConfig::class),
             'stats' => [
+                'on_leave' => (clone $onLeave)->count(),
+                'guards_on_leave' => (clone $onLeave)->whereNotNull('guard_id')->count(),
+                'staff_on_leave' => (clone $onLeave)->whereNotNull('staff_id')->whereNull('guard_id')->count(),
                 'pending' => Leave::query()->where('status', LeaveStatus::Pending)->count(),
-                'approved' => Leave::query()->where('status', LeaveStatus::Approved)->count(),
-                'completed' => Leave::query()->where('status', LeaveStatus::Completed)->count(),
-                'conflicts' => Leave::query()->where('conflicting_shifts_count', '>', 0)->where('status', LeaveStatus::Approved)->count(),
+                'returning_today' => Leave::query()->where('status', LeaveStatus::Approved)->whereDate('expected_return_date', $today)->count(),
+                'returning_week' => Leave::query()->where('status', LeaveStatus::Approved)->whereDate('expected_return_date', '>=', $today)->whereDate('expected_return_date', '<=', $weekEnd)->count(),
+                'low_balance' => LeaveEntitlement::query()->where('year', now()->year)->get()->filter(fn (LeaveEntitlement $row) => $row->opening_balance > 0 && $row->remaining() <= 3)->count(),
+                'upcoming' => Leave::query()->where('status', LeaveStatus::Approved)->whereDate('start_date', '>', $today)->whereDate('start_date', '<=', $weekEnd)->count(),
             ],
         ]);
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $this->authorize('viewAny', Leave::class);
+
+        $rows = $this->filteredLeaves($request)
+            ->with([
+                'assignedGuard:id,employment_id,full_name,region_id,current_site_id,position_id',
+                'assignedGuard.region:id,name',
+                'assignedGuard.position:id,name',
+                'assignedGuard.currentSite:id,name',
+                'staffMember:id,employment_id,full_name,region_id,job_title,department,position_id',
+                'staffMember.region:id,name',
+                'staffMember.position:id,name',
+                'leaveTypeConfig:id,name,code,is_paid,pay_percent',
+            ])
+            ->latest('start_date')
+            ->get()
+            ->map(function (Leave $leave): array {
+                $employee = $leave->assignedGuard ?? $leave->staffMember;
+
+                return [
+                    $leave->employeeCode(),
+                    $leave->employeeName(),
+                    $leave->guard_id ? 'Guard' : 'Staff',
+                    $employee?->position?->name ?? $leave->staffMember?->job_title,
+                    $leave->staffMember?->department,
+                    $employee?->region?->name,
+                    $leave->assignedGuard?->currentSite?->name,
+                    $leave->typeLabel(),
+                    $leave->leaveTypeConfig?->is_paid ? 'Paid '.$leave->leaveTypeConfig->pay_percent.'%' : 'Unpaid',
+                    $leave->start_date->toDateString(),
+                    $leave->end_date->toDateString(),
+                    optional($leave->expected_return_date)?->toDateString(),
+                    $leave->days,
+                    $leave->statusLabel(),
+                    $leave->conflicting_shifts_count > 0 ? 'Replacement required' : '',
+                ];
+            });
+
+        return $this->exports->downloadCsv('leave-register.csv', [
+            'Employee ID',
+            'Employee',
+            'Employee type',
+            'Position',
+            'Department',
+            'Region',
+            'Site',
+            'Leave type',
+            'Pay',
+            'Start date',
+            'End date',
+            'Return date',
+            'Days',
+            'Status',
+            'Deployment impact',
+        ], $rows);
     }
 
     public function create(): View
@@ -61,24 +149,14 @@ class LeaveController extends Controller
 
         return view('hr.leaves.create', [
             'guards' => Guard::query()->activeEmployment()->orderBy('full_name')->get(['id', 'employment_id', 'full_name']),
-            'types' => LeaveType::cases(),
+            'staff' => Staff::query()->where('employment_status', 'active')->orderBy('full_name')->get(['id', 'employment_id', 'full_name', 'job_title']),
+            'types' => LeaveTypeConfig::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreLeaveRequest $request): RedirectResponse
     {
-        $this->authorize('create', Leave::class);
-
-        $data = $request->validate([
-            'guard_id' => ['required', 'exists:guards,id'],
-            'leave_type' => ['required', Rule::in(LeaveType::values())],
-            'start_date' => ['required', 'date'],
-            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
-            'expected_return_date' => ['nullable', 'date', 'after_or_equal:end_date'],
-            'reason' => ['nullable', 'string', 'max:255'],
-            'notes' => ['nullable', 'string', 'max:2000'],
-            'approve_now' => ['sometimes', 'boolean'],
-        ]);
+        $data = $request->validated();
 
         try {
             if ($request->boolean('approve_now') && (
@@ -87,7 +165,7 @@ class LeaveController extends Controller
                 $data['status'] = LeaveStatus::Approved->value;
             }
 
-            $leave = $this->leaves->create($data);
+            $leave = $this->leaves->create($data, $request->file('document'));
         } catch (InvalidArgumentException $e) {
             return back()->withInput()->withErrors(['leave' => $e->getMessage()]);
         }
@@ -99,7 +177,7 @@ class LeaveController extends Controller
     {
         $this->authorize('view', $leave);
 
-        $leave->load(['assignedGuard.region', 'approver', 'requester', 'creator']);
+        $leave->load(['assignedGuard.region', 'staffMember.region', 'leaveTypeConfig', 'approver', 'requester', 'creator']);
 
         return view('hr.leaves.show', [
             'leave' => $leave,
@@ -118,7 +196,7 @@ class LeaveController extends Controller
             return back()->withErrors(['leave' => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Leave approved. Conflicting scheduled shifts were cancelled.');
+        return back()->with('status', 'Leave approved. Scheduled shifts stay on the original guard and are flagged for replacement.');
     }
 
     public function reject(Request $request, Leave $leave): RedirectResponse
@@ -173,5 +251,34 @@ class LeaveController extends Controller
         $reference = 'LVE-'.str_pad((string) $leave->id, 5, '0', STR_PAD_LEFT);
 
         return $this->pdfDownload($binary, 'leave-approval-'.$reference.'.pdf');
+    }
+
+    /**
+     * @return Builder<Leave>
+     */
+    private function filteredLeaves(Request $request): Builder
+    {
+        return Leave::query()
+            ->search($request->string('q')->toString())
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
+            ->when($request->filled('leave_type'), fn ($q) => $q->where('leave_type', $request->string('leave_type')))
+            ->when($request->filled('leave_type_id'), fn ($q) => $q->where('leave_type_id', $request->integer('leave_type_id')))
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('end_date', '>=', $request->string('from')))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('start_date', '<=', $request->string('to')))
+            ->when($request->string('employee_type')->toString() === 'guard', fn ($q) => $q->whereNotNull('guard_id'))
+            ->when($request->string('employee_type')->toString() === 'staff', fn ($q) => $q->whereNotNull('staff_id')->whereNull('guard_id'))
+            ->when($request->filled('region_id'), function ($q) use ($request) {
+                $regionId = $request->integer('region_id');
+                $q->where(function ($inner) use ($regionId): void {
+                    $inner->whereHas('assignedGuard', fn ($guard) => $guard->where('region_id', $regionId))
+                        ->orWhereHas('staffMember', fn ($staff) => $staff->where('region_id', $regionId));
+                });
+            })
+            ->when($request->filled('site_id'), function ($q) use ($request) {
+                $q->whereHas('assignedGuard', fn ($guard) => $guard->where('current_site_id', $request->integer('site_id')));
+            })
+            ->when($request->filled('supervisor_id'), function ($q) use ($request) {
+                $q->whereHas('assignedGuard', fn ($guard) => $guard->where('current_supervisor_id', $request->integer('supervisor_id')));
+            });
     }
 }

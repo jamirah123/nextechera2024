@@ -23,7 +23,7 @@
     <p class="body-text">Dear {{ strtok($leave->assignedGuard?->full_name ?? 'Colleague', ' ') }},</p>
 
     <p class="body-text">
-        Your <strong>{{ $leave->leave_type->label() }}</strong> leave request has been
+        Your <strong>{{ $leave->typeLabel() }}</strong> leave request has been
         <span class="status-pill">Approved</span>.
         You are authorized to be away from duty during the period below.
     </p>

@@ -92,7 +92,13 @@
                                 @endif
                             </td>
                             <td>{{ $member->region?->name ?? 'Head office' }}</td>
-                            <td>{{ \App\Support\Money::format($member->monthly_salary) }}</td>
+                            <td>
+                                @if (auth()->user()->can('viewSalary', $member))
+                                    {{ \App\Support\Money::format($member->monthly_salary) }}
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td><x-status-badge :tone="$member->employment_status->tone()" :label="$member->employment_status->label()" /></td>
                             <td class="text-right">
                                 <a href="{{ route('staff.show', $member) }}" class="text-brand-700 hover:underline dark:text-brand-400">View</a>

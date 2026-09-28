@@ -49,7 +49,7 @@
                             <span class="w-6 shrink-0 tabular-nums text-sm text-slate-500">{{ $loop->iteration }}</span>
                             <div class="min-w-0">
                                 <p class="font-semibold text-slate-900">{{ $leave->assignedGuard?->full_name }}</p>
-                                <p class="text-xs text-slate-500">{{ $leave->leave_type->label() }} · {{ $leave->status->label() }}</p>
+                                <p class="text-xs text-slate-500">{{ $leave->typeLabel() }} · {{ $leave->status->label() }}</p>
                                 <p class="mt-1 text-xs text-slate-600">{{ $leave->start_date->format('d M') }} – {{ $leave->end_date->format('d M Y') }}</p>
                             </div>
                         </li>

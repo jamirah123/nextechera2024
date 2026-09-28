@@ -134,13 +134,15 @@ class RolePermissionsTest extends TestCase
             ->put(route('roles.permissions.update'), [
                 'permissions' => [],
             ])
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
 
         $this->actingAs($ops)
             ->post(route('roles.permissions.clone'), [
                 'source_role' => UserRole::HrManager->value,
                 'target_role' => UserRole::ShiftManager->value,
             ])
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
     }
 }

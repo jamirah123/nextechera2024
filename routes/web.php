@@ -38,6 +38,7 @@ use App\Http\Controllers\Hr\AttendanceController;
 use App\Http\Controllers\Hr\DesertionController;
 use App\Http\Controllers\Hr\GuardAssetController;
 use App\Http\Controllers\Hr\LeaveController;
+use App\Http\Controllers\Hr\LeaveTypeController;
 use App\Http\Controllers\Hr\EmployeePromotionController;
 use App\Http\Controllers\Hr\PositionController;
 use App\Http\Controllers\Hr\StaffController;
@@ -87,6 +88,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/navigation/badges', NavigationBadgeController::class)->name('navigation.badges');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read', [NotificationController::class, 'markRead'])->name('notifications.mark-read');
+    Route::post('/notifications/preferences', [NotificationController::class, 'updatePreferences'])->name('notifications.preferences');
+    Route::post('/notifications/{auditLog}/state', [NotificationController::class, 'updateState'])->name('notifications.state');
 
     Route::get('/organization', OrganizationDashboardController::class)->name('organization.index');
     Route::get('/manpower-coverage', [ManpowerCoverageController::class, 'index'])->name('manpower.coverage');
@@ -184,7 +187,12 @@ Route::middleware('auth')->group(function () {
         ->name('replacements.store');
     Route::get('/replacements/{replacement}', [ReplacementController::class, 'show'])->name('replacements.show');
 
+    Route::get('/leave-types', [LeaveTypeController::class, 'index'])->name('leave-types.index');
+    Route::post('/leave-types', [LeaveTypeController::class, 'store'])->middleware('throttle:mutations')->name('leave-types.store');
+    Route::put('/leave-types/{leaveTypeConfig}', [LeaveTypeController::class, 'update'])->middleware('throttle:mutations')->name('leave-types.update');
+
     Route::get('/leaves', [LeaveController::class, 'index'])->name('leaves.index');
+    Route::get('/leaves/export', [LeaveController::class, 'export'])->name('leaves.export');
     Route::get('/leaves/create', [LeaveController::class, 'create'])->name('leaves.create');
     Route::post('/leaves', [LeaveController::class, 'store'])->name('leaves.store');
     Route::get('/leaves/{leave}/letter', [LeaveController::class, 'downloadLetter'])->name('leaves.letter');

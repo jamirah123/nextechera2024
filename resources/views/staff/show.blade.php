@@ -72,9 +72,13 @@
             <div class="border-b border-slate-100 px-3 py-1.5 sm:border-r dark:border-slate-700">
                 <dt class="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Current salary</dt>
                 <dd class="mt-0.5 text-xs font-semibold text-brand-700 dark:text-brand-400">
-                    {{ \App\Support\Money::format($currentSalary ?? $staff->monthly_salary) }}
-                    @if ($currentRevision)
-                        <span class="block font-normal text-slate-500">From {{ $currentRevision->effective_from->format('d M Y') }}</span>
+                    @if ($canViewSalary ?? false)
+                        {{ \App\Support\Money::format($currentSalary ?? $staff->monthly_salary) }}
+                        @if ($currentRevision)
+                            <span class="block font-normal text-slate-500">From {{ $currentRevision->effective_from->format('d M Y') }}</span>
+                        @endif
+                    @else
+                        —
                     @endif
                 </dd>
             </div>
@@ -137,7 +141,9 @@
                     <li class="rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
                         <span class="font-semibold">{{ $promotion->effective_from->format('d M Y') }}</span>
                         {{ $promotion->previous_position ?: 'Guard' }} → {{ $promotion->position?->name }}
-                        · {{ \App\Support\Money::format($promotion->new_salary) }}
+                        @if ($canViewSalary ?? false)
+                            · {{ \App\Support\Money::format($promotion->new_salary) }}
+                        @endif
                         · {{ $promotion->isScheduled() ? 'Scheduled' : 'Applied' }}
                     </li>
                 @endforeach
@@ -146,7 +152,9 @@
         </section>
     @endif
 
-    @include('staff.partials.salary-history', ['staff' => $staff])
+    @if ($canViewSalary ?? false)
+        @include('staff.partials.salary-history', ['staff' => $staff])
+    @endif
 
     @include('staff.partials.salary-advances', ['staff' => $staff])
 </div>

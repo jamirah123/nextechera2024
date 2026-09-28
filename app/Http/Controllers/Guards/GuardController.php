@@ -143,6 +143,7 @@ class GuardController extends Controller
             'promotions.approver',
             'promotions.creator',
             'promotions.region',
+            'supervisorProfile:id,guard_id',
             'assetIssuances.lines',
             'assetRecoveries',
         ]);
@@ -159,6 +160,7 @@ class GuardController extends Controller
             'currentRevision' => $currentRevision,
             'currentDeployment' => $guard->currentDeployment,
             'canManage' => request()->user()->can('update', $guard),
+            'canViewSalary' => request()->user()->can('viewSalary', $guard),
             'canManageSalary' => request()->user()->can('manageSalary', $guard),
             'canPromote' => request()->user()->can('promote', $guard),
             'positions' => \App\Models\Position::query()->where('is_active', true)->orderBy('name')->get(),

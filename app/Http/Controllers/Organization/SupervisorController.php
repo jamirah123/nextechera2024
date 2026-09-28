@@ -120,6 +120,7 @@ class SupervisorController extends Controller
                 ? \App\Support\Finance\PayrollRates::staffSalaryOn($staffProfile, now())
                 : 0,
             'currentRevision' => $currentRevision,
+            'canViewSalary' => $staffProfile ? request()->user()->can('viewSalary', $staffProfile) : false,
             'canManageSalary' => $staffProfile ? request()->user()->can('manageSalary', $staffProfile) : false,
             'canTransfer' => request()->user()->can('transfer', $supervisor),
             'regions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),

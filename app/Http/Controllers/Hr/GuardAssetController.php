@@ -25,6 +25,10 @@ class GuardAssetController extends Controller
     {
         $this->authorize('viewAny', GuardAssetIssuance::class);
 
+        $request->validate([
+            'date' => ['nullable', 'date'],
+        ]);
+
         $user = $request->user();
         $regionId = $user->regionId();
 
@@ -34,6 +38,7 @@ class GuardAssetController extends Controller
             ->when($user->mustStayInOwnRegion(), fn ($q) => $q->whereHas('assignedGuard', fn ($g) => $g->where('region_id', $regionId)))
             ->when($request->filled('region_id') && ! $user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $request->integer('region_id')))
             ->when($request->filled('category'), fn ($q) => $q->whereHas('lines', fn ($line) => $line->where('asset_category', $request->string('category'))))
+            ->when($request->filled('date'), fn ($q) => $q->whereDate('issued_at', $request->date('date')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->latest('issued_at')
             ->paginate(table_per_page())
@@ -55,7 +60,7 @@ class GuardAssetController extends Controller
                 ->get(['id', 'name', 'code']),
             'categories' => AssetCategory::cases(),
             'issuanceTypes' => AssetIssuanceType::cases(),
-            'filters' => $request->only(['q', 'region_id', 'category', 'status']),
+            'filters' => $request->only(['q', 'region_id', 'category', 'status', 'date']),
             'canManage' => $user->can('create', GuardAssetIssuance::class),
             'stats' => [
                 'issued_month' => GuardAssetIssuance::query()

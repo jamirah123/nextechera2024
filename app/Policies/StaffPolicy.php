@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\Staff;
 use App\Models\User;
 use App\Support\Access\Access;
+use App\Support\Access\SupervisorPayAccess;
 
 class StaffPolicy
 {
@@ -26,6 +27,11 @@ class StaffPolicy
     public function update(User $user, Staff $staff): bool
     {
         return Access::userCan($user, 'staff.manage');
+    }
+
+    public function viewSalary(User $user, Staff $staff): bool
+    {
+        return $this->view($user, $staff) && SupervisorPayAccess::canViewStaffPay($user, $staff);
     }
 
     public function manageSalary(User $user, Staff $staff): bool

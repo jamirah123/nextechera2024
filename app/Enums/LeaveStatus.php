@@ -4,6 +4,7 @@ namespace App\Enums;
 
 enum LeaveStatus: string
 {
+    case Draft = 'draft';
     case Pending = 'pending';
     case Approved = 'approved';
     case Rejected = 'rejected';
@@ -13,6 +14,7 @@ enum LeaveStatus: string
     public function label(): string
     {
         return match ($this) {
+            self::Draft => 'Draft',
             self::Pending => 'Pending',
             self::Approved => 'Approved',
             self::Rejected => 'Rejected',
@@ -24,6 +26,7 @@ enum LeaveStatus: string
     public function tone(): string
     {
         return match ($this) {
+            self::Draft => 'slate',
             self::Pending => 'amber',
             self::Approved => 'emerald',
             self::Rejected => 'rose',

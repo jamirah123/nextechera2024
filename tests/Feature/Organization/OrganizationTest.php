@@ -134,7 +134,10 @@ class OrganizationTest extends TestCase
                 'code' => 'CEN',
                 'status' => 'active',
             ])
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
+
+        $this->assertDatabaseMissing('regions', ['code' => 'CEN']);
     }
 
     public function test_site_rejects_supervisor_from_another_region(): void

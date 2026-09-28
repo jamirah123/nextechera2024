@@ -243,7 +243,9 @@ class DeploymentService
                 OperationalStatus::Absent,
                 OperationalStatus::SickUnavailable,
             ], true)) {
-                throw new InvalidArgumentException('This guard is not available for temporary coverage.');
+                throw new InvalidArgumentException(
+                    'This employee is '.$guard->operational_status->label().' and is not available for temporary coverage.'
+                );
             }
 
             $workPeriod = ShiftDutyTypeResolver::workPeriodFor($shiftType);

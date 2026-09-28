@@ -57,8 +57,20 @@
                             <td data-label="Effective to">{{ $promotion->effective_to?->format('Y-m-d') ?? '—' }}</td>
                             <td data-label="Previous position">{{ $promotion->previous_position ?: '—' }}</td>
                             <td data-label="New position">{{ $promotion->position?->name }}</td>
-                            <td data-label="Previous salary">{{ $promotion->previous_salary !== null ? \App\Support\Money::format($promotion->previous_salary) : '—' }}</td>
-                            <td data-label="New salary">{{ \App\Support\Money::format($promotion->new_salary) }}</td>
+                            <td data-label="Previous salary">
+                                @if ($canViewSalary ?? true)
+                                    {{ $promotion->previous_salary !== null ? \App\Support\Money::format($promotion->previous_salary) : '—' }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td data-label="New salary">
+                                @if ($canViewSalary ?? true)
+                                    {{ \App\Support\Money::format($promotion->new_salary) }}
+                                @else
+                                    —
+                                @endif
+                            </td>
                             <td data-label="Reason">{{ $promotion->reason }}</td>
                             <td data-label="Reference">{{ $promotion->reference ?: '—' }}</td>
                             <td data-label="Region">{{ $promotion->region?->name ?? '—' }}</td>

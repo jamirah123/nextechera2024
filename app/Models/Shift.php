@@ -27,6 +27,7 @@ class Shift extends Model
         'region_id',
         'supervisor_id',
         'deployment_id',
+        'leave_id',
         'recurrence_id',
         'replaced_shift_id',
         'shift_date',

@@ -120,7 +120,8 @@ class PayrollManagementTest extends TestCase
 
         $this->actingAs($finance)
             ->post(route('payroll.approve', $run))
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
 
         $this->actingAs($finance)
             ->post(route('payroll.submit', $run))
@@ -346,7 +347,8 @@ class PayrollManagementTest extends TestCase
 
         $this->actingAs($finance)
             ->post(route('payroll.cancel', $run))
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
 
         $this->actingAs($director)
             ->post(route('payroll.cancel', $run))
@@ -617,7 +619,8 @@ class PayrollManagementTest extends TestCase
 
         $this->actingAs($ops)
             ->post(route('payroll.cancel', $run))
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
     }
 
     public function test_paid_payroll_stays_visible_and_blocks_new_run_for_same_period(): void

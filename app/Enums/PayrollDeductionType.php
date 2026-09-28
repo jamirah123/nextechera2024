@@ -10,6 +10,7 @@ enum PayrollDeductionType: string
     case Uniform = 'uniform';
     case AssetRecovery = 'asset_recovery';
     case Penalty = 'penalty';
+    case UnpaidLeave = 'unpaid_leave';
     case Other = 'other';
 
     public function label(): string
@@ -21,6 +22,7 @@ enum PayrollDeductionType: string
             self::Uniform => 'Uniform charge',
             self::AssetRecovery => 'Asset replacement',
             self::Penalty => 'Penalty',
+            self::UnpaidLeave => 'Unpaid leave',
             self::Other => 'Other deduction',
         };
     }

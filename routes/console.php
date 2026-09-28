@@ -51,6 +51,10 @@ Schedule::command('psg:backup-health', ['--alert' => true])
     ->withoutOverlapping()
     ->name('psg-backup-health');
 
+Schedule::command('psg:sync-leave-status')
+    ->dailyAt('00:20')
+    ->withoutOverlapping();
+
 Schedule::command('psg:mark-overdue-invoices')
     ->dailyAt('00:15')
     ->withoutOverlapping();

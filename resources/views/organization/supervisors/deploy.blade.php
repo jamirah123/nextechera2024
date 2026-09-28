@@ -2,7 +2,7 @@
 
 @section('title', 'Deploy Supervisor Cover')
 @section('page-title', 'Deploy supervisor cover')
-@section('page-subtitle', $supervisor->supervisor_code)
+@section('page-subtitle', $supervisor->employmentId())
 
 @section('content')
 <div

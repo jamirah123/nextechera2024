@@ -9,8 +9,10 @@ use App\Enums\PayrollDeductionType;
 use App\Enums\PayrollRunStatus;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
+use App\Enums\LeaveStatus;
 use App\Models\Guard;
 use App\Models\GuardAssetRecovery;
+use App\Models\Leave;
 use App\Models\GuardSalaryAdvance;
 use App\Models\PayrollDeduction;
 use App\Models\PayrollPayslip;
@@ -23,6 +25,7 @@ use App\Services\EmployeePromotionService;
 use App\Services\Reports\MonthlyShiftCalculationService;
 use App\Services\SystemSettingService;
 use App\Support\Finance\PayrollPayeCalculator;
+use App\Support\Hr\LeavePayrollAdjustment;
 use App\Support\Finance\PayrollRates;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -521,6 +524,7 @@ class PayrollCalculationService
         $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true);
         $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
         $this->applyAssetRecoveryDeductions($payslip, guardId: $guard->id);
+        $this->applyUnpaidLeaveDeductions($payslip, $run, guardId: $guard->id);
 
         if ($overtime['count'] > 0) {
             $this->linkShifts(
@@ -625,6 +629,7 @@ class PayrollCalculationService
 
         $this->applyStatutoryDeductions($payslip, $gross, includeUniform: false);
         $this->applyAdvanceDeductions($payslip, staffId: $member->id);
+        $this->applyUnpaidLeaveDeductions($payslip, $run, staffId: $member->id, monthlyGross: (float) $monthlyGross);
 
         if ($coverGuard !== null && $overtime['count'] > 0) {
             $this->linkShifts(
@@ -809,6 +814,48 @@ class PayrollCalculationService
         }
 
         $this->recalculatePayslipTotals($payslip);
+    }
+
+    private function applyUnpaidLeaveDeductions(PayrollPayslip $payslip, PayrollRun $run, ?int $guardId = null, ?int $staffId = null, ?float $monthlyGross = null): void
+    {
+        $monthly = $monthlyGross ?? (float) $payslip->base_shift_rate;
+        if ($monthly <= 0) {
+            return;
+        }
+
+        $leaves = Leave::query()
+            ->with('leaveTypeConfig')
+            ->whereIn('status', [LeaveStatus::Approved->value, LeaveStatus::Completed->value])
+            ->whereDate('start_date', '<=', $run->period_end->toDateString())
+            ->whereDate('end_date', '>=', $run->period_start->toDateString())
+            ->when($guardId, fn ($query) => $query->where('guard_id', $guardId))
+            ->when($staffId, fn ($query) => $query->where('staff_id', $staffId))
+            ->get();
+
+        foreach ($leaves as $leave) {
+            $amount = LeavePayrollAdjustment::unpaidAmount(
+                $leave,
+                $run->period_start->toDateString(),
+                $run->period_end->toDateString(),
+                $monthly,
+            );
+
+            if ($amount <= 0) {
+                continue;
+            }
+
+            PayrollDeduction::query()->create([
+                'payroll_payslip_id' => $payslip->id,
+                'type' => PayrollDeductionType::UnpaidLeave,
+                'label' => 'Unpaid leave '.$leave->typeLabel().' #'.$leave->id,
+                'amount' => $amount,
+                'is_statutory' => false,
+            ]);
+        }
+
+        if ($leaves->isNotEmpty()) {
+            $this->recalculatePayslipTotals($payslip);
+        }
     }
 
     private function applyAssetRecoveryDeductions(PayrollPayslip $payslip, ?int $guardId = null): void

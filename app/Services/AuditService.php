@@ -50,7 +50,11 @@ class AuditService
             'created_at' => $occurredAt,
         ]);
 
-        app(WorkflowMailService::class)->notifyFromAudit($entry);
+        try {
+            app(WorkflowMailService::class)->notifyFromAudit($entry);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
 
         if (config('psg.work_orders.auto_create_from_alerts', true)) {
             try {

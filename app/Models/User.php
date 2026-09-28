@@ -27,6 +27,7 @@ use Illuminate\Notifications\Notifiable;
     'last_login_at',
     'last_login_ip',
     'notifications_read_at',
+    'notification_preferences',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
@@ -48,6 +49,7 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
             'notifications_read_at' => 'datetime',
+            'notification_preferences' => 'array',
         ];
     }
 

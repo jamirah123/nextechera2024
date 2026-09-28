@@ -81,7 +81,8 @@ class OrganizationDeleteAndSearchTest extends TestCase
 
         $this->actingAs($ops)
             ->delete(route('regions.destroy', $region))
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
 
         $this->assertNotSoftDeleted($region);
     }

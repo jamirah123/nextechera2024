@@ -209,7 +209,8 @@ class EmploymentIdTest extends TestCase
                 'supervisor_status' => 'active',
                 'monthly_salary' => 0,
             ])
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
 
         $this->actingAs($ops)
             ->get(route('supervisors.index'))

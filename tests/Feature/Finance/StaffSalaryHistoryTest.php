@@ -437,11 +437,13 @@ class StaffSalaryHistoryTest extends TestCase
 
         $this->actingAs($shiftManager)
             ->post(route('staff.salary-revisions.store', $staff), $payload)
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
 
         $this->actingAs($finance)
             ->post(route('staff.salary-revisions.store', $staff), $payload)
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
 
         $this->actingAs($finance)
             ->get(route('staff.show', $staff))

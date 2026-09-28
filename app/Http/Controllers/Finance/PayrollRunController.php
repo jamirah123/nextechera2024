@@ -9,6 +9,7 @@ use App\Models\PayrollRun;
 use App\Models\Region;
 use App\Models\Site;
 use App\Services\Finance\PayrollBankExportService;
+use App\Support\Access\SupervisorPayAccess;
 use App\Services\Finance\PayrollRunService;
 use App\Services\ReportExportService;
 use App\Support\Finance\PayrollAccess;
@@ -120,7 +121,28 @@ class PayrollRunController extends Controller
             'payment:id,payroll_run_id,reference',
         ]);
 
+        $user = request()->user();
+        $paySummary = null;
+
+        if (SupervisorPayAccess::hidesSupervisorPay($user)) {
+            $visible = $payroll->payslips()->visibleTo($user);
+            $totals = (clone $visible)
+                ->selectRaw('count(*) as payslip_count, coalesce(sum(gross_pay), 0) as gross_total, coalesce(sum(total_deductions), 0) as deductions_total, coalesce(sum(net_pay), 0) as net_total')
+                ->first();
+            $paySummary = [
+                'count' => (int) $totals->payslip_count,
+                'gross' => (float) $totals->gross_total,
+                'deductions' => (float) $totals->deductions_total,
+                'net' => (float) $totals->net_total,
+            ];
+        }
+
         $payslips = $payroll->payslips()
+            ->visibleTo($user)
+            ->with([
+                'assignedStaff.supervisorProfile:id,staff_id',
+                'assignedGuard.supervisorProfile:id,guard_id',
+            ])
             ->orderBy('employment_id')
             ->paginate(25)
             ->withQueryString();
@@ -128,8 +150,9 @@ class PayrollRunController extends Controller
         return view('finance.payroll.show', [
             'run' => $payroll,
             'payslips' => $payslips,
-            'canSubmit' => PayrollAccess::canSubmit(request()->user()),
-            'canApprove' => PayrollAccess::canApprove(request()->user()),
+            'paySummary' => $paySummary,
+            'canSubmit' => PayrollAccess::canSubmit($user),
+            'canApprove' => PayrollAccess::canApprove($user),
         ]);
     }
 

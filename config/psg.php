@@ -67,7 +67,8 @@ return [
         'offsite_path' => env('PSG_BACKUP_OFFSITE_PATH', 'psg-backups'),
     ],
     'notifications' => [
-        'poll_seconds' => (int) env('PSG_NOTIFICATIONS_POLL_SECONDS', 30),
+        'poll_seconds' => (int) env('PSG_NOTIFICATIONS_POLL_SECONDS', 45),
+        'retention_days' => (int) env('PSG_NOTIFICATIONS_RETENTION_DAYS', 180),
         'workflow_email_enabled' => filter_var(env('PSG_WORKFLOW_EMAIL_NOTIFICATIONS', true), FILTER_VALIDATE_BOOL),
         'proactive_alerts_enabled' => filter_var(env('PSG_PROACTIVE_ALERTS', true), FILTER_VALIDATE_BOOL),
         'document_expiry_warning_days' => (int) env('PSG_DOCUMENT_EXPIRY_WARNING_DAYS', 30),

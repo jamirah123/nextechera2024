@@ -7,6 +7,7 @@ use App\Enums\AuditSeverity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use LogicException;
 
@@ -51,6 +52,11 @@ class AuditLog extends Model
         static::deleting(function (): void {
             throw new LogicException('Audit logs are immutable and cannot be deleted.');
         });
+    }
+
+    public function notificationStates(): HasMany
+    {
+        return $this->hasMany(NotificationState::class);
     }
 
     public function actor(): BelongsTo

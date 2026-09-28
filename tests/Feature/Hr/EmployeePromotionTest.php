@@ -279,7 +279,8 @@ class EmployeePromotionTest extends TestCase
             'effective_from' => now()->toDateString(),
             'reason' => 'Not allowed',
             'region_id' => $guard->region_id,
-        ])->assertForbidden();
+        ])->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
 
         $this->assertSame(0, $guard->promotions()->count());
         $this->assertSame(1, Guard::query()->count());

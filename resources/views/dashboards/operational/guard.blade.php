@@ -104,7 +104,7 @@
                     <ul class="mt-2 space-y-2">
                         @forelse ($active_leave as $leave)
                             <li class="text-sm text-slate-700">
-                                {{ $leave->leave_type->label() }}
+                                {{ $leave->typeLabel() }}
                                 <span class="text-xs text-slate-500"> · {{ $leave->start_date->format('d M') }}–{{ $leave->end_date->format('d M') }} · {{ $leave->status->label() }}</span>
                             </li>
                         @empty

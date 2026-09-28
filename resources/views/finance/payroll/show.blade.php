@@ -88,10 +88,10 @@
 
     <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         @foreach ([
-            ['Payslips', number_format($run->payslipCount()), 'text-slate-500', false],
-            ['Gross', \App\Support\Money::format($run->gross_total, $run->currency), 'text-emerald-700', true],
-            ['Deductions', \App\Support\Money::format($run->deductions_total, $run->currency), 'text-amber-700', true],
-            ['Net pay', \App\Support\Money::format($run->net_total, $run->currency), 'text-brand-700', true],
+            ['Payslips', number_format($paySummary['count'] ?? $run->payslipCount()), 'text-slate-500', false],
+            ['Gross', \App\Support\Money::format($paySummary['gross'] ?? $run->gross_total, $run->currency), 'text-emerald-700', true],
+            ['Deductions', \App\Support\Money::format($paySummary['deductions'] ?? $run->deductions_total, $run->currency), 'text-amber-700', true],
+            ['Net pay', \App\Support\Money::format($paySummary['net'] ?? $run->net_total, $run->currency), 'text-brand-700', true],
         ] as [$label, $value, $tone, $isMoney])
             <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
@@ -124,7 +124,7 @@
         @endif
     </div>
 
-    @if ($run->guard_count === 0)
+    @if ($payslips->isEmpty())
         <x-empty-state title="No payslips yet" description="Calculate this run to pull shift-based guards with completed shifts and fixed-salary staff for the period." icon="payroll" />
     @else
         <div class="psg-stack overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -143,6 +143,11 @@
                 </thead>
                 <tbody>
                     @foreach ($payslips as $payslip)
+                        @php
+                            $supervisorPayHidden = auth()->user()
+                                && \App\Support\Access\SupervisorPayAccess::hidesSupervisorPay(auth()->user())
+                                && $payslip->belongsToSupervisor();
+                        @endphp
                         <tr>
                             <td data-label="#"><x-table-serial :paginator="$payslips" :index="$loop->index" /></td>
                             <td data-label="Employee">
@@ -157,11 +162,13 @@
                                     {{ $payslip->total_shifts }} <span class="text-slate-500">({{ $payslip->normal_shifts }}N / {{ $payslip->overtime_shifts }}OT)</span>
                                 @endif
                             </td>
-                            <td data-label="Gross">{{ \App\Support\Money::format($payslip->gross_pay, $run->currency) }}</td>
-                            <td data-label="Deductions">{{ \App\Support\Money::format($payslip->total_deductions, $run->currency) }}</td>
-                            <td class="font-semibold" data-label="Net pay">{{ \App\Support\Money::format($payslip->net_pay, $run->currency) }}</td>
+                            <td data-label="Gross">{{ $supervisorPayHidden ? '—' : \App\Support\Money::format($payslip->gross_pay, $run->currency) }}</td>
+                            <td data-label="Deductions">{{ $supervisorPayHidden ? '—' : \App\Support\Money::format($payslip->total_deductions, $run->currency) }}</td>
+                            <td class="font-semibold" data-label="Net pay">{{ $supervisorPayHidden ? '—' : \App\Support\Money::format($payslip->net_pay, $run->currency) }}</td>
                             <td class="text-right" data-label="Payslip">
-                                <a href="{{ route('payroll.payslips.show', [$run, $payslip]) }}" class="text-brand-700 hover:underline dark:text-brand-400">View</a>
+                                @unless ($supervisorPayHidden)
+                                    <a href="{{ route('payroll.payslips.show', [$run, $payslip]) }}" class="text-brand-700 hover:underline dark:text-brand-400">View</a>
+                                @endunless
                             </td>
                         </tr>
                     @endforeach

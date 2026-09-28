@@ -9,6 +9,7 @@ enum AttendanceEventType: string
     case OnDuty = 'on_duty';
     case OffDuty = 'off_duty';
     case Manual = 'manual';
+    case Leave = 'leave';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum AttendanceEventType: string
             self::OnDuty => 'On duty',
             self::OffDuty => 'Off duty',
             self::Manual => 'Manual update',
+            self::Leave => 'Leave',
         };
     }
 
@@ -27,6 +29,7 @@ enum AttendanceEventType: string
             self::CheckIn, self::OnDuty => 'emerald',
             self::CheckOut, self::OffDuty => 'slate',
             self::Manual => 'brand',
+            self::Leave => 'sky',
         };
     }
 

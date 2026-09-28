@@ -259,6 +259,13 @@ class PermissionCatalog
                 ],
             ],
             [
+                'key' => 'hr.leave_types_manage',
+                'group' => 'HR',
+                'label' => 'Manage leave types',
+                'description' => 'Configure leave types, pay rules, and yearly entitlements.',
+                'roles' => $hrCore,
+            ],
+            [
                 'key' => 'hr.leaves_manage',
                 'group' => 'HR',
                 'label' => 'Create & update leave requests',

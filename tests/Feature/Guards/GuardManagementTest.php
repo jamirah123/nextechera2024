@@ -208,7 +208,8 @@ class GuardManagementTest extends TestCase
 
         $this->actingAs($finance)
             ->delete(route('guards.attachments.destroy', [$guard, $attachment]))
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
 
         $this->assertDatabaseCount('guard_attachments', 1);
     }

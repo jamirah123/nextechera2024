@@ -2,6 +2,7 @@
     'title',
     'subtitle' => null,
     'back' => null,
+    'size' => 'base',
 ])
 
 <div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -12,7 +13,11 @@
                 Back
             </a>
         @endif
-        <h1 class="text-base font-semibold tracking-tight text-slate-900 dark:text-slate-100">{{ $title }}</h1>
+        <h1 @class([
+            'font-semibold tracking-tight text-slate-900 dark:text-slate-100',
+            'text-sm' => $size === 'sm',
+            'text-base' => $size !== 'sm',
+        ])>{{ $title }}</h1>
         @if ($subtitle)
             <p class="mt-0.5 max-w-2xl text-[11px] leading-snug text-slate-500">{{ $subtitle }}</p>
         @endif

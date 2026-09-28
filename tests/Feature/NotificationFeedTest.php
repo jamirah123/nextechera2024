@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Enums\AuditCategory;
+use App\Enums\AuditSeverity;
 use App\Enums\UserRole;
+use App\Models\AuditLog;
 use App\Models\Shift;
 use App\Models\User;
 use App\Services\AuditService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class NotificationFeedTest extends TestCase
@@ -96,6 +99,160 @@ class NotificationFeedTest extends TestCase
         $this->actingAs($shiftManager)
             ->getJson(route('notifications.index'))
             ->assertJsonPath('unread_count', 0);
+    }
+
+    public function test_one_alert_can_be_read_dismissed_and_marked_unread(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $shiftManager = User::factory()->role(UserRole::ShiftManager)->create();
+
+        $first = app(AuditService::class)->log(
+            action: 'shift.created',
+            summary: 'Night shift opened at Kololo.',
+            category: AuditCategory::Shift,
+            actor: $admin,
+        );
+        app(AuditService::class)->log(
+            action: 'deployment.created',
+            summary: 'Cover assigned at Hoima.',
+            category: AuditCategory::Deployment,
+            actor: $admin,
+        );
+
+        $this->actingAs($shiftManager)
+            ->postJson(route('notifications.state', $first), ['action' => 'read'])
+            ->assertOk()
+            ->assertJsonPath('unread_count', 1);
+
+        $this->actingAs($shiftManager)
+            ->getJson(route('notifications.index', ['panel' => 'unread']))
+            ->assertJsonMissing(['summary' => 'Night shift opened at Kololo.'])
+            ->assertJsonFragment(['summary' => 'Cover assigned at Hoima.']);
+
+        $this->actingAs($shiftManager)
+            ->postJson(route('notifications.state', $first), ['action' => 'unread'])
+            ->assertJsonPath('unread_count', 2);
+
+        $this->actingAs($shiftManager)
+            ->postJson(route('notifications.state', $first), ['action' => 'dismiss'])
+            ->assertJsonPath('unread_count', 1);
+
+        $this->actingAs($shiftManager)
+            ->getJson(route('notifications.index'))
+            ->assertJsonMissing(['summary' => 'Night shift opened at Kololo.']);
+
+        $this->actingAs($shiftManager)
+            ->get(route('notifications.index', ['status' => 'dismissed']))
+            ->assertOk()
+            ->assertSee('Night shift opened at Kololo.');
+    }
+
+    public function test_history_page_is_role_filtered_and_important_panel_is_separate(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $shiftManager = User::factory()->role(UserRole::ShiftManager)->create();
+        $operations = User::factory()->role(UserRole::OperationsManager)->create();
+
+        app(AuditService::class)->log(
+            action: 'shift.created',
+            summary: 'Day shift scheduled.',
+            category: AuditCategory::Shift,
+            actor: $admin,
+        );
+        app(AuditService::class)->log(
+            action: 'site.understaffed',
+            summary: 'Alpha Warehouse is short by 2 guards.',
+            category: AuditCategory::Organization,
+            severity: AuditSeverity::Warning,
+            actor: $admin,
+        );
+        app(AuditService::class)->log(
+            action: 'finance.invoice_issued',
+            summary: 'Invoice INV-200 issued.',
+            category: AuditCategory::Finance,
+            actor: $admin,
+        );
+
+        $this->actingAs($shiftManager)
+            ->get(route('notifications.index'))
+            ->assertOk()
+            ->assertSee('Day shift scheduled.')
+            ->assertSee('Alpha Warehouse is short by 2 guards.')
+            ->assertDontSee('Invoice INV-200 issued.')
+            ->assertSee('View all notifications', false);
+
+        $this->actingAs($operations)
+            ->getJson(route('notifications.index', ['panel' => 'important']))
+            ->assertOk()
+            ->assertJsonFragment(['summary' => 'Alpha Warehouse is short by 2 guards.'])
+            ->assertJsonMissing(['summary' => 'Day shift scheduled.'])
+            ->assertJsonMissing(['summary' => 'Invoice INV-200 issued.']);
+    }
+
+    public function test_preferences_hide_finance_alerts_and_keep_backup_failures(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+
+        app(AuditService::class)->log(
+            action: 'finance.invoice_overdue',
+            summary: 'Invoice INV-9 is overdue.',
+            category: AuditCategory::Finance,
+            severity: AuditSeverity::Warning,
+            actor: $admin,
+        );
+        app(AuditService::class)->log(
+            action: 'backup.failed',
+            summary: 'Nightly backup failed.',
+            category: AuditCategory::System,
+            severity: AuditSeverity::Critical,
+            actor: null,
+        );
+
+        $finance->forceFill([
+            'notification_preferences' => ['in_app' => true, 'finance' => false, 'email' => true, 'toasts' => true, 'operational' => true, 'hr' => true, 'system' => true],
+        ])->save();
+
+        $this->actingAs($finance)
+            ->getJson(route('notifications.index'))
+            ->assertOk()
+            ->assertJsonMissing(['summary' => 'Invoice INV-9 is overdue.'])
+            ->assertJsonPath('unread_count', 0);
+
+        $admin->forceFill([
+            'notification_preferences' => ['in_app' => true, 'system' => false, 'email' => true, 'toasts' => true, 'operational' => true, 'hr' => true, 'finance' => true],
+        ])->save();
+
+        $this->actingAs($admin->fresh())
+            ->getJson(route('notifications.index'))
+            ->assertJsonFragment(['summary' => 'Nightly backup failed.']);
+    }
+
+    public function test_alerts_older_than_the_retention_window_stay_out_of_the_feed(): void
+    {
+        config(['psg.notifications.retention_days' => 30]);
+
+        $admin = User::factory()->superAdmin()->create();
+        $shiftManager = User::factory()->role(UserRole::ShiftManager)->create();
+
+        $old = app(AuditService::class)->log(
+            action: 'shift.created',
+            summary: 'Archived shift alert.',
+            category: AuditCategory::Shift,
+            actor: $admin,
+        );
+
+        DB::table('audit_logs')->where('id', $old->id)->update([
+            'created_at' => now()->subDays(45),
+        ]);
+
+        $this->actingAs($shiftManager)
+            ->getJson(route('notifications.index'))
+            ->assertOk()
+            ->assertJsonMissing(['summary' => 'Archived shift alert.'])
+            ->assertJsonPath('unread_count', 0);
+
+        $this->assertNotNull(AuditLog::query()->find($old->id));
     }
 
     public function test_notification_endpoints_require_authentication(): void

@@ -279,7 +279,8 @@ class GuardSalaryHistoryTest extends TestCase
                 'effective_from' => $changeOn->toDateString(),
                 'reason' => SalaryChangeReason::LengthOfService->value,
             ])
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
 
         $this->actingAs($hr)
             ->post(route('guards.salary-revisions.store', $guard), [

@@ -15,6 +15,7 @@ use App\Models\Site;
 use App\Models\User;
 use App\Support\Access\Access;
 use App\Support\Money;
+use App\Support\Notifications\NotificationPreferences;
 use App\Support\Notifications\WorkflowActionCatalog;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
@@ -74,10 +75,14 @@ class WorkflowMailService
             $recipients = $recipients->merge($this->stakeholdersFor($log));
         }
 
+        $category = $log->category instanceof \App\Enums\AuditCategory ? $log->category->value : (string) $log->category;
+        $severity = $log->severity instanceof \App\Enums\AuditSeverity ? $log->severity->value : (string) $log->severity;
+
         return $recipients
             ->filter(fn (User $user) => filled($user->email))
             ->unique('id')
             ->reject(fn (User $user) => $log->actor_id !== null && $user->id === $log->actor_id)
+            ->filter(fn (User $user) => NotificationPreferences::wantsEmail($user, $log->action, $category, $severity))
             ->values();
     }
 

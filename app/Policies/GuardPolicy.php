@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\Guard;
 use App\Models\User;
 use App\Support\Access\Access;
+use App\Support\Access\SupervisorPayAccess;
 
 class GuardPolicy
 {
@@ -26,6 +27,11 @@ class GuardPolicy
     public function update(User $user, Guard $guard): bool
     {
         return Access::userCan($user, 'guards.manage');
+    }
+
+    public function viewSalary(User $user, Guard $guard): bool
+    {
+        return $this->view($user, $guard) && SupervisorPayAccess::canViewGuardPay($user, $guard);
     }
 
     public function manageSalary(User $user, Guard $guard): bool

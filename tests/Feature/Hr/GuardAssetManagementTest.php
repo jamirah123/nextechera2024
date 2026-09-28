@@ -320,4 +320,35 @@ class GuardAssetManagementTest extends TestCase
                 ->assertRedirect();
         }
     }
+
+    public function test_asset_list_filters_by_issued_date(): void
+    {
+        $hr = User::factory()->role(UserRole::HrManager)->create();
+        $guard = Guard::factory()->create();
+
+        foreach (['2026-03-01', '2026-04-15'] as $issuedOn) {
+            $this->actingAs($hr)
+                ->post(route('assets.store'), [
+                    'guard_id' => $guard->id,
+                    'issuance_type' => AssetIssuanceType::TopUp->value,
+                    'issued_at' => $issuedOn,
+                    'lines' => [
+                        [
+                            'asset_category' => AssetCategory::Uniform->value,
+                            'description' => 'Shirt '.$issuedOn,
+                            'quantity' => 1,
+                            'unit_value' => 10000,
+                        ],
+                    ],
+                ])
+                ->assertRedirect();
+        }
+
+        $this->actingAs($hr)
+            ->get(route('assets.index', ['date' => '2026-03-01']))
+            ->assertOk()
+            ->assertSee('Issued date', false)
+            ->assertSee('01 Mar 2026', false)
+            ->assertDontSee('15 Apr 2026', false);
+    }
 }

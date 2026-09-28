@@ -5,6 +5,7 @@ namespace App\Services\Finance;
 use App\Models\PayrollPayslip;
 use App\Models\PayrollRun;
 use App\Services\ReportExportService;
+use App\Support\Access\SupervisorPayAccess;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PayrollBankExportService
@@ -161,10 +162,18 @@ class PayrollBankExportService
      */
     private function payslipRows(PayrollRun $run, callable $mapper): array
     {
+        $user = auth()->user();
+
         return $run->payslips()
+            ->with([
+                'assignedStaff.supervisorProfile:id,staff_id',
+                'assignedGuard.supervisorProfile:id,guard_id',
+            ])
             ->orderBy('employment_id')
             ->get()
+            ->reject(fn (PayrollPayslip $payslip) => $user && ! SupervisorPayAccess::canViewPayslip($user, $payslip))
             ->map(fn (PayrollPayslip $payslip) => $mapper($payslip))
+            ->values()
             ->all();
     }
 }

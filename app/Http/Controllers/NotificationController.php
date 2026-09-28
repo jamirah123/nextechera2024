@@ -2,24 +2,44 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Services\NotificationFeedService;
+use App\Support\Notifications\NotificationPreferences;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
+use Illuminate\View\View;
 
 class NotificationController extends Controller
 {
-    public function index(Request $request, NotificationFeedService $feed): JsonResponse
+    public function index(Request $request, NotificationFeedService $feed): JsonResponse|View
     {
         $user = $request->user();
-        $payload = $feed->feed($user);
 
-        return response()->json([
-            ...$payload,
-            'can_view_audit' => Gate::forUser($user)->allows('viewAuditLogs'),
-            'audit_url' => Gate::forUser($user)->allows('viewAuditLogs')
-                ? route('audit.index')
-                : null,
+        if ($request->expectsJson()) {
+            $panel = $request->string('panel')->toString();
+            if (! in_array($panel, ['all', 'unread', 'important'], true)) {
+                $panel = 'all';
+            }
+
+            return response()->json($feed->feed($user, 12, $panel));
+        }
+
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'group' => ['nullable', 'in:operations,hr,payroll,finance,administration'],
+            'priority' => ['nullable', 'in:normal,important,urgent'],
+            'read' => ['nullable', 'in:unread,read'],
+            'status' => ['nullable', 'in:dismissed'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date'],
+        ]);
+
+        return view('notifications.index', [
+            'notifications' => $feed->history($user, $filters),
+            'filters' => $filters,
+            'preferences' => NotificationPreferences::for($user),
+            'unreadCount' => $feed->unreadCount($user),
         ]);
     }
 
@@ -32,5 +52,32 @@ class NotificationController extends Controller
             'unread_count' => 0,
             'read_at' => $user->fresh()->notifications_read_at?->toIso8601String(),
         ]);
+    }
+
+    public function updateState(Request $request, AuditLog $auditLog, NotificationFeedService $feed): JsonResponse|RedirectResponse
+    {
+        $user = $request->user();
+        abort_unless($feed->visibleTo($user, $auditLog), 404);
+
+        $data = $request->validate([
+            'action' => ['required', 'in:read,unread,dismiss'],
+        ]);
+
+        $feed->setState($user, $auditLog, $data['action']);
+
+        if (! $request->expectsJson()) {
+            return back();
+        }
+
+        return response()->json([
+            'unread_count' => $feed->unreadCount($user),
+        ]);
+    }
+
+    public function updatePreferences(Request $request, NotificationFeedService $feed): RedirectResponse
+    {
+        $feed->savePreferences($request->user(), $request->all());
+
+        return back()->with('status', 'Notification preferences saved.');
     }
 }

@@ -234,7 +234,8 @@ class SystemSettingsTest extends TestCase
                 'backup_keep_days' => 14,
                 'backup_path' => 'backups',
             ])
-            ->assertForbidden();
+            ->assertRedirect()
+            ->assertSessionHas('error', 'You do not have permission to perform this action.');
     }
 
     public function test_super_admin_can_update_payroll_platform_settings(): void

@@ -4,14 +4,17 @@ namespace App\Services;
 
 use App\Enums\CoverageStatus;
 use App\Enums\DeploymentShiftType;
+use App\Enums\DeploymentStatus;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
+use App\Enums\ShiftType;
 use App\Enums\SiteStatus;
 use App\Models\BillingProfile;
 use App\Models\Deployment;
 use App\Models\Region;
 use App\Models\Shift;
 use App\Models\Site;
+use App\Models\SiteManpowerRequirement;
 use Illuminate\Support\Collection;
 
 class ManpowerService
@@ -693,5 +696,117 @@ class ManpowerService
         }
 
         return CoverageStatus::FullyStaffed;
+    }
+
+    /**
+     * Date-effective manpower for the posting board.
+     *
+     * Required counts come from the site manpower revision covering $date.
+     * When no revision covers that date, the site's configured day and night
+     * requirements are used. Counts are never hard-coded.
+     *
+     * @param  Collection<int, Site>  $sites
+     * @return array<string, array{
+     *     name: string,
+     *     code: string|null,
+     *     day: array{required: int, normal: int, ot: int, cover: int, operational: int, remaining: int, deficit: int},
+     *     night: array{required: int, normal: int, ot: int, cover: int, operational: int, remaining: int, deficit: int}
+     * }>
+     */
+    public function postingBoardCoverage(Collection $sites, string $date): array
+    {
+        $sites = $sites->keyBy(fn (Site $site) => $site->id);
+        if ($sites->isEmpty()) {
+            return [];
+        }
+
+        $requirements = SiteManpowerRequirement::query()
+            ->whereIn('site_id', $sites->keys())
+            ->whereDate('effective_from', '<=', $date)
+            ->where(function ($query) use ($date): void {
+                $query->whereNull('effective_to')
+                    ->orWhereDate('effective_to', '>=', $date);
+            })
+            ->orderByDesc('effective_from')
+            ->orderByDesc('id')
+            ->get()
+            ->unique('site_id')
+            ->keyBy('site_id');
+
+        $deployments = Deployment::query()
+            ->whereIn('site_id', $sites->keys())
+            ->whereIn('status', [
+                DeploymentStatus::Active,
+                DeploymentStatus::Ended,
+                DeploymentStatus::Transferred,
+            ])
+            ->whereDate('start_date', '<=', $date)
+            ->where(function ($query) use ($date): void {
+                $query->whereNull('end_date')->orWhereDate('end_date', '>=', $date);
+            })
+            ->get(['site_id', 'shift_type', 'is_temporary', 'duty_type']);
+
+        /** @var array<int, array<string, array{normal: int, ot: int, cover: int}>> $counts */
+        $counts = [];
+        foreach ($deployments as $deployment) {
+            $periods = $deployment->shift_type === DeploymentShiftType::Rotating
+                ? ['day', 'night']
+                : [$deployment->shift_type === DeploymentShiftType::Night ? 'night' : 'day'];
+
+            $bucket = 'normal';
+            if ($deployment->is_temporary) {
+                $bucket = $deployment->duty_type === ShiftType::Overtime ? 'ot' : 'cover';
+            }
+
+            foreach ($periods as $period) {
+                $counts[$deployment->site_id][$period][$bucket] = ($counts[$deployment->site_id][$period][$bucket] ?? 0) + 1;
+            }
+        }
+
+        $payload = [];
+        foreach ($sites as $site) {
+            $requirement = $requirements->get($site->id);
+            $dayRequired = $requirement ? (int) $requirement->required_day : (int) $site->required_day_guards;
+            $nightRequired = $requirement ? (int) $requirement->required_night : (int) $site->required_night_guards;
+            $siteCounts = $counts[$site->id] ?? [];
+
+            $payload[(string) $site->id] = [
+                'name' => $site->name,
+                'code' => $site->code,
+                'day' => $this->boardPeriod(
+                    $dayRequired,
+                    $siteCounts['day']['normal'] ?? 0,
+                    $siteCounts['day']['ot'] ?? 0,
+                    $siteCounts['day']['cover'] ?? 0,
+                ),
+                'night' => $this->boardPeriod(
+                    $nightRequired,
+                    $siteCounts['night']['normal'] ?? 0,
+                    $siteCounts['night']['ot'] ?? 0,
+                    $siteCounts['night']['cover'] ?? 0,
+                ),
+            ];
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array{required: int, normal: int, ot: int, cover: int, operational: int, remaining: int, deficit: int}
+     */
+    private function boardPeriod(int $required, int $normal, int $ot, int $cover): array
+    {
+        $filled = $normal + $ot + $cover;
+        $operational = $required > 0 ? min($required, $filled) : $filled;
+
+        return [
+            'required' => $required,
+            'normal' => $normal,
+            'ot' => $ot,
+            'cover' => $cover,
+            'operational' => $operational,
+            'remaining' => max(0, $required - $filled),
+            'deficit' => max(0, $required - $normal),
+        ];
     }
 }

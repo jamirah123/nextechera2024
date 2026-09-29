@@ -320,18 +320,38 @@ class PayrollCalculationService
     }
 
     /**
+     * One salary window: average shift rate is monthly gross ÷ 30.
+     * Overtime stays a separate component when its rate differs from that average.
+     *
      * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
      */
-    private function shiftGross(array $row, float $baseRate, float $overtimeRate): float
+    private function shiftPaySlice(array $row, float $monthly, float $baseRate, float $overtimeRate, string $from, string $to): array
     {
-        return round(
-            ((int) $row['normal_shifts'] * $baseRate)
-            + ((int) $row['overtime_shifts'] * $overtimeRate)
-            + ((int) $row['relief_shifts'] * $baseRate)
-            + ((int) $row['replacement_shifts'] * $baseRate)
-            + ((int) $row['special_duty_shifts'] * $baseRate),
-            2,
-        );
+        $normal = (int) $row['normal_shifts'];
+        $overtime = (int) $row['overtime_shifts'];
+        $other = (int) $row['relief_shifts'] + (int) $row['replacement_shifts'] + (int) $row['special_duty_shifts'];
+        $normalAmount = round($normal * $baseRate, 2);
+        $overtimeAmount = round($overtime * $overtimeRate, 2);
+        $otherAmount = round($other * $baseRate, 2);
+
+        return [
+            'from' => $from,
+            'to' => $to,
+            'monthly_gross' => $monthly,
+            'divisor' => PayrollRates::SHIFT_RATE_DIVISOR,
+            'per_shift_rate' => $baseRate,
+            'overtime_rate' => $overtimeRate,
+            'overtime_uses_average_rate' => PayrollRates::overtimeUsesAverageRate($baseRate, $overtimeRate),
+            'normal_shifts' => $normal,
+            'overtime_shifts' => $overtime,
+            'other_shifts' => $other,
+            'payable_shifts' => $normal + $overtime + $other,
+            'normal_amount' => $normalAmount,
+            'overtime_amount' => $overtimeAmount,
+            'other_amount' => $otherAmount,
+            'amount' => round($normalAmount + $overtimeAmount + $otherAmount, 2),
+        ];
     }
 
     /**
@@ -386,26 +406,35 @@ class PayrollCalculationService
             ? PayrollRates::segments($guard, Carbon::parse($from), Carbon::parse($to))
             : [];
 
-        $breakdown = null;
+        $breakdown = [];
 
         if (count($segments) <= 1) {
-            $monthly = $segments[0]['monthly'] ?? PayrollRates::monthlyGross($guard);
+            $monthly = (float) ($segments[0]['monthly'] ?? PayrollRates::monthlyGross($guard));
             $baseRate = PayrollRates::dailyRateFromMonthly($monthly, $run);
             $overtimeRate = PayrollRates::salaryOvertimeShiftRate($monthly, $guard, $run);
-            $gross = $this->shiftGross($row, $baseRate, $overtimeRate);
+            $slice = $this->shiftPaySlice(
+                $row,
+                $monthly,
+                $baseRate,
+                $overtimeRate,
+                $segments[0]['from'] ?? $from,
+                $segments[0]['to'] ?? $to,
+            );
+            $breakdown[] = $slice;
+            $gross = (float) $slice['amount'];
         } else {
             $gross = 0.0;
             $baseRate = 0.0;
             $overtimeRate = 0.0;
             $row = $this->emptyShiftRow($guard);
-            $breakdown = [];
 
             foreach ($segments as $segment) {
                 $part = $this->shiftTotals->guardRowForPeriod($guard->id, $segment['from'], $segment['to'], $run);
                 $partBase = PayrollRates::dailyRateFromMonthly((float) $segment['monthly'], $run);
                 $partOvertime = PayrollRates::salaryOvertimeShiftRate((float) $segment['monthly'], $guard, $run);
-                $partGross = $this->shiftGross($part, $partBase, $partOvertime);
-                $gross += $partGross;
+                $slice = $this->shiftPaySlice($part, (float) $segment['monthly'], $partBase, $partOvertime, $segment['from'], $segment['to']);
+                $breakdown[] = $slice;
+                $gross += (float) $slice['amount'];
                 $baseRate = $partBase;
                 $overtimeRate = $partOvertime;
                 $row['normal_shifts'] += (int) $part['normal_shifts'];
@@ -414,17 +443,6 @@ class PayrollCalculationService
                 $row['replacement_shifts'] += (int) $part['replacement_shifts'];
                 $row['special_duty_shifts'] += (int) $part['special_duty_shifts'];
                 $row['total_shifts'] += (int) $part['total_shifts'];
-                $breakdown[] = [
-                    'from' => $segment['from'],
-                    'to' => $segment['to'],
-                    'monthly_gross' => (float) $segment['monthly'],
-                    'per_shift_rate' => $partBase,
-                    'overtime_rate' => $partOvertime,
-                    'normal_shifts' => (int) $part['normal_shifts'],
-                    'overtime_shifts' => (int) $part['overtime_shifts'],
-                    'other_shifts' => (int) $part['relief_shifts'] + (int) $part['replacement_shifts'] + (int) $part['special_duty_shifts'],
-                    'amount' => $partGross,
-                ];
             }
 
             $gross = round($gross, 2);

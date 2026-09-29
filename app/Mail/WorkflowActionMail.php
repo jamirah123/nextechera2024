@@ -3,13 +3,14 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Mail\Mailables\Headers;
 use Illuminate\Queue\SerializesModels;
 
-class WorkflowActionMail extends Mailable implements ShouldQueue
+class WorkflowActionMail extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -27,12 +28,32 @@ class WorkflowActionMail extends Mailable implements ShouldQueue
         public ?string $actionUrl,
         public string $actionLabel,
         public array $details = [],
+        public string $priority = 'normal',
+        public ?int $deliveryId = null,
     ) {}
 
     public function envelope(): Envelope
     {
+        $replyTo = [];
+        $support = (string) config('psg.support_email', '');
+
+        if (filter_var($support, FILTER_VALIDATE_EMAIL)) {
+            $replyTo[] = new Address($support, (string) config('psg.company', config('app.name')));
+        }
+
         return new Envelope(
             subject: $this->headline.' — '.config('app.name'),
+            replyTo: $replyTo,
+        );
+    }
+
+    public function headers(): Headers
+    {
+        return new Headers(
+            text: [
+                'X-PSG-Delivery' => (string) ($this->deliveryId ?? ''),
+                'X-PSG-Priority' => $this->priority,
+            ],
         );
     }
 
@@ -47,6 +68,17 @@ class WorkflowActionMail extends Mailable implements ShouldQueue
                 'actionUrl' => $this->actionUrl,
                 'actionLabel' => $this->actionLabel,
                 'details' => $this->details,
+                'priority' => $this->priority,
+                'priorityLabel' => match ($this->priority) {
+                    'critical' => 'Critical',
+                    'important' => 'Important',
+                    default => 'Notice',
+                },
+                'priorityTone' => match ($this->priority) {
+                    'critical' => 'critical',
+                    'important' => 'warning',
+                    default => 'info',
+                },
             ],
         );
     }

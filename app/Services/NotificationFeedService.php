@@ -130,13 +130,11 @@ class NotificationFeedService
             return false;
         }
 
-        if ($log->actor_id !== null && (int) $log->actor_id === (int) $user->id) {
-            return false;
-        }
+        $assigned = $log->relationLoaded('notificationStates')
+            ? $log->notificationStates->contains(fn (NotificationState $state) => (int) $state->user_id === (int) $user->id)
+            : $log->notificationStates()->where('user_id', $user->id)->exists();
 
-        $allowed = collect($this->categoriesFor($user))->contains(fn (AuditCategory $category) => $category === $log->category);
-
-        if (! $allowed) {
+        if (! $assigned) {
             return false;
         }
 
@@ -162,10 +160,14 @@ class NotificationFeedService
 
     public function setState(User $user, AuditLog $log, string $action): void
     {
-        $state = NotificationState::query()->firstOrNew([
-            'user_id' => $user->id,
-            'audit_log_id' => $log->id,
-        ]);
+        $state = NotificationState::query()
+            ->where('user_id', $user->id)
+            ->where('audit_log_id', $log->id)
+            ->first();
+
+        if ($state === null) {
+            return;
+        }
 
         if ($action === 'unread') {
             $state->fill([
@@ -210,19 +212,12 @@ class NotificationFeedService
 
     private function baseQuery(User $user, bool $includeDismissed = false): Builder
     {
-        $categories = collect($this->categoriesFor($user))
-            ->map(fn (AuditCategory $category) => $category->value)
-            ->all();
-
         $since = now()->subDays(max(1, (int) config('psg.notifications.retention_days', 180)));
 
         $query = AuditLog::query()
-            ->whereIn('category', $categories)
             ->where('category', '!=', AuditCategory::Auth->value)
             ->where('created_at', '>=', $since)
-            ->where(fn (Builder $inner) => $inner
-                ->whereNull('actor_id')
-                ->orWhere('actor_id', '!=', $user->id));
+            ->whereHas('notificationStates', fn (Builder $state) => $state->where('user_id', $user->id));
 
         if (! $includeDismissed) {
             $query->whereDoesntHave('notificationStates', fn (Builder $state) => $state

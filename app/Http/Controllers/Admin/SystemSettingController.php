@@ -34,6 +34,12 @@ class SystemSettingController extends Controller
             ],
             'timezones' => \DateTimeZone::listIdentifiers(\DateTimeZone::ALL),
             'backups' => $this->recentBackups($settings->backup_path),
+            'emailEvents' => \App\Support\Notifications\WorkflowActionCatalog::definitions(),
+            'mailTransport' => [
+                'mailer' => (string) config('mail.default'),
+                'from_name' => (string) config('mail.from.name'),
+                'from_address' => (string) config('mail.from.address'),
+            ],
         ]);
     }
 
@@ -59,6 +65,11 @@ class SystemSettingController extends Controller
             'email_footer_text' => ['nullable', 'string', 'max:500'],
             'notify_workflow_actions_by_email' => ['nullable', 'boolean'],
             'notify_proactive_alerts' => ['nullable', 'boolean'],
+            'email_include_sensitive_amounts' => ['nullable', 'boolean'],
+            'email_rules' => ['nullable', 'array'],
+            'email_rules.*' => ['array'],
+            'email_rules.*.channel' => ['nullable', 'in:in_app,email,both'],
+            'email_rules.*.audience' => ['nullable', 'in:default,hr,operations,finance,administrators'],
             'support_email' => ['nullable', 'email', 'max:190'],
             'support_phone' => ['nullable', 'string', 'max:40'],
             'currency' => ['required', 'string', 'max:8'],
@@ -121,6 +132,15 @@ class SystemSettingController extends Controller
         $data['payroll_send_payslip_email_on_approve'] = $request->boolean('payroll_send_payslip_email_on_approve');
         $data['notify_workflow_actions_by_email'] = $request->boolean('notify_workflow_actions_by_email');
         $data['notify_proactive_alerts'] = $request->boolean('notify_proactive_alerts');
+        $data['email_include_sensitive_amounts'] = $request->boolean('email_include_sensitive_amounts');
+        $data['email_event_rules'] = collect($data['email_rules'] ?? [])
+            ->only(array_keys(\App\Support\Notifications\WorkflowActionCatalog::definitions()))
+            ->map(fn ($rule) => [
+                'channel' => $rule['channel'] ?? 'both',
+                'audience' => $rule['audience'] ?? 'default',
+            ])
+            ->all();
+        unset($data['email_rules']);
         $data['backup_notify'] = $request->boolean('backup_notify');
         $data['backup_include_files'] = $request->boolean('backup_include_files');
         $data['backup_offsite_disk'] = filled($data['backup_offsite_disk'] ?? null) ? $data['backup_offsite_disk'] : null;

@@ -127,17 +127,17 @@
                         :value="old('payroll_default_base_shift_rate', $settings->payroll_default_base_shift_rate)"
                         :required="true"
                         class="sm:col-span-2"
-                        help="Company default monthly package for field guards. Per-shift rate = this amount ÷ standard shifts / month. Gross pay = payable recorded shifts × that rate (not days in the calendar month)."
+                        help="Company default monthly package for field guards. Average shift rate = monthly gross ÷ 30. Shift earnings = payable recorded shifts × that rate."
                     />
                     <x-form-field
-                        label="Standard shifts / month (salary basis)"
+                        label="Standard shifts / month"
                         name="payroll_standard_shifts_per_month"
                         type="number"
                         min="1"
                         max="62"
                         :value="old('payroll_standard_shifts_per_month', $settings->payroll_standard_shifts_per_month ?? 30)"
                         :required="true"
-                        help="Configured pay basis only — not calendar days. Example: monthly 170,000 ÷ 26 = per-shift rate; a guard with 24 payable shifts earns 24 × that rate."
+                        help="Guard shift pay always divides the monthly gross by 30, including months with 28, 29, or 31 days. Overtime uses the same average shift rate unless the overtime multiplier, or a guard overtime rate, is different."
                     />
                     <x-form-field label="Overtime multiplier" name="payroll_overtime_multiplier" type="number" step="0.01" min="1" max="5" :value="old('payroll_overtime_multiplier', $settings->payroll_overtime_multiplier)" :required="true" />
                     <div class="sm:col-span-2">
@@ -224,6 +224,56 @@
                     <div class="sm:col-span-2">
                         <x-form-checkbox name="notify_proactive_alerts" label="Proactive alerts (understaffed sites, missed shifts, pending leave, overdue invoices, expiring documents)" :checked="old('notify_proactive_alerts', $settings->notify_proactive_alerts ?? true)" />
                     </div>
+                    <div class="sm:col-span-2">
+                        <x-form-checkbox name="email_include_sensitive_amounts" label="Include payroll amounts in email for Super Admin, Managing Director, and Finance only" :checked="old('email_include_sensitive_amounts', $settings->email_include_sensitive_amounts ?? false)" />
+                    </div>
+                    <p class="sm:col-span-2 text-xs text-slate-500 dark:text-slate-400">
+                        Mail is sent as <strong>{{ $mailTransport['from_name'] }}</strong> &lt;{{ $mailTransport['from_address'] }}&gt;
+                        through the <strong>{{ $mailTransport['mailer'] }}</strong> mailer.
+                        The mail host and password stay in the server environment and are not shown here.
+                        Reply-to uses the support email when that address is valid.
+                        <a href="{{ route('email-deliveries.index') }}" class="font-semibold text-brand-700">View delivery history</a>
+                    </p>
+                    <div class="sm:col-span-2 max-h-96 overflow-auto rounded-lg border border-slate-200 dark:border-slate-700">
+                        <table class="min-w-full text-left text-xs">
+                            <thead class="sticky top-0 bg-slate-50 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                                <tr>
+                                    <th class="px-3 py-2 font-semibold">Event</th>
+                                    <th class="px-3 py-2 font-semibold">Channel</th>
+                                    <th class="px-3 py-2 font-semibold">Recipients</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                                @foreach ($emailEvents as $action => $event)
+                                    @php
+                                        $saved = ($settings->email_event_rules ?? [])[$action] ?? [];
+                                        $channel = old('email_rules.'.$action.'.channel', $saved['channel'] ?? ($event['channel'] ?? 'both'));
+                                        $audience = old('email_rules.'.$action.'.audience', $saved['audience'] ?? 'default');
+                                    @endphp
+                                    <tr>
+                                        <td class="px-3 py-2">
+                                            <p class="font-semibold text-slate-800 dark:text-slate-100">{{ $event['subject'] }}</p>
+                                            <p class="text-slate-500">{{ $action }}</p>
+                                        </td>
+                                        <td class="px-3 py-2">
+                                            <select name="email_rules[{{ $action }}][channel]" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
+                                                @foreach (['both' => 'In-app and email', 'email' => 'Email only', 'in_app' => 'In-app only'] as $value => $label)
+                                                    <option value="{{ $value }}" @selected($channel === $value)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+                                        <td class="px-3 py-2">
+                                            <select name="email_rules[{{ $action }}][audience]" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
+                                                @foreach (['default' => 'Default for this event', 'hr' => 'HR', 'operations' => 'Operations', 'finance' => 'Finance', 'administrators' => 'Administrators'] as $value => $label)
+                                                    <option value="{{ $value }}" @selected($audience === $value)>{{ $label }}</option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
                 </x-form-group>
             </div>
 
@@ -289,6 +339,16 @@
             </div>
         </x-form-panel>
     </form>
+
+    <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Send test email</h2>
+        <p class="mt-1 text-xs text-slate-500">Sends one message to confirm the mailer. Credentials and error traces stay in the log.</p>
+        <form method="POST" action="{{ route('settings.test-email') }}" class="mt-3 flex flex-wrap items-end gap-3">
+            @csrf
+            <x-form-field label="Recipient" name="email" type="email" :value="old('email', auth()->user()->email)" :required="true" />
+            <button type="submit" class="rounded-lg bg-brand-700 px-3 py-2 text-xs font-semibold text-white">Send test email</button>
+        </form>
+    </section>
 
     @if ($settings->logo_path)
         <form id="remove-logo-form" method="POST" action="{{ route('settings.logo.remove') }}" class="hidden">@csrf @method('DELETE')</form>

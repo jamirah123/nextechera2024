@@ -187,7 +187,8 @@ class DeploymentManagementTest extends TestCase
             ->assertOk()
             ->assertSee('Early Guard')
             ->assertDontSee('Later Guard')
-            ->assertSee('Guards with a duty on 03 Sep 2026');
+            ->assertSee('Guards with a duty on 03 Sep 2026')
+            ->assertSee('data-live-date', false);
 
         $this->actingAs($ops)
             ->get(route('deployments.index', ['date' => '2026-09-07']))

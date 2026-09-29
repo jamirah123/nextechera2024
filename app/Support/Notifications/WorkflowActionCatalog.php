@@ -269,7 +269,211 @@ class WorkflowActionCatalog
                 'headline' => 'Private files were restored from a backup archive',
                 'action_label' => 'Open backup console',
             ],
+            'backup.offsite_failed' => [
+                'permissions' => ['admin.backups_manage'],
+                'subject' => 'Off-site backup copy failed',
+                'headline' => 'The backup could not be copied off this server',
+                'action_label' => 'Open backup console',
+                'priority' => 'critical',
+            ],
+            'payroll.calculated' => [
+                'roles' => $payrollRoles,
+                'subject' => 'Payroll calculation completed',
+                'headline' => 'Payroll calculation completed',
+                'action_label' => 'Review payroll run',
+                'channel' => 'in_app',
+            ],
+            'payroll.run_created' => [
+                'roles' => $payrollRoles,
+                'subject' => 'Payroll period opened',
+                'headline' => 'A payroll period was opened',
+                'action_label' => 'Open payroll run',
+            ],
+            'payroll.cancelled' => [
+                'roles' => $payrollRoles,
+                'subject' => 'Payroll run cancelled',
+                'headline' => 'A payroll run was cancelled',
+                'action_label' => 'Review payroll run',
+                'priority' => 'important',
+            ],
+            'employee.promoted' => [
+                'permissions' => ['staff.manage', 'staff.salary_manage'],
+                'subject' => 'Employee promoted',
+                'headline' => 'An employee was promoted',
+                'action_label' => 'View employee',
+                'priority' => 'important',
+            ],
+            'guard.salary_changed' => [
+                'permissions' => ['hr.salary_manage', 'staff.salary_manage', 'finance.view'],
+                'subject' => 'Guard salary changed',
+                'headline' => 'A guard salary change was recorded',
+                'action_label' => 'View guard profile',
+                'priority' => 'important',
+            ],
+            'staff.salary_changed' => [
+                'permissions' => ['hr.salary_manage', 'staff.salary_manage', 'finance.view'],
+                'subject' => 'Staff salary changed',
+                'headline' => 'A staff salary change was recorded',
+                'action_label' => 'View employee',
+                'priority' => 'important',
+            ],
+            'deployment.transferred' => [
+                'roles' => $opsRoles,
+                'subject' => 'Guard transferred between sites',
+                'headline' => 'A guard was transferred to another site',
+                'action_label' => 'View deployment',
+                'priority' => 'important',
+            ],
+            'deployment.corrected' => [
+                'roles' => $opsRoles,
+                'subject' => 'Deployment corrected',
+                'headline' => 'A historical deployment was corrected',
+                'action_label' => 'View deployment',
+                'priority' => 'important',
+            ],
+            'deployment.overtime_coverage_created' => [
+                'roles' => $opsRoles,
+                'subject' => 'Overtime coverage deployed',
+                'headline' => 'Temporary overtime coverage was deployed',
+                'action_label' => 'View deployment',
+                'priority' => 'important',
+            ],
+            'deployment.temporary_coverage_created' => [
+                'roles' => $opsRoles,
+                'subject' => 'Temporary coverage deployed',
+                'headline' => 'Temporary coverage was deployed for a manpower gap',
+                'action_label' => 'View deployment',
+                'priority' => 'important',
+            ],
+            'shift.replacement_recorded' => [
+                'roles' => $opsRoles,
+                'subject' => 'Guard replacement recorded',
+                'headline' => 'A guard was replaced on a shift',
+                'action_label' => 'View shift',
+                'priority' => 'important',
+            ],
+            'deployment.shift_reassigned' => [
+                'roles' => $opsRoles,
+                'subject' => 'Shift reassigned',
+                'headline' => 'A deployment shift was reassigned',
+                'action_label' => 'View deployment',
+                'priority' => 'important',
+            ],
+            'finance.invoice_cancelled' => [
+                'permissions' => ['finance.view'],
+                'subject' => 'Invoice cancelled',
+                'headline' => 'A client invoice was cancelled',
+                'action_label' => 'View invoice',
+                'priority' => 'important',
+            ],
+            'finance.payment_recorded' => [
+                'permissions' => ['finance.view'],
+                'subject' => 'Payment received',
+                'headline' => 'A client payment was recorded',
+                'action_label' => 'View payment',
+                'priority' => 'important',
+            ],
+            'user.created' => [
+                'permissions' => ['admin.settings_manage'],
+                'subject' => 'User account created',
+                'headline' => 'A user account was created',
+                'action_label' => 'View users',
+                'priority' => 'important',
+            ],
+            'user.updated' => [
+                'permissions' => ['admin.settings_manage'],
+                'subject' => 'User access changed',
+                'headline' => 'A user role or account status changed',
+                'action_label' => 'View users',
+                'priority' => 'important',
+            ],
+            'user.deleted' => [
+                'permissions' => ['admin.settings_manage'],
+                'subject' => 'User account removed',
+                'headline' => 'A user account was removed',
+                'action_label' => 'View users',
+                'priority' => 'critical',
+            ],
+            'user.password_reset' => [
+                'permissions' => ['admin.settings_manage'],
+                'subject' => 'Password reset by an administrator',
+                'headline' => 'An administrator reset a user password',
+                'action_label' => 'View users',
+                'priority' => 'critical',
+            ],
+            'auth.password_reset' => [
+                'permissions' => ['admin.settings_manage'],
+                'subject' => 'Password was reset',
+                'headline' => 'A user completed a password reset',
+                'action_label' => 'View users',
+                'priority' => 'critical',
+            ],
+            'system.settings_updated' => [
+                'permissions' => ['admin.settings_manage'],
+                'subject' => 'System settings changed',
+                'headline' => 'Platform settings were changed',
+                'action_label' => 'Open platform settings',
+                'priority' => 'important',
+            ],
+            'queue.unhealthy' => [
+                'permissions' => ['admin.settings_manage'],
+                'subject' => 'Queue needs attention',
+                'headline' => 'Background jobs are failing repeatedly',
+                'action_label' => 'Open email delivery history',
+                'priority' => 'critical',
+            ],
+            'leave.return_missed' => [
+                'permissions' => ['hr.leaves_manage'],
+                'subject' => 'Employee has not returned from leave',
+                'headline' => 'An employee is still on leave after the return date',
+                'action_label' => 'View leave request',
+                'priority' => 'critical',
+                'include_stakeholders' => true,
+            ],
         ];
+    }
+
+    public static function priority(string $action, array $context = []): string
+    {
+        if ($action === 'user.created') {
+            return ($context['role'] ?? null) === UserRole::SuperAdmin->value ? 'critical' : 'important';
+        }
+
+        $explicit = self::find($action)['priority'] ?? null;
+
+        if (is_string($explicit)) {
+            return $explicit;
+        }
+
+        return match ($action) {
+            'backup.failed', 'backup.verify_failed', 'backup.restore_failed', 'backup.missed' => 'critical',
+            'payroll.submitted', 'payroll.rejected', 'leave.requested', 'leave.rejected', 'leave.shift_affected', 'leave.pending_reminder', 'site.understaffed', 'site.sla_breach', 'finance.invoice_overdue', 'guard.document_expired', 'desertion.reported' => 'important',
+            default => 'normal',
+        };
+    }
+
+    public static function channel(string $action): string
+    {
+        $explicit = self::find($action)['channel'] ?? null;
+
+        return is_string($explicit) ? $explicit : 'both';
+    }
+
+    public static function sensitive(string $action): bool
+    {
+        return str_starts_with($action, 'payroll.') || str_ends_with($action, '.salary_changed');
+    }
+
+    /** @return list<UserRole>|null */
+    public static function audienceRoles(string $audience): ?array
+    {
+        return match ($audience) {
+            'hr' => [UserRole::SuperAdmin, UserRole::ManagingDirector, UserRole::HrManager],
+            'operations' => self::operationsNotificationRoles(),
+            'finance' => [UserRole::SuperAdmin, UserRole::ManagingDirector, UserRole::FinanceManager],
+            'administrators' => [UserRole::SuperAdmin, UserRole::ManagingDirector],
+            default => null,
+        };
     }
 
     public static function has(string $action): bool

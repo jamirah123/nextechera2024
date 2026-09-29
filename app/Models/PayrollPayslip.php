@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CompensationType;
 use App\Support\Access\SupervisorPayAccess;
+use App\Support\Finance\PayrollRates;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -139,5 +140,59 @@ class PayrollPayslip extends Model
     public function hasMixedSalary(): bool
     {
         return is_array($this->salary_breakdown) && count($this->salary_breakdown) > 1;
+    }
+
+    /**
+     * Shift-pay formula for the payslip. Overtime is included in the average
+     * shift rate when that is its rate, and kept separate when a multiplier applies.
+     *
+     * @return array{
+     *     monthly_gross: float|null,
+     *     divisor: int,
+     *     average_rate: float,
+     *     overtime_rate: float,
+     *     overtime_uses_average_rate: bool,
+     *     normal_shifts: int,
+     *     overtime_shifts: int,
+     *     other_shifts: int,
+     *     payable_shifts: int,
+     *     normal_amount: float,
+     *     overtime_amount: float,
+     *     other_amount: float,
+     *     shift_earnings: float
+     * }
+     */
+    public function shiftEarningsBreakdown(): array
+    {
+        $slices = is_array($this->salary_breakdown) ? $this->salary_breakdown : [];
+        $average = (float) $this->base_shift_rate;
+        $overtimeRate = (float) $this->overtime_shift_rate;
+        $monthly = null;
+        $divisor = PayrollRates::SHIFT_RATE_DIVISOR;
+
+        if (count($slices) === 1 && isset($slices[0]['monthly_gross'])) {
+            $monthly = (float) $slices[0]['monthly_gross'];
+            $divisor = (int) ($slices[0]['divisor'] ?? $divisor);
+        }
+
+        $normal = (int) $this->normal_shifts;
+        $overtime = (int) $this->overtime_shifts;
+        $other = (int) $this->relief_shifts + (int) $this->replacement_shifts + (int) $this->special_duty_shifts;
+
+        return [
+            'monthly_gross' => $monthly,
+            'divisor' => $divisor,
+            'average_rate' => $average,
+            'overtime_rate' => $overtimeRate,
+            'overtime_uses_average_rate' => PayrollRates::overtimeUsesAverageRate($average, $overtimeRate),
+            'normal_shifts' => $normal,
+            'overtime_shifts' => $overtime,
+            'other_shifts' => $other,
+            'payable_shifts' => (int) $this->total_shifts,
+            'normal_amount' => round($normal * $average, 2),
+            'overtime_amount' => round($overtime * $overtimeRate, 2),
+            'other_amount' => round($other * $average, 2),
+            'shift_earnings' => (float) $this->gross_pay,
+        ];
     }
 }

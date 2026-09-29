@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Models\SystemSetting;
+use App\Support\Finance\PayrollRates;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -226,6 +227,8 @@ class SystemSettingService
             'psg.theme_sidebar' => $settings->resolvedThemeSidebar(),
             'psg.email_footer' => $settings->email_footer_text,
             'psg.notifications.workflow_email_enabled' => (bool) ($settings->notify_workflow_actions_by_email ?? config('psg.notifications.workflow_email_enabled', true)),
+            'psg.notifications.email_rules' => is_array($settings->email_event_rules) ? $settings->email_event_rules : [],
+            'psg.notifications.include_sensitive_amounts' => (bool) ($settings->email_include_sensitive_amounts ?? false),
             'psg.notifications.proactive_alerts_enabled' => (bool) ($settings->notify_proactive_alerts ?? config('psg.notifications.proactive_alerts_enabled', true)),
             'psg.currency' => $settings->currency,
             'psg.currency_label' => $settings->currency_label,
@@ -243,7 +246,7 @@ class SystemSettingService
             'psg.payroll.default_monthly_gross' => (float) $settings->payroll_default_base_shift_rate,
             'psg.payroll.standard_shifts_per_month' => max(1, (int) ($settings->payroll_standard_shifts_per_month ?? 30)),
             'psg.payroll.default_base_shift_rate' => round(
-                (float) $settings->payroll_default_base_shift_rate / max(1, now()->daysInMonth),
+                (float) $settings->payroll_default_base_shift_rate / PayrollRates::SHIFT_RATE_DIVISOR,
                 2,
             ),
             'psg.payroll.overtime_multiplier' => (float) $settings->payroll_overtime_multiplier,

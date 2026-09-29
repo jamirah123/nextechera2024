@@ -323,7 +323,7 @@ class SystemSettingsTest extends TestCase
         ]);
 
         $this->assertSame(35000.0, (float) config('psg.payroll.default_monthly_gross'));
-        $this->assertSame(round(35000 / now()->daysInMonth, 2), (float) config('psg.payroll.default_base_shift_rate'));
+        $this->assertSame(round(35000 / 30, 2), (float) config('psg.payroll.default_base_shift_rate'));
         $this->assertSame(10.0, (float) config('psg.payroll.paye_rate'));
         $this->assertSame(5000.0, (float) config('psg.payroll.uniform_charge'));
     }

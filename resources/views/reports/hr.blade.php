@@ -23,11 +23,11 @@
             title="HR summary report"
             :subtitle="'Leave, absences and desertions for '.\Carbon\Carbon::parse($from)->format('d M Y').' – '.\Carbon\Carbon::parse($to)->format('d M Y')"
         />
-        <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
+        <section class="grid grid-cols-2 gap-2 sm:grid-cols-4">
             @foreach ([['Leaves','leaves','text-sky-700'],['Approved','approved_leaves','text-emerald-700'],['Absences','absences','text-amber-800'],['Desertions','desertions','text-rose-700']] as [$label,$key,$tone])
-                <div class="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
-                    <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }} sm:text-[11px]">{{ $label }}</p>
-                    <p class="mt-1 text-xl font-semibold text-slate-900 sm:text-lg">{{ $summary[$key] }}</p>
+                <div class="min-w-0 rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+                    <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                    <p class="mt-0.5 text-base font-semibold text-slate-900">{{ $summary[$key] }}</p>
                 </div>
             @endforeach
         </section>
@@ -40,9 +40,9 @@
             </form>
         </section>
 
-        <div class="grid gap-6 xl:grid-cols-3">
+        <div class="grid gap-3 xl:grid-cols-3">
             <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-100 px-3 py-2.5"><h2 class="text-sm font-semibold text-slate-900">Leave</h2></div>
+                <div class="border-b border-slate-100 px-3 py-2"><h2 class="text-xs font-semibold text-slate-900">Leave</h2></div>
                 <ul class="divide-y divide-slate-100">
                     @forelse ($leaves as $leave)
                         <li class="flex gap-3 px-3 py-2">
@@ -54,13 +54,13 @@
                             </div>
                         </li>
                     @empty
-                        <li class="px-5 py-8 text-center text-sm text-slate-500">No leave in period</li>
+                        <li class="px-3 py-3 text-center text-xs text-slate-500">No leave in period</li>
                     @endforelse
                 </ul>
             </section>
 
             <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-100 px-3 py-2.5"><h2 class="text-sm font-semibold text-slate-900">Absences</h2></div>
+                <div class="border-b border-slate-100 px-3 py-2"><h2 class="text-xs font-semibold text-slate-900">Absences</h2></div>
                 <ul class="divide-y divide-slate-100">
                     @forelse ($absences as $absence)
                         <li class="flex gap-3 px-3 py-2">
@@ -71,13 +71,13 @@
                             </div>
                         </li>
                     @empty
-                        <li class="px-5 py-8 text-center text-sm text-slate-500">No absences in period</li>
+                        <li class="px-3 py-3 text-center text-xs text-slate-500">No absences in period</li>
                     @endforelse
                 </ul>
             </section>
 
             <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-100 px-3 py-2.5"><h2 class="text-sm font-semibold text-slate-900">Desertions</h2></div>
+                <div class="border-b border-slate-100 px-3 py-2"><h2 class="text-xs font-semibold text-slate-900">Desertions</h2></div>
                 <ul class="divide-y divide-slate-100">
                     @forelse ($desertions as $desertion)
                         <li class="flex gap-3 px-3 py-2">
@@ -88,7 +88,7 @@
                             </div>
                         </li>
                     @empty
-                        <li class="px-5 py-8 text-center text-sm text-slate-500">No desertions in period</li>
+                        <li class="px-3 py-3 text-center text-xs text-slate-500">No desertions in period</li>
                     @endforelse
                 </ul>
             </section>

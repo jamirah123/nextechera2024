@@ -307,6 +307,15 @@ class LeaveService
             ->each(function (Leave $leave): void {
                 $this->auditOnce($leave, 'leave.return_due', $leave->employeeCode().' is due to return from leave today.');
             });
+
+        Leave::query()
+            ->where('status', LeaveStatus::Completed)
+            ->whereDate('expected_return_date', now()->subDay()->toDateString())
+            ->whereHas('assignedGuard', fn ($query) => $query->where('operational_status', OperationalStatus::OnLeave))
+            ->orderBy('id')
+            ->each(function (Leave $leave): void {
+                $this->auditOnce($leave, 'leave.return_missed', $leave->employeeCode().' has not returned after approved leave.');
+            });
     }
 
     private function auditOnce(Leave $leave, string $action, string $summary): void

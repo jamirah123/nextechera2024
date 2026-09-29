@@ -446,7 +446,7 @@ class PayrollManagementTest extends TestCase
             'date_employed' => '2024-01-01',
         ]);
 
-        // January has 31 calendar days — payroll must still use basis 26, not 31.
+        // January has 31 calendar days. The divisor stays 30 even if the settings field is 26.
         $januaryRun = PayrollRun::query()->create([
             'reference' => 'PAY-2024-01-001',
             'period_year' => 2024,
@@ -468,7 +468,7 @@ class PayrollManagementTest extends TestCase
             'currency' => 'UGX',
         ]);
 
-        $perShift = round(170000 / 26, 2);
+        $perShift = round(170000 / 30, 2);
         $makeShift = function (string $date, ShiftStatus $status) use ($guard, $site): void {
             static $seq = 0;
             $seq++;
@@ -513,8 +513,165 @@ class PayrollManagementTest extends TestCase
         $this->assertSame(23, (int) $februaryPayslip->total_shifts);
         $this->assertSame(round(24 * $perShift, 2), (float) $januaryPayslip->gross_pay);
         $this->assertSame(round(23 * $perShift, 2), (float) $februaryPayslip->gross_pay);
-        // Must not use calendar-day divisors 31 / 29.
+        // Must not use calendar-day divisors 31 / 29, or the unused settings basis of 26.
         $this->assertNotEquals(round(24 * (170000 / 31), 2), (float) $januaryPayslip->gross_pay);
+        $this->assertNotEquals(round(24 * (170000 / 26), 2), (float) $januaryPayslip->gross_pay);
+    }
+
+    public function test_shift_earnings_equal_payable_shifts_times_average_rate(): void
+    {
+        SystemSetting::query()->first()?->update([
+            'payroll_overtime_multiplier' => 1,
+            'payroll_use_progressive_paye' => false,
+            'payroll_paye_rate' => 0,
+            'payroll_nssf_employee_rate' => 5,
+            'payroll_uniform_charge' => 2000,
+        ]);
+        app(SystemSettingService::class)->applyRuntimeConfig();
+
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $site = Site::factory()->create();
+        $period = $this->closedPayrollPeriod();
+
+        $guard = Guard::factory()->create([
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+            'compensation_type' => CompensationType::Shift,
+            'base_shift_rate' => 170000,
+            'overtime_shift_rate' => 0,
+            'date_employed' => '2024-01-01',
+        ]);
+
+        $makeShift = function (int $day, ShiftType $type) use ($guard, $site, $period): void {
+            $date = $period['start']->copy()->addDays($day - 1)->toDateString();
+            Shift::query()->create([
+                'reference' => 'SHF-AVG-'.str_pad((string) $day, 2, '0', STR_PAD_LEFT),
+                'guard_id' => $guard->id,
+                'site_id' => $site->id,
+                'region_id' => $site->region_id,
+                'supervisor_id' => $site->supervisor_id,
+                'shift_date' => $date,
+                'starts_at' => $date.' 06:00:00',
+                'ends_at' => $date.' 18:00:00',
+                'period' => \App\Enums\ShiftPeriod::Day,
+                'shift_type' => $type,
+                'guard_classification' => \App\Enums\GuardClassification::Unarmed,
+                'status' => ShiftStatus::Recorded,
+                'is_overnight' => false,
+            ]);
+        };
+
+        for ($day = 1; $day <= 20; $day++) {
+            $makeShift($day, ShiftType::Normal);
+        }
+
+        for ($day = 21; $day <= 24; $day++) {
+            $makeShift($day, ShiftType::Overtime);
+        }
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $payslip = PayrollPayslip::query()->where('guard_id', $guard->id)->firstOrFail();
+        $rate = round(170000 / 30, 2);
+
+        $this->assertSame(20, (int) $payslip->normal_shifts);
+        $this->assertSame(4, (int) $payslip->overtime_shifts);
+        $this->assertSame(24, (int) $payslip->total_shifts);
+        $this->assertSame($rate, (float) $payslip->base_shift_rate);
+        $this->assertSame($rate, (float) $payslip->overtime_shift_rate);
+        $this->assertSame(round(24 * $rate, 2), (float) $payslip->gross_pay);
+        $this->assertSame(136000.08, (float) $payslip->gross_pay);
+
+        $nssf = round(136000.08 * 0.05, 2);
+        $this->assertSame($nssf, (float) $payslip->deductions()->where('type', PayrollDeductionType::Nssf->value)->value('amount'));
+        $this->assertSame(2000.0, (float) $payslip->deductions()->where('type', PayrollDeductionType::Uniform->value)->value('amount'));
+        $this->assertSame(round(136000.08 - $nssf - 2000, 2), (float) $payslip->net_pay);
+
+        $this->actingAs($finance)
+            ->get(route('payroll.payslips.show', [$run, $payslip]))
+            ->assertOk()
+            ->assertSee('Gross salary')
+            ->assertSee('30-day divisor')
+            ->assertSee('5,666.67')
+            ->assertSee('136,000.08')
+            ->assertSee('Total payable shifts');
+    }
+
+    public function test_overtime_multiplier_is_kept_separate_from_the_average_shift_rate(): void
+    {
+        SystemSetting::query()->first()?->update([
+            'payroll_overtime_multiplier' => 1.5,
+            'payroll_use_progressive_paye' => false,
+            'payroll_paye_rate' => 0,
+            'payroll_nssf_employee_rate' => 0,
+            'payroll_uniform_charge' => 0,
+        ]);
+        app(SystemSettingService::class)->applyRuntimeConfig();
+
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $site = Site::factory()->create();
+        $period = $this->closedPayrollPeriod();
+
+        $guard = Guard::factory()->create([
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+            'compensation_type' => CompensationType::Shift,
+            'base_shift_rate' => 170000,
+            'overtime_shift_rate' => 0,
+            'date_employed' => '2024-01-01',
+        ]);
+
+        foreach ([1 => ShiftType::Normal, 2 => ShiftType::Overtime] as $day => $type) {
+            $date = $period['start']->copy()->addDays($day - 1)->toDateString();
+            Shift::query()->create([
+                'reference' => 'SHF-OT-'.$day,
+                'guard_id' => $guard->id,
+                'site_id' => $site->id,
+                'region_id' => $site->region_id,
+                'supervisor_id' => $site->supervisor_id,
+                'shift_date' => $date,
+                'starts_at' => $date.' 06:00:00',
+                'ends_at' => $date.' 18:00:00',
+                'period' => \App\Enums\ShiftPeriod::Day,
+                'shift_type' => $type,
+                'guard_classification' => \App\Enums\GuardClassification::Unarmed,
+                'status' => ShiftStatus::Recorded,
+                'is_overnight' => false,
+            ]);
+        }
+
+        $this->actingAs($finance)
+            ->post(route('payroll.store'), [
+                'period_year' => $period['year'],
+                'period_month' => $period['month'],
+            ])
+            ->assertRedirect();
+
+        $run = PayrollRun::query()->firstOrFail();
+        $this->actingAs($finance)->post(route('payroll.calculate', $run))->assertRedirect();
+
+        $payslip = PayrollPayslip::query()->where('guard_id', $guard->id)->firstOrFail();
+        $average = round(170000 / 30, 2);
+        $overtime = round($average * 1.5, 2);
+
+        $this->assertSame($average, (float) $payslip->base_shift_rate);
+        $this->assertSame($overtime, (float) $payslip->overtime_shift_rate);
+        $this->assertSame(round($average + $overtime, 2), (float) $payslip->gross_pay);
+        $this->assertNotSame(round(2 * $average, 2), (float) $payslip->gross_pay);
+
+        $this->actingAs($finance)
+            ->get(route('payroll.payslips.show', [$run, $payslip]))
+            ->assertOk()
+            ->assertSee('Normal earnings')
+            ->assertSee('OT earnings');
     }
 
     public function test_shift_pay_ignores_duties_outside_employment_effective_dates(): void

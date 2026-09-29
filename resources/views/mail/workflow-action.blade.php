@@ -1,5 +1,9 @@
 <x-mail::message>
-<x-mail.banner :label="$headline" tone="brand" />
+<x-mail.banner :label="$priorityLabel" :tone="$priorityTone" />
+
+<h1 style="margin: 0 0 12px; font-size: 20px; line-height: 1.3; font-weight: 700; color: #0f172a;">
+    {{ $headline }}
+</h1>
 
 <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #334155;">
     {{ $summary }}
@@ -52,6 +56,7 @@ If the button above does not work, copy and paste this link into your browser:<b
 @endif
 
 <p style="margin: 24px 0 0; font-size: 13px; line-height: 1.5; color: #64748b;">
-    This is an automated notification from {{ config('psg.company', config('app.name')) }}. Please do not reply to this email.
+    This is an automated notification from {{ config('psg.company', config('app.name')) }} {{ config('psg.system_subtitle', 'Operations & Workforce Management System') }}.
+    Please do not reply to this automated email.
 </p>
 </x-mail::message>

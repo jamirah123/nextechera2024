@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\ArchivedRecordController;
 use App\Http\Controllers\Admin\BackupController;
 use App\Http\Controllers\Admin\DataImportController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\EmailDeliveryController;
 use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Audit\AuditLogController;
@@ -433,6 +434,8 @@ Route::middleware('auth')->group(function () {
         ->middleware('throttle:backups')
         ->name('settings.backup');
     Route::post('/settings/production-check', [SystemSettingController::class, 'productionCheck'])->name('settings.production-check');
+    Route::get('/settings/email-deliveries', [EmailDeliveryController::class, 'index'])->name('email-deliveries.index');
+    Route::post('/settings/test-email', [EmailDeliveryController::class, 'sendTest'])->name('settings.test-email');
 
     Route::get('/data-import', [DataImportController::class, 'index'])->name('data-import.index');
     Route::get('/data-import/templates/{type}', [DataImportController::class, 'template'])->name('data-import.template');

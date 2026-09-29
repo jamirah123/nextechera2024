@@ -51,6 +51,12 @@ class AuditService
         ]);
 
         try {
+            app(NotificationRecipientService::class)->deliver($entry);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
+
+        try {
             app(WorkflowMailService::class)->notifyFromAudit($entry);
         } catch (\Throwable $exception) {
             report($exception);

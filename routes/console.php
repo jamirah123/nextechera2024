@@ -46,7 +46,7 @@ Schedule::command('psg:test-restore-backup')
     ->name('psg-backup-restore-drill');
 
 // Freshness / missed-backup monitoring.
-Schedule::command('psg:backup-health', ['--alert' => true])
+Schedule::command('psg:backup-health --alert')
     ->hourly()
     ->withoutOverlapping()
     ->name('psg-backup-health');

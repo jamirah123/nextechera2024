@@ -51,7 +51,7 @@
                 'label' => 'NSSF / TIN',
                 'value' => trim(collect([$payslip->nssf_number ? 'NSSF '.$payslip->nssf_number : null, $payslip->tin_number ? 'TIN '.$payslip->tin_number : null])->filter()->implode(' · ') ?: '—'),
             ]]"
-            footer-note="{{ $payslip->isFixedSalary() ? ($payslip->overtime_shifts > 0 ? 'Fixed monthly salary plus overtime earnings from recorded overtime cover shifts.' : 'This payslip reflects a fixed monthly salary for the pay period.') : 'This payslip is generated from completed shifts recorded in the operations system.' }}"
+            footer-note="{{ $payslip->isFixedSalary() ? ($payslip->overtime_shifts > 0 ? 'Fixed monthly salary plus overtime earnings from recorded overtime cover shifts.' : 'This payslip reflects a fixed monthly salary for the pay period.') : 'Shift earnings are payable recorded shifts × (monthly gross ÷ 30). Overtime uses that rate unless a separate overtime rate applies. Deductions use the rates configured in Admin settings.' }}"
         >
             <div class="mb-6 grid gap-4 sm:grid-cols-2">
                 <div class="rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
@@ -95,10 +95,30 @@
                             @endif
                             <div class="flex justify-between"><dt>Period gross</dt><dd>{{ \App\Support\Money::format($payslip->gross_pay, $run->currency) }}</dd></div>
                         @else
-                            <div class="flex justify-between"><dt>Normal ({{ $payslip->normal_shifts }})</dt><dd>{{ \App\Support\Money::format($payslip->normal_shifts * $payslip->base_shift_rate, $run->currency) }}</dd></div>
-                            <div class="flex justify-between"><dt>Overtime ({{ $payslip->overtime_shifts }})</dt><dd>{{ \App\Support\Money::format($payslip->overtime_shifts * $payslip->overtime_shift_rate, $run->currency) }}</dd></div>
-                            @if ($payslip->relief_shifts + $payslip->replacement_shifts + $payslip->special_duty_shifts > 0)
-                                <div class="flex justify-between text-slate-600"><dt>Other worked shifts</dt><dd>{{ $payslip->relief_shifts + $payslip->replacement_shifts + $payslip->special_duty_shifts }}</dd></div>
+                            @php
+                                $calc = $payslip->shiftEarningsBreakdown();
+                                $rateText = fn ($amount) => ($run->currency ?: \App\Support\Money::currency()).' '.number_format((float) $amount, 2);
+                            @endphp
+                            @if ($calc['monthly_gross'] !== null)
+                                <div class="flex justify-between"><dt>Gross salary</dt><dd>{{ $rateText($calc['monthly_gross']) }}</dd></div>
+                            @endif
+                            <div class="flex justify-between"><dt>{{ $calc['divisor'] }}-day divisor</dt><dd>{{ $calc['divisor'] }}</dd></div>
+                            <div class="flex justify-between"><dt>Average shift rate</dt><dd>{{ $rateText($calc['average_rate']) }}</dd></div>
+                            <div class="flex justify-between"><dt>Normal shifts</dt><dd>{{ $calc['normal_shifts'] }}</dd></div>
+                            <div class="flex justify-between"><dt>OT shifts</dt><dd>{{ $calc['overtime_shifts'] }}</dd></div>
+                            @if ($calc['other_shifts'] > 0)
+                                <div class="flex justify-between"><dt>Other payable shifts</dt><dd>{{ $calc['other_shifts'] }}</dd></div>
+                            @endif
+                            <div class="flex justify-between"><dt>Total payable shifts</dt><dd>{{ $calc['payable_shifts'] }}</dd></div>
+                            @if ($calc['overtime_uses_average_rate'])
+                                <div class="flex justify-between"><dt>Shift earnings</dt><dd>{{ $rateText($calc['shift_earnings']) }}</dd></div>
+                            @else
+                                <div class="flex justify-between"><dt>Normal earnings</dt><dd>{{ $rateText($calc['normal_amount']) }}</dd></div>
+                                <div class="flex justify-between"><dt>OT earnings</dt><dd>{{ $rateText($calc['overtime_amount']) }}</dd></div>
+                                @if ($calc['other_shifts'] > 0)
+                                    <div class="flex justify-between"><dt>Other earnings</dt><dd>{{ $rateText($calc['other_amount']) }}</dd></div>
+                                @endif
+                                <div class="flex justify-between"><dt>Shift earnings</dt><dd>{{ $rateText($calc['shift_earnings']) }}</dd></div>
                             @endif
                         @endif
                         <div class="flex justify-between border-t border-slate-200 pt-2 font-semibold dark:border-slate-600"><dt>Gross pay</dt><dd>{{ \App\Support\Money::format($payslip->gross_pay, $run->currency) }}</dd></div>
@@ -114,8 +134,17 @@
                                 <div class="flex justify-between"><dt>Overtime rate</dt><dd>{{ \App\Support\Money::format($payslip->overtime_shift_rate, $run->currency) }}</dd></div>
                             @endif
                         @else
-                            <div class="flex justify-between"><dt>Base shift rate</dt><dd>{{ \App\Support\Money::format($payslip->base_shift_rate, $run->currency) }}</dd></div>
-                            <div class="flex justify-between"><dt>Overtime rate</dt><dd>{{ \App\Support\Money::format($payslip->overtime_shift_rate, $run->currency) }}</dd></div>
+                            @php
+                                $calc = $calc ?? $payslip->shiftEarningsBreakdown();
+                                $rateText = $rateText ?? fn ($amount) => ($run->currency ?: \App\Support\Money::currency()).' '.number_format((float) $amount, 2);
+                            @endphp
+                            @if ($calc['monthly_gross'] !== null)
+                                <div class="flex justify-between"><dt>Gross salary</dt><dd>{{ $rateText($calc['monthly_gross']) }}</dd></div>
+                            @endif
+                            <div class="flex justify-between"><dt>Average shift rate</dt><dd>{{ $rateText($calc['average_rate']) }}</dd></div>
+                            @unless ($calc['overtime_uses_average_rate'])
+                                <div class="flex justify-between"><dt>Overtime rate</dt><dd>{{ $rateText($calc['overtime_rate']) }}</dd></div>
+                            @endunless
                             <div class="flex justify-between"><dt>Linked shifts</dt><dd>{{ $payslip->shifts->count() }}</dd></div>
                         @endif
                         <div class="flex justify-between border-t border-slate-200 pt-2 font-semibold text-emerald-700 dark:border-slate-600"><dt>Net pay</dt><dd>{{ \App\Support\Money::format($payslip->net_pay, $run->currency) }}</dd></div>

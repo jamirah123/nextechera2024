@@ -41,6 +41,10 @@ class NotificationPreferences
             return true;
         }
 
+        if (WorkflowActionCatalog::priority($action) === 'critical') {
+            return true;
+        }
+
         return $category === 'security' && $severity === 'critical';
     }
 

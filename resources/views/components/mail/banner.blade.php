@@ -8,6 +8,7 @@
         'brand' => ['bg' => '#ecfdf5', 'border' => '#1E5D48', 'text' => '#14532d'],
         'info' => ['bg' => '#eff6ff', 'border' => '#1845de', 'text' => '#1e3a8a'],
         'warning' => ['bg' => '#fffbeb', 'border' => '#d97706', 'text' => '#92400e'],
+        'critical' => ['bg' => '#fef2f2', 'border' => '#b91c1c', 'text' => '#7f1d1d'],
         'success' => ['bg' => '#ecfdf5', 'border' => '#059669', 'text' => '#065f46'],
     ];
     $palette = $tones[$tone] ?? $tones['brand'];

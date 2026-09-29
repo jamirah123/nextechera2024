@@ -40,14 +40,14 @@
     </section>
 
     <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-        <form method="GET" action="{{ route('deployments.index') }}" x-data x-ref="filterForm" class="flex flex-wrap items-end gap-2">
+        <form method="GET" action="{{ route('deployments.index') }}" id="posting-filters" x-data x-ref="filterForm" class="flex flex-wrap items-end gap-2">
             <x-form-field
                 label="Date"
                 name="date"
                 type="date"
                 :value="$filters['date'] ?? ''"
                 class="w-[9.75rem] shrink-0"
-                x-on:change="$refs.filterForm.requestSubmit()"
+                data-live-date
             />
             <x-form-field
                 label="Search"
@@ -164,4 +164,21 @@
         </div>
     @endif
 </div>
+<script>
+    document.getElementById('posting-filters')?.addEventListener('input', (event) => {
+        const field = event.target;
+        if (!(field instanceof HTMLInputElement) || !field.hasAttribute('data-live-date')) {
+            return;
+        }
+        if (field.value !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(field.value)) {
+            return;
+        }
+        const form = field.form;
+        if (!form || form.dataset.submitting === '1') {
+            return;
+        }
+        form.dataset.submitting = '1';
+        form.requestSubmit();
+    });
+</script>
 @endsection

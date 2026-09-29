@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Services\AbsenceService;
 use App\Services\Deployments\BulkDeploymentService;
 use App\Services\DeploymentService;
+use App\Services\ManpowerService;
 use App\Services\Documents\LetterPdfService;
 use App\Services\Shifts\BulkShiftAllocationService;
 use App\Services\Shifts\ShiftLifecycleService;
@@ -176,7 +177,7 @@ class DeploymentController extends Controller
             ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
             ->when($request->filled('region_id') && ! $user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $request->integer('region_id')))
             ->orderBy('name')
-            ->get(['id', 'name', 'code', 'region_id']);
+            ->get(['id', 'name', 'code', 'region_id', 'required_day_guards', 'required_night_guards']);
 
         $sitesByRegion = $sites->groupBy(fn (Site $site) => (int) $site->region_id);
 
@@ -194,6 +195,7 @@ class DeploymentController extends Controller
             'filters' => array_merge($request->only(['q', 'region_id']), ['start_date' => $dutyDate]),
             'dutyDate' => $dutyDate,
             'isHistorical' => $isHistorical,
+            'boardManpower' => app(ManpowerService::class)->postingBoardCoverage($sites, $dutyDate),
             'shiftWindows' => $shiftSchedule->labels(),
             'stats' => [
                 'awaiting' => (clone $this->boardGuardQuery($request, $user, applyRegionFilter: false, dutyDate: $dutyDate))->count(),

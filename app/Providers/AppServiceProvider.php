@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\EmailDelivery;
 use App\Policies\AuditLogPolicy;
+use App\Support\Notifications\EmailFailureMessage;
+use App\Support\Notifications\QueuedWorkflowMail;
 use App\Policies\FinancePolicy;
 use App\Policies\ReportPolicy;
 use App\Services\SystemSettingService;
@@ -12,6 +15,8 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -63,6 +68,37 @@ class AppServiceProvider extends ServiceProvider
             $view->with('navigationGroups', $user ? RoleNavigation::groups($user) : []);
         });
 
+        Event::listen(function (JobProcessing $event): void {
+            $mailable = QueuedWorkflowMail::fromJob($event);
+
+            if ($mailable?->deliveryId) {
+                EmailDelivery::query()->whereKey($mailable->deliveryId)->update([
+                    'status' => 'sending',
+                    'attempts' => $event->job->attempts(),
+                ]);
+            }
+        });
+
+        Event::listen(function (MessageSent $event): void {
+            $headers = $event->sent->getOriginalMessage()->getHeaders();
+
+            if (! $headers->has('X-PSG-Delivery')) {
+                return;
+            }
+
+            $id = (int) $headers->get('X-PSG-Delivery')?->getBodyAsString();
+
+            if ($id < 1) {
+                return;
+            }
+
+            EmailDelivery::query()->whereKey($id)->update([
+                'status' => 'sent',
+                'sent_at' => now(),
+                'failure_reason' => null,
+            ]);
+        });
+
         Event::listen(function (JobFailed $event): void {
             Log::error('Queued job failed.', [
                 'job' => $event->job->resolveName(),
@@ -70,6 +106,21 @@ class AppServiceProvider extends ServiceProvider
                 'queue' => $event->job->getQueue(),
                 'exception' => $event->exception::class,
                 'message' => $event->exception->getMessage(),
+            ]);
+
+            $mailable = QueuedWorkflowMail::fromJob($event);
+
+            if (! $mailable?->deliveryId) {
+                return;
+            }
+
+            $maxTries = max(1, (int) ($mailable->tries ?? 1));
+            $attempts = $event->job->attempts();
+
+            EmailDelivery::query()->whereKey($mailable->deliveryId)->update([
+                'status' => $attempts >= $maxTries ? 'failed' : 'retrying',
+                'attempts' => $attempts,
+                'failure_reason' => EmailFailureMessage::sanitize($event->exception->getMessage()),
             ]);
         });
 

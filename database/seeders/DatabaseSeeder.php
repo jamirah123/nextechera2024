@@ -11,11 +11,19 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        $this->call([
-            SmallCompanySeeder::class,
-            ExpandOrgSeeder::class,
-            ExpandHrModulesSeeder::class,
-            RealisticOpsSeeder::class,
-        ]);
+        $mode = (string) env('PSG_SEED_MODE', 'story');
+
+        if ($mode === 'legacy') {
+            $this->call([
+                SmallCompanySeeder::class,
+                ExpandOrgSeeder::class,
+                ExpandHrModulesSeeder::class,
+                RealisticOpsSeeder::class,
+            ]);
+
+            return;
+        }
+
+        $this->call(WorkflowOperationsSeeder::class);
     }
 }

@@ -2,6 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\AuditCategory;
+use App\Enums\AuditSeverity;
+use App\Models\AuditLog;
+use App\Services\AuditService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -38,6 +42,7 @@ class QueueHealthCommand extends Command
 
         if ($failed >= $threshold) {
             $this->error("[FAIL] Failed jobs ({$failed}) exceed threshold ({$threshold}). Run php artisan queue:failed");
+            $this->alertAdministrators($failed, $threshold);
 
             return self::FAILURE;
         }
@@ -47,5 +52,28 @@ class QueueHealthCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    private function alertAdministrators(int $failed, int $threshold): void
+    {
+        $already = AuditLog::query()
+            ->where('action', 'queue.unhealthy')
+            ->where('created_at', '>=', now()->subHours(6))
+            ->exists();
+
+        if ($already) {
+            return;
+        }
+
+        app(AuditService::class)->log(
+            action: 'queue.unhealthy',
+            summary: $failed.' background jobs have failed. The threshold is '.$threshold.'.',
+            category: AuditCategory::System,
+            severity: AuditSeverity::Critical,
+            context: [
+                'failed_jobs' => $failed,
+                'threshold' => $threshold,
+            ],
+        );
     }
 }

@@ -6,139 +6,154 @@ use App\Enums\UserRole;
 use App\Mail\WorkflowActionMail;
 use App\Models\AuditLog;
 use App\Models\DatabaseBackup;
+use App\Models\Deployment;
+use App\Models\EmailDelivery;
 use App\Models\Guard;
 use App\Models\Invoice;
 use App\Models\Leave;
+use App\Models\Payment;
 use App\Models\PayrollRun;
 use App\Models\Shift;
 use App\Models\Site;
+use App\Models\Staff;
 use App\Models\User;
-use App\Support\Access\Access;
 use App\Support\Money;
 use App\Support\Notifications\NotificationPreferences;
 use App\Support\Notifications\WorkflowActionCatalog;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Mail;
 
 class WorkflowMailService
 {
     public function notifyFromAudit(AuditLog $log): void
     {
-        if (! config('psg.notifications.workflow_email_enabled', true)) {
-            return;
-        }
-
-        if (str_starts_with($log->action, 'backup.') && ! config('psg.backup.notify', true)) {
-            return;
-        }
-
         $context = is_array($log->context) ? $log->context : [];
+
+        if ($log->action === 'user.updated' && ! $this->accessChanged($context)) {
+            return;
+        }
+
         $definition = WorkflowActionCatalog::findForAudit($log->action, $context);
 
         if ($definition === null) {
             return;
         }
 
-        $recipients = $this->resolveRecipients($log, $definition);
+        $priority = WorkflowActionCatalog::priority($log->action, $context);
+        $category = $log->category instanceof \App\Enums\AuditCategory ? $log->category->value : (string) $log->category;
+        $severity = $log->severity instanceof \App\Enums\AuditSeverity ? $log->severity->value : (string) $log->severity;
+        $forced = $priority === 'critical' || NotificationPreferences::isForced($log->action, $category, $severity);
+
+        if (! config('psg.notifications.workflow_email_enabled', true) && ! $forced) {
+            return;
+        }
+
+        if (str_starts_with($log->action, 'backup.') && ! config('psg.backup.notify', true) && ! $forced) {
+            return;
+        }
+
+        $channel = $this->rule($log->action)['channel'] ?? WorkflowActionCatalog::channel($log->action);
+
+        if ($forced && $channel === 'in_app') {
+            $channel = 'both';
+        }
+
+        if (! in_array($channel, ['email', 'both'], true)) {
+            return;
+        }
+
+        $recipients = app(NotificationRecipientService::class)
+            ->resolve($log)
+            ->filter(fn (User $user) => filled($user->email))
+            ->filter(fn (User $user) => NotificationPreferences::wantsEmail($user, $log->action, $category, $severity))
+            ->values();
 
         if ($recipients->isEmpty()) {
             return;
         }
 
+        $actionUrl = $this->actionUrlFor($log);
+
         foreach ($recipients as $recipient) {
+            $delivery = $this->reserveDelivery($log, $recipient, $definition['subject'], $priority);
+
+            if ($delivery === null) {
+                continue;
+            }
+
             Mail::to($recipient->email)->queue(new WorkflowActionMail(
                 headline: $definition['headline'],
-                summary: $log->summary,
+                summary: $this->summaryFor($log, $recipient, $definition),
                 actorName: $log->actor_name,
-                actionUrl: $this->actionUrlFor($log),
+                actionUrl: $actionUrl,
                 actionLabel: $definition['action_label'],
-                details: $this->detailsFor($log),
+                details: $this->detailsFor($log, $recipient),
+                priority: $priority,
+                deliveryId: $delivery->id,
             ));
         }
     }
 
-    /**
-     * @param  array{permissions?: list<string>, roles?: list<UserRole>, subject: string, headline: string, action_label: string, include_stakeholders?: bool}  $definition
-     * @return Collection<int, User>
-     */
-    private function resolveRecipients(AuditLog $log, array $definition): Collection
+    /** @param  array<string, mixed>  $context */
+    private function accessChanged(array $context): bool
     {
-        if (! empty($definition['roles'])) {
-            $recipients = $this->usersWithRoles($definition['roles']);
-        } else {
-            $recipients = $this->usersWithAnyPermission($definition['permissions'] ?? []);
-        }
+        $before = is_array($context['before'] ?? null) ? $context['before'] : [];
+        $after = is_array($context['after'] ?? null) ? $context['after'] : [];
 
-        if ($definition['include_stakeholders'] ?? false) {
-            $recipients = $recipients->merge($this->stakeholdersFor($log));
-        }
-
-        $category = $log->category instanceof \App\Enums\AuditCategory ? $log->category->value : (string) $log->category;
-        $severity = $log->severity instanceof \App\Enums\AuditSeverity ? $log->severity->value : (string) $log->severity;
-
-        return $recipients
-            ->filter(fn (User $user) => filled($user->email))
-            ->unique('id')
-            ->reject(fn (User $user) => $log->actor_id !== null && $user->id === $log->actor_id)
-            ->filter(fn (User $user) => NotificationPreferences::wantsEmail($user, $log->action, $category, $severity))
-            ->values();
+        return ($before['role'] ?? null) !== ($after['role'] ?? null)
+            || ($before['is_active'] ?? null) !== ($after['is_active'] ?? null);
     }
 
-    /** @param  list<UserRole>  $roles */
-    private function usersWithRoles(array $roles): Collection
+    /** @return array{channel?: string, audience?: string} */
+    private function rule(string $action): array
     {
-        if ($roles === []) {
-            return collect();
-        }
+        $rules = config('psg.notifications.email_rules', []);
+        $rule = is_array($rules) ? ($rules[$action] ?? []) : [];
 
-        $roleValues = array_map(
-            fn (UserRole $role) => $role->value,
-            $roles,
-        );
-
-        return User::query()
-            ->active()
-            ->whereNotNull('email')
-            ->whereIn('role', $roleValues)
-            ->get();
+        return is_array($rule) ? $rule : [];
     }
 
-    /** @return Collection<int, User> */
-    private function usersWithAnyPermission(array $permissions): Collection
+    private function reserveDelivery(AuditLog $log, User $recipient, string $subject, string $priority): ?EmailDelivery
     {
-        if ($permissions === []) {
-            return collect();
+        try {
+            return EmailDelivery::query()->create([
+                'audit_log_id' => $log->id,
+                'user_id' => $recipient->id,
+                'recipient_email' => $recipient->email,
+                'subject' => $subject,
+                'action' => $log->action,
+                'priority' => $priority,
+                'status' => 'queued',
+                'triggered_by' => $log->actor_id,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return null;
         }
-
-        return User::query()
-            ->active()
-            ->whereNotNull('email')
-            ->get()
-            ->filter(fn (User $user) => collect($permissions)->contains(
-                fn (string $permission) => Access::userCan($user, $permission),
-            ));
     }
 
-    /** @return Collection<int, User> */
-    private function stakeholdersFor(AuditLog $log): Collection
+    /** @param  array{headline: string}  $definition */
+    private function summaryFor(AuditLog $log, User $recipient, array $definition): string
     {
-        $subject = $this->resolveSubject($log);
-
-        if ($subject instanceof PayrollRun && $subject->submitted_by) {
-            $submitter = User::query()->active()->find($subject->submitted_by);
-
-            return $submitter ? collect([$submitter]) : collect();
+        if (! WorkflowActionCatalog::sensitive($log->action) || $this->mayIncludeAmounts($recipient)) {
+            return $log->summary;
         }
 
-        if ($subject instanceof Leave && $subject->requested_by) {
-            $requester = User::query()->active()->find($subject->requested_by);
+        return $definition['headline'].'. Open the record to review the details.';
+    }
 
-            return $requester ? collect([$requester]) : collect();
+    private function mayIncludeAmounts(User $recipient): bool
+    {
+        if (! config('psg.notifications.include_sensitive_amounts', false)) {
+            return false;
         }
 
-        return collect();
+        return in_array($recipient->role, [
+            UserRole::SuperAdmin,
+            UserRole::ManagingDirector,
+            UserRole::FinanceManager,
+        ], true);
     }
 
     private function resolveSubject(AuditLog $log): ?Model
@@ -169,6 +184,10 @@ class WorkflowMailService
                 Site::class => route('sites.show', $log->subject_id),
                 Guard::class => route('guards.show', $log->subject_id),
                 DatabaseBackup::class => route('backups.show', $log->subject_id),
+                Deployment::class => route('deployments.show', $log->subject_id),
+                Payment::class => route('payments.show', $log->subject_id),
+                Staff::class => route('staff.show', $log->subject_id),
+                User::class => route('users.show', $log->subject_id),
                 default => null,
             };
         } catch (\Throwable) {
@@ -177,7 +196,7 @@ class WorkflowMailService
     }
 
     /** @return list<string> */
-    private function detailsFor(AuditLog $log): array
+    private function detailsFor(AuditLog $log, User $recipient): array
     {
         $details = [];
         $context = is_array($log->context) ? $log->context : [];
@@ -204,9 +223,14 @@ class WorkflowMailService
             $details[] = 'Reference: '.$subject->reference;
             $details[] = 'Period: '.$subject->periodLabel();
             $details[] = 'Payslips: '.$subject->payslipCount();
-            $details[] = 'Gross: '.Money::format($subject->gross_total, $subject->currency);
-            $details[] = 'Deductions: '.Money::format($subject->deductions_total, $subject->currency);
-            $details[] = 'Net pay: '.Money::format($subject->net_total, $subject->currency);
+
+            if ($this->mayIncludeAmounts($recipient)) {
+                $details[] = 'Gross: '.Money::format($subject->gross_total, $subject->currency);
+                $details[] = 'Deductions: '.Money::format($subject->deductions_total, $subject->currency);
+                $details[] = 'Net pay: '.Money::format($subject->net_total, $subject->currency);
+            } else {
+                $details[] = 'Amounts: open the payroll run to review totals';
+            }
 
             if ($subject->approver) {
                 $details[] = 'Approved by: '.$subject->approver->name;
@@ -233,8 +257,40 @@ class WorkflowMailService
 
         if ($subject instanceof Site) {
             $details[] = 'Site: '.$subject->name;
-            if (isset($context['deployed'], $context['required'])) {
-                $details[] = 'Deployed: '.$context['deployed'].' / '.$context['required'];
+            if (isset($context['required'])) {
+                $details[] = 'Required: '.$context['required'].' guards';
+            }
+            if (isset($context['deployed'])) {
+                $details[] = 'Normal deployment: '.$context['deployed'].' guards';
+            }
+            if (isset($context['shortage'])) {
+                $details[] = 'Operational gap: '.$context['shortage'].' guard'.((int) $context['shortage'] === 1 ? '' : 's');
+                $details[] = 'Manpower deficit: '.$context['shortage'];
+                $details[] = 'Action required: Arrange replacement or approved overtime coverage.';
+            }
+        }
+
+        if ($subject instanceof Payment) {
+            $subject->loadMissing('invoice:id,reference,balance,currency,due_date', 'client:id,name');
+            if ($subject->client) {
+                $details[] = 'Client: '.$subject->client->name;
+            }
+            if ($subject->invoice) {
+                $details[] = 'Invoice: '.$subject->invoice->reference;
+                $outstanding = (float) $subject->invoice->balance;
+                $details[] = $outstanding > 0
+                    ? 'Payment: partial, balance '.Money::format($outstanding, $subject->invoice->currency)
+                    : 'Payment: paid in full';
+            }
+        }
+
+        if ($subject instanceof Deployment) {
+            $subject->loadMissing('assignedGuard:id,employment_id,full_name', 'site:id,name');
+            if ($subject->assignedGuard) {
+                $details[] = 'Guard: '.$subject->assignedGuard->full_name.' ('.$subject->assignedGuard->employment_id.')';
+            }
+            if ($subject->site) {
+                $details[] = 'Site: '.$subject->site->name;
             }
         }
 

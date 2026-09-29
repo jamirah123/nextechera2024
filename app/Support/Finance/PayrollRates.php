@@ -13,6 +13,9 @@ use Illuminate\Support\Collection;
 
 class PayrollRates
 {
+    /** Monthly gross ÷ this number is the average shift rate. Not the days in the calendar month. */
+    public const SHIFT_RATE_DIVISOR = 30;
+
     public static function monthlyGross(Guard $guard): float
     {
         $salary = (float) $guard->base_shift_rate;
@@ -35,21 +38,19 @@ class PayrollRates
     }
 
     /**
-     * Divisor for converting monthly gross into a per-shift rate (the configured salary basis).
+     * Fixed divisor for converting a guard's monthly gross into an average shift rate.
      *
-     * Shift-pay never uses calendar days in the month (28/29/30/31). Gross pay is always:
-     * payable recorded shifts × (monthly gross ÷ this basis).
+     * Always 30, including February and 31-day months. Shift earnings are then
+     * payable recorded shifts × that rate, not the full monthly package.
      */
     public static function rateDivisor(?PayrollRun $run = null): int
     {
-        $standard = (int) config('psg.payroll.standard_shifts_per_month', 0);
+        return self::SHIFT_RATE_DIVISOR;
+    }
 
-        if ($standard > 0) {
-            return $standard;
-        }
-
-        // Admin unset / zero → company default basis (not days-in-month).
-        return 30;
+    public static function overtimeUsesAverageRate(float $averageRate, float $overtimeRate): bool
+    {
+        return abs($averageRate - $overtimeRate) < 0.015;
     }
 
     public static function dailyRateFromMonthly(float $monthlyGross, ?PayrollRun $run = null): float

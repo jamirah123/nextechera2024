@@ -6,9 +6,16 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Enums\UserRole;
 use App\Models\AuditLog;
+use App\Models\Guard;
+use App\Models\Leave;
+use App\Models\NotificationState;
+use App\Models\Region;
 use App\Models\Shift;
+use App\Models\Site;
+use App\Models\Supervisor;
 use App\Models\User;
 use App\Services\AuditService;
+use App\Services\NotificationRecipientService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -253,6 +260,203 @@ class NotificationFeedTest extends TestCase
             ->assertJsonPath('unread_count', 0);
 
         $this->assertNotNull(AuditLog::query()->find($old->id));
+    }
+
+    public function test_each_user_sees_only_their_own_notifications_and_unread_count(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $userA = User::factory()->role(UserRole::ShiftManager)->create();
+        $userB = User::factory()->role(UserRole::FinanceManager)->create();
+
+        app(AuditService::class)->log(
+            action: 'shift.created',
+            summary: 'Only the shift manager is notified.',
+            category: AuditCategory::Shift,
+            actor: $admin,
+            context: ['notify_user_ids' => [$userA->id]],
+        );
+        app(AuditService::class)->log(
+            action: 'finance.invoice_created',
+            summary: 'Only finance is notified.',
+            category: AuditCategory::Finance,
+            actor: $admin,
+            context: ['notify_user_ids' => [$userB->id]],
+        );
+
+        $this->actingAs($userA)
+            ->getJson(route('notifications.index'))
+            ->assertOk()
+            ->assertJsonFragment(['summary' => 'Only the shift manager is notified.'])
+            ->assertJsonMissing(['summary' => 'Only finance is notified.'])
+            ->assertJsonPath('unread_count', 1);
+
+        $this->actingAs($userB)
+            ->getJson(route('notifications.index'))
+            ->assertOk()
+            ->assertJsonFragment(['summary' => 'Only finance is notified.'])
+            ->assertJsonMissing(['summary' => 'Only the shift manager is notified.'])
+            ->assertJsonPath('unread_count', 1);
+    }
+
+    public function test_a_user_cannot_open_another_users_notification(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $owner = User::factory()->role(UserRole::HrManager)->create();
+        $other = User::factory()->role(UserRole::HrManager)->create();
+
+        $log = app(AuditService::class)->log(
+            action: 'leave.requested',
+            summary: 'Private leave alert for one HR user.',
+            category: AuditCategory::Hr,
+            actor: $admin,
+            context: ['notify_user_ids' => [$owner->id]],
+        );
+
+        $this->actingAs($other)
+            ->postJson(route('notifications.state', $log), ['action' => 'read'])
+            ->assertNotFound();
+
+        $this->actingAs($owner)
+            ->postJson(route('notifications.state', $log), ['action' => 'read'])
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0);
+
+        $this->actingAs($other)
+            ->getJson(route('notifications.index'))
+            ->assertJsonPath('unread_count', 0);
+    }
+
+    public function test_reading_a_notification_does_not_change_another_users_status(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $userA = User::factory()->role(UserRole::ShiftManager)->create();
+        $userB = User::factory()->role(UserRole::ShiftManager)->create();
+
+        $log = app(AuditService::class)->log(
+            action: 'deployment.created',
+            summary: 'Shared deployment alert.',
+            category: AuditCategory::Deployment,
+            actor: $admin,
+            context: ['notify_user_ids' => [$userA->id, $userB->id]],
+        );
+
+        $this->actingAs($userA)
+            ->postJson(route('notifications.state', $log), ['action' => 'read'])
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0);
+
+        $this->actingAs($userB)
+            ->getJson(route('notifications.index'))
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonFragment(['summary' => 'Shared deployment alert.', 'is_unread' => true]);
+    }
+
+    public function test_region_supervisors_only_receive_their_own_site_alerts(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $westernRegion = Region::factory()->create(['name' => 'Western']);
+        $easternRegion = Region::factory()->create(['name' => 'Eastern']);
+        $westernSupervisor = Supervisor::factory()->create(['region_id' => $westernRegion->id]);
+        $easternSupervisor = Supervisor::factory()->create(['region_id' => $easternRegion->id]);
+        $site = Site::factory()->create([
+            'name' => 'Alpha Warehouse',
+            'region_id' => $westernRegion->id,
+            'supervisor_id' => $westernSupervisor->id,
+        ]);
+        $western = User::factory()->regionSupervisor($westernSupervisor->id)->create();
+        $eastern = User::factory()->regionSupervisor($easternSupervisor->id)->create();
+
+        app(AuditService::class)->log(
+            action: 'site.understaffed',
+            summary: 'Alpha Warehouse is short by 2 guards.',
+            category: AuditCategory::Organization,
+            severity: AuditSeverity::Warning,
+            subject: $site,
+            actor: $admin,
+        );
+
+        $this->actingAs($western)
+            ->getJson(route('notifications.index'))
+            ->assertJsonFragment(['summary' => 'Alpha Warehouse is short by 2 guards.']);
+
+        $this->actingAs($eastern)
+            ->getJson(route('notifications.index'))
+            ->assertJsonMissing(['summary' => 'Alpha Warehouse is short by 2 guards.'])
+            ->assertJsonPath('unread_count', 0);
+    }
+
+    public function test_leave_that_affects_a_shift_notifies_hr_and_the_shift_manager_only(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $hr = User::factory()->role(UserRole::HrManager)->create();
+        $shifts = User::factory()->role(UserRole::ShiftManager)->create();
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $guard = Guard::factory()->create();
+        $leave = Leave::query()->create([
+            'guard_id' => $guard->id,
+            'leave_type' => 'annual',
+            'start_date' => now()->addWeek()->toDateString(),
+            'end_date' => now()->addWeeks(2)->toDateString(),
+            'status' => 'pending',
+            'requested_by' => $admin->id,
+        ]);
+        Shift::factory()->create(['leave_id' => $leave->id, 'guard_id' => $guard->id]);
+
+        app(AuditService::class)->log(
+            action: 'leave.requested',
+            summary: 'PSG045 requested leave that covers a shift.',
+            category: AuditCategory::Hr,
+            subject: $leave,
+            actor: $admin,
+        );
+
+        $this->actingAs($hr)->getJson(route('notifications.index'))
+            ->assertJsonFragment(['summary' => 'PSG045 requested leave that covers a shift.']);
+        $this->actingAs($shifts)->getJson(route('notifications.index'))
+            ->assertJsonFragment(['summary' => 'PSG045 requested leave that covers a shift.']);
+        $this->actingAs($finance)->getJson(route('notifications.index'))
+            ->assertJsonMissing(['summary' => 'PSG045 requested leave that covers a shift.'])
+            ->assertJsonPath('unread_count', 0);
+    }
+
+    public function test_company_wide_announcements_are_explicit_and_delivery_is_not_duplicated(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $shifts = User::factory()->role(UserRole::ShiftManager)->create();
+
+        app(AuditService::class)->log(
+            action: 'shift.created',
+            summary: 'Ordinary shift alert.',
+            category: AuditCategory::Shift,
+            actor: $admin,
+        );
+
+        $this->actingAs($finance)
+            ->getJson(route('notifications.index'))
+            ->assertJsonMissing(['summary' => 'Ordinary shift alert.']);
+
+        $announcement = app(AuditService::class)->log(
+            action: 'shift.created',
+            summary: 'Office closes early on Friday.',
+            category: AuditCategory::Shift,
+            actor: $admin,
+            context: ['company_wide' => true],
+        );
+
+        $this->actingAs($finance)
+            ->getJson(route('notifications.index'))
+            ->assertJsonFragment(['summary' => 'Office closes early on Friday.']);
+        $this->actingAs($shifts)
+            ->getJson(route('notifications.index'))
+            ->assertJsonFragment(['summary' => 'Office closes early on Friday.']);
+
+        app(NotificationRecipientService::class)->deliver($announcement);
+
+        $this->assertSame(
+            1,
+            NotificationState::query()->where('user_id', $finance->id)->where('audit_log_id', $announcement->id)->count()
+        );
     }
 
     public function test_notification_endpoints_require_authentication(): void

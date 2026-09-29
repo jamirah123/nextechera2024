@@ -13,7 +13,9 @@ use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Shift;
 use App\Models\Site;
+use App\Models\SiteManpowerRequirement;
 use App\Models\User;
+use App\Services\ManpowerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -261,5 +263,137 @@ class BulkDeploymentBoardTest extends TestCase
             ->where('guard_id', $guard->id)
             ->whereDate('shift_date', $shiftDate)
             ->count());
+    }
+
+    public function test_posting_board_uses_the_manpower_requirement_effective_on_the_duty_date(): void
+    {
+        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+        $site = Site::factory()->create([
+            'name' => 'Alpha Warehouse',
+            'required_day_guards' => 9,
+            'required_night_guards' => 9,
+        ]);
+        SiteManpowerRequirement::query()->create([
+            'site_id' => $site->id,
+            'required_total' => 4,
+            'required_day' => 2,
+            'required_night' => 2,
+            'effective_from' => '2026-01-01',
+            'effective_to' => '2026-02-28',
+            'is_current' => false,
+        ]);
+        SiteManpowerRequirement::query()->create([
+            'site_id' => $site->id,
+            'required_total' => 6,
+            'required_day' => 3,
+            'required_night' => 3,
+            'effective_from' => '2026-03-01',
+            'effective_to' => null,
+            'is_current' => true,
+        ]);
+
+        $standing = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OnDuty,
+            'region_id' => $site->region_id,
+            'date_employed' => '2025-06-01',
+            'current_site_id' => $site->id,
+        ]);
+        Deployment::factory()->create([
+            'guard_id' => $standing->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'shift_type' => DeploymentShiftType::Day,
+            'status' => DeploymentStatus::Active,
+            'start_date' => '2026-03-01',
+            'end_date' => null,
+            'is_current' => true,
+            'is_temporary' => false,
+            'duty_type' => ShiftType::Normal,
+        ]);
+        $overtimeGuard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OnDuty,
+            'region_id' => $site->region_id,
+            'date_employed' => '2025-06-01',
+            'current_site_id' => $site->id,
+        ]);
+        Deployment::factory()->create([
+            'guard_id' => $overtimeGuard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'shift_type' => DeploymentShiftType::Night,
+            'status' => DeploymentStatus::Active,
+            'start_date' => '2026-03-10',
+            'end_date' => '2026-03-10',
+            'is_current' => false,
+            'is_temporary' => true,
+            'duty_type' => ShiftType::Overtime,
+        ]);
+
+        $awaiting = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $site->region_id,
+            'date_employed' => '2025-06-01',
+            'current_site_id' => null,
+        ]);
+
+        $service = app(ManpowerService::class);
+        $january = $service->postingBoardCoverage(collect([$site->fresh()]), '2026-01-15');
+        $march = $service->postingBoardCoverage(collect([$site->fresh()]), '2026-03-10');
+
+        $this->assertSame(2, $january[(string) $site->id]['day']['required']);
+        $this->assertSame(0, $january[(string) $site->id]['day']['normal']);
+        $this->assertSame(3, $march[(string) $site->id]['day']['required']);
+        $this->assertSame(1, $march[(string) $site->id]['day']['normal']);
+        $this->assertSame(2, $march[(string) $site->id]['day']['remaining']);
+        $this->assertSame(2, $march[(string) $site->id]['day']['deficit']);
+        $this->assertSame(3, $march[(string) $site->id]['night']['required']);
+        $this->assertSame(0, $march[(string) $site->id]['night']['normal']);
+        $this->assertSame(1, $march[(string) $site->id]['night']['ot']);
+        $this->assertSame(1, $march[(string) $site->id]['night']['operational']);
+        $this->assertSame(2, $march[(string) $site->id]['night']['remaining']);
+        $this->assertSame(3, $march[(string) $site->id]['night']['deficit']);
+
+        $response = $this->actingAs($ops)
+            ->get(route('deployments.board', ['start_date' => '2026-01-15']))
+            ->assertOk()
+            ->assertSee($awaiting->full_name, false)
+            ->assertSee('Manpower', false)
+            ->assertSee('data-manpower-indicator', false)
+            ->assertSee('psgPaintBoardRow(this)', false)
+            ->assertSee('Clear selection', false)
+            ->assertSee('data-guard-name', false)
+            ->assertSee('psg.posting-board.selection', false)
+            ->assertSee('| Selected:', false)
+            ->assertSee('| Left:', false)
+            ->assertSee('| Additional:', false)
+            ->assertSee('Manpower requirement already fulfilled', false);
+
+        $payload = $this->boardManpowerFrom($response->getContent());
+        $this->assertSame(2, $payload[(string) $site->id]['day']['required']);
+        $this->assertSame(2, $payload[(string) $site->id]['night']['required']);
+
+        $marchPage = $this->actingAs($ops)
+            ->get(route('deployments.board', ['start_date' => '2026-03-10']))
+            ->assertOk();
+        $marchPayload = $this->boardManpowerFrom($marchPage->getContent());
+        $this->assertSame(3, $marchPayload[(string) $site->id]['day']['required']);
+        $this->assertSame(1, $marchPayload[(string) $site->id]['day']['normal']);
+        $this->assertSame(1, $marchPayload[(string) $site->id]['night']['ot']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function boardManpowerFrom(string $html): array
+    {
+        $this->assertSame(1, preg_match('/id="board-manpower">(.*?)<\/script>/s', $html, $matches));
+
+        $decoded = json_decode(html_entity_decode($matches[1], ENT_QUOTES), true);
+        $this->assertIsArray($decoded);
+
+        return $decoded;
     }
 }

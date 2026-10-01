@@ -33,6 +33,6 @@ class ShiftDeskDashboardTest extends TestCase
             ->assertSee('Needs allocation', false)
             ->assertDontSee('Daily workflow', false)
             ->assertSee(route('deployments.board'), false)
-            ->assertSee(route('shifts.allocate'), false);
+            ->assertSee(route('deployments.board'), false);
     }
 }

@@ -93,7 +93,9 @@
                         </li>
                     @endforeach
                 </ul>
-                <div class="border-t border-slate-100 px-4 py-3 dark:border-slate-800">{{ $notifications->links() }}</div>
+                <div class="border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+                    <x-table-pagination :paginator="$notifications" />
+                </div>
             @endif
         </section>
 

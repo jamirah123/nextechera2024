@@ -3,16 +3,18 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Enums\BillingMode;
+use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
 use App\Models\BillingProfile;
-use App\Models\Client;
 use App\Models\Site;
+use App\Services\Finance\BillingProfilePdfService;
 use App\Services\Finance\BillingService;
 use App\Services\Finance\FinanceHistoryService;
 use App\Services\ReportExportService;
 use App\Support\Money;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -21,10 +23,13 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BillingController extends Controller
 {
+    use ServesPdfDownload;
+
     public function __construct(
         private BillingService $billing,
         private FinanceHistoryService $history,
         private ReportExportService $exports,
+        private BillingProfilePdfService $pdf,
     ) {}
 
     public function index(Request $request): View
@@ -51,18 +56,13 @@ class BillingController extends Controller
 
         return view('finance.billing.index', [
             'profiles' => $profiles,
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
+            'clients' => \App\Support\Performance\ReferenceData::clients(),
             'filters' => $request->only(['q', 'client_id', 'status', 'scope']),
             'scope' => $scope,
             'canManage' => $request->user()->can('manageFinance'),
             'currency' => Money::currency(),
             'exportQuery' => array_filter($request->only(['q', 'client_id', 'status', 'scope']), fn ($v) => filled($v)),
-            'stats' => [
-                'active' => BillingProfile::query()->where('is_active', true)->count(),
-                'inactive' => BillingProfile::query()->where('is_active', false)->count(),
-                'clients' => BillingProfile::query()->distinct('client_id')->count('client_id'),
-                'total' => BillingProfile::query()->count(),
-            ],
+            'stats' => $this->profileStats(),
         ]);
     }
 
@@ -71,7 +71,7 @@ class BillingController extends Controller
         Gate::authorize('manageFinance');
 
         return view('finance.billing.create', [
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
+            'clients' => \App\Support\Performance\ReferenceData::clients(),
             'sites' => Site::query()
                 ->orderBy('name')
                 ->get([
@@ -105,12 +105,22 @@ class BillingController extends Controller
 
         $billing->load(['client', 'site', 'creator', 'updater']);
 
-        return view('finance.billing.show', [
-            'profile' => $billing,
+        return view('finance.billing.show', array_merge($this->pdf->viewData($billing), [
             'canManage' => request()->user()->can('manageFinance'),
             'history' => $this->history->forSubject($billing),
-            'recordMeta' => $this->history->recordMeta($billing),
-        ]);
+        ]));
+    }
+
+    public function downloadPdf(BillingProfile $billing): Response
+    {
+        Gate::authorize('viewFinance');
+
+        $billing->load(['client', 'site']);
+
+        return $this->pdfDownload(
+            $this->pdf->renderBinary($billing),
+            $this->pdf->filename($billing),
+        );
     }
 
     public function edit(BillingProfile $billing): View
@@ -119,7 +129,7 @@ class BillingController extends Controller
 
         return view('finance.billing.edit', [
             'profile' => $billing,
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
+            'clients' => \App\Support\Performance\ReferenceData::clients(),
             'sites' => Site::query()
                 ->orderBy('name')
                 ->get([
@@ -182,6 +192,28 @@ class BillingController extends Controller
         ]);
 
         return $this->exports->downloadCsv('psg-billing-profiles.csv', $headers, $data);
+    }
+
+    /** @return array{active: int, inactive: int, clients: int, total: int} */
+    private function profileStats(): array
+    {
+        $active = 0;
+        $inactive = 0;
+
+        foreach (BillingProfile::query()->selectRaw('is_active, COUNT(*) as aggregate')->groupBy('is_active')->get() as $row) {
+            if ((int) $row->is_active === 1) {
+                $active = (int) $row->aggregate;
+            } else {
+                $inactive = (int) $row->aggregate;
+            }
+        }
+
+        return [
+            'active' => $active,
+            'inactive' => $inactive,
+            'clients' => (int) BillingProfile::query()->distinct()->count('client_id'),
+            'total' => $active + $inactive,
+        ];
     }
 
     /** @return array<string, mixed> */

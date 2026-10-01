@@ -8,6 +8,7 @@ use App\Enums\EmploymentStatus;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
+use App\Enums\SiteStatus;
 use App\Enums\UserRole;
 use App\Models\Deployment;
 use App\Models\Guard;
@@ -17,11 +18,19 @@ use App\Models\SiteManpowerRequirement;
 use App\Models\User;
 use App\Services\ManpowerService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class BulkDeploymentBoardTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     public function test_ops_can_open_deployment_board(): void
     {
@@ -79,6 +88,7 @@ class BulkDeploymentBoardTest extends TestCase
 
     public function test_deployed_guard_does_not_appear_on_board(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-09-30 10:00:00'));
         $ops = User::factory()->role(UserRole::OperationsManager)->create();
         $site = Site::factory()->create();
         $guard = Guard::factory()->create([
@@ -88,20 +98,207 @@ class BulkDeploymentBoardTest extends TestCase
             'current_site_id' => $site->id,
         ]);
 
-        Deployment::factory()->create([
+        $deployment = Deployment::factory()->create([
             'guard_id' => $guard->id,
             'site_id' => $site->id,
             'region_id' => $site->region_id,
             'status' => DeploymentStatus::Active,
             'is_current' => true,
-            'shift_type' => DeploymentShiftType::Rotating,
+            'shift_type' => DeploymentShiftType::Day,
             'start_date' => now()->toDateString(),
+        ]);
+
+        Shift::factory()->forDeployment($deployment)->create([
+            'shift_date' => now()->toDateString(),
+            'starts_at' => now()->copy()->setTime(6, 0),
+            'ends_at' => now()->copy()->setTime(18, 0),
+            'status' => ShiftStatus::Recorded,
         ]);
 
         $this->actingAs($ops)
             ->get(route('deployments.board'))
             ->assertOk()
-            ->assertDontSee($guard->full_name, false);
+            ->assertSee($guard->full_name, false)
+            ->assertSee('Day: Deployed', false)
+            ->assertSee('Night: Available', false);
+    }
+
+    public function test_past_date_keeps_the_guard_available_for_the_other_shift(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-01 10:00:00'));
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $siteA = Site::factory()->create([
+            'name' => 'Site A',
+            'required_day_guards' => 2,
+            'required_night_guards' => 2,
+            'required_guards' => 4,
+        ]);
+        $siteB = Site::factory()->create([
+            'name' => 'Site B',
+            'region_id' => $siteA->region_id,
+            'required_day_guards' => 2,
+            'required_night_guards' => 2,
+            'required_guards' => 4,
+        ]);
+        $guard = Guard::factory()->create([
+            'employment_id' => 'PSG001',
+            'full_name' => 'Kaheru Richard',
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $siteA->region_id,
+            'date_employed' => '2025-01-01',
+            'current_site_id' => null,
+        ]);
+        $dutyDate = '2026-09-30';
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $dutyDate,
+                'selected' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $siteA->id,
+                        'shift_type' => DeploymentShiftType::Day->value,
+                        'duty_type' => ShiftType::Normal->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('deployments.board', ['start_date' => $dutyDate]))
+            ->assertSessionHas('status');
+
+        $this->assertSame(OperationalStatus::AwaitingDeployment, $guard->fresh()->operational_status);
+        $this->assertTrue(Shift::query()
+            ->where('guard_id', $guard->id)
+            ->where('site_id', $siteA->id)
+            ->whereDate('shift_date', $dutyDate)
+            ->where('period', 'day')
+            ->where('status', ShiftStatus::Recorded->value)
+            ->exists());
+        $this->assertFalse(Shift::query()
+            ->where('guard_id', $guard->id)
+            ->whereDate('shift_date', now()->toDateString())
+            ->exists());
+
+        $this->actingAs($manager)
+            ->get(route('deployments.board', ['start_date' => $dutyDate]))
+            ->assertOk()
+            ->assertSee('Kaheru Richard', false)
+            ->assertSee('Day: Deployed — Site A', false)
+            ->assertSee('Night: Available', false);
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $dutyDate,
+                'selected' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $siteB->id,
+                        'shift_type' => DeploymentShiftType::Day->value,
+                        'duty_type' => ShiftType::Normal->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('deployment_errors');
+
+        $this->assertStringContainsString(
+            'Guard already deployed for the Day shift on 30 September 2026 at Site A.',
+            implode(' | ', session('deployment_errors') ?? []),
+        );
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $dutyDate,
+                'selected' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $siteA->id,
+                        'shift_type' => DeploymentShiftType::Night->value,
+                        'duty_type' => ShiftType::Overtime->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertSame(OperationalStatus::AwaitingDeployment, $guard->fresh()->operational_status);
+        $this->assertTrue(Shift::query()
+            ->where('guard_id', $guard->id)
+            ->where('site_id', $siteA->id)
+            ->whereDate('shift_date', $dutyDate)
+            ->where('period', 'night')
+            ->where('shift_type', ShiftType::Overtime->value)
+            ->where('status', ShiftStatus::Recorded->value)
+            ->exists());
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $dutyDate,
+                'selected' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $siteB->id,
+                        'shift_type' => DeploymentShiftType::Night->value,
+                        'duty_type' => ShiftType::Overtime->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('deployment_errors', function (array $errors): bool {
+                return collect($errors)->contains(
+                    fn (string $error): bool => str_contains($error, 'Guard already deployed for the Night shift on 30 September 2026 at Site A.')
+                );
+            });
+    }
+
+    public function test_guards_without_an_open_duty_stay_on_the_board_and_stale_postings_close(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-01 10:00:00'));
+        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+        $site = Site::factory()->create();
+
+        $offDuty = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OffDuty,
+            'region_id' => $site->region_id,
+            'full_name' => 'Off Duty Guard',
+            'current_site_id' => null,
+        ]);
+        $absent = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::Absent,
+            'region_id' => $site->region_id,
+            'full_name' => 'Absent Guard',
+            'current_site_id' => null,
+        ]);
+        $stale = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OnDuty,
+            'region_id' => $site->region_id,
+            'full_name' => 'Stale Posting Guard',
+            'current_site_id' => $site->id,
+        ]);
+        Deployment::factory()->create([
+            'guard_id' => $stale->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+            'shift_type' => DeploymentShiftType::Day,
+            'start_date' => '2026-09-01',
+        ]);
+
+        $this->actingAs($ops)
+            ->get(route('deployments.board'))
+            ->assertOk()
+            ->assertSee('Off Duty Guard', false)
+            ->assertSee('Stale Posting Guard', false)
+            ->assertDontSee('Absent Guard', false);
+
+        $this->assertFalse($stale->fresh()->currentDeployment()->exists());
+        $this->assertSame(OperationalStatus::AwaitingDeployment, $stale->fresh()->operational_status);
+        $this->assertSame(OperationalStatus::OffDuty, $offDuty->fresh()->operational_status);
+        $this->assertSame(OperationalStatus::Absent, $absent->fresh()->operational_status);
     }
 
     public function test_past_duty_date_lists_guards_free_that_day_even_if_on_duty_today(): void
@@ -366,7 +563,7 @@ class BulkDeploymentBoardTest extends TestCase
             ->assertSee('Clear selection', false)
             ->assertSee('data-guard-name', false)
             ->assertSee('psg.posting-board.selection', false)
-            ->assertSee('| Selected:', false)
+            ->assertSee('| Selected/Deployed:', false)
             ->assertSee('| Left:', false)
             ->assertSee('| Additional:', false)
             ->assertSee('Manpower requirement already fulfilled', false);
@@ -382,6 +579,343 @@ class BulkDeploymentBoardTest extends TestCase
         $this->assertSame(3, $marchPayload[(string) $site->id]['day']['required']);
         $this->assertSame(1, $marchPayload[(string) $site->id]['day']['normal']);
         $this->assertSame(1, $marchPayload[(string) $site->id]['night']['ot']);
+    }
+
+    public function test_closed_posting_does_not_count_as_deployed_on_todays_board(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-01 10:00:00'));
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $site = Site::factory()->create([
+            'name' => 'Amber Residences Car park',
+            'required_day_guards' => 2,
+            'required_day_unarmed_guards' => 2,
+            'required_day_armed_guards' => 0,
+            'required_night_guards' => 2,
+            'required_night_unarmed_guards' => 2,
+            'required_night_armed_guards' => 0,
+            'required_guards' => 4,
+        ]);
+
+        foreach ([DeploymentShiftType::Day, DeploymentShiftType::Rotating] as $shiftType) {
+            $posted = Guard::factory()->create([
+                'employment_status' => EmploymentStatus::Active,
+                'operational_status' => OperationalStatus::AwaitingDeployment,
+                'region_id' => $site->region_id,
+                'date_employed' => '2025-02-01',
+                'current_site_id' => null,
+            ]);
+            Deployment::factory()->create([
+                'guard_id' => $posted->id,
+                'site_id' => $site->id,
+                'region_id' => $site->region_id,
+                'shift_type' => $shiftType,
+                'status' => DeploymentStatus::Ended,
+                'start_date' => '2025-03-01',
+                'end_date' => now()->toDateString(),
+                'is_current' => false,
+                'is_temporary' => false,
+                'duty_type' => ShiftType::Normal,
+            ]);
+        }
+
+        $coverage = app(ManpowerService::class)->postingBoardCoverage(collect([$site->fresh()]), now()->toDateString());
+        $this->assertSame(0, $coverage[(string) $site->id]['day']['normal']);
+        $this->assertSame(0, $coverage[(string) $site->id]['day']['operational']);
+        $this->assertSame(2, $coverage[(string) $site->id]['day']['deficit']);
+
+        $incoming = collect(range(1, 2))->map(fn () => Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $site->region_id,
+            'date_employed' => '2025-02-01',
+            'current_site_id' => null,
+        ]));
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => now()->toDateString(),
+                'selected' => $incoming->pluck('id')->all(),
+                'rows' => $incoming->mapWithKeys(fn ($guard) => [$guard->id => [
+                    'site_id' => $site->id,
+                    'shift_type' => DeploymentShiftType::Day->value,
+                    'duty_type' => ShiftType::Normal->value,
+                ]])->all(),
+            ])
+            ->assertRedirect()
+            ->assertSessionMissing('overstaffing_warnings');
+
+        $this->assertSame(2, Deployment::query()->where('site_id', $site->id)->where('is_current', true)->count());
+        Carbon::setTestNow();
+    }
+
+    public function test_site_dropdown_lists_only_the_guards_region(): void
+    {
+        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+        $home = Site::factory()->create([
+            'name' => 'Home Region Gate',
+            'status' => SiteStatus::Active,
+        ]);
+        $away = Site::factory()->create([
+            'name' => 'Away Region Gate',
+            'status' => SiteStatus::Active,
+        ]);
+        $guard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $home->region_id,
+            'current_site_id' => null,
+        ]);
+
+        $html = $this->actingAs($ops)
+            ->get(route('deployments.board'))
+            ->assertOk()
+            ->assertDontSee('other region', false)
+            ->getContent();
+
+        preg_match_all('/name="rows\['.$guard->id.'\]\[site_id\]".*?<\/select>/s', $html, $matches);
+        $this->assertCount(2, $matches[0]);
+
+        foreach ($matches[0] as $select) {
+            $this->assertStringContainsString('Home Region Gate', $select);
+            $this->assertStringNotContainsString('Away Region Gate', $select);
+            $this->assertStringContainsString('Choose site in', $select);
+        }
+    }
+
+    public function test_board_page_includes_the_overstaffing_warning(): void
+    {
+        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+
+        $this->actingAs($ops)
+            ->get(route('deployments.board'))
+            ->assertOk()
+            ->assertSee('Overstaffing warning', false)
+            ->assertSee('psgBoardOverstaffing', false)
+            ->assertSee('Deploy extra cover', false)
+            ->assertSee('Required manpower', false)
+            ->assertSee('Currently deployed', false);
+    }
+
+    public function test_overstaffed_posting_waits_for_confirmation_then_deploys(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-30 10:00:00'));
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $site = Site::factory()->create([
+            'name' => 'Victoria Fisheries Stores',
+            'required_day_guards' => 4,
+            'required_day_unarmed_guards' => 4,
+            'required_day_armed_guards' => 0,
+            'required_night_guards' => 2,
+            'required_night_unarmed_guards' => 2,
+            'required_night_armed_guards' => 0,
+            'required_guards' => 6,
+        ]);
+
+        foreach (range(1, 3) as $ignored) {
+            $posted = Guard::factory()->create([
+                'employment_status' => EmploymentStatus::Active,
+                'operational_status' => OperationalStatus::OnDuty,
+                'region_id' => $site->region_id,
+                'date_employed' => '2025-01-01',
+                'current_site_id' => $site->id,
+            ]);
+            Deployment::factory()->create([
+                'guard_id' => $posted->id,
+                'site_id' => $site->id,
+                'region_id' => $site->region_id,
+                'shift_type' => DeploymentShiftType::Day,
+                'status' => DeploymentStatus::Active,
+                'start_date' => now()->toDateString(),
+                'end_date' => null,
+                'is_current' => true,
+                'is_temporary' => false,
+                'duty_type' => ShiftType::Normal,
+            ]);
+        }
+
+        $incoming = collect(range(1, 2))->map(fn () => Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $site->region_id,
+            'date_employed' => '2025-01-01',
+            'current_site_id' => null,
+        ]));
+
+        $payload = [
+            'start_date' => now()->toDateString(),
+            'selected' => $incoming->pluck('id')->all(),
+            'rows' => $incoming->mapWithKeys(fn ($guard) => [$guard->id => [
+                'site_id' => $site->id,
+                'shift_type' => DeploymentShiftType::Day->value,
+                'duty_type' => ShiftType::Normal->value,
+            ]])->all(),
+        ];
+
+        $this->actingAs($manager)
+            ->from(route('deployments.board', ['start_date' => now()->toDateString()]))
+            ->post(route('deployments.board.store'), $payload)
+            ->assertRedirect(route('deployments.board', ['start_date' => now()->toDateString()]))
+            ->assertSessionHas('overstaffing_warnings', function (array $warnings): bool {
+                $warning = $warnings[0] ?? [];
+
+                return ($warning['site'] ?? null) === 'Victoria Fisheries Stores'
+                    && ($warning['period'] ?? null) === 'Day'
+                    && ($warning['required'] ?? null) === 4
+                    && ($warning['deployed'] ?? null) === 3
+                    && ($warning['selected'] ?? null) === 2
+                    && ($warning['projected'] ?? null) === 5
+                    && ($warning['excess'] ?? null) === 1;
+            });
+
+        $this->assertSame(3, Deployment::query()->where('site_id', $site->id)->count());
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), $payload + ['acknowledge_overstaffing' => '1'])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertSame(5, Deployment::query()->where('site_id', $site->id)->where('is_current', true)->count());
+        Carbon::setTestNow();
+    }
+
+    public function test_posting_inside_the_requirement_does_not_ask_for_confirmation(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-30 10:00:00'));
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $site = Site::factory()->create([
+            'required_day_guards' => 4,
+            'required_day_unarmed_guards' => 4,
+            'required_day_armed_guards' => 0,
+            'required_night_guards' => 2,
+            'required_night_unarmed_guards' => 2,
+            'required_night_armed_guards' => 0,
+            'required_guards' => 6,
+        ]);
+
+        foreach (range(1, 3) as $ignored) {
+            $posted = Guard::factory()->create([
+                'employment_status' => EmploymentStatus::Active,
+                'operational_status' => OperationalStatus::OnDuty,
+                'region_id' => $site->region_id,
+                'date_employed' => '2025-01-01',
+                'current_site_id' => $site->id,
+            ]);
+            Deployment::factory()->create([
+                'guard_id' => $posted->id,
+                'site_id' => $site->id,
+                'region_id' => $site->region_id,
+                'shift_type' => DeploymentShiftType::Day,
+                'status' => DeploymentStatus::Active,
+                'start_date' => now()->toDateString(),
+                'end_date' => null,
+                'is_current' => true,
+                'is_temporary' => false,
+                'duty_type' => ShiftType::Normal,
+            ]);
+        }
+
+        $incoming = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $site->region_id,
+            'date_employed' => '2025-01-01',
+            'current_site_id' => null,
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => now()->toDateString(),
+                'selected' => [$incoming->id],
+                'rows' => [
+                    $incoming->id => [
+                        'site_id' => $site->id,
+                        'shift_type' => DeploymentShiftType::Day->value,
+                        'duty_type' => ShiftType::Normal->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionMissing('overstaffing_warnings');
+
+        $this->assertSame(4, Deployment::query()->where('site_id', $site->id)->where('is_current', true)->count());
+        Carbon::setTestNow();
+    }
+
+    public function test_historical_overstaffing_still_requires_confirmation(): void
+    {
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $dutyDate = '2026-08-19';
+        $site = Site::factory()->create([
+            'name' => 'Victoria Fisheries Stores',
+            'required_day_guards' => 4,
+            'required_day_unarmed_guards' => 4,
+            'required_day_armed_guards' => 0,
+            'required_night_guards' => 2,
+            'required_night_unarmed_guards' => 2,
+            'required_night_armed_guards' => 0,
+            'required_guards' => 6,
+        ]);
+
+        foreach (range(1, 3) as $ignored) {
+            $posted = Guard::factory()->create([
+                'employment_status' => EmploymentStatus::Active,
+                'operational_status' => OperationalStatus::OnDuty,
+                'region_id' => $site->region_id,
+                'date_employed' => '2025-01-01',
+                'current_site_id' => $site->id,
+            ]);
+            Deployment::factory()->create([
+                'guard_id' => $posted->id,
+                'site_id' => $site->id,
+                'region_id' => $site->region_id,
+                'shift_type' => DeploymentShiftType::Day,
+                'status' => DeploymentStatus::Active,
+                'start_date' => '2026-08-01',
+                'end_date' => null,
+                'is_current' => true,
+                'is_temporary' => false,
+                'duty_type' => ShiftType::Normal,
+            ]);
+        }
+
+        $incoming = collect(range(1, 2))->map(fn () => Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $site->region_id,
+            'date_employed' => '2025-01-01',
+            'current_site_id' => null,
+        ]));
+
+        $payload = [
+            'start_date' => $dutyDate,
+            'selected' => $incoming->pluck('id')->all(),
+            'rows' => $incoming->mapWithKeys(fn ($guard) => [$guard->id => [
+                'site_id' => $site->id,
+                'shift_type' => DeploymentShiftType::Day->value,
+                'duty_type' => ShiftType::Normal->value,
+            ]])->all(),
+        ];
+
+        $this->actingAs($manager)
+            ->from(route('deployments.board', ['start_date' => $dutyDate]))
+            ->post(route('deployments.board.store'), $payload)
+            ->assertRedirect(route('deployments.board', ['start_date' => $dutyDate]))
+            ->assertSessionHas('overstaffing_warnings');
+
+        $this->assertSame(3, Deployment::query()->where('site_id', $site->id)->count());
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), $payload + ['acknowledge_overstaffing' => '1'])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertSame(5, Deployment::query()
+            ->where('site_id', $site->id)
+            ->whereDate('start_date', '<=', $dutyDate)
+            ->where(function ($query) use ($dutyDate): void {
+                $query->whereNull('end_date')->orWhereDate('end_date', '>=', $dutyDate);
+            })
+            ->count());
     }
 
     /**

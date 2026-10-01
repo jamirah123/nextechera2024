@@ -52,6 +52,8 @@
             this.sync();
         },
         historical: @js($isHistorical),
+        overstaffOpen: @js(session()->has('overstaffing_warnings')),
+        overstaffWarnings: @js(array_values(session('overstaffing_warnings', []))),
         focusSite: '',
         focusShift: '',
         summary: { visible: false, blocks: [], notes: [] },
@@ -64,7 +66,7 @@
             if (this.defaults.site_id && window.psgBoardFigures) {
                 const shift = this.focusShift || this.defaults.shift_type || 'day';
                 const siteId = String(this.focusSite || this.defaults.site_id);
-                if (! groups.some((group) => group.siteId === siteId && group.shift === shift)) {
+                if (! groups.some((group) => group.siteId === siteId)) {
                     const extra = window.psgBoardFigures(siteId, shift);
                     if (extra) groups.unshift(extra);
                 }
@@ -75,19 +77,18 @@
             }
             const notes = [];
             const blocks = groups.map((group) => {
-                const shiftLabel = group.shift === 'night' ? 'Night' : (group.shift === 'rotating' ? 'Rotating' : 'Day');
                 const lines = [];
                 group.lines.forEach((line) => {
                     if (! line.required) {
                         lines.push(line.label + ' — Required: not set');
                         return;
                     }
-                    let text = 'Required: ' + line.required
-                        + ' | Selected: ' + line.selected + '/' + line.required
+                    let text = line.label + ' — Required: ' + line.required
+                        + ' | Selected/Deployed: ' + line.selected + '/' + line.required
                         + ' | Left: ' + line.left;
                     if (line.additional > 0) text += ' | Additional: ' + line.additional;
-                    lines.push((group.lines.length > 1 ? line.label + ' — ' : '') + text);
-                    lines.push('Normal ' + line.normal + ' · OT ' + line.ot + ' · New ' + line.selected + ' · Operational ' + line.operational + '/' + line.required + ' · Deficit ' + line.deficit);
+                    lines.push(text);
+                    lines.push('Normal ' + line.normal + ' · OT ' + line.ot + ' · New ' + line.newlySelected + ' · Operational ' + line.operational + '/' + line.required + ' · Deficit ' + line.deficit);
                     if (line.fulfilled && line.additional === 0) {
                         notes.push(group.name + ' ' + line.label + ' manpower requirement fulfilled.');
                     }
@@ -96,13 +97,16 @@
                             ? group.name + ' ' + line.label + ' selection is additional coverage for this duty date.'
                             : 'Manpower requirement already fulfilled for ' + group.name + ' ' + line.label + '. A Normal posting above it will be skipped. Choose Overtime for additional cover.');
                     }
+                    if (line.newlySelected > 0 && line.additional > 0) {
+                        notes.push(group.name + ' ' + line.label + ' would be ' + line.selected + '/' + line.required + ' — ' + line.additional + ' above the requirement. Deploying will ask you to confirm.');
+                    }
                 });
                 const requiredLines = group.lines.filter((line) => line.required > 0);
                 const tone = group.lines.some((line) => line.additional > 0)
                     ? 'extra'
                     : (requiredLines.length > 0 && requiredLines.every((line) => line.fulfilled) ? 'fulfilled' : '');
                 return {
-                    title: group.name + ' — ' + shiftLabel,
+                    title: group.name,
                     lines,
                     tone,
                 };
@@ -130,13 +134,13 @@
 >
     <x-page-header
         title="Site posting board"
-        subtitle="Post awaiting guards to client sites."
+        subtitle="A guard stays on this board while the day or night shift on the selected date is still open."
         :back="route('deployments.index')"
     />
 
     <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         @foreach ([
-            ['Awaiting', number_format($stats['awaiting']), 'text-amber-700'],
+            ['On the board', number_format($stats['awaiting']), 'text-amber-700'],
             ['Active', number_format($stats['active']), 'text-emerald-700'],
             ['Day', number_format($stats['day']), 'text-amber-800'],
             ['Night', number_format($stats['night']), 'text-indigo-700'],
@@ -188,7 +192,7 @@
     @if ($isHistorical)
         <p class="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-950 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100">
             Historical duty date <strong>{{ \Illuminate\Support\Carbon::parse($dutyDate)->format('d M Y') }}</strong>:
-            showing guards with no site posting covering that day. Duty-day status is <strong>Awaiting deployment</strong>
+            showing guards with no site posting covering that day. Duty-day status is <strong>Available</strong>
             (their current “Today” status may still be On Duty). Recording a past posting will not change today’s operational status.
         </p>
     @endif
@@ -374,36 +378,47 @@
             if (shift === 'night') return ['night'];
             return ['day'];
         };
+        window.psgBoardPeriodSelection = function (siteId, period) {
+            const counts = window.psgBoardSelectionCache || window.psgBoardSelectionCounts();
+            const direct = counts[String(siteId) + ':' + period] || { total: 0, normal: 0, ot: 0 };
+            const rotating = counts[String(siteId) + ':rotating'] || { total: 0, normal: 0, ot: 0 };
+            return {
+                total: (direct.total || 0) + (rotating.total || 0),
+                normal: (direct.normal || 0) + (rotating.normal || 0),
+            };
+        };
         window.psgBoardFigures = function (siteId, shift) {
             const record = window.psgBoardManpowerData()[String(siteId)];
             if (! record) return null;
-            const picked = (window.psgBoardSelectionCache || window.psgBoardSelectionCounts())[String(siteId) + ':' + shift] || { total: 0, normal: 0, ot: 0 };
-            const selected = picked.total || 0;
             return {
                 siteId: String(siteId),
-                shift,
+                shift: shift || 'day',
                 name: record.name,
                 code: record.code,
-                selected,
-                lines: window.psgBoardPeriodKeys(shift).map((key) => {
+                lines: ['day', 'night'].map((key) => {
                     const period = record[key] || {};
                     const required = period.required || 0;
                     const normal = period.normal || 0;
                     const ot = period.ot || 0;
                     const cover = period.cover || 0;
-                    const covered = normal + ot + cover + selected;
+                    const deployed = normal + ot + cover;
+                    const picked = window.psgBoardPeriodSelection(siteId, key);
+                    const newlySelected = picked.total || 0;
+                    const taken = deployed + newlySelected;
                     return {
                         key,
                         label: key === 'night' ? 'Night' : 'Day',
                         required,
-                        selected,
-                        left: Math.max(0, required - selected),
-                        additional: required > 0 ? Math.max(0, selected - required) : 0,
-                        fulfilled: required > 0 && selected >= required,
+                        selected: taken,
+                        newlySelected,
+                        left: Math.max(0, required - taken),
+                        additional: required > 0 ? Math.max(0, taken - required) : 0,
+                        fulfilled: required > 0 && taken >= required,
                         normal,
                         ot,
+                        cover,
                         normalNew: picked.normal || 0,
-                        operational: required > 0 ? Math.min(required, covered) : covered,
+                        operational: required > 0 ? Math.min(required, taken) : taken,
                         deficit: period.deficit || 0,
                     };
                 }),
@@ -412,21 +427,73 @@
         window.psgBoardGroups = function () {
             const groups = [];
             const seen = {};
-            const add = (siteId, shift) => {
+            const add = (siteId) => {
                 if (! siteId) return;
-                const key = String(siteId) + ':' + (shift || 'day');
+                const key = String(siteId);
                 if (seen[key]) return;
                 seen[key] = true;
-                const figures = window.psgBoardFigures(siteId, shift || 'day');
+                const figures = window.psgBoardFigures(siteId);
                 if (figures) groups.push(figures);
             };
             const viewport = window.psgBoardActiveViewport();
             viewport?.querySelectorAll('tr, article').forEach((row) => {
                 if (! row.querySelector('[data-manpower-indicator]')) return;
-                add(row.querySelector('[data-row-site]')?.value, row.querySelector('[data-row-type]')?.value || 'day');
+                add(row.querySelector('[data-row-site]')?.value);
             });
-            Object.values(window.psgBoardLoad()).forEach((guard) => add(guard.siteId, guard.shiftType || 'day'));
+            Object.values(window.psgBoardLoad()).forEach((guard) => add(guard.siteId));
             return groups;
+        };
+        window.psgBoardOverstaffing = function () {
+            const warnings = [];
+            const counts = {};
+            Object.values(window.psgBoardLoad()).forEach((guard) => {
+                if (! guard.siteId) return;
+                const periods = guard.shiftType === 'rotating'
+                    ? ['day', 'night']
+                    : [guard.shiftType === 'night' ? 'night' : 'day'];
+                periods.forEach((period) => {
+                    const key = String(guard.siteId) + ':' + period;
+                    counts[key] = (counts[key] || 0) + 1;
+                });
+            });
+            const data = window.psgBoardManpowerData();
+            Object.entries(counts).forEach(([key, selected]) => {
+                const split = key.indexOf(':');
+                const siteId = key.slice(0, split);
+                const period = key.slice(split + 1);
+                const record = data[siteId];
+                const row = record ? (record[period] || {}) : null;
+                if (! row) return;
+                const required = row.required || 0;
+                if (required <= 0) return;
+                const deployed = (row.normal || 0) + (row.ot || 0) + (row.cover || 0);
+                const projected = deployed + selected;
+                const excess = Math.max(0, projected - required);
+                if (excess <= 0) return;
+                warnings.push({
+                    site: record.name || 'Site',
+                    period: period === 'night' ? 'Night' : 'Day',
+                    required,
+                    deployed,
+                    selected,
+                    projected,
+                    excess,
+                });
+            });
+            return warnings;
+        };
+        window.psgBoardConfirmOverstaff = function () {
+            const form = document.querySelector('[data-posting-board] form');
+            if (! form) return;
+            let input = form.querySelector('input[name="acknowledge_overstaffing"]');
+            if (! input) {
+                input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'acknowledge_overstaffing';
+                form.appendChild(input);
+            }
+            input.value = '1';
+            form.requestSubmit();
         };
         window.psgPaintBoardIndicator = function (row) {
             const indicator = row?.querySelector('[data-manpower-indicator]');
@@ -453,7 +520,7 @@
             indicator.textContent = figures.lines.map((line) => {
                 if (! line.required) return line.label + ' — Required: not set';
                 let text = line.label + ' — Required: ' + line.required
-                    + ' | Selected: ' + line.selected + '/' + line.required
+                    + ' | Selected/Deployed: ' + line.selected + '/' + line.required
                     + ' | Left: ' + line.left;
                 if (line.additional > 0) text += ' | Additional: ' + line.additional;
                 return text;
@@ -465,7 +532,7 @@
                     + ', left ' + line.left
                     + '. Normal ' + line.normal
                     + '. OT ' + line.ot
-                    + '. New ' + line.selected
+                    + '. New ' + line.newlySelected
                     + '. Operational ' + line.operational + '/' + line.required
                     + '. Deficit ' + line.deficit
                     + (line.additional > 0 ? '. Additional ' + line.additional : '')
@@ -598,10 +665,10 @@
 
             @if ($guards->isEmpty())
                 <x-empty-state
-                    title="{{ $isHistorical ? 'No guards free on this duty date' : 'No undeployed guards' }}"
+                    title="{{ $isHistorical ? 'No guards free on this duty date' : 'No guards to post' }}"
                     :description="$isHistorical
                         ? 'Every eligible guard already had a posting covering '.$dutyDate.'. Pick another date or review overlapping historical postings. Selected guards are still kept for this deployment.'
-                        : 'Every eligible guard already has an active site posting. Check Deployments or end a posting to return someone here. Selected guards are still kept for this deployment.'"
+                        : 'Every eligible guard is already deployed for both the day and night shifts on this date. Selected guards are still kept for this deployment.'"
                     icon="map"
                 />
             @else
@@ -628,11 +695,11 @@
                                 <p data-guard-name class="text-xs font-medium text-slate-900 dark:text-slate-100">{{ $guard->full_name }}</p>
                                 <p data-guard-code class="mt-0.5 text-[10px] text-slate-500">{{ $guard->employment_id }}</p>
                                 <p class="mt-1.5 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">{{ $guard->region?->name }}</p>
+                                <div class="mt-0.5 text-[10px] text-slate-600 dark:text-slate-300">
+                                    @include('deployments.partials.board-shift-availability', ['guard' => $guard])
+                                </div>
                                 @if ($isHistorical)
-                                    <p class="mt-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">Awaiting deployment</p>
                                     <p class="text-[9px] text-slate-400">Today: {{ $guard->operational_status->label() }}</p>
-                                @else
-                                    <p class="mt-0.5 text-[10px] text-slate-500">{{ $guard->operational_status->label() }}</p>
                                 @endif
                             </div>
                         </div>
@@ -729,12 +796,10 @@
                                         <p data-guard-code class="text-[10px] text-slate-500">{{ $guard->employment_id }}</p>
                                     </td>
                                     <td class="px-2.5 py-1.5 text-slate-600 dark:text-slate-300">{{ $guard->region?->name }}</td>
-                                    <td class="px-2.5 py-1.5 text-[10px] text-slate-500">
+                                    <td class="px-2.5 py-1.5 text-[10px] text-slate-600 dark:text-slate-300">
+                                        @include('deployments.partials.board-shift-availability', ['guard' => $guard])
                                         @if ($isHistorical)
-                                            <p class="font-medium text-amber-700 dark:text-amber-300">Awaiting deployment</p>
                                             <p class="text-[9px] text-slate-400">Today: {{ $guard->operational_status->label() }}</p>
-                                        @else
-                                            {{ $guard->operational_status->label() }}
                                         @endif
                                     </td>
                                     <td class="px-2.5 py-1.5">
@@ -792,12 +857,12 @@
 
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p class="text-xs text-slate-500">
-                    Showing {{ $guards->firstItem() ?? 0 }}–{{ $guards->lastItem() ?? 0 }} of {{ number_format($guards->total()) }} undeployed guards
+                    Showing {{ $guards->firstItem() ?? 0 }}–{{ $guards->lastItem() ?? 0 }} of {{ number_format($guards->total()) }} guards with a shift still open
                     @if (empty($filters['region_id']))
                         across all regions
                     @endif
                 </p>
-                <div>{{ $guards->links() }}</div>
+                <x-table-pagination :paginator="$guards" :summary="false" />
             </div>
             @endif
 
@@ -805,6 +870,18 @@
                 document.currentScript.closest('form').addEventListener('submit', function (event) {
                     const form = event.currentTarget;
                     if (window.psgBoardSyncVisible) window.psgBoardSyncVisible();
+                    const acknowledged = form.querySelector('input[name="acknowledge_overstaffing"]')?.value === '1';
+                    const warnings = window.psgBoardOverstaffing ? window.psgBoardOverstaffing() : [];
+                    if (warnings.length && ! acknowledged) {
+                        event.preventDefault();
+                        const root = form.closest('[data-posting-board]');
+                        if (root && window.Alpine) {
+                            const state = window.Alpine.$data(root);
+                            state.overstaffWarnings = warnings;
+                            state.overstaffOpen = true;
+                        }
+                        return;
+                    }
                     const guards = Object.values(window.psgBoardLoad ? window.psgBoardLoad() : {});
 
                     form.querySelectorAll('input[data-synced-selected]').forEach((el) => el.remove());
@@ -834,5 +911,49 @@
                 });
             </script>
         </form>
+
+    <template x-teleport="body">
+        <div
+            x-cloak
+            x-show="overstaffOpen"
+            class="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="overstaff-title"
+            @keydown.escape.window="overstaffOpen = false"
+        >
+            <div class="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" @click="overstaffOpen = false"></div>
+            <div class="relative max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg border border-amber-200 bg-white shadow-2xl dark:border-amber-900 dark:bg-slate-900" @click.stop>
+                <div class="border-b border-amber-100 px-4 py-3 dark:border-amber-900/60">
+                    <h3 id="overstaff-title" class="text-base font-semibold text-slate-900 dark:text-slate-100">⚠ Overstaffing warning</h3>
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                        Duty date {{ \Illuminate\Support\Carbon::parse($dutyDate)->format('d M Y') }}.
+                        The site would have more guards on shift than its requirement.
+                    </p>
+                </div>
+                <div class="space-y-3 px-4 py-3">
+                    <template x-for="(warning, index) in overstaffWarnings" :key="'overstaff-' + index">
+                        <div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                            <p class="font-semibold" x-text="warning.site + ' — ' + warning.period + ' shift'"></p>
+                            <dl class="mt-2 space-y-0.5 text-[13px] tabular-nums">
+                                <div class="flex justify-between gap-3"><dt>Required manpower</dt><dd x-text="warning.required + (warning.required === 1 ? ' guard' : ' guards')"></dd></div>
+                                <div class="flex justify-between gap-3"><dt>Currently deployed</dt><dd x-text="warning.deployed + (warning.deployed === 1 ? ' guard' : ' guards')"></dd></div>
+                                <div class="flex justify-between gap-3"><dt>Selected</dt><dd x-text="warning.selected + (warning.selected === 1 ? ' guard' : ' guards')"></dd></div>
+                            </dl>
+                            <p class="mt-2 font-semibold">After this deployment: <span x-text="warning.projected + ' / ' + warning.required"></span> guards</p>
+                            <p class="mt-1" x-text="'This deployment will exceed the site\'s required manpower by ' + warning.excess + (warning.excess === 1 ? ' guard.' : ' guards.')"></p>
+                        </div>
+                    </template>
+                    <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                        Extra guards are not part of the site requirement. Go back to remove a selection, or deploy only when this extra cover is intentional.
+                    </p>
+                </div>
+                <div class="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3 sm:flex-row sm:justify-end dark:border-slate-800 dark:bg-slate-950/50">
+                    <button type="button" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" @click="overstaffOpen = false">Go back</button>
+                    <button type="button" class="rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800" onclick="window.psgBoardConfirmOverstaff()">Deploy extra cover</button>
+                </div>
+            </div>
+        </div>
+    </template>
 </div>
 @endsection

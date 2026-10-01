@@ -93,7 +93,7 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="no-print">{{ $rows->links() }}</div>
+                    <x-table-pagination :paginator="$rows" />
                 @endif
             </section>
         @endforeach

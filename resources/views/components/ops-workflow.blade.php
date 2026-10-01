@@ -8,7 +8,7 @@
         <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">PSC operations principle</p>
         <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">A site posting for a duty date creates a Shift recorded entry. Outcomes (completed, absent, cancelled, incomplete) update that record — never delete it.</p>
     </div>
-    <ol class="grid gap-0 sm:grid-cols-3">
+    <ol class="grid gap-0 sm:grid-cols-2">
         @foreach ([
             [
                 'key' => 'posting',
@@ -19,16 +19,8 @@
                 'cta' => 'Posting board',
             ],
             [
-                'key' => 'roster',
-                'step' => '2',
-                'title' => 'Duty roster',
-                'body' => 'Optional extras for rotating cover or additional duties on a date.',
-                'href' => route('shifts.allocate', ['date' => $opsDate]),
-                'cta' => 'Open roster',
-            ],
-            [
                 'key' => 'register',
-                'step' => '3',
+                'step' => '2',
                 'title' => 'Duty register',
                 'body' => 'Set outcomes: Completed, Absent/No-show, Cancelled, Incomplete. Audited.',
                 'href' => route('shifts.index', ['date' => $opsDate]),

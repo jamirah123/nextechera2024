@@ -1,5 +1,6 @@
 @props([
     'paginator',
+    'summary' => true,
 ])
 
 @if ($paginator->total() > 0)
@@ -32,9 +33,11 @@
         $disabled = 'cursor-not-allowed border-slate-200 bg-white text-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-600';
     @endphp
     <div {{ $attributes->class(['no-print flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between']) }}>
-        <p class="text-xs text-slate-500 dark:text-slate-400">
-            Showing {{ $paginator->firstItem() ?? 0 }}–{{ $paginator->lastItem() ?? 0 }} of {{ number_format($paginator->total()) }}
-        </p>
+        @if ($summary)
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+                Showing {{ $paginator->firstItem() ?? 0 }}–{{ $paginator->lastItem() ?? 0 }} of {{ number_format($paginator->total()) }}
+            </p>
+        @endif
         <nav class="flex flex-wrap items-center gap-1" aria-label="Pagination">
             @if ($paginator->onFirstPage())
                 <span class="{{ $control }} {{ $disabled }}">Previous</span>

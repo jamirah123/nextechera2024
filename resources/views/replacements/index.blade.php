@@ -93,7 +93,7 @@
                 </tbody>
             </table>
         </div>
-        <div>{{ $replacements->links() }}</div>
+        <x-table-pagination :paginator="$replacements" />
     @endif
 </div>
 @endsection

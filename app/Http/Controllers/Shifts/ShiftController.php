@@ -237,7 +237,7 @@ class ShiftController extends Controller
             })
             ->when(! $showAll, function ($q) use ($date): void {
                 $q->whereDoesntHave('assignedGuard.shifts', function ($shift) use ($date): void {
-                    $shift->whereDate('shift_date', $date)
+                    $shift->where('shift_date', $date)
                         ->whereIn('status', ShiftStatus::blockingAllocationValues());
                 });
             })
@@ -249,7 +249,7 @@ class ShiftController extends Controller
         $guardIds = $deployments->getCollection()->pluck('guard_id')->all();
         $existingShifts = Shift::query()
             ->whereIn('guard_id', $guardIds)
-            ->whereDate('shift_date', $date)
+            ->where('shift_date', $date)
             ->whereIn('status', ShiftStatus::blockingAllocationValues())
             ->get(['id', 'guard_id', 'period', 'status', 'reference'])
             ->groupBy('guard_id');
@@ -287,7 +287,7 @@ class ShiftController extends Controller
                     ->current()
                     ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('region_id', $regionId))
                     ->whereDoesntHave('assignedGuard.shifts', function ($shift) use ($date): void {
-                        $shift->whereDate('shift_date', $date)
+                        $shift->where('shift_date', $date)
                             ->whereIn('status', ShiftStatus::blockingAllocationValues());
                     })
                     ->count(),

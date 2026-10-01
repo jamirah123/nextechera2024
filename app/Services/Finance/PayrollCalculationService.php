@@ -11,6 +11,7 @@ use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Enums\LeaveStatus;
 use App\Models\Guard;
+use App\Services\UniformChargeExemptionService;
 use App\Models\GuardAssetRecovery;
 use App\Models\Leave;
 use App\Models\GuardSalaryAdvance;
@@ -241,7 +242,13 @@ class PayrollCalculationService
         });
     }
 
-    private function applyStatutoryDeductions(PayrollPayslip $payslip, float $gross, bool $includeUniform = true): void
+    private function applyStatutoryDeductions(
+        PayrollPayslip $payslip,
+        float $gross,
+        bool $includeUniform = true,
+        ?Guard $guard = null,
+        ?string $asOf = null,
+    ): void
     {
         $nssfRate = (float) config('psg.payroll.nssf_employee_rate', 5);
         $paye = $this->calculatePaye($gross);
@@ -269,21 +276,33 @@ class PayrollCalculationService
         }
 
         $uniformCharge = (float) config('psg.payroll.uniform_charge', 0);
-
-        // Uniform is a field-kit deduction for guards only — never office/staff payslips.
-        $chargeUniform = $includeUniform
-            && $uniformCharge > 0
+        $appliesToGuard = $includeUniform
             && $payslip->staff_id === null
             && $payslip->guard_id !== null;
 
-        if ($chargeUniform) {
-            PayrollDeduction::query()->create([
-                'payroll_payslip_id' => $payslip->id,
-                'type' => PayrollDeductionType::Uniform,
-                'label' => 'Uniform charge',
-                'amount' => round(min($uniformCharge, $gross), 2),
-                'is_statutory' => true,
-            ]);
+        if ($appliesToGuard) {
+            $exempt = $guard !== null && app(UniformChargeExemptionService::class)->isExemptOn(
+                $guard,
+                Carbon::parse($asOf ?? now()->toDateString()),
+            );
+
+            if ($exempt) {
+                PayrollDeduction::query()->create([
+                    'payroll_payslip_id' => $payslip->id,
+                    'type' => PayrollDeductionType::Uniform,
+                    'label' => 'Uniform charge — Exempt',
+                    'amount' => 0,
+                    'is_statutory' => true,
+                ]);
+            } elseif ($uniformCharge > 0) {
+                PayrollDeduction::query()->create([
+                    'payroll_payslip_id' => $payslip->id,
+                    'type' => PayrollDeductionType::Uniform,
+                    'label' => 'Uniform charge',
+                    'amount' => round(min($uniformCharge, $gross), 2),
+                    'is_statutory' => true,
+                ]);
+            }
         }
 
         $this->recalculatePayslipTotals($payslip);
@@ -470,7 +489,7 @@ class PayrollCalculationService
             'payroll_email' => $guard->email,
         ]);
 
-        $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true);
+        $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true, guard: $guard, asOf: Carbon::parse($run->period_end)->toDateString());
         $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
         $this->applyAssetRecoveryDeductions($payslip, guardId: $guard->id);
         $this->linkShifts(
@@ -539,7 +558,7 @@ class PayrollCalculationService
             'payroll_email' => $guard->email,
         ]);
 
-        $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true);
+        $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true, guard: $guard, asOf: Carbon::parse($run->period_end)->toDateString());
         $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
         $this->applyAssetRecoveryDeductions($payslip, guardId: $guard->id);
         $this->applyUnpaidLeaveDeductions($payslip, $run, guardId: $guard->id);

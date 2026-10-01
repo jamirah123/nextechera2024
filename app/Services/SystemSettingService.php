@@ -6,6 +6,7 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Models\SystemSetting;
 use App\Support\Finance\PayrollRates;
+use App\Support\Performance\DashboardCache;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -59,8 +60,7 @@ class SystemSettingService
         $this->requestMemo = null;
         Cache::forget('system_settings');
         Cache::forget('system_settings.id');
-        Cache::forget('psg.dashboard.landing_snapshot');
-        Cache::forget('psg.compliance.snapshot');
+        DashboardCache::flush();
     }
 
     /**
@@ -230,6 +230,13 @@ class SystemSettingService
             'psg.notifications.email_rules' => is_array($settings->email_event_rules) ? $settings->email_event_rules : [],
             'psg.notifications.include_sensitive_amounts' => (bool) ($settings->email_include_sensitive_amounts ?? false),
             'psg.notifications.proactive_alerts_enabled' => (bool) ($settings->notify_proactive_alerts ?? config('psg.notifications.proactive_alerts_enabled', true)),
+            'psg.manpower.monitor' => array_merge(
+                config('psg.manpower.monitor', []),
+                array_filter(
+                    is_array($settings->manpower_monitor_rules) ? $settings->manpower_monitor_rules : [],
+                    fn ($value) => $value !== null && $value !== '',
+                ),
+            ),
             'psg.currency' => $settings->currency,
             'psg.currency_label' => $settings->currency_label,
             'psg.currency_decimals' => $settings->currency_decimals,

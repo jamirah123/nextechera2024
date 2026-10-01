@@ -112,10 +112,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs text-slate-500 dark:text-slate-400">Showing {{ $workOrders->firstItem() ?? 0 }}–{{ $workOrders->lastItem() ?? 0 }} of {{ $workOrders->total() }}</p>
-            <div>{{ $workOrders->links() }}</div>
-        </div>
+        <x-table-pagination :paginator="$workOrders" />
     @endif
 </div>
 @endsection

@@ -107,7 +107,7 @@
                     </tbody>
                 </table>
             </div>
-            <div class="no-print">{{ $advances->links() }}</div>
+            <x-table-pagination :paginator="$advances" />
         @endif
     </div>
 </div>

@@ -2,7 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Client;
 use App\Models\EmailDelivery;
+use App\Models\Region;
+use App\Models\Site;
+use App\Models\Supervisor;
 use App\Policies\AuditLogPolicy;
 use App\Support\Notifications\EmailFailureMessage;
 use App\Support\Notifications\QueuedWorkflowMail;
@@ -10,6 +14,7 @@ use App\Policies\FinancePolicy;
 use App\Policies\ReportPolicy;
 use App\Services\SystemSettingService;
 use App\Support\Access\RolePermissionService;
+use App\Support\Performance\ReferenceData;
 use App\Support\Navigation\RoleNavigation;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -18,6 +23,7 @@ use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Mail\Events\MessageSent;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -50,15 +56,18 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('approvePayroll', [FinancePolicy::class, 'approvePayroll']);
 
         try {
-            if (Schema::hasTable('system_settings')) {
+            if ($this->settingsTableExists()) {
                 app(SystemSettingService::class)->applyRuntimeConfig();
             }
 
-            if (Schema::hasTable('role_permissions') && DB::table('role_permissions')->count() === 0) {
-                app(RolePermissionService::class)->seedDefaults();
-            }
+            $this->seedPermissionsWhenEmpty();
         } catch (\Throwable) {
             // Ignore during initial install or partial schema.
+        }
+
+        foreach ([Region::class, Site::class, Client::class, Supervisor::class] as $model) {
+            $model::saved(fn () => ReferenceData::flush());
+            $model::deleted(fn () => ReferenceData::flush());
         }
 
         View::composer('layouts.app', function ($view): void {
@@ -141,6 +150,44 @@ class AppServiceProvider extends ServiceProvider
                 // Ignore during initial install or partial schema.
             }
         });
+    }
+
+    private function settingsTableExists(): bool
+    {
+        if (app()->runningUnitTests()) {
+            return Schema::hasTable('system_settings');
+        }
+
+        if (Cache::get('psg.boot.settings_table') === true) {
+            return true;
+        }
+
+        if (! Schema::hasTable('system_settings')) {
+            return false;
+        }
+
+        Cache::forever('psg.boot.settings_table', true);
+
+        return true;
+    }
+
+    private function seedPermissionsWhenEmpty(): void
+    {
+        if (! app()->runningUnitTests() && Cache::get('psg.boot.permissions_seeded') === true) {
+            return;
+        }
+
+        if (! Schema::hasTable('role_permissions')) {
+            return;
+        }
+
+        if (DB::table('role_permissions')->count() === 0) {
+            app(RolePermissionService::class)->seedDefaults();
+        }
+
+        if (! app()->runningUnitTests()) {
+            Cache::forever('psg.boot.permissions_seeded', true);
+        }
     }
 
     private function configureRateLimiting(): void

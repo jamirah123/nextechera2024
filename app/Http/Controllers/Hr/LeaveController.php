@@ -11,10 +11,7 @@ use App\Models\Guard;
 use App\Models\Leave;
 use App\Models\LeaveEntitlement;
 use App\Models\LeaveTypeConfig;
-use App\Models\Region;
-use App\Models\Site;
 use App\Models\Staff;
-use App\Models\Supervisor;
 use App\Services\Documents\LetterPdfService;
 use App\Services\LeaveService;
 use App\Services\ReportExportService;
@@ -60,27 +57,36 @@ class LeaveController extends Controller
             ->paginate(table_per_page())
             ->withQueryString();
 
-        $onLeave = Leave::query()->where('status', LeaveStatus::Approved)->whereDate('start_date', '<=', $today)->whereDate('end_date', '>=', $today);
+        $onLeave = Leave::query()
+            ->where('status', LeaveStatus::Approved)
+            ->where('start_date', '<=', $today)
+            ->where('end_date', '>=', $today)
+            ->selectRaw('COUNT(*) as total, SUM(CASE WHEN guard_id IS NOT NULL THEN 1 ELSE 0 END) as guards_total, SUM(CASE WHEN staff_id IS NOT NULL AND guard_id IS NULL THEN 1 ELSE 0 END) as staff_total')
+            ->first();
 
         return view('hr.leaves.index', [
             'leaves' => $leaves,
             'statuses' => LeaveStatus::cases(),
             'types' => LeaveTypeConfig::query()->where('is_active', true)->orderBy('name')->get(),
-            'regions' => Region::query()->orderBy('name')->get(['id', 'name']),
-            'sites' => Site::query()->orderBy('name')->get(['id', 'name']),
-            'supervisors' => Supervisor::query()->orderBy('name')->get(['id', 'name']),
+            'regions' => \App\Support\Performance\ReferenceData::regions(),
+            'sites' => \App\Support\Performance\ReferenceData::sites(),
+            'supervisors' => \App\Support\Performance\ReferenceData::supervisors(),
             'filters' => $request->only(['q', 'status', 'leave_type', 'leave_type_id', 'from', 'to', 'employee_type', 'region_id', 'site_id', 'supervisor_id']),
             'canManage' => $request->user()->can('create', Leave::class),
             'canManageTypes' => $request->user()->can('create', LeaveTypeConfig::class),
             'stats' => [
-                'on_leave' => (clone $onLeave)->count(),
-                'guards_on_leave' => (clone $onLeave)->whereNotNull('guard_id')->count(),
-                'staff_on_leave' => (clone $onLeave)->whereNotNull('staff_id')->whereNull('guard_id')->count(),
+                'on_leave' => (int) ($onLeave->total ?? 0),
+                'guards_on_leave' => (int) ($onLeave->guards_total ?? 0),
+                'staff_on_leave' => (int) ($onLeave->staff_total ?? 0),
                 'pending' => Leave::query()->where('status', LeaveStatus::Pending)->count(),
-                'returning_today' => Leave::query()->where('status', LeaveStatus::Approved)->whereDate('expected_return_date', $today)->count(),
-                'returning_week' => Leave::query()->where('status', LeaveStatus::Approved)->whereDate('expected_return_date', '>=', $today)->whereDate('expected_return_date', '<=', $weekEnd)->count(),
-                'low_balance' => LeaveEntitlement::query()->where('year', now()->year)->get()->filter(fn (LeaveEntitlement $row) => $row->opening_balance > 0 && $row->remaining() <= 3)->count(),
-                'upcoming' => Leave::query()->where('status', LeaveStatus::Approved)->whereDate('start_date', '>', $today)->whereDate('start_date', '<=', $weekEnd)->count(),
+                'returning_today' => Leave::query()->where('status', LeaveStatus::Approved)->where('expected_return_date', $today)->count(),
+                'returning_week' => Leave::query()->where('status', LeaveStatus::Approved)->whereBetween('expected_return_date', [$today, $weekEnd])->count(),
+                'low_balance' => LeaveEntitlement::query()
+                    ->where('year', now()->year)
+                    ->where('opening_balance', '>', 0)
+                    ->whereRaw('(opening_balance + accrued + carried_forward + adjustments - taken - pending - expired) <= 3')
+                    ->count(),
+                'upcoming' => Leave::query()->where('status', LeaveStatus::Approved)->where('start_date', '>', $today)->where('start_date', '<=', $weekEnd)->count(),
             ],
         ]);
     }

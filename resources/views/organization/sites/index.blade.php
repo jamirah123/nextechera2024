@@ -186,12 +186,7 @@
             </div>
         </div>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs text-slate-500">
-                Showing {{ $sites->firstItem() ?? 0 }}–{{ $sites->lastItem() ?? 0 }} of {{ $sites->total() }}
-            </p>
-            <div>{{ $sites->links() }}</div>
-        </div>
+        <x-table-pagination :paginator="$sites" />
     @endif
 </div>
 @endsection

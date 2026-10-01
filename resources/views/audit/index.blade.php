@@ -90,10 +90,7 @@
                     </table>
                 </div>
             </div>
-            <div class="no-print flex justify-between gap-3">
-                <p class="text-xs text-slate-500">Showing {{ $logs->firstItem() ?? 0 }}–{{ $logs->lastItem() ?? 0 }} of {{ $logs->total() }}</p>
-                <div>{{ $logs->links() }}</div>
-            </div>
+            <x-table-pagination :paginator="$logs" />
         @endif
     </div>
 </div>

@@ -113,12 +113,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs text-slate-500 dark:text-slate-400">
-                Showing {{ $runs->firstItem() ?? 0 }}–{{ $runs->lastItem() ?? 0 }} of {{ $runs->total() }}
-            </p>
-            <div>{{ $runs->links() }}</div>
-        </div>
+        <x-table-pagination :paginator="$runs" />
     @endif
 </div>
 @endsection

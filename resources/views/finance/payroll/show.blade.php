@@ -175,9 +175,7 @@
                 </tbody>
             </table>
         </div>
-        @if ($payslips->hasPages())
-            <div class="no-print">{{ $payslips->links() }}</div>
-        @endif
+        <x-table-pagination :paginator="$payslips" />
     @endif
 </div>
 @endsection

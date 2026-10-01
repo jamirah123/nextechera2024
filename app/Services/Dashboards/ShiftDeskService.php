@@ -18,7 +18,7 @@ class ShiftDeskService
      *     awaiting_deployment: int,
      *     needs_allocation: int,
      *     missed_today: int,
-     *     in_progress_today: int,
+     *     recorded_today: int,
      *     deployed: int,
      *     links: array<string, string>
      * }
@@ -41,7 +41,7 @@ class ShiftDeskService
 
         $needsAllocation = (clone $deployedQuery)
             ->whereDoesntHave('assignedGuard.shifts', function ($shift) use ($date): void {
-                $shift->whereDate('shift_date', $date)
+                $shift->where('shift_date', $date)
                     ->whereIn('status', ShiftStatus::blockingAllocationValues());
             })
             ->count();
@@ -55,13 +55,13 @@ class ShiftDeskService
             'awaiting_deployment' => $awaitingDeployment,
             'needs_allocation' => $needsAllocation,
             'missed_today' => (clone $shiftBase)->where('status', ShiftStatus::Missed)->count(),
-            'in_progress_today' => (clone $shiftBase)->where('status', ShiftStatus::InProgress)->count(),
+            'recorded_today' => (clone $shiftBase)->where('status', ShiftStatus::Recorded)->count(),
             'deployed' => (clone $deployedQuery)->count(),
             'links' => [
                 'deploy_board' => route('deployments.board'),
-                'allocate' => route('shifts.allocate', ['date' => $date]),
+                'allocate' => route('deployments.board', ['start_date' => $date]),
                 'missed_shifts' => route('shifts.index', ['date' => $date, 'status' => ShiftStatus::Missed->value]),
-                'shifts_today' => route('shifts.index', ['date' => $date]),
+                'shifts_today' => route('shifts.index', ['date' => $date, 'status' => ShiftStatus::Recorded->value]),
             ],
         ];
     }
@@ -93,9 +93,9 @@ class ShiftDeskService
                 'tone' => 'rose',
             ],
             [
-                'label' => 'In progress',
-                'value' => (string) $desk['in_progress_today'],
-                'hint' => 'Live duty shifts right now',
+                'label' => 'Shifts recorded',
+                'value' => (string) $desk['recorded_today'],
+                'hint' => 'Duties recorded for today',
                 'tone' => 'emerald',
             ],
         ];

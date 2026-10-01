@@ -58,6 +58,6 @@
             </tbody>
         </table>
     </div>
-    <div class="no-print">{{ $periods->links() }}</div>
+    <x-table-pagination :paginator="$periods" />
 </div>
 @endsection

@@ -103,7 +103,7 @@
                 </tbody>
             </table>
         </div>
-        <div>{{ $incidents->links() }}</div>
+        <x-table-pagination :paginator="$incidents" />
     @endif
 </div>
 @endsection

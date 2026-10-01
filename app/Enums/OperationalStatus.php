@@ -25,7 +25,7 @@ enum OperationalStatus: string
             self::SickUnavailable => 'Sick / Unavailable',
             self::Training => 'Training',
             self::Suspended => 'Suspended',
-            self::AwaitingDeployment => 'Awaiting Deployment',
+            self::AwaitingDeployment => 'Available',
         };
     }
 

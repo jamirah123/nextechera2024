@@ -56,7 +56,7 @@ class DateCoverageTest extends TestCase
         $this->assertSame(1, $snapshot['allocated_day']);
     }
 
-    public function test_coverage_page_shows_allocated_columns_when_date_selected(): void
+    public function test_coverage_page_shows_updated_manpower_cards_for_the_selected_date(): void
     {
         $user = User::factory()->role(UserRole::OperationsManager)->create();
         $site = Site::factory()->create([
@@ -69,8 +69,9 @@ class DateCoverageTest extends TestCase
         $this->actingAs($user)
             ->get(route('manpower.coverage', ['date' => $date]))
             ->assertOk()
-            ->assertSee('Allocated', false)
-            ->assertSee($site->name, false)
-            ->assertSee('Alloc. short', false);
+            ->assertSee('Normal deployed', false)
+            ->assertSee('Manpower deficit', false)
+            ->assertSee('Remaining shortage', false)
+            ->assertSee($site->name, false);
     }
 }

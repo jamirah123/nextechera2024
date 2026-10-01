@@ -258,7 +258,7 @@ class OperationalDashboardService
         $upcoming = Shift::query()
             ->with(['site:id,name,code'])
             ->where('guard_id', $guard->id)
-            ->whereDate('shift_date', '>=', now()->toDateString())
+            ->where('shift_date', '>=', now()->toDateString())
             ->whereIn('status', [ShiftStatus::Scheduled, ShiftStatus::Confirmed])
             ->orderBy('shift_date')
             ->orderBy('starts_at')

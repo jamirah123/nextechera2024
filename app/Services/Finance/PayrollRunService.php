@@ -104,24 +104,26 @@ class PayrollRunService
             throw new InvalidArgumentException('Cannot approve a payroll run with no payslips.');
         }
 
-        $run->update([
-            'status' => PayrollRunStatus::Approved,
-            'approved_at' => now(),
-            'approved_by' => $actor?->id,
-        ]);
+        return DB::transaction(function () use ($run, $actor) {
+            $run->update([
+                'status' => PayrollRunStatus::Approved,
+                'approved_at' => now(),
+                'approved_by' => $actor?->id,
+            ]);
 
-        $this->audit->log(
-            action: 'payroll.approved',
-            summary: 'Payroll run '.$run->reference.' approved.',
-            category: AuditCategory::Finance,
-            severity: AuditSeverity::Notice,
-            subject: $run,
-        );
+            $this->audit->log(
+                action: 'payroll.approved',
+                summary: 'Payroll run '.$run->reference.' approved.',
+                category: AuditCategory::Finance,
+                severity: AuditSeverity::Notice,
+                subject: $run,
+            );
 
-        $run = $run->fresh(['payslips', 'approver']);
-        $this->ledger->postPayrollAccrual($run, $actor);
+            $run = $run->fresh(['payslips', 'approver']);
+            $this->ledger->postPayrollAccrual($run, $actor);
 
-        return $run;
+            return $run;
+        });
     }
 
     public function submit(PayrollRun $run, ?User $actor = null): PayrollRun

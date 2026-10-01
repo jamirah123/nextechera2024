@@ -133,9 +133,8 @@ class ShiftValidationService
             $isPastDuty = $startsAt->copy()->startOfDay()->lt(now()->copy()->startOfDay());
 
             if ($deploymentPeriod === $period && ! $isPastDuty) {
-                $message = 'Deployment Conflict: Guard '.$guard->employment_id
-                    .' is already deployed at '.$deployment->site?->name
-                    .' for this shift. The guard cannot be deployed to another site during the same shift.';
+                $message = 'Guard already deployed for the '.$period->label().' shift on '
+                    .$startsAt->format('j F Y').' at '.($deployment->site?->name ?: 'another site').'.';
                 $result->critical('same_shift_site', $message);
             } elseif ($deploymentPeriod !== $period) {
                 $message = 'Guard’s current posting is at '.$deployment->site?->name
@@ -162,9 +161,8 @@ class ShiftValidationService
 
         $sameShiftElsewhere = $this->sameShiftAtAnotherSite($guard->id, $site->id, $startsAt->toDateString(), $period, $ignoreId);
         if ($sameShiftElsewhere !== null) {
-            $message = 'Deployment Conflict: Guard '.$guard->employment_id
-                .' is already deployed at '.$sameShiftElsewhere
-                .' for this shift. The guard cannot be deployed to another site during the same shift.';
+            $message = 'Guard already deployed for the '.$period->label().' shift on '
+                .$startsAt->format('j F Y').' at '.$sameShiftElsewhere.'.';
             $result->critical('same_shift_site', $message);
         }
 
@@ -199,7 +197,7 @@ class ShiftValidationService
             $allocatedForPeriod = Shift::query()
                 ->blocking()
                 ->where('site_id', $site->id)
-                ->whereDate('shift_date', $startsAt->toDateString())
+                ->where('shift_date', $startsAt->toDateString())
                 ->where('period', $period->value)
                 ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
                 ->count();
@@ -224,7 +222,7 @@ class ShiftValidationService
             $armedAllocated = Shift::query()
                 ->blocking()
                 ->where('site_id', $site->id)
-                ->whereDate('shift_date', $startsAt->toDateString())
+                ->where('shift_date', $startsAt->toDateString())
                 ->where('period', $period->value)
                 ->where('guard_classification', GuardClassification::Armed->value)
                 ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))
@@ -253,7 +251,7 @@ class ShiftValidationService
             ->blocking()
             ->with('site:id,name')
             ->where('guard_id', $guardId)
-            ->whereDate('shift_date', $dutyDate)
+            ->where('shift_date', $dutyDate)
             ->where('period', $period->value)
             ->where('site_id', '!=', $siteId)
             ->when($ignoreId, fn ($q) => $q->where('id', '!=', $ignoreId))

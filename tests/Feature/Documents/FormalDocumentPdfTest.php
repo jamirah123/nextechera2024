@@ -9,6 +9,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\LeaveStatus;
 use App\Enums\LeaveType;
 use App\Enums\UserRole;
+use App\Models\BillingProfile;
 use App\Models\Client;
 use App\Models\Deployment;
 use App\Models\DeploymentTransfer;
@@ -60,6 +61,57 @@ class FormalDocumentPdfTest extends TestCase
         $response->assertOk();
         $response->assertHeader('content-type', 'application/pdf');
         $this->assertStringStartsWith('%PDF', $response->getContent());
+    }
+
+    public function test_finance_user_can_view_and_download_a_tabular_billing_profile(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $shiftManager = User::factory()->role(UserRole::ShiftManager)->create();
+        $client = Client::factory()->create(['name' => 'Acme Sites Ltd']);
+
+        $profile = BillingProfile::query()->create([
+            'client_id' => $client->id,
+            'currency' => 'UGX',
+            'billing_mode' => 'monthly',
+            'contracted_day_armed_guards' => 2,
+            'contracted_day_unarmed_guards' => 4,
+            'contracted_night_armed_guards' => 1,
+            'contracted_night_unarmed_guards' => 3,
+            'contracted_armed_guards' => 3,
+            'contracted_unarmed_guards' => 7,
+            'monthly_rate_per_armed_guard' => 650000,
+            'monthly_rate_per_unarmed_guard' => 450000,
+            'monthly_site_fee' => 0,
+            'effective_from' => now()->startOfMonth()->toDateString(),
+            'is_active' => true,
+            'notes' => 'Negotiated day and night posts.',
+        ]);
+
+        $this->actingAs($shiftManager)
+            ->get(route('billing.show', $profile))
+            ->assertForbidden();
+
+        $this->actingAs($finance)
+            ->get(route('billing.show', $profile))
+            ->assertOk()
+            ->assertSee('Billing profile')
+            ->assertSee('Acme Sites Ltd')
+            ->assertSee('Day armed security posts')
+            ->assertSee('Unit price')
+            ->assertSee('Monthly total')
+            ->assertSee('Download PDF')
+            ->assertSee('Negotiated day and night posts.');
+
+        $pdf = $this->actingAs($finance)
+            ->get(route('billing.pdf', $profile));
+
+        $pdf->assertOk();
+        $pdf->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF', $pdf->getContent());
+        $this->assertStringContainsString(
+            'billing-profile-BP-'.str_pad((string) $profile->id, 4, '0', STR_PAD_LEFT).'.pdf',
+            (string) $pdf->headers->get('content-disposition'),
+        );
     }
 
     public function test_ops_user_can_download_deployment_letter_pdf(): void

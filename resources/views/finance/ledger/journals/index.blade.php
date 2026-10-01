@@ -69,7 +69,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="no-print">{{ $journals->links() }}</div>
+        <x-table-pagination :paginator="$journals" />
     @endif
 </div>
 @endsection

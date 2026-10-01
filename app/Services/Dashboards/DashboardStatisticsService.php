@@ -14,11 +14,24 @@ use App\Models\Leave;
 use App\Models\Payment;
 use App\Models\Shift;
 use App\Models\User;
+use App\Support\Performance\DashboardCache;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class DashboardStatisticsService
 {
     /** @return list<array<string, mixed>> */
     public function for(User $user): array
+    {
+        $region = $user->mustStayInOwnRegion() ? (string) ($user->regionId() ?? 'none') : 'all';
+        $key = 'psg.dashboard.charts.'.DashboardCache::version().'.'.$user->role->value.'.'.$region;
+        $ttl = max(15, (int) config('psg.performance.dashboard_cache_seconds', 45));
+
+        return Cache::remember($key, $ttl, fn () => $this->build($user));
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function build(User $user): array
     {
         return match ($user->role) {
             UserRole::FinanceManager => [
@@ -52,6 +65,20 @@ class DashboardStatisticsService
     /** @return array<string, mixed> */
     private function shiftOutcomesChart(User $user): array
     {
+        $start = now()->subDays(6)->startOfDay();
+        $query = Shift::query()->whereBetween('shift_date', [$start->toDateString(), now()->toDateString()]);
+        $this->scopeShiftsToUser($query, $user);
+
+        $rows = $query
+            ->selectRaw('shift_date, status, COUNT(*) as aggregate')
+            ->groupBy('shift_date', 'status')
+            ->get()
+            ->groupBy(function (Shift $row): string {
+                $day = $row->shift_date;
+
+                return $day instanceof \Carbon\CarbonInterface ? $day->toDateString() : substr((string) $day, 0, 10);
+            });
+
         $labels = [];
         $completed = [];
         $missed = [];
@@ -59,11 +86,9 @@ class DashboardStatisticsService
         for ($i = 6; $i >= 0; $i--) {
             $date = now()->subDays($i);
             $labels[] = $date->format('D');
-            $query = Shift::query()->forDate($date->toDateString());
-            $this->scopeShiftsToUser($query, $user);
-
-            $completed[] = (clone $query)->where('status', ShiftStatus::Completed)->count();
-            $missed[] = (clone $query)->where('status', ShiftStatus::Missed)->count();
+            $bucket = $rows->get($date->toDateString(), collect());
+            $completed[] = (int) $bucket->filter(fn (Shift $row) => $this->statusValue($row->status) === ShiftStatus::Completed->value)->sum('aggregate');
+            $missed[] = (int) $bucket->filter(fn (Shift $row) => $this->statusValue($row->status) === ShiftStatus::Missed->value)->sum('aggregate');
         }
 
         return [
@@ -113,10 +138,15 @@ class DashboardStatisticsService
         $query = Guard::query()->where('employment_status', EmploymentStatus::Active);
         $this->scopeGuardsToUser($query, $user);
 
-        $other = (clone $query)->count();
+        $counts = [];
+        foreach ($query->selectRaw('operational_status, COUNT(*) as aggregate')->groupBy('operational_status')->get() as $row) {
+            $counts[$this->statusValue($row->operational_status)] = (int) $row->aggregate;
+        }
+
+        $other = (int) array_sum($counts);
 
         foreach ($statuses as $index => $status) {
-            $count = (clone $query)->where('operational_status', $status)->count();
+            $count = (int) ($counts[$status->value] ?? 0);
             if ($count > 0) {
                 $labels[] = $status->label();
                 $values[] = $count;
@@ -166,9 +196,14 @@ class DashboardStatisticsService
             'rgba(14, 165, 233, 0.9)',
         ];
 
+        $counts = [];
+        foreach (Leave::query()->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->get() as $row) {
+            $counts[$this->statusValue($row->status)] = (int) $row->aggregate;
+        }
+
         foreach ($statuses as $index => $status) {
             $labels[] = $status->label();
-            $values[] = Leave::query()->where('status', $status)->count();
+            $values[] = (int) ($counts[$status->value] ?? 0);
         }
 
         return [
@@ -207,8 +242,13 @@ class DashboardStatisticsService
             'rgba(244, 63, 94, 0.9)',
         ];
 
+        $counts = [];
+        foreach (Invoice::query()->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->get() as $row) {
+            $counts[$this->statusValue($row->status)] = (int) $row->aggregate;
+        }
+
         foreach ($statuses as $index => $status) {
-            $count = Invoice::query()->where('status', $status)->count();
+            $count = (int) ($counts[$status->value] ?? 0);
             if ($count > 0) {
                 $labels[] = $status->label();
                 $values[] = $count;
@@ -235,19 +275,25 @@ class DashboardStatisticsService
     /** @return array<string, mixed> */
     private function collectionsTrendChart(): array
     {
+        $start = now()->subMonths(5)->startOfMonth()->toDateString();
+        $bucketSql = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', payment_date)"
+            : "DATE_FORMAT(payment_date, '%Y-%m')";
+
+        $totals = Payment::query()
+            ->collections()
+            ->where('payment_date', '>=', $start)
+            ->selectRaw($bucketSql.' as bucket, SUM(amount) as total')
+            ->groupBy(DB::raw($bucketSql))
+            ->pluck('total', 'bucket');
+
         $labels = [];
         $values = [];
 
         for ($i = 5; $i >= 0; $i--) {
             $month = now()->subMonths($i);
             $labels[] = $month->format('M Y');
-            $values[] = (float) Payment::query()
-                ->collections()
-                ->whereBetween('payment_date', [
-                    $month->copy()->startOfMonth()->toDateString(),
-                    $month->copy()->endOfMonth()->toDateString(),
-                ])
-                ->sum('amount');
+            $values[] = (float) ($totals[$month->format('Y-m')] ?? 0);
         }
 
         return [
@@ -282,5 +328,10 @@ class DashboardStatisticsService
         if ($user->mustStayInOwnRegion() && $user->regionId()) {
             $query->where('region_id', $user->regionId());
         }
+    }
+
+    private function statusValue(mixed $status): string
+    {
+        return $status instanceof \BackedEnum ? (string) $status->value : (string) $status;
     }
 }

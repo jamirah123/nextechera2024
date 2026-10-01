@@ -239,6 +239,13 @@
         ])
     @endif
 
+    @include('guards.partials.uniform-charge', [
+        'guard' => $guard,
+        'uniformStatus' => $uniformStatus ?? \App\Enums\UniformChargeStatus::Subject,
+        'companyUniformCharge' => $companyUniformCharge ?? (float) config('psg.payroll.uniform_charge', 0),
+        'canManageUniformCharge' => $canManageUniformCharge ?? false,
+    ])
+
     @include('guards.partials.salary-advances', ['guard' => $guard, 'canManageFinance' => $canManageFinance ?? false])
 
     @include('guards.partials.assets', ['guard' => $guard, 'canManageAssets' => $canManageAssets ?? false])

@@ -144,8 +144,10 @@ class LedgerPostingService
         }
 
         $gross = round((float) $run->gross_total, 2);
-        $deductions = round((float) $run->deductions_total, 2);
-        $net = round((float) $run->net_total, 2);
+        $net = round(min(max((float) $run->net_total, 0), $gross), 2);
+        // Net pay is never negative. When statutory deductions are larger than a small gross,
+        // the withheld amount is gross minus net, which is what the journal can credit.
+        $withheld = round($gross - $net, 2);
 
         if ($gross <= 0) {
             return null;
@@ -153,14 +155,22 @@ class LedgerPostingService
 
         $lines = [
             ['account' => $this->coa->payrollExpense(), 'debit' => $gross, 'credit' => 0, 'memo' => 'Gross payroll '.$run->reference],
-            ['account' => $this->coa->payrollPayable(), 'debit' => 0, 'credit' => $net, 'memo' => 'Net pay '.$run->reference],
         ];
 
-        if ($deductions > 0) {
+        if ($net > 0) {
+            $lines[] = [
+                'account' => $this->coa->payrollPayable(),
+                'debit' => 0,
+                'credit' => $net,
+                'memo' => 'Net pay '.$run->reference,
+            ];
+        }
+
+        if ($withheld > 0) {
             $lines[] = [
                 'account' => $this->coa->payrollDeductions(),
                 'debit' => 0,
-                'credit' => $deductions,
+                'credit' => $withheld,
                 'memo' => 'Deductions '.$run->reference,
             ];
         }

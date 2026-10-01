@@ -7,6 +7,7 @@ use App\Enums\EmploymentStatus;
 use App\Enums\GuardClassification;
 use App\Enums\GuardGender;
 use App\Enums\OperationalStatus;
+use App\Enums\ShiftStatus;
 use App\Models\Concerns\CapturesDeletionSnapshot;
 use App\Models\Concerns\TracksUserChanges;
 use Database\Factories\GuardFactory;
@@ -170,6 +171,11 @@ class Guard extends Model
         return $this->hasMany(GuardSalaryRevision::class)->orderBy('effective_from')->orderBy('id');
     }
 
+    public function uniformChargeRevisions(): HasMany
+    {
+        return $this->hasMany(GuardUniformChargeRevision::class)->orderBy('effective_from')->orderBy('id');
+    }
+
     public function assetIssuances(): HasMany
     {
         return $this->hasMany(GuardAssetIssuance::class)->latest('issued_at');
@@ -253,6 +259,33 @@ class Guard extends Model
     }
 
     /**
+     * Posting board pool: every active regular guard is accounted for here
+     * unless they are on an open duty, absent, or deserted.
+     *
+     * @param  Builder<Guard>  $query
+     */
+    public function scopeVisibleOnPostingBoard($query): void
+    {
+        $now = now();
+
+        $query
+            ->regularGuards()
+            ->whereNotIn('operational_status', [
+                OperationalStatus::Absent->value,
+                OperationalStatus::Deserted->value,
+            ])
+            ->whereDoesntHave('shifts', function ($shifts) use ($now): void {
+                $shifts->whereIn('status', [
+                    ShiftStatus::Scheduled->value,
+                    ShiftStatus::Confirmed->value,
+                    ShiftStatus::InProgress->value,
+                    ShiftStatus::Recorded->value,
+                ])->where('starts_at', '<=', $now)
+                    ->where('ends_at', '>', $now);
+            });
+    }
+
+    /**
      * Guards free to receive a posting that covers the given duty date.
      * Used for historical board posting: current On Duty status does not hide them
      * when they had no deployment covering that past day.
@@ -261,6 +294,46 @@ class Guard extends Model
      */
     public function scopeAvailableForDeploymentOnDate($query, string $date): void
     {
+        $query->selectableOnPostingBoard($date);
+    }
+
+    /**
+     * Posting board pool for one duty date.
+     *
+     * A guard stays selectable while either the day or the night window is
+     * still open. One shift on the date does not remove them.
+     *
+     * @param  Builder<Guard>  $query
+     */
+    public function scopeSelectableOnPostingBoard($query, string $date): void
+    {
+        $blocking = ShiftStatus::blockingAllocationValues();
+        $live = $date >= now()->toDateString();
+        $unavailable = [
+            OperationalStatus::OnLeave->value,
+            OperationalStatus::Absent->value,
+            OperationalStatus::Deserted->value,
+            OperationalStatus::Suspended->value,
+            OperationalStatus::SickUnavailable->value,
+            OperationalStatus::Training->value,
+        ];
+
+        $periodOpen = function ($query, string $period) use ($date, $blocking, $live): void {
+            $shiftTypes = $period === 'night' ? ['night', 'rotating'] : ['day', 'rotating'];
+
+            $query->whereDoesntHave('shifts', function ($shifts) use ($date, $period, $blocking): void {
+                $shifts->whereIn('status', $blocking)
+                    ->whereDate('shift_date', $date)
+                    ->where('period', $period);
+            });
+
+            if ($live) {
+                $query->whereDoesntHave('deployments', function ($deployments) use ($shiftTypes): void {
+                    $deployments->current()->whereIn('shift_type', $shiftTypes);
+                });
+            }
+        };
+
         $query
             ->regularGuards()
             ->where(function ($q) use ($date): void {
@@ -271,11 +344,14 @@ class Guard extends Model
                 $q->whereNull('employment_end_date')
                     ->orWhereDate('employment_end_date', '>=', $date);
             })
-            ->whereNotIn('operational_status', [
-                OperationalStatus::Deserted->value,
-                OperationalStatus::Suspended->value,
-            ])
-            ->whereDoesntHave('deployments', fn ($q) => $q->activeOnDate($date));
+            ->whereNotIn('operational_status', $unavailable)
+            ->where(function ($free) use ($periodOpen): void {
+                $free->where(function ($day) use ($periodOpen): void {
+                    $periodOpen($day, 'day');
+                })->orWhere(function ($night) use ($periodOpen): void {
+                    $periodOpen($night, 'night');
+                });
+            });
     }
 
     /**

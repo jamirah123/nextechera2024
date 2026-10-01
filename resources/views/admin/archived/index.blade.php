@@ -84,9 +84,7 @@
                 </tbody>
             </table>
         </div>
-        @if ($records->hasPages())
-            <div class="text-xs">{{ $records->links() }}</div>
-        @endif
+        <x-table-pagination :paginator="$records" />
     @endif
 </div>
 @endsection

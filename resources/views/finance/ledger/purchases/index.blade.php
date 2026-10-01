@@ -61,7 +61,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="no-print">{{ $bills->links() }}</div>
+        <x-table-pagination :paginator="$bills" />
     @endif
 </div>
 @endsection

@@ -11,22 +11,13 @@
         :subtitle="'Duties for '. \Illuminate\Support\Carbon::parse($date)->format('d M Y')"
     >
         <x-slot:actions>
-            <a href="{{ route('shifts.calendar') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-                <x-icon name="calendar" class="h-3.5 w-3.5" />
-                Calendar
+            <a href="{{ route('deployments.board', ['start_date' => $date]) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">
+                <x-icon name="map" class="h-3.5 w-3.5" />
+                Posting board
             </a>
-            @if ($canManage)
-                <a href="{{ route('shifts.allocate', ['date' => $date]) }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">
-                    <x-icon name="plus" class="h-3.5 w-3.5" />
-                    Duty roster
-                </a>
-                <a href="{{ route('shifts.recurring.create') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-                    Recurring
-                </a>
-                <a href="{{ route('shifts.create', ['date' => $date]) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-                    Single duty
-                </a>
-            @endif
+            <a href="{{ route('deployments.index', ['date' => $date]) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                Site postings
+            </a>
         </x-slot:actions>
     </x-page-header>
 
@@ -175,10 +166,7 @@
             </div>
         </div>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs text-slate-500">Showing {{ $shifts->firstItem() ?? 0 }}–{{ $shifts->lastItem() ?? 0 }} of {{ $shifts->total() }}</p>
-            <div>{{ $shifts->links() }}</div>
-        </div>
+        <x-table-pagination :paginator="$shifts" />
     @endif
 </div>
 @endsection

@@ -31,27 +31,30 @@
     @if ($attendances->isEmpty())
         <x-empty-state title="No attendance events" description="Record check-in / check-out or on-duty events." icon="calendar" />
     @else
-        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-            <table class="min-w-full divide-y divide-slate-100 text-sm">
-                <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        <div class="data-table-shell">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="w-14 px-3 py-2">#</th>
-                        <th class="px-3 py-2">Guard</th>
-                        <th class="px-3 py-2">Event</th>
-                        <th class="px-3 py-2">When</th>
-                        <th class="px-3 py-2">Site</th>
-                        <th class="px-3 py-2">Source</th>
+                        <th class="w-14">#</th>
+                        <th>Guard</th>
+                        <th>Event</th>
+                        <th>When</th>
+                        <th>Site</th>
+                        <th>Source</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody>
                     @foreach ($attendances as $attendance)
                         <tr>
-                            <td class="px-3 py-2"><x-table-serial :paginator="$attendances" :index="$loop->index" /></td>
-                            <td class="px-3 py-2"><p class="font-semibold">{{ $attendance->assignedGuard?->full_name }}</p><p class="text-xs text-slate-500">{{ $attendance->assignedGuard?->employment_id }}</p></td>
-                            <td class="px-3 py-2"><x-status-badge :tone="$attendance->event_type->tone()" :label="$attendance->event_type->label()" /></td>
-                            <td class="px-3 py-2">{{ $attendance->occurred_at->format('d M Y, H:i') }}</td>
-                            <td class="px-3 py-2">{{ $attendance->site?->name ?? '—' }}</td>
-                            <td class="px-3 py-2 text-slate-600">{{ $attendance->source }}</td>
+                            <td><x-table-serial :paginator="$attendances" :index="$loop->index" /></td>
+                            <td>
+                                <p class="font-semibold text-slate-900 dark:text-slate-100">{{ $attendance->assignedGuard?->full_name }}</p>
+                                <p class="text-[10px] text-slate-500">{{ $attendance->assignedGuard?->employment_id }}</p>
+                            </td>
+                            <td><x-status-badge :tone="$attendance->event_type->tone()" :label="$attendance->event_type->label()" /></td>
+                            <td>{{ $attendance->occurred_at->format('d M Y, H:i') }}</td>
+                            <td>{{ $attendance->site?->name ?? '—' }}</td>
+                            <td class="text-slate-600 dark:text-slate-300">{{ $attendance->source }}</td>
                         </tr>
                     @endforeach
                 </tbody>

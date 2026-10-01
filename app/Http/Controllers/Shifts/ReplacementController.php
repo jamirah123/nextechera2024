@@ -81,7 +81,7 @@ class ReplacementController extends Controller
                 ShiftStatus::Missed->value,
             ])
             ->whereDoesntHave('replacementRecord')
-            ->when($request->filled('date'), fn ($q) => $q->whereDate('shift_date', $request->string('date')))
+            ->when($request->filled('date'), fn ($q) => $q->where('shift_date', $request->string('date')->toString()))
             ->orderByDesc('shift_date')
             ->orderBy('starts_at')
             ->limit(100)

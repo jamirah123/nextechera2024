@@ -12,6 +12,7 @@ use App\Models\Invoice;
 use App\Models\Leave;
 use App\Models\NotificationState;
 use App\Models\PayrollRun;
+use App\Models\Region;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Models\User;
@@ -273,6 +274,10 @@ class NotificationRecipientService
      */
     private function scopeFrom(?Model $subject): array
     {
+        if ($subject instanceof Region) {
+            return ['region_id' => $subject->id];
+        }
+
         if ($subject instanceof Site) {
             return [
                 'region_id' => $subject->region_id,

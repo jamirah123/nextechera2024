@@ -77,6 +77,17 @@ return [
     'compliance' => [
         'contract_renewal_reminder_days' => (int) env('PSG_CONTRACT_RENEWAL_REMINDER_DAYS', 30),
     ],
+    'manpower' => [
+        'monitor' => [
+            'period_days' => (int) env('PSG_MANPOWER_PERIOD_DAYS', 14),
+            'min_rest_hours' => (int) env('PSG_MANPOWER_MIN_REST_HOURS', 11),
+            'max_consecutive_shifts' => (int) env('PSG_MANPOWER_MAX_CONSECUTIVE_SHIFTS', 6),
+            'max_consecutive_ot' => (int) env('PSG_MANPOWER_MAX_CONSECUTIVE_OT', 3),
+            'max_ot_shifts' => (int) env('PSG_MANPOWER_MAX_OT_SHIFTS', 6),
+            'max_hours' => (int) env('PSG_MANPOWER_MAX_HOURS', 84),
+            'site_ot_shift_alert' => (int) env('PSG_MANPOWER_SITE_OT_ALERT', 14),
+        ],
+    ],
     'work_orders' => [
         'auto_create_from_alerts' => filter_var(env('PSG_WORK_ORDERS_AUTO_CREATE', true), FILTER_VALIDATE_BOOL),
         'default_due_days' => (int) env('PSG_WORK_ORDERS_DEFAULT_DUE_DAYS', 3),

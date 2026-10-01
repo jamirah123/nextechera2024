@@ -508,13 +508,14 @@ class ManpowerService
         $required = (int) ($snapshot['required'] ?? ($day['required'] + $night['required']));
         $deployed = (int) ($snapshot['deployed'] ?? ($day['permanent'] + $night['permanent']));
         $remaining = (int) ($day['remaining'] + $night['remaining']);
-        $deficit = (int) ($day['overtime'] + $night['overtime']);
+        $deficit = (int) ($day['deficit'] + $night['deficit']);
 
         return [
             'required' => $required,
             'deployed' => $deployed,
             'remaining' => $remaining,
             'deficit' => $deficit,
+            'overtime' => (int) ($day['overtime'] + $night['overtime']),
             'day' => $day,
             'night' => $night,
         ];
@@ -539,29 +540,37 @@ class ManpowerService
     {
         $overtime = max(0, (int) ($ot['overtime_covered'] ?? 0));
         $originalShortage = max($permanentShortage, (int) ($ot['original_shortage'] ?? $permanentShortage));
-        $covered = min($required, $permanent + $overtime);
-        // Always derive remaining from live permanent + OT coverage (gap history must not inflate shortage).
-        $remaining = max(0, $required - $covered);
+        $deployed = $permanent + $overtime;
+        $covered = $required > 0 ? min($required, $deployed) : $deployed;
+        $remaining = max(0, $required - $deployed);
+        $deficit = max(0, $required - $permanent);
+        $excess = max(0, $deployed - $required);
 
         if ($required <= 0) {
             $status = 'unconfigured';
             $headline = "{$label}: not configured";
             $short = '—';
             $detail = null;
-        } elseif ($remaining <= 0) {
+        } elseif ($excess > 0) {
+            $status = 'overstaffed';
+            $headline = "{$label}: Overstaffed — {$deployed} deployed against {$required}, excess {$excess}.";
+            $short = "+ {$deployed}/{$required}";
+            $detail = "{$permanent} normal + {$overtime} overtime";
+        } elseif ($remaining > 0) {
+            $status = 'understaffed';
+            $headline = "{$label}: Shortage — covered {$covered}/{$required}, remaining {$remaining}, deficit {$deficit}.";
+            $short = "! {$covered}/{$required}";
+            $detail = "{$permanent} normal + {$overtime} overtime";
+        } elseif ($deficit > 0) {
+            $status = 'ot_supported';
+            $headline = "{$label}: Fully covered operationally — {$deficit} normal manpower deficit supported by overtime.";
+            $short = "OT {$covered}/{$required}";
+            $detail = "{$permanent} normal + {$overtime} temporary cover";
+        } else {
             $status = 'covered';
             $headline = "{$label}: Fully covered ({$covered}/{$required})";
             $short = "✓ {$covered}/{$required}";
-            $detail = $overtime > 0
-                ? "{$permanent} normal + {$overtime} temporary cover"
-                : ($originalShortage > 0 && $overtime > 0 ? "original short {$originalShortage}" : null);
-        } else {
-            $status = 'understaffed';
-            $headline = "{$label}: Understaffed by {$remaining} ({$covered}/{$required})";
-            $short = "! {$covered}/{$required}";
-            $detail = $overtime > 0
-                ? "{$permanent} normal + {$overtime} temporary cover · original short {$originalShortage}"
-                : null;
+            $detail = null;
         }
 
         return [
@@ -571,12 +580,54 @@ class ManpowerService
             'overtime' => $overtime,
             'covered' => $covered,
             'remaining' => $remaining,
+            'deficit' => $deficit,
+            'excess' => $excess,
             'original_shortage' => $originalShortage,
             'status' => $status,
             'headline' => $headline,
             'short' => $short,
             'detail' => $detail,
         ];
+    }
+
+    /**
+     * Site-level posture. Operational cover filled by overtime stays a normal-manpower deficit.
+     *
+     * @param  array<string, mixed>  $shifts
+     * @return array{key: string, label: string, tone: string}
+     */
+    public function sitePosture(array $shifts): array
+    {
+        $required = 0;
+        $deployed = 0;
+        $remaining = 0;
+        $deficit = 0;
+
+        foreach (['day', 'night'] as $period) {
+            $row = is_array($shifts[$period] ?? null) ? $shifts[$period] : [];
+            $required += (int) ($row['required'] ?? 0);
+            $deployed += (int) ($row['permanent'] ?? 0) + (int) ($row['overtime'] ?? 0);
+            $remaining += (int) ($row['remaining'] ?? 0);
+            $deficit += (int) ($row['deficit'] ?? 0);
+        }
+
+        if ($required <= 0) {
+            return ['key' => 'unconfigured', 'label' => 'Unconfigured', 'tone' => 'slate'];
+        }
+
+        if ($remaining > 0) {
+            return ['key' => 'shortage', 'label' => 'Shortage', 'tone' => 'rose'];
+        }
+
+        if ($deployed > $required) {
+            return ['key' => 'overstaffed', 'label' => 'Overstaffed', 'tone' => 'sky'];
+        }
+
+        if ($deficit > 0) {
+            return ['key' => 'ot_supported', 'label' => 'OT Supported', 'tone' => 'amber'];
+        }
+
+        return ['key' => 'covered', 'label' => 'Fully Covered', 'tone' => 'emerald'];
     }
 
     /**
@@ -705,6 +756,10 @@ class ManpowerService
      * When no revision covers that date, the site's configured day and night
      * requirements are used. Counts are never hard-coded.
      *
+     * A past duty date counts every posting whose dates cover that day.
+     * Today and later count only postings that are still open, so a posting
+     * closed this morning is not treated as deployed.
+     *
      * @param  Collection<int, Site>  $sites
      * @return array<string, array{
      *     name: string,
@@ -743,6 +798,9 @@ class ManpowerService
             ->whereDate('start_date', '<=', $date)
             ->where(function ($query) use ($date): void {
                 $query->whereNull('end_date')->orWhereDate('end_date', '>=', $date);
+            })
+            ->when($date >= now()->toDateString(), function ($query): void {
+                $query->where('is_current', true);
             })
             ->get(['site_id', 'shift_type', 'is_temporary', 'duty_type']);
 
@@ -789,6 +847,76 @@ class ManpowerService
         }
 
         return $payload;
+    }
+
+    /**
+     * Projected headcount if the selected guards are posted on top of the
+     * deployments already covering the duty date.
+     *
+     * Projected total = existing deployed + selected guards.
+     * Excess = max(0, projected total − required manpower).
+     *
+     * @param  array<string, array{name?: string, day?: array<string, int>, night?: array<string, int>}>  $coverage
+     * @param  list<array{site_id?: int, shift_type?: string}>  $selections
+     * @return list<array{site: string, period: string, required: int, deployed: int, selected: int, projected: int, excess: int}>
+     */
+    public function overstaffingWarnings(array $coverage, array $selections): array
+    {
+        $selected = [];
+
+        foreach ($selections as $selection) {
+            $siteId = (string) ($selection['site_id'] ?? '');
+            if ($siteId === '') {
+                continue;
+            }
+
+            $shift = (string) ($selection['shift_type'] ?? 'day');
+            $periods = match ($shift) {
+                'rotating' => ['day', 'night'],
+                'night' => ['night'],
+                default => ['day'],
+            };
+
+            foreach ($periods as $period) {
+                $selected[$siteId][$period] = ($selected[$siteId][$period] ?? 0) + 1;
+            }
+        }
+
+        $warnings = [];
+
+        foreach ($selected as $siteId => $periods) {
+            $record = $coverage[$siteId] ?? null;
+            if (! is_array($record)) {
+                continue;
+            }
+
+            foreach ($periods as $period => $count) {
+                $row = is_array($record[$period] ?? null) ? $record[$period] : [];
+                $required = (int) ($row['required'] ?? 0);
+                if ($required <= 0 || $count <= 0) {
+                    continue;
+                }
+
+                $deployed = (int) ($row['normal'] ?? 0) + (int) ($row['ot'] ?? 0) + (int) ($row['cover'] ?? 0);
+                $projected = $deployed + $count;
+                $excess = max(0, $projected - $required);
+                if ($excess <= 0) {
+                    continue;
+                }
+
+                $warnings[] = [
+                    'site' => (string) ($record['name'] ?? 'Site'),
+                    'period' => $period === 'night' ? 'Night' : 'Day',
+                    'required' => $required,
+                    'deployed' => $deployed,
+                    'selected' => $count,
+                    'projected' => $projected,
+                    'excess' => $excess,
+                ];
+            }
+        }
+
+        return $warnings;
     }
 
     /**

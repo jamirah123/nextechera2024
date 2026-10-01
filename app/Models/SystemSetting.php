@@ -56,6 +56,7 @@ class SystemSetting extends Model
         'default_night_shift_end',
         'supervisor_normal_start',
         'supervisor_normal_end',
+        'manpower_monitor_rules',
         'backup_keep_days',
         'backup_keep_daily',
         'backup_keep_weekly',
@@ -100,6 +101,7 @@ class SystemSetting extends Model
             'payroll_nssf_employee_rate' => 'decimal:2',
             'payroll_send_payslip_email_on_approve' => 'boolean',
             'payroll_uniform_charge' => 'decimal:2',
+            'manpower_monitor_rules' => 'array',
         ];
     }
 

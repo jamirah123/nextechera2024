@@ -16,6 +16,7 @@ use App\Models\Deployment;
 use App\Models\DeploymentTransfer;
 use App\Models\Guard;
 use App\Models\Region;
+use App\Models\Shift;
 use App\Models\Site;
 use App\Models\User;
 use App\Services\AbsenceService;
@@ -28,6 +29,7 @@ use App\Services\Shifts\ShiftLifecycleService;
 use App\Support\Deployments\DeploymentShiftSchedule;
 use App\Support\Historical\HistoricalDates;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -187,6 +189,7 @@ class DeploymentController extends Controller
 
         return view('deployments.board', [
             'guards' => $guards,
+            'boardAvailability' => $this->boardShiftAvailability($guards->getCollection(), $dutyDate, $isHistorical),
             'sites' => $sites,
             'sitesByRegion' => $sitesByRegion,
             'regions' => $regions,
@@ -286,6 +289,24 @@ class DeploymentController extends Controller
             return back()->withErrors(['selected' => 'Select at least one guard with a valid site.']);
         }
 
+        $sites = Site::query()->whereIn('id', collect($rows)->pluck('site_id')->unique())->get();
+        $warnings = app(ManpowerService::class)->overstaffingWarnings(
+            app(ManpowerService::class)->postingBoardCoverage($sites, $data['start_date']),
+            $rows,
+        );
+
+        if ($warnings !== [] && ! $request->boolean('acknowledge_overstaffing')) {
+            return back()
+                ->withInput()
+                ->with('overstaffing_warnings', $warnings);
+        }
+
+        if ($request->boolean('acknowledge_overstaffing')) {
+            foreach ($rows as $index => $row) {
+                $rows[$index]['allow_overstaffing'] = true;
+            }
+        }
+
         $result = $this->bulkDeployments->deployMany($rows);
 
         $this->deployments->syncDeployedGuardStatuses(
@@ -300,7 +321,7 @@ class DeploymentController extends Controller
         }
 
         return redirect()
-            ->route('deployments.board', $request->only(['q', 'region_id']))
+            ->route('deployments.board', $request->only(['q', 'region_id', 'start_date']))
             ->with('status', $message)
             ->with('deployment_errors', $errors !== [] ? array_slice($errors, 0, 12) : null);
     }
@@ -455,7 +476,6 @@ class DeploymentController extends Controller
         $dutyDate ??= HistoricalDates::parseDate(
             $request->filled('start_date') ? $request->string('start_date')->toString() : now()->toDateString()
         )->toDateString();
-        $isHistorical = HistoricalDates::isPastCalendarDay($dutyDate);
 
         return Guard::query()
             ->activeEmployment()
@@ -472,11 +492,7 @@ class DeploymentController extends Controller
                         ->orWhere('employment_id', 'like', $like);
                 });
             })
-            ->when(
-                $isHistorical,
-                fn ($q) => $q->availableForDeploymentOnDate($dutyDate),
-                fn ($q) => $q->availableForDeployment(),
-            )
+            ->selectableOnPostingBoard($dutyDate)
             ->when(
                 $applyRegionFilter && $request->filled('region_id'),
                 fn ($q) => $q->orderBy('full_name'),
@@ -491,6 +507,81 @@ class DeploymentController extends Controller
         $this->deployments->releaseGuardsAfterShiftWindow(
             $user->mustStayInOwnRegion() ? $user->regionId() : null,
         );
+    }
+
+    /**
+     * Day and night state for the guards on this page.
+     *
+     * A past date uses recorded shifts only, so a closed standing post does not
+     * mark a missed duty as already deployed. Today also treats an open posting
+     * as occupying its shift window.
+     *
+     * @param  Collection<int, Guard>  $guards
+     * @return array<int, array{day: array{deployed: bool, site: ?string}, night: array{deployed: bool, site: ?string}}>
+     */
+    private function boardShiftAvailability(Collection $guards, string $dutyDate, bool $historical): array
+    {
+        $ids = $guards->pluck('id');
+        $state = [];
+
+        foreach ($ids as $id) {
+            $state[(int) $id] = [
+                'day' => ['deployed' => false, 'site' => null],
+                'night' => ['deployed' => false, 'site' => null],
+            ];
+        }
+
+        if ($ids->isEmpty()) {
+            return $state;
+        }
+
+        $shifts = Shift::query()
+            ->with('site:id,name')
+            ->blocking()
+            ->whereIn('guard_id', $ids)
+            ->whereDate('shift_date', $dutyDate)
+            ->get(['id', 'guard_id', 'site_id', 'period']);
+
+        foreach ($shifts as $shift) {
+            $period = $shift->period instanceof ShiftPeriod ? $shift->period->value : (string) $shift->period;
+            if (! isset($state[$shift->guard_id][$period])) {
+                continue;
+            }
+
+            $state[$shift->guard_id][$period] = [
+                'deployed' => true,
+                'site' => $shift->site?->name,
+            ];
+        }
+
+        if ($historical) {
+            return $state;
+        }
+
+        $deployments = Deployment::query()
+            ->with('site:id,name')
+            ->current()
+            ->whereIn('guard_id', $ids)
+            ->get(['id', 'guard_id', 'site_id', 'shift_type']);
+
+        foreach ($deployments as $deployment) {
+            $periods = $deployment->shift_type === DeploymentShiftType::Rotating
+                ? ['day', 'night']
+                : [$deployment->shift_type === DeploymentShiftType::Night ? 'night' : 'day'];
+
+            foreach ($periods as $period) {
+                if ($state[$deployment->guard_id][$period]['deployed']) {
+                    continue;
+                }
+
+                $state[$deployment->guard_id][$period] = [
+                    'deployed' => true,
+                    'site' => $deployment->site?->name,
+                ];
+            }
+        }
+
+        return $state;
     }
 
     private function periodForDeployment(Deployment $deployment): ShiftPeriod

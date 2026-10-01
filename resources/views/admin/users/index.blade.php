@@ -89,7 +89,7 @@
                 </tbody>
             </table>
         </div>
-        <div>{{ $users->links() }}</div>
+        <x-table-pagination :paginator="$users" />
     @endif
 </div>
 @endsection

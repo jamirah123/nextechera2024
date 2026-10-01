@@ -34,6 +34,7 @@ use App\Http\Controllers\Finance\StaffAdvanceController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\Guards\GuardController;
 use App\Http\Controllers\Guards\GuardSalaryRevisionController;
+use App\Http\Controllers\Guards\GuardUniformChargeRevisionController;
 use App\Http\Controllers\Hr\AbsenceController;
 use App\Http\Controllers\Hr\AttendanceController;
 use App\Http\Controllers\Hr\DesertionController;
@@ -57,6 +58,7 @@ use App\Http\Controllers\Organization\SiteController;
 use App\Http\Controllers\Organization\SupervisorController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Reports\ReportController;
+use App\Http\Controllers\Reports\UniformChargeReportController;
 use App\Http\Controllers\Shifts\ReplacementController;
 use App\Http\Controllers\Shifts\ShiftController;
 use Illuminate\Support\Facades\Route;
@@ -94,6 +96,13 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/organization', OrganizationDashboardController::class)->name('organization.index');
     Route::get('/manpower-coverage', [ManpowerCoverageController::class, 'index'])->name('manpower.coverage');
+    Route::get('/manpower-coverage/report', [ManpowerCoverageController::class, 'report'])->name('manpower.deficit-report');
+    Route::get('/manpower-coverage/report/export', [ManpowerCoverageController::class, 'exportReport'])
+        ->middleware('throttle:exports')
+        ->name('manpower.deficit-report.export');
+    Route::post('/manpower-coverage/monitor', [ManpowerCoverageController::class, 'updateMonitor'])
+        ->middleware('throttle:mutations')
+        ->name('manpower.monitor.update');
     Route::get('/manpower-coverage/export', [ManpowerCoverageController::class, 'export'])
         ->middleware('throttle:exports')
         ->name('manpower.coverage.export');
@@ -122,6 +131,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/guards/{guard}/salary-revisions', [GuardSalaryRevisionController::class, 'store'])
         ->middleware('throttle:mutations')
         ->name('guards.salary-revisions.store');
+    Route::post('/guards/{guard}/uniform-charge-revisions', [GuardUniformChargeRevisionController::class, 'store'])
+        ->middleware('throttle:mutations')
+        ->name('guards.uniform-charge-revisions.store');
     Route::get('/guards/{guard}/attachments/{attachment}', [GuardController::class, 'showAttachment'])->name('guards.attachments.show');
     Route::get('/guards/{guard}/attachments/{attachment}/stream', [GuardController::class, 'streamAttachment'])->name('guards.attachments.stream');
     Route::get('/guards/{guard}/attachments/{attachment}/download', [GuardController::class, 'downloadAttachment'])->name('guards.attachments.download');
@@ -268,6 +280,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports/deployments/export', [ReportController::class, 'exportDeployments'])
         ->middleware('throttle:exports')
         ->name('reports.deployments.export');
+    Route::get('/reports/uniform-charge-exemptions', [UniformChargeReportController::class, 'index'])->name('reports.uniform-exemptions');
     Route::get('/reports/hr', [ReportController::class, 'hr'])->name('reports.hr');
     Route::get('/reports/hr/export', [ReportController::class, 'exportHr'])
         ->middleware('throttle:exports')
@@ -278,6 +291,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/billing/create', [BillingController::class, 'create'])->name('billing.create');
     Route::post('/billing', [BillingController::class, 'store'])->name('billing.store');
     Route::get('/billing/{billing}', [BillingController::class, 'show'])->name('billing.show');
+    Route::get('/billing/{billing}/pdf', [BillingController::class, 'downloadPdf'])->name('billing.pdf');
     Route::get('/billing/{billing}/edit', [BillingController::class, 'edit'])->name('billing.edit');
     Route::put('/billing/{billing}', [BillingController::class, 'update'])->name('billing.update');
 

@@ -58,7 +58,7 @@ class GuardAsOfService
 
         $shifts = Shift::query()
             ->where('guard_id', $guard->id)
-            ->whereDate('shift_date', $day)
+            ->where('shift_date', $day)
             ->orderBy('starts_at')
             ->get();
 

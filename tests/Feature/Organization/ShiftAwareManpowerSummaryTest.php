@@ -60,7 +60,7 @@ class ShiftAwareManpowerSummaryTest extends TestCase
         $this->assertSame('understaffed', $mp['shifts']['night']['status']);
         $this->assertSame(2, $mp['shifts']['remaining']);
         $this->assertStringContainsString('Fully covered (2/2)', $mp['shifts']['day']['headline']);
-        $this->assertStringContainsString('Understaffed by 2 (0/2)', $mp['shifts']['night']['headline']);
+        $this->assertStringContainsString('Shortage — covered 0/2, remaining 2, deficit 2', $mp['shifts']['night']['headline']);
     }
 
     public function test_overtime_marks_night_covered_while_preserving_original_shortage(): void
@@ -136,7 +136,7 @@ class ShiftAwareManpowerSummaryTest extends TestCase
 
         $this->assertSame(1, $mp['shortage_night']);
         $this->assertSame(0, $summary['night']['remaining']);
-        $this->assertSame('covered', $summary['night']['status']);
+        $this->assertSame('ot_supported', $summary['night']['status']);
         $this->assertSame(1, $summary['night']['original_shortage']);
         $this->assertSame(1, $summary['night']['overtime']);
         $this->assertSame(1, $summary['deficit']);

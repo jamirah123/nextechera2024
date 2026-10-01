@@ -14,6 +14,8 @@ use App\Models\Supervisor;
 use App\Models\User;
 use App\Services\Finance\ProfitabilityService;
 use App\Support\Money;
+use App\Support\Performance\DashboardCache;
+use Illuminate\Support\Facades\Cache;
 
 class RoleNavigation
 {
@@ -239,8 +241,7 @@ class RoleNavigation
                 self::module('Guards', 'Review employment and operational guard status.', 'shield', 'sky', route('guards.index')),
                 self::module('Sites', 'Security sites and manpower requirements.', 'map', 'brand', route('sites.index')),
                 self::module('Site Posting Board', 'Post guards to client sites (day / night / rotating cover).', 'map', 'emerald', route('deployments.board')),
-                self::module('Duty Roster', 'Confirm daily Day/Night duties from posted guards.', 'calendar', 'amber', route('shifts.allocate')),
-                self::module('Duty Register', 'Live duties — in progress, completed, missed (payroll source).', 'calendar', 'brand', route('shifts.index')),
+                self::module('Duty Register', 'Live duties — shifts recorded, completed, missed (payroll source).', 'calendar', 'brand', route('shifts.index')),
                 self::module('Site Postings', 'Active postings, transfers, letters and corrections.', 'map', 'emerald', route('deployments.index')),
                 self::module('Replacements', 'Track original vs covering guards on duty.', 'swap', 'indigo', route('replacements.index')),
                 self::module('Operational Reports', 'Shift, overtime and coverage reports.', 'report', 'violet', route('reports.index')),
@@ -263,8 +264,7 @@ class RoleNavigation
                 self::module('HR Reports', 'Employment, leave, absence and work summaries.', 'report', 'violet', route('reports.hr')),
             ],
             UserRole::ShiftManager => [
-                self::module('Site Posting Board', 'Post undeployed guards to client sites.', 'map', 'emerald', route('deployments.board')),
-                self::module('Duty Roster', 'Daily parade roster — who works Day or Night.', 'plus', 'brand', route('shifts.allocate')),
+                self::module('Site Posting Board', 'Post guards who are not on shift, absent, or deserted.', 'map', 'emerald', route('deployments.board')),
                 self::module('Guards', 'Check availability and operational status.', 'shield', 'sky', route('guards.index')),
                 self::module('Sites & Manpower', 'Review site posts before rostering.', 'chart', 'amber', route('manpower.coverage')),
                 self::module('Organization', 'Regions, supervisors and site structure.', 'building', 'indigo', route('organization.index')),
@@ -316,33 +316,44 @@ class RoleNavigation
      */
     public static function kpis(User $user): array
     {
+        $region = $user->mustStayInOwnRegion() ? (string) ($user->regionId() ?? 'none') : 'all';
+        $key = 'psg.dashboard.kpis.'.DashboardCache::version().'.'.$user->role->value.'.'.$region;
+        $ttl = max(15, (int) config('psg.performance.dashboard_cache_seconds', 45));
+
+        return Cache::remember($key, $ttl, fn () => self::buildKpis($user));
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function buildKpis(User $user): array
+    {
         $regionId = $user->regionId();
         $regionScoped = $user->mustStayInOwnRegion();
 
         $regionCount = Region::query()->count();
         $siteQuery = Site::query()->active();
-        $guardQuery = Guard::query()->activeEmployment();
         $deploymentQuery = Deployment::query()->where('status', DeploymentStatus::Active);
 
         if ($regionScoped) {
             $siteQuery->where('region_id', $regionId);
-            $guardQuery->where('region_id', $regionId);
             $deploymentQuery->where('region_id', $regionId);
         }
 
         $siteCount = $siteQuery->count();
         $clientCount = Client::query()->count();
         $supervisorCount = Supervisor::query()->active()->count();
-        $activeGuards = $guardQuery->count();
         $activeDeployments = $deploymentQuery->count();
-        $onLeave = Guard::query()
+
+        $guardCounts = Guard::query()
             ->when($regionScoped, fn ($q) => $q->where('region_id', $regionId))
-            ->where('operational_status', OperationalStatus::OnLeave)
-            ->count();
-        $absent = Guard::query()
-            ->when($regionScoped, fn ($q) => $q->where('region_id', $regionId))
-            ->where('operational_status', OperationalStatus::Absent)
-            ->count();
+            ->selectRaw(
+                'SUM(CASE WHEN employment_status = ? THEN 1 ELSE 0 END) as active_employment, SUM(CASE WHEN operational_status = ? THEN 1 ELSE 0 END) as on_leave, SUM(CASE WHEN operational_status = ? THEN 1 ELSE 0 END) as absent',
+                ['active', OperationalStatus::OnLeave->value, OperationalStatus::Absent->value],
+            )
+            ->first();
+
+        $activeGuards = (int) ($guardCounts->active_employment ?? 0);
+        $onLeave = (int) ($guardCounts->on_leave ?? 0);
+        $absent = (int) ($guardCounts->absent ?? 0);
 
         return match ($user->role) {
             UserRole::SuperAdmin => [
@@ -426,9 +437,7 @@ class RoleNavigation
             self::nav('Operations', 'ops', route('deployments.index'), 'deployments.*|shifts.*|replacements.*', [
                 ['label' => 'Site posting board', 'href' => route('deployments.board')],
                 ['label' => 'Site postings', 'href' => route('deployments.index')],
-                ['label' => 'Duty roster', 'href' => route('shifts.allocate')],
                 ['label' => 'Duty register', 'href' => route('shifts.index')],
-                ['label' => 'Calendar', 'href' => route('shifts.calendar')],
                 ['label' => 'Leave', 'href' => route('leaves.index')],
                 ['label' => 'Absences', 'href' => route('absences.index')],
                 ['label' => 'Occurrence book', 'href' => route('incidents.index')],
@@ -472,9 +481,7 @@ class RoleNavigation
             self::nav('Operations', 'ops', route('deployments.index'), 'deployments.*|shifts.*|replacements.*', [
                 ['label' => 'Site posting board', 'href' => route('deployments.board')],
                 ['label' => 'Site postings', 'href' => route('deployments.index')],
-                ['label' => 'Duty roster', 'href' => route('shifts.allocate')],
                 ['label' => 'Duty register', 'href' => route('shifts.index')],
-                ['label' => 'Calendar', 'href' => route('shifts.calendar')],
                 ['label' => 'Leave', 'href' => route('leaves.index')],
                 ['label' => 'Absences', 'href' => route('absences.index')],
                 ['label' => 'Desertions', 'href' => route('desertions.index')],
@@ -512,8 +519,7 @@ class RoleNavigation
                 ['label' => 'Manpower Coverage', 'href' => route('manpower.coverage')],
                 ['label' => 'Operational periods', 'href' => route('operations.periods.index')],
             ]),
-            self::nav('Duty Register', 'calendar', route('shifts.index'), 'shifts.*'),
-            self::nav('Duty Roster', 'plus', route('shifts.allocate'), 'shifts.allocate*'),
+            self::nav('Duty Register', 'calendar', route('shifts.index'), 'shifts.index|shifts.show|shifts.edit|shifts.update|shifts.status|shifts.calendar'),
             self::nav('Site Postings', 'map', route('deployments.index'), 'deployments.index|deployments.show|deployments.transfer*|deployments.end|deployments.edit|deployments.update'),
             self::nav('Posting Board', 'ops', route('deployments.board'), 'deployments.board*|deployments.create|deployments.store'),
             self::nav('Leave', 'leave', route('leaves.index'), 'leaves.*'),
@@ -559,8 +565,7 @@ class RoleNavigation
         return [
             self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
             self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
-            self::nav('Duty Register', 'calendar', route('shifts.index'), 'shifts.index|shifts.show|shifts.calendar|shifts.status'),
-            self::nav('Duty Roster', 'plus', route('shifts.allocate'), 'shifts.allocate|shifts.allocate.store|shifts.create|shifts.store|shifts.recurring.*|shifts.edit|shifts.update'),
+            self::nav('Duty Register', 'calendar', route('shifts.index'), 'shifts.index|shifts.show|shifts.calendar|shifts.status|shifts.edit|shifts.update|shifts.create|shifts.store|shifts.recurring.*'),
             self::nav('Site Postings', 'map', route('deployments.index'), 'deployments.index|deployments.show|deployments.transfer*|deployments.end|deployments.edit|deployments.update'),
             self::nav('Posting Board', 'ops', route('deployments.board'), 'deployments.board|deployments.board.store|deployments.create|deployments.store'),
             self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),

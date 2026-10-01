@@ -149,6 +149,27 @@ class WorkflowActionCatalog
                 'headline' => 'Site is understaffed',
                 'action_label' => 'View site coverage',
             ],
+            'manpower.deficit' => [
+                'roles' => $opsRoles,
+                'subject' => 'Manpower deficit alert',
+                'headline' => 'A site is covered through overtime and still has a normal manpower deficit',
+                'action_label' => 'View manpower coverage',
+                'priority' => 'important',
+            ],
+            'manpower.ot_dependency' => [
+                'roles' => $opsRoles,
+                'subject' => 'Staffing risk alert',
+                'headline' => 'A site has required repeated overtime coverage',
+                'action_label' => 'View manpower coverage',
+                'priority' => 'important',
+            ],
+            'manpower.repeated_ot' => [
+                'roles' => $opsRoles,
+                'subject' => 'Repeated overtime alert',
+                'headline' => 'Guards have exceeded the overtime monitoring threshold',
+                'action_label' => 'View manpower coverage',
+                'priority' => 'important',
+            ],
             'guard.document_expiring' => [
                 'permissions' => ['guards.manage', 'hr.leaves_manage'],
                 'subject' => 'Guard document expiring soon',

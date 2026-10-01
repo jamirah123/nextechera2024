@@ -139,7 +139,7 @@ class ManpowerGapService
 
             $shift = Shift::query()
                 ->where('deployment_id', $deployment->id)
-                ->whereDate('shift_date', $date)
+                ->where('shift_date', $date)
                 ->where('period', $period->value)
                 ->latest('id')
                 ->first();
@@ -350,7 +350,7 @@ class ManpowerGapService
                 OperationalStatus::SickUnavailable,
             ])
             ->whereDoesntHave('shifts', function ($q) use ($date, $period): void {
-                $q->whereDate('shift_date', $date)
+                $q->where('shift_date', $date)
                     ->where('period', $period->value)
                     ->whereIn('status', ShiftStatus::blockingAllocationValues());
             })

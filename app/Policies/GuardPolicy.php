@@ -39,6 +39,11 @@ class GuardPolicy
         return Access::userCan($user, 'hr.salary_manage');
     }
 
+    public function manageUniformCharge(User $user, Guard $guard): bool
+    {
+        return Access::userCan($user, 'hr.uniform_exemptions_manage');
+    }
+
     public function promote(User $user, Guard $guard): bool
     {
         return Access::userCan($user, 'hr.promotions_manage');

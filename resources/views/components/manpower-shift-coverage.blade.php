@@ -7,16 +7,17 @@
     /** @var array{required: int, deployed: int, remaining: int, day: array<string, mixed>, night: array<string, mixed>} $coverage */
     $day = $coverage['day'] ?? [];
     $night = $coverage['night'] ?? [];
-    $dayTone = match ($day['status'] ?? '') {
-        'covered' => 'text-emerald-700',
-        'understaffed' => 'text-rose-700',
-        default => 'text-slate-500',
+    $periodTone = function (string $status): string {
+        return match ($status) {
+            'covered' => 'text-emerald-700',
+            'ot_supported' => 'text-amber-700',
+            'understaffed' => 'text-rose-700',
+            'overstaffed' => 'text-sky-700',
+            default => 'text-slate-500',
+        };
     };
-    $nightTone = match ($night['status'] ?? '') {
-        'covered' => 'text-emerald-700',
-        'understaffed' => 'text-rose-700',
-        default => 'text-slate-500',
-    };
+    $dayTone = $periodTone($day['status'] ?? '');
+    $nightTone = $periodTone($night['status'] ?? '');
 @endphp
 
 @if ($compact)
@@ -49,6 +50,7 @@
             Required {{ $coverage['required'] ?? 0 }}
             · Deployed {{ $coverage['deployed'] ?? 0 }}
             · Remaining <span class="font-semibold {{ ($coverage['remaining'] ?? 0) > 0 ? 'text-rose-700' : 'text-emerald-700' }}">{{ $coverage['remaining'] ?? 0 }}</span>
+            · Deficit <span class="font-semibold {{ ($coverage['deficit'] ?? 0) > 0 ? 'text-amber-700' : 'text-slate-500' }}">{{ $coverage['deficit'] ?? 0 }}</span>
         </p>
         <div class="grid grid-cols-2 gap-2">
             @foreach ([$day, $night] as $period)
@@ -56,7 +58,9 @@
                 @php
                     $tone = match ($period['status'] ?? '') {
                         'covered' => 'border-emerald-200 bg-emerald-50 text-emerald-800',
+                        'ot_supported' => 'border-amber-200 bg-amber-50 text-amber-900',
                         'understaffed' => 'border-rose-200 bg-rose-50 text-rose-800',
+                        'overstaffed' => 'border-sky-200 bg-sky-50 text-sky-900',
                         default => 'border-slate-200 bg-slate-50 text-slate-600',
                     };
                 @endphp

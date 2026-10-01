@@ -225,12 +225,7 @@
             </div>
         </div>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs text-slate-500">
-                Showing {{ $guards->firstItem() ?? 0 }}–{{ $guards->lastItem() ?? 0 }} of {{ $guards->total() }}
-            </p>
-            <div>{{ $guards->links() }}</div>
-        </div>
+        <x-table-pagination :paginator="$guards" />
     @endif
 </div>
 @endsection

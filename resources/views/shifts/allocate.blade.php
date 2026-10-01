@@ -242,7 +242,7 @@
                     </table>
                 </div>
                 <div class="border-t border-slate-100 px-3 py-2 dark:border-slate-800">
-                    {{ $deployments->links() }}
+                    <x-table-pagination :paginator="$deployments" />
                 </div>
             </div>
         </form>

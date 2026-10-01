@@ -141,23 +141,19 @@ class ShiftService
                 ]);
             } catch (UniqueConstraintViolationException $e) {
                 if (str_contains($e->getMessage(), 'same_shift_slot')) {
-                    $conflictSite = Shift::query()
+                    $conflictSiteId = Shift::query()
                         ->blocking()
-                        ->with('site:id,name')
                         ->where('guard_id', $data['guard_id'])
                         ->whereDate('shift_date', $data['shift_date'])
                         ->where('period', $period->value)
-                        ->where('site_id', '!=', $site->id)
-                        ->first()
-                        ?->site
-                        ?->name ?? 'another site';
+                        ->value('site_id');
+                    $conflictSite = Site::query()->whereKey($conflictSiteId)->value('name') ?: 'another site';
 
-                    $guard = Guard::query()->find($data['guard_id']);
+                    $periodLabel = $period === ShiftPeriod::Night ? 'Night' : 'Day';
+                    $dutyDate = \Illuminate\Support\Carbon::parse($data['shift_date'])->format('j F Y');
 
                     throw new InvalidArgumentException(
-                        'Deployment Conflict: Guard '.($guard?->employment_id ?? '#'.$data['guard_id'])
-                        .' is already deployed at '.$conflictSite
-                        .' for this shift. The guard cannot be deployed to another site during the same shift.'
+                        'Guard already deployed for the '.$periodLabel.' shift on '.$dutyDate.' at '.$conflictSite.'.'
                     );
                 }
 

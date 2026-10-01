@@ -105,12 +105,7 @@
             </div>
         </div>
 
-        <div class="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs text-slate-500">
-                Showing {{ $rows->firstItem() ?? 0 }}–{{ $rows->lastItem() ?? 0 }} of {{ $rows->total() }}
-            </p>
-            <div>{{ $rows->links() }}</div>
-        </div>
+        <x-table-pagination :paginator="$rows" />
     @endif
     </div>
 </div>

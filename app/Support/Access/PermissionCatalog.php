@@ -311,6 +311,17 @@ class PermissionCatalog
                 ],
             ],
             [
+                'key' => 'hr.uniform_exemptions_manage',
+                'group' => 'HR',
+                'label' => 'Manage uniform charge exemptions',
+                'description' => 'Record effective-dated uniform charge exemptions for individual guards. Does not change the company charge or finalized payroll.',
+                'roles' => [
+                    UserRole::SuperAdmin->value,
+                    UserRole::HrManager->value,
+                    UserRole::FinanceManager->value,
+                ],
+            ],
+            [
                 'key' => 'hr.assets_manage',
                 'group' => 'HR',
                 'label' => 'Issue & return assets / uniforms',

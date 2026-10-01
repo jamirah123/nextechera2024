@@ -364,8 +364,8 @@ class WorkflowOperationsSeeder extends Seeder
                     'client_id' => $client->id,
                     'site_id' => $site->id,
                     'billing_mode' => BillingMode::Monthly->value,
-                    'monthly_rate_per_unarmed_guard' => 180000 + ($i * 10000),
-                    'monthly_rate_per_armed_guard' => 220000,
+                    'monthly_rate_per_unarmed_guard' => 450000,
+                    'monthly_rate_per_armed_guard' => 650000,
                     'effective_from' => '2026-01-01',
                 ]);
                 $sites[] = $site;

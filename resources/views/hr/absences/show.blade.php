@@ -115,7 +115,7 @@
                 <div class="min-w-0">
                     <h2 class="text-sm font-semibold text-amber-950 dark:text-amber-100">Restore to deployment pool</h2>
                     <p class="mt-0.5 text-[11px] text-amber-900/80 dark:text-amber-200/80">
-                        Clears Absent status. Without a current site they return as Awaiting Deployment; otherwise Off Duty.
+                        Clears Absent status. Without a current site they return as Available; otherwise Off Duty.
                     </p>
                 </div>
                 <form method="POST" action="{{ route('absences.clear', $absence) }}" class="flex w-full flex-col gap-2 sm:max-w-sm sm:items-stretch">

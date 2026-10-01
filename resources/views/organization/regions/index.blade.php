@@ -163,12 +163,7 @@
             </div>
         </div>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs text-slate-500">
-                Showing {{ $regions->firstItem() ?? 0 }}–{{ $regions->lastItem() ?? 0 }} of {{ $regions->total() }}
-            </p>
-            <div>{{ $regions->links() }}</div>
-        </div>
+        <x-table-pagination :paginator="$regions" />
     @endif
 </div>
 @endsection

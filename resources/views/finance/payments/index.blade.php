@@ -124,7 +124,7 @@
                     </table>
                 </div>
             </div>
-            <div class="no-print">{{ $payments->links() }}</div>
+            <x-table-pagination :paginator="$payments" />
         @endif
     </div>
 </div>

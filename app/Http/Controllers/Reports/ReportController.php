@@ -382,9 +382,16 @@ class ReportController extends Controller
             [
                 'key' => 'manpower',
                 'title' => 'Manpower coverage',
-                'description' => 'Required vs deployed with shortage and surplus.',
+                'description' => 'Required, normal, overtime, remaining shortage, and the normal manpower deficit.',
                 'href' => route('manpower.coverage'),
                 'tone' => 'violet',
+            ],
+            [
+                'key' => 'manpower',
+                'title' => 'Manpower deficit',
+                'description' => 'Sites and guards where overtime is covering a normal manpower deficit.',
+                'href' => route('manpower.deficit-report'),
+                'tone' => 'amber',
             ],
             [
                 'key' => 'hr',
@@ -392,6 +399,13 @@ class ReportController extends Controller
                 'description' => 'Leave, absences and desertions for a selected period.',
                 'href' => route('reports.hr'),
                 'tone' => 'rose',
+            ],
+            [
+                'key' => 'uniform_exemptions',
+                'title' => 'Uniform Charge Exemptions',
+                'description' => 'Guards approved to pay no uniform charge, with effective dates and reasons.',
+                'href' => route('reports.uniform-exemptions'),
+                'tone' => 'amber',
             ],
         ];
 
@@ -424,11 +438,12 @@ class ReportController extends Controller
                 'assets',
                 'deployments',
                 'manpower',
+                'uniform_exemptions',
             ], true);
         }
 
         if ($user->role === UserRole::HrManager) {
-            return in_array($key, ['guards', 'hr', 'assets', 'deployments', 'manpower'], true);
+            return in_array($key, ['guards', 'hr', 'assets', 'deployments', 'manpower', 'uniform_exemptions'], true);
         }
 
         return in_array($key, [

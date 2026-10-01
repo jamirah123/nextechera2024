@@ -351,8 +351,7 @@ class LeaveService
         return Shift::query()
             ->blocking()
             ->where('guard_id', $guardId)
-            ->whereDate('shift_date', '>=', $start)
-            ->whereDate('shift_date', '<=', $end)
+            ->whereBetween('shift_date', [$start, $end])
             ->whereNotIn('status', [ShiftStatus::Cancelled->value, ShiftStatus::Completed->value])
             ->orderBy('shift_date')
             ->get(['id', 'reference', 'shift_date', 'status', 'starts_at', 'ends_at']);

@@ -150,6 +150,69 @@ class ManpowerSurplusEnforcementTest extends TestCase
         $this->assertSame(2, Deployment::query()->current()->where('site_id', $site->id)->count());
     }
 
+    public function test_permanent_posting_is_blocked_when_overtime_already_fills_the_requirement(): void
+    {
+        $ops = User::factory()->role(UserRole::OperationsManager)->create();
+        $site = Site::factory()->create([
+            'required_guards' => 4,
+            'required_day_guards' => 2,
+            'required_night_guards' => 2,
+        ]);
+
+        $standing = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OnDuty,
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+        ]);
+        Deployment::factory()->create([
+            'guard_id' => $standing->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'shift_type' => DeploymentShiftType::Day,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+            'is_temporary' => false,
+            'duty_type' => ShiftType::Normal,
+        ]);
+
+        $cover = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OnDuty,
+            'region_id' => $site->region_id,
+        ]);
+        Deployment::factory()->create([
+            'guard_id' => $cover->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'shift_type' => DeploymentShiftType::Day,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+            'is_temporary' => true,
+            'duty_type' => ShiftType::Overtime,
+        ]);
+
+        $extra = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $site->region_id,
+            'current_site_id' => null,
+        ]);
+
+        $this->actingAs($ops)
+            ->from(route('deployments.create'))
+            ->post(route('deployments.store'), [
+                'guard_id' => $extra->id,
+                'site_id' => $site->id,
+                'shift_type' => DeploymentShiftType::Day->value,
+                'start_date' => now()->toDateString(),
+            ])
+            ->assertRedirect()
+            ->assertSessionHasErrors('deployment');
+
+        $this->assertSame(2, Deployment::query()->current()->where('site_id', $site->id)->count());
+    }
+
     public function test_shifts_index_flags_overstaffed_site(): void
     {
         $manager = User::factory()->role(UserRole::ShiftManager)->create();

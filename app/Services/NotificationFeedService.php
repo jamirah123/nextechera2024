@@ -217,13 +217,15 @@ class NotificationFeedService
         $query = AuditLog::query()
             ->where('category', '!=', AuditCategory::Auth->value)
             ->where('created_at', '>=', $since)
-            ->whereHas('notificationStates', fn (Builder $state) => $state->where('user_id', $user->id));
+            ->whereIn('audit_logs.id', function ($sub) use ($user, $includeDismissed): void {
+                $sub->select('audit_log_id')
+                    ->from('notification_states')
+                    ->where('user_id', $user->id);
 
-        if (! $includeDismissed) {
-            $query->whereDoesntHave('notificationStates', fn (Builder $state) => $state
-                ->where('user_id', $user->id)
-                ->whereNotNull('dismissed_at'));
-        }
+                if (! $includeDismissed) {
+                    $sub->whereNull('dismissed_at');
+                }
+            });
 
         return $this->applyPreferences($query, $user);
     }
@@ -474,6 +476,9 @@ class NotificationFeedService
     {
         return [
             'site.understaffed',
+            'manpower.deficit',
+            'manpower.ot_dependency',
+            'manpower.repeated_ot',
             'site.sla_breach',
             'leave.shift_affected',
             'finance.invoice_overdue',
@@ -523,6 +528,10 @@ class NotificationFeedService
             if ($url !== null) {
                 return $url;
             }
+        }
+
+        if (str_starts_with($log->action, 'manpower.')) {
+            return $this->safeRoute('manpower.deficit-report', []);
         }
 
         if (str_starts_with($log->action, 'backup.')) {

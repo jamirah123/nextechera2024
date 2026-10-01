@@ -162,12 +162,7 @@
             </div>
         </div>
 
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs text-slate-500">
-                Showing {{ $clients->firstItem() ?? 0 }}–{{ $clients->lastItem() ?? 0 }} of {{ $clients->total() }}
-            </p>
-            <div>{{ $clients->links() }}</div>
-        </div>
+        <x-table-pagination :paginator="$clients" />
     @endif
 </div>
 @endsection

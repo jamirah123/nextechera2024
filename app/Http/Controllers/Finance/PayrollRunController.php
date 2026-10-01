@@ -52,13 +52,7 @@ class PayrollRunController extends Controller
             'scope' => $scope,
             'canSubmit' => PayrollAccess::canSubmit($request->user()),
             'canApprove' => PayrollAccess::canApprove($request->user()),
-            'stats' => [
-                'draft' => PayrollRun::query()->where('status', PayrollRunStatus::Draft)->count(),
-                'calculated' => PayrollRun::query()->where('status', PayrollRunStatus::Calculated)->count(),
-                'submitted' => PayrollRun::query()->where('status', PayrollRunStatus::Submitted)->count(),
-                'approved' => PayrollRun::query()->where('status', PayrollRunStatus::Approved)->count(),
-                'paid' => PayrollRun::query()->where('status', PayrollRunStatus::Paid)->count(),
-            ],
+            'stats' => $this->runStats(),
         ]);
     }
 
@@ -276,5 +270,24 @@ class PayrollRunController extends Controller
             $this->exports->payslipExportHeaders(),
             $this->exports->payslipExportRows($payroll),
         );
+    }
+
+    /** @return array{draft: int, calculated: int, submitted: int, approved: int, paid: int} */
+    private function runStats(): array
+    {
+        $counts = [];
+
+        foreach (PayrollRun::query()->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->get() as $row) {
+            $status = $row->status instanceof \BackedEnum ? $row->status->value : (string) $row->status;
+            $counts[$status] = (int) $row->aggregate;
+        }
+
+        return [
+            'draft' => $counts[PayrollRunStatus::Draft->value] ?? 0,
+            'calculated' => $counts[PayrollRunStatus::Calculated->value] ?? 0,
+            'submitted' => $counts[PayrollRunStatus::Submitted->value] ?? 0,
+            'approved' => $counts[PayrollRunStatus::Approved->value] ?? 0,
+            'paid' => $counts[PayrollRunStatus::Paid->value] ?? 0,
+        ];
     }
 }

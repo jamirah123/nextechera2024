@@ -4,7 +4,7 @@
      *     awaiting_deployment: int,
      *     needs_allocation: int,
      *     missed_today: int,
-     *     in_progress_today: int,
+     *     recorded_today: int,
      *     deployed: int,
      *     links: array<string, string>
      * } $shiftDesk
@@ -31,8 +31,8 @@
             <p class="text-lg font-semibold text-rose-950">{{ number_format($shiftDesk['missed_today']) }}</p>
         </a>
         <a href="{{ $shiftDesk['links']['shifts_today'] }}" class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 transition hover:bg-emerald-100/70">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-800">In progress</p>
-            <p class="text-lg font-semibold text-emerald-950">{{ number_format($shiftDesk['in_progress_today']) }}</p>
+            <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-800">Shifts recorded</p>
+            <p class="text-lg font-semibold text-emerald-950">{{ number_format($shiftDesk['recorded_today']) }}</p>
         </a>
     </div>
 </section>

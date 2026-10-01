@@ -120,7 +120,7 @@
                 </tbody>
             </table>
             <div class="border-t border-slate-100 px-3 py-2 dark:border-slate-700">
-                {{ $backups->links() }}
+                <x-table-pagination :paginator="$backups" />
             </div>
         </div>
     @endif

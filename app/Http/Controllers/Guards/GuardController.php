@@ -20,6 +20,7 @@ use App\Services\EntityRelatedRecordsService;
 use App\Services\EntityTimelineService;
 use App\Services\GuardAttachmentService;
 use App\Services\GuardService;
+use App\Services\UniformChargeExemptionService;
 use App\Support\Attachments\InlineAttachmentResponse;
 use App\Support\Finance\PayrollRates;
 use Illuminate\Http\RedirectResponse;
@@ -137,6 +138,8 @@ class GuardController extends Controller
             'salaryAdvances',
             'salaryRevisions.approver',
             'salaryRevisions.creator',
+            'uniformChargeRevisions.approver',
+            'uniformChargeRevisions.creator',
             'position',
             'linkedStaff',
             'promotions.position',
@@ -162,6 +165,9 @@ class GuardController extends Controller
             'canManage' => request()->user()->can('update', $guard),
             'canViewSalary' => request()->user()->can('viewSalary', $guard),
             'canManageSalary' => request()->user()->can('manageSalary', $guard),
+            'canManageUniformCharge' => request()->user()->can('manageUniformCharge', $guard),
+            'uniformStatus' => app(UniformChargeExemptionService::class)->statusOn($guard, $today),
+            'companyUniformCharge' => (float) config('psg.payroll.uniform_charge', 0),
             'canPromote' => request()->user()->can('promote', $guard),
             'positions' => \App\Models\Position::query()->where('is_active', true)->orderBy('name')->get(),
             'promotionRegions' => Region::query()->orderBy('name')->get(['id', 'name', 'code']),
@@ -179,7 +185,7 @@ class GuardController extends Controller
             'lifecycle' => [
                 'steps' => [
                     ['label' => 'Training'],
-                    ['label' => 'Awaiting deployment'],
+                    ['label' => 'Available'],
                     ['label' => 'On duty'],
                 ],
                 'current' => match ($guard->operational_status) {

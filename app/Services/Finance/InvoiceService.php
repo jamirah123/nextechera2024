@@ -500,8 +500,7 @@ class InvoiceService
         $query = Shift::query()
             ->whereIn('site_id', $siteIds)
             ->where('status', ShiftStatus::Completed)
-            ->whereDate('shift_date', '>=', $periodStart)
-            ->whereDate('shift_date', '<=', $periodEnd);
+            ->whereBetween('shift_date', [$periodStart, $periodEnd]);
 
         if ($extrasOnly) {
             $query->whereIn('shift_type', [

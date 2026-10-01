@@ -119,7 +119,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="no-print">{{ $lines->links() }}</div>
+        <x-table-pagination :paginator="$lines" />
     @endif
 </div>
 @endsection

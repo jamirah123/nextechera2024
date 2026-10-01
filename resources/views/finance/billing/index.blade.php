@@ -113,7 +113,7 @@
                     </tbody>
                 </table>
             </div>
-            <div class="no-print">{{ $profiles->links() }}</div>
+            <x-table-pagination :paginator="$profiles" />
         @endif
     </div>
 </div>

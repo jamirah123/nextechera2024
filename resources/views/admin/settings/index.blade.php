@@ -153,7 +153,7 @@
                         min="0"
                         :value="old('payroll_uniform_charge', $settings->payroll_uniform_charge)"
                         :required="true"
-                        help="Applied to guard payslips only. Office staff and supervisors on salary are not charged."
+                        help="Company standard for guards who are not exempt. Record an approved exemption on the guard profile. Finalized payroll keeps the amount calculated for that period."
                     />
                     <x-form-field label="Bank export format" name="payroll_bank_export_format" type="select" :required="true" class="sm:col-span-2">
                         <option value="generic" @selected(old('payroll_bank_export_format', $settings->payroll_bank_export_format ?? 'generic') === 'generic')>Generic CSV</option>

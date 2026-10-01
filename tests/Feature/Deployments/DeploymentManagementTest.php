@@ -681,7 +681,7 @@ class DeploymentManagementTest extends TestCase
             ->assertSessionHasErrors('deployment');
 
         $this->assertStringContainsString(
-            'Deployment Conflict: Guard PSG5512 is already deployed at Site A for this shift',
+            'Guard already deployed for the Day shift on 7 September 2026 at Site A.',
             session('errors')->first('deployment'),
         );
 

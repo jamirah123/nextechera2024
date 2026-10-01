@@ -231,12 +231,10 @@ trait SeedsBillingAndInvoices
             'notes' => 'Seeded monthly billing profile for '.$site->code.'.',
         ];
 
-        return match ($site->code) {
+        $recipe = match ($site->code) {
             'KLA-WH1' => [
                 ...$defaults,
                 'billing_mode' => BillingMode::Hybrid->value,
-                'monthly_unarmed' => 480_000.0,
-                'monthly_armed' => 680_000.0,
                 'shift_unarmed_day' => 36_000.0,
                 'shift_unarmed_night' => 41_000.0,
                 'shift_armed_day' => 49_000.0,
@@ -245,21 +243,15 @@ trait SeedsBillingAndInvoices
             ],
             'KLA-PZ1' => [
                 ...$defaults,
-                'monthly_unarmed' => 520_000.0,
-                'monthly_armed' => 720_000.0,
                 'notes' => 'Pearl Plaza — premium monthly plaza rates.',
             ],
             'WES-GS1' => [
                 ...$defaults,
-                'monthly_unarmed' => 420_000.0,
-                'monthly_armed' => 620_000.0,
                 'notes' => 'Mbarara Grain — Western regional monthly rates.',
             ],
             'WES-CL1' => [
                 ...$defaults,
                 'billing_mode' => BillingMode::Hybrid->value,
-                'monthly_unarmed' => 460_000.0,
-                'monthly_armed' => 660_000.0,
                 'shift_unarmed_day' => 36_000.0,
                 'shift_unarmed_night' => 42_000.0,
                 'shift_armed_day' => 50_000.0,
@@ -270,8 +262,6 @@ trait SeedsBillingAndInvoices
                 ...$defaults,
                 'billing_mode' => BillingMode::Hybrid->value,
                 'cash_no_tax' => true,
-                'monthly_unarmed' => 460_000.0,
-                'monthly_armed' => 660_000.0,
                 'shift_unarmed_day' => 38_000.0,
                 'shift_unarmed_night' => 44_000.0,
                 'shift_armed_day' => 52_000.0,
@@ -280,28 +270,20 @@ trait SeedsBillingAndInvoices
             ],
             'KLA-KR1' => [
                 ...$defaults,
-                'monthly_unarmed' => 470_000.0,
-                'monthly_armed' => 670_000.0,
                 'notes' => 'Kololo Residences — residential monthly post rates.',
             ],
             'KLA-NP1' => [
                 ...$defaults,
-                'monthly_unarmed' => 440_000.0,
-                'monthly_armed' => 640_000.0,
                 'desired_day_armed' => 1,
                 'notes' => 'Nakawa East — monthly posts with one armed day post.',
             ],
             'KLA-NP2' => [
                 ...$defaults,
-                'monthly_unarmed' => 440_000.0,
-                'monthly_armed' => 640_000.0,
                 'notes' => 'Nakawa West — monthly industrial gate rates.',
             ],
             'WES-KM1' => [
                 ...$defaults,
                 'billing_mode' => BillingMode::Hybrid->value,
-                'monthly_unarmed' => 430_000.0,
-                'monthly_armed' => 630_000.0,
                 'desired_night_armed' => 1,
                 'shift_unarmed_day' => 34_000.0,
                 'shift_unarmed_night' => 39_000.0,
@@ -311,21 +293,15 @@ trait SeedsBillingAndInvoices
             ],
             'WES-BT1' => [
                 ...$defaults,
-                'monthly_unarmed' => 410_000.0,
-                'monthly_armed' => 610_000.0,
                 'notes' => 'Bushenyi Tea — estate monthly post rates.',
             ],
             'WES-HO1' => [
                 ...$defaults,
-                'monthly_unarmed' => 500_000.0,
-                'monthly_armed' => 750_000.0,
                 'notes' => 'Hoima Camp — oilfield premium monthly rates.',
             ],
             'WES-HO2' => [
                 ...$defaults,
                 'billing_mode' => BillingMode::Hybrid->value,
-                'monthly_unarmed' => 490_000.0,
-                'monthly_armed' => 740_000.0,
                 'shift_unarmed_day' => 37_000.0,
                 'shift_unarmed_night' => 43_000.0,
                 'shift_armed_day' => 51_000.0,
@@ -334,6 +310,11 @@ trait SeedsBillingAndInvoices
             ],
             default => $defaults,
         };
+
+        $recipe['monthly_unarmed'] = 450_000.0;
+        $recipe['monthly_armed'] = 650_000.0;
+
+        return $recipe;
     }
 
     /**

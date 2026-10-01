@@ -48,8 +48,13 @@ class ProactiveAlertService
                 'guard_contracts_expiring' => 0,
                 'sla_breaches' => 0,
                 'missed_backups' => 0,
+                'manpower_deficit' => 0,
+                'manpower_ot' => 0,
+                'manpower_repeated_ot' => 0,
             ];
         }
+
+        $manpower = app(ManpowerMonitorService::class)->scanAlerts();
 
         return [
             'understaffed' => $this->scanUnderstaffedSites(),
@@ -61,6 +66,9 @@ class ProactiveAlertService
             'guard_contracts_expiring' => $this->scanExpiringGuardContracts(),
             'sla_breaches' => $this->scanSlaBreaches(),
             'missed_backups' => $this->scanMissedBackups(),
+            'manpower_deficit' => $manpower['deficit_alerts'],
+            'manpower_ot' => $manpower['ot_alerts'],
+            'manpower_repeated_ot' => $manpower['region_alerts'],
         ];
     }
 

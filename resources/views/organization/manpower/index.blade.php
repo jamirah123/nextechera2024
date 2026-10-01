@@ -15,7 +15,10 @@
             <x-report-actions
                 :csv="route('manpower.coverage.export', array_merge($exportQuery, ['format' => 'csv']))"
             >
-                <a href="{{ route('sites.index') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                <a href="{{ route('manpower.deficit-report') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+                    Deficit report
+                </a>
+            <a href="{{ route('sites.index') }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
                     Manage sites
                 </a>
             </x-report-actions>
@@ -28,45 +31,97 @@
             :subtitle="$dateMode ? 'Coverage for '.$coverageDate : 'Required vs deployed guards by site.'"
         />
 
-        {{-- Summary cards (same pattern with/without date) --}}
-        <section class="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-            <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Required</p>
-                <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ number_format($company['required']) }}</p>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-700">Deployed</p>
-                <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ number_format($company['deployed']) }}</p>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-rose-700">Shortage</p>
-                <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ number_format($company['shortage']) }}</p>
-            </div>
-            <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-orange-700">Deficit</p>
-                <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ number_format($totalDeficit ?? 0) }}</p>
-            </div>
-            @if ($dateMode)
-                <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wide text-sky-700">Allocated</p>
-                    <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ number_format($company['allocated']) }}</p>
+        <section class="space-y-2">
+            <div class="flex flex-wrap items-end justify-between gap-2">
+                <div>
+                    <p class="text-sm font-semibold text-slate-900">Company manpower</p>
+                    <p class="mt-0.5 text-[11px] text-slate-500">
+                        Operational coverage {{ number_format($overview['operational']) }}/{{ number_format($overview['required']) }}
+                        ({{ $overview['coverage_percent'] }}%).
+                        Normal manpower deficit {{ number_format($overview['deficit']) }}.
+                        Overtime dependency {{ number_format($overview['ot']) }}.
+                    </p>
                 </div>
-                <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wide text-indigo-700">Alloc. short</p>
-                    <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ number_format($company['allocation_shortage']) }}</p>
-                </div>
-            @else
-                <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-700">Surplus</p>
-                    <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ number_format($company['surplus']) }}</p>
-                </div>
-                <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wide text-indigo-700">Coverage</p>
-                    <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ $company['coverage_percent'] }}%</p>
-                    <p class="text-[10px] text-slate-500">{{ $company['status']->label() }}</p>
-                </div>
+                <a href="{{ route('manpower.deficit-report', ['date' => $overview['date'], 'region_id' => $filters['region_id'] ?? null]) }}" class="text-xs font-semibold text-brand-700 hover:underline">Open deficit report</a>
+            </div>
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+                @foreach ([
+                    ['Required', number_format($overview['required']), 'text-slate-500', null],
+                    ['Normal deployed', number_format($overview['normal']), 'text-emerald-700', null],
+                    ['OT deployed', number_format($overview['ot']), 'text-amber-700', null],
+                    ['Operational coverage', number_format($overview['operational']).'/'.number_format($overview['required']), 'text-sky-700', $overview['coverage_percent'].'%'],
+                    ['Remaining shortage', number_format($overview['remaining']), 'text-rose-700', null],
+                    ['Manpower deficit', number_format($overview['deficit']), 'text-orange-700', null],
+                    ['OT-supported sites', number_format($overview['ot_sites']), 'text-amber-700', null],
+                    ['Sites with shortages', number_format($overview['shortage_sites']), 'text-rose-700', null],
+                ] as [$label, $value, $tone, $note])
+                    <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
+                        <p class="text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
+                        <p class="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{{ $value }}</p>
+                        @if ($note)
+                            <p class="text-[10px] text-slate-500">{{ $note }}</p>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+            @if ($overview['regions'] !== [])
+                <p class="text-[11px] text-slate-500">
+                    Highest deficits:
+                    @foreach ($overview['regions'] as $regionName => $regionDeficit)
+                        <span class="mr-2">{{ $regionName }} {{ number_format($regionDeficit) }}</span>
+                    @endforeach
+                </p>
             @endif
         </section>
+
+        @if ($trends !== [])
+            <section class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <p class="text-sm font-semibold text-slate-900">Deficit trend</p>
+                <p class="mt-0.5 text-[11px] text-slate-500">Month-end normal deficit and overtime shifts for the sites with the largest current deficit.</p>
+                <div class="mt-2 overflow-x-auto">
+                    <table class="min-w-full text-left text-[11px]">
+                        <thead class="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-2 py-1">Site</th>
+                                @foreach ($trends[0]['points'] as $point)
+                                    <th class="px-2 py-1 text-right">{{ $point['label'] }}</th>
+                                @endforeach
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($trends as $trend)
+                                <tr class="border-t border-slate-100">
+                                    <td class="px-2 py-1 font-medium text-slate-800">{{ $trend['site'] }}</td>
+                                    @foreach ($trend['points'] as $point)
+                                        <td class="px-2 py-1 text-right tabular-nums text-slate-700">{{ $point['deficit'] }} <span class="text-amber-700">/ {{ $point['ot_shifts'] }} OT</span></td>
+                                    @endforeach
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @endif
+
+        @if ($canConfigureMonitor)
+            <section class="no-print rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <p class="text-sm font-semibold text-slate-900">Monitoring thresholds</p>
+                <p class="mt-0.5 text-[11px] text-slate-500">Super Admin rules for rest, consecutive shifts, and overtime alerts.</p>
+                <form method="POST" action="{{ route('manpower.monitor.update') }}" class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    @csrf
+                    <x-form-field label="Monitoring days" name="period_days" type="number" :value="$monitorRules['period_days']" min="1" max="90" />
+                    <x-form-field label="Minimum rest (hours)" name="min_rest_hours" type="number" :value="$monitorRules['min_rest_hours']" min="0" max="48" />
+                    <x-form-field label="Max consecutive shifts" name="max_consecutive_shifts" type="number" :value="$monitorRules['max_consecutive_shifts']" min="1" max="30" />
+                    <x-form-field label="Max consecutive OT" name="max_consecutive_ot" type="number" :value="$monitorRules['max_consecutive_ot']" min="1" max="30" />
+                    <x-form-field label="Max OT shifts in period" name="max_ot_shifts" type="number" :value="$monitorRules['max_ot_shifts']" min="1" max="90" />
+                    <x-form-field label="Max hours in period" name="max_hours" type="number" :value="$monitorRules['max_hours']" min="1" max="400" />
+                    <x-form-field label="Site OT-shift alert" name="site_ot_shift_alert" type="number" :value="$monitorRules['site_ot_shift_alert']" min="1" max="200" />
+                    <div class="flex items-end">
+                        <button type="submit" class="rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800">Save thresholds</button>
+                    </div>
+                </form>
+            </section>
+        @endif
 
         <section class="filter-bar no-print rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
             <form
@@ -246,18 +301,19 @@
                                     $shifts = $mp['shifts'] ?? [];
                                     $day = $shifts['day'] ?? [];
                                     $night = $shifts['night'] ?? [];
-                                    $dayTone = match ($day['status'] ?? '') {
-                                        'covered' => 'text-emerald-700',
-                                        'understaffed' => 'text-rose-700',
-                                        default => 'text-slate-500',
+                                    $shiftTone = function (string $status): string {
+                                        return match ($status) {
+                                            'covered' => 'text-emerald-700',
+                                            'ot_supported' => 'text-amber-700',
+                                            'understaffed' => 'text-rose-700',
+                                            'overstaffed' => 'text-sky-700',
+                                            default => 'text-slate-500',
+                                        };
                                     };
-                                    $nightTone = match ($night['status'] ?? '') {
-                                        'covered' => 'text-emerald-700',
-                                        'understaffed' => 'text-rose-700',
-                                        default => 'text-slate-500',
-                                    };
+                                    $dayTone = $shiftTone($day['status'] ?? '');
+                                    $nightTone = $shiftTone($night['status'] ?? '');
                                     $deficit = (int) ($mp['deficit'] ?? $shifts['deficit'] ?? 0);
-                                    $status = $dateMode ? ($mp['allocation_status'] ?? $mp['status']) : $mp['status'];
+                                    $posture = app(\App\Services\ManpowerService::class)->sitePosture($shifts);
                                     $cov = $dateMode
                                         ? ($mp['allocation_coverage_percent'] ?? $mp['coverage_percent'])
                                         : $mp['coverage_percent'];
@@ -284,7 +340,7 @@
                                     </td>
                                     <td class="text-right font-semibold tabular-nums text-slate-900">{{ $cov }}%</td>
                                     <td>
-                                        <x-status-badge :tone="$status->tone()" :label="$status->label()" />
+                                        <x-status-badge :tone="$posture['tone']" :label="$posture['label']" />
                                     </td>
                                 </tr>
                             @endforeach
@@ -301,17 +357,18 @@
                         $shifts = $mp['shifts'] ?? [];
                         $day = $shifts['day'] ?? [];
                         $night = $shifts['night'] ?? [];
-                        $dayTone = match ($day['status'] ?? '') {
-                            'covered' => 'text-emerald-700',
-                            'understaffed' => 'text-rose-700',
-                            default => 'text-slate-500',
+                        $shiftTone = function (string $status): string {
+                            return match ($status) {
+                                'covered' => 'text-emerald-700',
+                                'ot_supported' => 'text-amber-700',
+                                'understaffed' => 'text-rose-700',
+                                'overstaffed' => 'text-sky-700',
+                                default => 'text-slate-500',
+                            };
                         };
-                        $nightTone = match ($night['status'] ?? '') {
-                            'covered' => 'text-emerald-700',
-                            'understaffed' => 'text-rose-700',
-                            default => 'text-slate-500',
-                        };
-                        $status = $dateMode ? ($mp['allocation_status'] ?? $mp['status']) : $mp['status'];
+                        $dayTone = $shiftTone($day['status'] ?? '');
+                        $nightTone = $shiftTone($night['status'] ?? '');
+                        $posture = app(\App\Services\ManpowerService::class)->sitePosture($shifts);
                     @endphp
                     <a href="{{ route('sites.show', $site) }}" class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                         <div class="flex items-start justify-between gap-2">
@@ -319,7 +376,7 @@
                                 <p class="truncate text-xs font-semibold text-slate-900">{{ $site->name }}</p>
                                 <p class="mt-0.5 text-[10px] text-slate-500">{{ $site->code }} · {{ $site->region?->name ?? 'No region' }}</p>
                             </div>
-                            <x-status-badge :tone="$status->tone()" :label="$status->label()" />
+                            <x-status-badge :tone="$posture['tone']" :label="$posture['label']" />
                         </div>
                         <div class="mt-2 grid grid-cols-5 gap-1.5 text-center text-[11px]">
                             <div class="rounded-md bg-slate-50 px-1.5 py-1">
@@ -347,14 +404,7 @@
                 @endforeach
             </div>
 
-            @if ($rows->hasPages() || $rows->total() > 0)
-                <div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <p class="text-[10px] text-slate-500">
-                        Showing {{ $rows->firstItem() ?? 0 }}–{{ $rows->lastItem() ?? 0 }} of {{ $rows->total() }}
-                    </p>
-                    <div>{{ $rows->links() }}</div>
-                </div>
-            @endif
+            <x-table-pagination :paginator="$rows" class="mt-2" />
         @endif
     </div>
 </div>

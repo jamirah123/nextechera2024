@@ -58,7 +58,7 @@
                                     default => 'text-slate-500',
                                 };
                                 $href = $understaffedAction === 'allocate'
-                                    ? route('shifts.allocate', ['date' => $today, 'site_id' => $row['site_id']])
+                                    ? route('deployments.board', ['start_date' => $today])
                                     : route('ops-dashboards.site', $row['site_id']);
                             @endphp
                             <tr class="hover:bg-slate-50/80">

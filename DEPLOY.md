@@ -136,8 +136,10 @@ composer install --no-dev --optimize-autoloader
 npm ci
 npm run build
 php artisan migrate --force
-php artisan db:seed --force   # first deploy only, if seeding admins
 php artisan storage:link
+# Leave PSG_SEED_MODE=off. php artisan db:seed then writes nothing.
+# The 1,000-guard history (PSG_SEED_MODE=load, PSG_SEED_START_DATE=2025-01-01)
+# belongs on an empty test database, not on the live company database.
 ```
 
 ## 5. Optimize Laravel

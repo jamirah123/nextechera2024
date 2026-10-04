@@ -9,9 +9,10 @@ use App\Enums\DeploymentShiftType;
 use App\Enums\EmploymentStatus;
 use App\Enums\GuardClassification;
 use App\Enums\GuardGender;
+use App\Enums\InvoiceStatus;
 use App\Enums\OperationalStatus;
-use App\Enums\RegionStatus;
 use App\Enums\PayrollRunStatus;
+use App\Enums\RegionStatus;
 use App\Enums\ReplacementReason;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
@@ -20,19 +21,17 @@ use App\Enums\SiteStatus;
 use App\Enums\StaffSalaryChangeType;
 use App\Enums\SupervisorStatus;
 use App\Enums\UserRole;
-use App\Models\AuditLog;
+use App\Models\BillingProfile;
 use App\Models\Client;
 use App\Models\Deployment;
+use App\Models\DeploymentTransfer;
 use App\Models\Guard;
 use App\Models\Invoice;
 use App\Models\Leave;
 use App\Models\LeaveTypeConfig;
-use App\Models\Payment;
-use App\Models\PayrollPayslip;
 use App\Models\PayrollRun;
 use App\Models\Region;
 use App\Models\Shift;
-use App\Models\ShiftReplacement;
 use App\Models\Site;
 use App\Models\Staff;
 use App\Models\Supervisor;
@@ -43,7 +42,6 @@ use App\Services\Finance\BillingService;
 use App\Services\Finance\InvoiceService;
 use App\Services\Finance\PaymentService;
 use App\Services\Finance\PayrollRunService;
-use App\Services\GuardSalaryService;
 use App\Services\GuardService;
 use App\Services\LeaveService;
 use App\Services\OrganizationService;
@@ -51,7 +49,6 @@ use App\Services\ReplacementService;
 use App\Services\ShiftService;
 use App\Services\StaffSalaryService;
 use App\Services\StaffService;
-use App\Services\SystemSettingService;
 use App\Services\SupervisorGuardService;
 use App\Services\UserAccessService;
 use App\Support\Access\RolePermissionService;
@@ -66,14 +63,17 @@ use Illuminate\Support\Facades\Mail;
  * Builds a company through the same services operators use.
  *
  * Modes (PSG_SEED_MODE):
- * - story: a small coherent company, default
+ * - off: write nothing. This is the production default.
+ * - story: a small coherent company
  * - full: three regions with different manpower
- * - load: about 1,000 guards, with a worked cohort for shifts, payroll, and billing
+ * - load: 1,000 guards (Kampala 400, Western 350, Northern 250), with history for shifts, payroll, and billing
  *
- * Duties, payroll, and invoices run from 1 January 2026 through the current date.
+ * Duties, payroll, and invoices run from PSG_SEED_START_DATE (1 January 2025) through the current date.
  * Payroll and invoices stop at the last closed month.
+ * A second run does not duplicate those records. An existing company is left unchanged unless PSG_SEED_RESUME=true.
+ * Production refuses every mode unless PSG_SEED_ALLOW_PRODUCTION=true.
  * Every shift guard is on a monthly gross of UGX 170,000 for the whole period.
- * In August, some guards work the 31st normal shift and others work overtime.
+ * In August 2026, some guards work the 31st normal shift and others work overtime.
  */
 class WorkflowOperationsSeeder extends Seeder
 {
@@ -89,26 +89,36 @@ class WorkflowOperationsSeeder extends Seeder
 
     public function run(): void
     {
-        $this->silenceOutboundMail();
+        $mode = $this->seedMode();
 
-        $mode = (string) env('PSG_SEED_MODE', 'story');
-        $profile = $this->profile($mode);
-
-        if (Region::query()->where('code', 'KLA')->exists()) {
-            $this->seedUsers();
-            $this->seedSupervisorUsers();
-            $this->seedSupervisorSalaries();
-            if ($this->seedGuardGrossSalaries() > 0) {
-                $this->rebuildClosedPayroll();
-            }
-            if ($this->seedAugustVariety() > 0) {
-                $this->rebuildPayrollMonth(2026, 8);
-            }
-            $this->command?->info('Login accounts are in place. Password for every seeded account: '.self::PASSWORD);
-            $this->command?->info('Users: '.User::query()->count());
+        if ($mode === 'off') {
+            $this->command?->warn('PSG_SEED_MODE=off. No guards, payroll, invoices, or deployments were written.');
 
             return;
         }
+
+        if (! in_array($mode, ['story', 'full', 'load'], true)) {
+            $this->command?->warn('Unknown PSG_SEED_MODE ['.$mode.']. No records were written. Use off, story, full, or load.');
+
+            return;
+        }
+
+        if ($this->productionBlocksSeed()) {
+            $this->command?->warn('Production refused the seeder. Keep PSG_SEED_MODE=off on the live server. Build the 1,000-guard dataset on a separate database.');
+
+            return;
+        }
+
+        if ($this->companyAlreadyPresent() && ! $this->resumeRequested()) {
+            $this->command?->warn('Region KLA is already in this database. Salaries, deployments, payroll, and invoices were left unchanged.');
+            $this->command?->warn('Use an empty database with PSG_SEED_MODE=load and PSG_SEED_START_DATE='.$this->seedStart()->toDateString().' for the 1,000-guard history. PSG_SEED_RESUME=true continues an interrupted load without duplicating closed months.');
+
+            return;
+        }
+
+        $this->silenceOutboundMail();
+
+        $profile = $this->profile($mode);
 
         $this->seedUsers();
         $admin = User::query()->where('email', 'admin@platinumsecurity.local')->firstOrFail();
@@ -152,6 +162,43 @@ class WorkflowOperationsSeeder extends Seeder
         Mail::fake();
     }
 
+    private function seedMode(): string
+    {
+        $mode = strtolower(trim((string) config('psg.seed.mode', 'off')));
+
+        return $mode === '' ? 'off' : $mode;
+    }
+
+    private function seedStart(): Carbon
+    {
+        $configured = trim((string) config('psg.seed.start_date', '2025-01-01'));
+
+        try {
+            return Carbon::parse($configured !== '' ? $configured : '2025-01-01')->startOfDay();
+        } catch (\Throwable) {
+            return Carbon::parse('2025-01-01')->startOfDay();
+        }
+    }
+
+    private function productionBlocksSeed(): bool
+    {
+        if (! app()->environment('production')) {
+            return false;
+        }
+
+        return ! filter_var(config('psg.seed.allow_production', false), FILTER_VALIDATE_BOOL);
+    }
+
+    private function companyAlreadyPresent(): bool
+    {
+        return Region::query()->where('code', 'KLA')->exists();
+    }
+
+    private function resumeRequested(): bool
+    {
+        return filter_var(config('psg.seed.resume', false), FILTER_VALIDATE_BOOL);
+    }
+
     /** @return array{regions: list<array{code: string, name: string, sites: int, guards: int, supervisors: int}>, staff: int} */
     private function profile(string $mode): array
     {
@@ -192,17 +239,19 @@ class WorkflowOperationsSeeder extends Seeder
         ];
 
         foreach ($users as $index => $user) {
-            User::query()->updateOrCreate(
-                ['email' => $user['email']],
-                [
-                    'name' => $user['name'],
-                    'role' => $user['role'],
-                    'phone' => '+256700000'.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
-                    'password' => Hash::make(self::PASSWORD),
-                    'is_active' => true,
-                    'email_verified_at' => now(),
-                ],
-            );
+            if (User::query()->where('email', $user['email'])->exists()) {
+                continue;
+            }
+
+            User::query()->create([
+                'name' => $user['name'],
+                'email' => $user['email'],
+                'role' => $user['role'],
+                'phone' => '+256700000'.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
+                'password' => Hash::make(self::PASSWORD),
+                'is_active' => true,
+                'email_verified_at' => now(),
+            ]);
         }
 
         app(RolePermissionService::class)->mergeMissingPermissions();
@@ -257,7 +306,7 @@ class WorkflowOperationsSeeder extends Seeder
             }
 
             $opening = $salaries[$index % count($salaries)];
-            $from = $staff->date_employed?->copy()->startOfDay() ?? Carbon::parse('2026-01-06');
+            $from = $staff->date_employed?->copy()->startOfDay() ?? $this->seedStart()->copy()->addDays(5);
             $service->recordOpening(
                 $staff,
                 $opening,
@@ -272,7 +321,7 @@ class WorkflowOperationsSeeder extends Seeder
                 $service->change(
                     $staff->fresh(),
                     $opening + 150000,
-                    Carbon::parse('2026-07-01'),
+                    $this->seedStart()->copy()->addMonths(6),
                     StaffSalaryChangeType::Increment,
                     'Annual review. January to June salary remains on the earlier revision.',
                     $hr,
@@ -295,29 +344,40 @@ class WorkflowOperationsSeeder extends Seeder
         $billing = app(BillingService::class);
         $guardCursor = 0;
 
+        $openedOn = $this->seedStart();
+        $contractEnd = now()->copy()->endOfYear()->toDateString();
+
         foreach ($profile['regions'] as $regionIndex => $def) {
-            $region = Region::query()->create([
-                'code' => $def['code'],
-                'name' => $def['name'],
-                'manager_name' => $this->firstNames[$regionIndex].' '.$this->lastNames[$regionIndex],
-                'manager_phone' => '+256701000'.str_pad((string) ($regionIndex + 1), 3, '0', STR_PAD_LEFT),
-                'description' => $def['name'].' operating area, opened January 2026.',
-                'status' => RegionStatus::Active,
-            ]);
+            $region = Region::query()->firstOrCreate(
+                ['code' => $def['code']],
+                [
+                    'name' => $def['name'],
+                    'manager_name' => $this->firstNames[$regionIndex].' '.$this->lastNames[$regionIndex],
+                    'manager_phone' => '+256701000'.str_pad((string) ($regionIndex + 1), 3, '0', STR_PAD_LEFT),
+                    'description' => $def['name'].' operating area, opened '.$openedOn->format('F Y').'.',
+                    'status' => RegionStatus::Active,
+                ],
+            );
 
             $supervisors = [];
             for ($s = 0; $s < $def['supervisors']; $s++) {
-                $supervisor = Supervisor::query()->create([
-                    'supervisor_code' => $def['code'].'-S'.$s,
-                    'name' => $this->firstNames[($regionIndex + $s + 3) % 20].' '.$this->lastNames[($regionIndex + $s + 5) % 20],
-                    'phone' => '+256702'.str_pad((string) (($regionIndex * 10) + $s), 6, '0', STR_PAD_LEFT),
-                    'email' => strtolower($def['code']).'.s'.$s.'@platinumsecurity.local',
-                    'region_id' => $region->id,
-                    'status' => SupervisorStatus::Active,
-                    'assignment_date' => '2026-01-06',
-                    'notes' => 'Assigned when '.$def['name'].' opened.',
-                ]);
-                $organization->recordSupervisorAssignment($supervisor, null, (int) $region->id, 'initial_assignment', 'Opening assignment', 'Region opened.');
+                $supervisorCode = $def['code'].'-S'.$s;
+                $supervisorExisted = Supervisor::query()->where('supervisor_code', $supervisorCode)->exists();
+                $supervisor = Supervisor::query()->firstOrCreate(
+                    ['supervisor_code' => $supervisorCode],
+                    [
+                        'name' => $this->firstNames[($regionIndex + $s + 3) % 20].' '.$this->lastNames[($regionIndex + $s + 5) % 20],
+                        'phone' => '+256702'.str_pad((string) (($regionIndex * 10) + $s), 6, '0', STR_PAD_LEFT),
+                        'email' => strtolower($def['code']).'.s'.$s.'@platinumsecurity.local',
+                        'region_id' => $region->id,
+                        'status' => SupervisorStatus::Active,
+                        'assignment_date' => $openedOn->copy()->addDays(5)->toDateString(),
+                        'notes' => 'Assigned when '.$def['name'].' opened.',
+                    ],
+                );
+                if (! $supervisorExisted) {
+                    $organization->recordSupervisorAssignment($supervisor, null, (int) $region->id, 'initial_assignment', 'Opening assignment', 'Region opened.');
+                }
                 $profiles->ensureEmployeeProfiles($supervisor->fresh());
                 $supervisors[] = $supervisor->fresh();
             }
@@ -325,62 +385,79 @@ class WorkflowOperationsSeeder extends Seeder
             $sites = [];
             for ($i = 0; $i < $def['sites']; $i++) {
                 $pattern = [[6, 3, 3], [4, 2, 2], [8, 4, 4], [3, 2, 1], [5, 2, 3]][$i % 5];
-                $client = Client::query()->create([
-                    'name' => $def['name'].' Client '.($i + 1),
-                    'contact_person' => $this->firstNames[$i % 20].' '.$this->lastNames[($i + 4) % 20],
-                    'phone' => '+256703'.str_pad((string) (($regionIndex * 100) + $i), 6, '0', STR_PAD_LEFT),
-                    'email' => strtolower($def['code']).'.client'.($i + 1).'@example.test',
-                    'address' => $def['name'].' industrial area',
-                    'contract_start_date' => '2026-01-01',
-                    'contract_end_date' => '2026-12-31',
-                    'contract_status' => ContractStatus::Active,
-                    'notes' => 'Seeded client contract.',
-                ]);
+                $siteCode = $def['code'].'-'.str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT);
+                $site = Site::query()->where('code', $siteCode)->first();
 
-                $site = Site::query()->create([
-                    'name' => $def['name'].' Site '.($i + 1),
-                    'code' => $def['code'].'-'.str_pad((string) ($i + 1), 2, '0', STR_PAD_LEFT),
-                    'client_id' => $client->id,
-                    'region_id' => $region->id,
-                    'supervisor_id' => $supervisors[$i % count($supervisors)]->id,
-                    'physical_location' => $def['name'].' plot '.($i + 1),
-                    'site_contact_person' => $client->contact_person,
-                    'site_contact_phone' => $client->phone,
-                    'contract_start_date' => '2026-01-01',
-                    'contract_end_date' => '2026-12-31',
-                    'required_guards' => $pattern[0],
-                    'required_day_guards' => $pattern[1],
-                    'required_day_armed_guards' => 0,
-                    'required_day_unarmed_guards' => $pattern[1],
-                    'required_night_guards' => $pattern[2],
-                    'required_night_armed_guards' => 0,
-                    'required_night_unarmed_guards' => $pattern[2],
-                    'number_of_posts' => max($pattern[1], $pattern[2]),
-                    'status' => SiteStatus::Active,
-                    'notes' => 'Manpower set when the site contract started.',
-                ]);
-                $organization->syncSiteManpower($site, 'Opening manpower requirement');
-                $billing->create([
-                    'client_id' => $client->id,
-                    'site_id' => $site->id,
-                    'billing_mode' => BillingMode::Monthly->value,
-                    'monthly_rate_per_unarmed_guard' => 450000,
-                    'monthly_rate_per_armed_guard' => 650000,
-                    'effective_from' => '2026-01-01',
-                ]);
+                if ($site === null) {
+                    $client = Client::query()->create([
+                        'name' => $def['name'].' Client '.($i + 1),
+                        'contact_person' => $this->firstNames[$i % 20].' '.$this->lastNames[($i + 4) % 20],
+                        'phone' => '+256703'.str_pad((string) (($regionIndex * 100) + $i), 6, '0', STR_PAD_LEFT),
+                        'email' => strtolower($def['code']).'.client'.($i + 1).'@example.test',
+                        'address' => $def['name'].' industrial area',
+                        'contract_start_date' => $openedOn->toDateString(),
+                        'contract_end_date' => $contractEnd,
+                        'contract_status' => ContractStatus::Active,
+                        'notes' => 'Seeded client contract.',
+                    ]);
+
+                    $site = Site::query()->create([
+                        'name' => $def['name'].' Site '.($i + 1),
+                        'code' => $siteCode,
+                        'client_id' => $client->id,
+                        'region_id' => $region->id,
+                        'supervisor_id' => $supervisors[$i % count($supervisors)]->id,
+                        'physical_location' => $def['name'].' plot '.($i + 1),
+                        'site_contact_person' => $client->contact_person,
+                        'site_contact_phone' => $client->phone,
+                        'contract_start_date' => $openedOn->toDateString(),
+                        'contract_end_date' => $contractEnd,
+                        'required_guards' => $pattern[0],
+                        'required_day_guards' => $pattern[1],
+                        'required_day_armed_guards' => 0,
+                        'required_day_unarmed_guards' => $pattern[1],
+                        'required_night_guards' => $pattern[2],
+                        'required_night_armed_guards' => 0,
+                        'required_night_unarmed_guards' => $pattern[2],
+                        'number_of_posts' => max($pattern[1], $pattern[2]),
+                        'status' => SiteStatus::Active,
+                        'notes' => 'Manpower set when the site contract started.',
+                    ]);
+                    $organization->syncSiteManpower($site, 'Opening manpower requirement');
+                }
+
+                if (! BillingProfile::query()->where('site_id', $site->id)->exists()) {
+                    $billing->create([
+                        'client_id' => $site->client_id,
+                        'site_id' => $site->id,
+                        'billing_mode' => BillingMode::Monthly->value,
+                        'monthly_rate_per_unarmed_guard' => 450000,
+                        'monthly_rate_per_armed_guard' => 650000,
+                        'effective_from' => $openedOn->toDateString(),
+                    ]);
+                }
                 $sites[] = $site;
             }
 
             $regionGuards = [];
             $deployCap = min($def['guards'], max(8, $def['sites'] * 3));
             for ($g = 0; $g < $def['guards']; $g++) {
-                $hire = Carbon::parse('2026-01-06')->addDays(($guardCursor * 3) % 160);
+                $phone = '+256704'.str_pad((string) $guardCursor, 6, '0', STR_PAD_LEFT);
+                $existingGuard = Guard::query()->where('phone', $phone)->where('region_id', $region->id)->first();
+                if ($existingGuard !== null) {
+                    $regionGuards[] = $existingGuard;
+                    $guardCursor++;
+
+                    continue;
+                }
+
+                $hire = $openedOn->copy()->addDays(5)->addDays(($guardCursor * 3) % 160);
                 $regionGuards[] = $guardService->createGuard([
                     'first_name' => $this->firstNames[$guardCursor % 20],
                     'last_name' => $this->lastNames[($guardCursor * 3) % 20],
                     'region_id' => $region->id,
                     'gender' => $guardCursor % 2 === 0 ? GuardGender::Male->value : GuardGender::Female->value,
-                    'phone' => '+256704'.str_pad((string) $guardCursor, 6, '0', STR_PAD_LEFT),
+                    'phone' => $phone,
                     'date_employed' => $hire->toDateString(),
                     'employment_status' => EmploymentStatus::Active->value,
                     'operational_status' => OperationalStatus::AwaitingDeployment->value,
@@ -427,6 +504,11 @@ class WorkflowOperationsSeeder extends Seeder
         ];
 
         for ($i = 0; $i < $count; $i++) {
+            $email = 'staff'.$i.'@platinumsecurity.local';
+            if (Staff::query()->where('email', $email)->exists()) {
+                continue;
+            }
+
             [$title, $department, $salary] = $titles[$i % count($titles)];
             $service->createStaff([
                 'first_name' => $this->firstNames[($i + 7) % 20],
@@ -436,109 +518,13 @@ class WorkflowOperationsSeeder extends Seeder
                 'monthly_salary' => $salary + ($i * 5000),
                 'employment_id' => $service->nextEmploymentId(),
                 'phone' => '075'.str_pad((string) $i, 7, '0', STR_PAD_LEFT),
-                'email' => 'staff'.$i.'@platinumsecurity.local',
+                'email' => $email,
                 'bank_name' => 'Centenary Bank',
                 'bank_account' => '32'.str_pad((string) $i, 8, '0', STR_PAD_LEFT),
-                'date_employed' => Carbon::parse('2026-02-01')->addDays($i % 40)->toDateString(),
+                'date_employed' => $this->seedStart()->copy()->addMonth()->addDays($i % 40)->toDateString(),
                 'employment_status' => EmploymentStatus::Active->value,
             ]);
         }
-    }
-
-    /**
-     * Shift guards stay on one monthly gross for the whole employment period.
-     * Supervisor salary records are left as they are.
-     */
-    private function seedGuardGrossSalaries(): int
-    {
-        $hr = User::query()->where('email', 'hr@platinumsecurity.local')->first();
-        if ($hr !== null) {
-            Auth::login($hr);
-        }
-
-        $settings = app(SystemSettingService::class);
-        $current = $settings->current();
-        if (abs((float) $current->payroll_default_base_shift_rate - self::GUARD_MONTHLY_GROSS) > 0.009) {
-            $settings->update([
-                'payroll_default_base_shift_rate' => self::GUARD_MONTHLY_GROSS,
-            ]);
-        }
-
-        $salaries = app(GuardSalaryService::class);
-        $updated = 0;
-
-        Guard::query()
-            ->whereDoesntHave('supervisorProfile')
-            ->where('compensation_type', CompensationType::Shift->value)
-            ->orderBy('id')
-            ->each(function (Guard $guard) use ($salaries, $hr, &$updated): void {
-                $revisions = $guard->salaryRevisions()->reorder()->orderBy('effective_from')->orderBy('id')->get();
-                $single = $revisions->count() === 1 ? $revisions->first() : null;
-
-                if (
-                    $single !== null
-                    && $single->effective_to === null
-                    && abs((float) $single->salary - self::GUARD_MONTHLY_GROSS) < 0.01
-                    && abs((float) $guard->base_shift_rate - self::GUARD_MONTHLY_GROSS) < 0.01
-                ) {
-                    return;
-                }
-
-                $guard->salaryRevisions()->delete();
-                $salaries->recordOpening(
-                    $guard,
-                    self::GUARD_MONTHLY_GROSS,
-                    $guard->date_employed ?? Carbon::parse('2026-01-06'),
-                    $hr,
-                    'Monthly gross of UGX 170,000 for the full employment period.',
-                );
-                $updated++;
-            });
-
-        $this->command?->info('Shift guards set to UGX 170,000 throughout: '.$updated.' updated.');
-
-        return $updated;
-    }
-
-    private function rebuildClosedPayroll(): void
-    {
-        $closed = PayrollRunService::lastClosedPeriod()->startOfMonth();
-        $cursor = Carbon::parse('2026-01-01')->startOfMonth();
-
-        while ($cursor->lte($closed)) {
-            $this->rebuildPayrollMonth((int) $cursor->year, (int) $cursor->month);
-            $cursor->addMonth();
-        }
-    }
-
-    private function rebuildPayrollMonth(int $year, int $month): void
-    {
-        $payroll = app(PayrollRunService::class);
-        $finance = User::query()->where('email', 'finance@platinumsecurity.local')->firstOrFail();
-        $approver = User::query()->where('email', 'md@platinumsecurity.local')->firstOrFail();
-        Auth::login($finance);
-
-        PayrollRun::query()
-            ->where('period_year', $year)
-            ->where('period_month', $month)
-            ->whereNull('region_id')
-            ->whereNull('site_id')
-            ->where('status', '!=', PayrollRunStatus::Cancelled->value)
-            ->orderBy('id')
-            ->each(function (PayrollRun $existing) use ($payroll): void {
-                $payroll->cancel($existing);
-            });
-
-        $label = Carbon::create($year, $month, 1)->format('F Y');
-        $this->command?->line('Recalculating '.$label.' payroll…');
-        $run = $payroll->createDraft([
-            'period_year' => $year,
-            'period_month' => $month,
-            'notes' => $label.' payroll from recorded duties and a monthly gross of UGX 170,000.',
-        ], $finance);
-        $run = $payroll->calculate($run);
-        $run = $payroll->submit($run, $finance);
-        $payroll->approve($run, $approver);
     }
 
     /**
@@ -719,7 +705,7 @@ class WorkflowOperationsSeeder extends Seeder
         $deployments = app(DeploymentService::class);
         $posts = $this->standingPosts($regions);
         $end = now()->subDay()->startOfDay();
-        $cursor = Carbon::parse('2026-01-01')->startOfMonth();
+        $cursor = $this->seedStart()->copy()->startOfMonth();
 
         if ($end->lt($cursor)) {
             return;
@@ -741,6 +727,15 @@ class WorkflowOperationsSeeder extends Seeder
                 }
 
                 if ($from->gt($monthEnd)) {
+                    continue;
+                }
+
+                $alreadyPosted = Deployment::query()
+                    ->where('guard_id', $post['guard']->id)
+                    ->where('site_id', $post['site']->id)
+                    ->whereDate('start_date', $from->toDateString())
+                    ->exists();
+                if ($alreadyPosted) {
                     continue;
                 }
 
@@ -786,7 +781,7 @@ class WorkflowOperationsSeeder extends Seeder
                 'site_id' => $post['site']->id,
                 'shift_type' => $post['shift']->value,
                 'start_date' => $today,
-                'notes' => 'Current posting, continuing the assignment that started in 2026.',
+                'notes' => 'Current posting, continuing the assignment that started in '.$this->seedStart()->format('Y').'.',
             ]);
         }
     }
@@ -796,6 +791,10 @@ class WorkflowOperationsSeeder extends Seeder
     {
         $sites = $regions[0]['sites'] ?? [];
         if (count($sites) < 2) {
+            return;
+        }
+
+        if (DeploymentTransfer::query()->where('reason', 'Client requested the guard at a site with open capacity.')->exists()) {
             return;
         }
 
@@ -809,7 +808,7 @@ class WorkflowOperationsSeeder extends Seeder
                 return false;
             }
 
-            $required = $deployment->shift_type === \App\Enums\DeploymentShiftType::Night
+            $required = $deployment->shift_type === DeploymentShiftType::Night
                 ? (int) $site->required_night_guards
                 : (int) $site->required_day_guards;
             $posted = Deployment::query()->current()->permanent()
@@ -836,6 +835,14 @@ class WorkflowOperationsSeeder extends Seeder
     {
         $site = $regions[0]['sites'][0] ?? null;
         if ($site === null) {
+            return;
+        }
+
+        if (Deployment::query()
+            ->where('site_id', $site->id)
+            ->whereDate('start_date', now()->toDateString())
+            ->where('notes', 'Overtime cover for the permanent night shortage. Does not add a permanent post.')
+            ->exists()) {
             return;
         }
 
@@ -867,6 +874,14 @@ class WorkflowOperationsSeeder extends Seeder
             return;
         }
 
+        if (Deployment::query()
+            ->where('site_id', $site->id)
+            ->whereDate('start_date', now()->toDateString())
+            ->where('notes', 'Supervisor day cover for the remaining manpower gap.')
+            ->exists()) {
+            return;
+        }
+
         try {
             app(DeploymentService::class)->deploySupervisor($supervisor, [
                 'site_id' => $site->id,
@@ -895,6 +910,10 @@ class WorkflowOperationsSeeder extends Seeder
         }
 
         $when = now()->addDays(4)->toDateString();
+        if (Leave::query()->where('guard_id', $guard->id)->whereDate('start_date', $when)->exists()) {
+            return;
+        }
+
         $shift = app(ShiftService::class)->create([
             'guard_id' => $guard->id,
             'site_id' => $site->id,
@@ -948,9 +967,23 @@ class WorkflowOperationsSeeder extends Seeder
         $finance = Auth::user();
         $approver = User::query()->where('email', 'md@platinumsecurity.local')->first();
         $closed = PayrollRunService::lastClosedPeriod()->startOfMonth();
-        $cursor = Carbon::parse('2026-01-01')->startOfMonth();
+        $cursor = $this->seedStart()->copy()->startOfMonth();
 
         while ($cursor->lte($closed)) {
+            $alreadyRun = PayrollRun::query()
+                ->where('period_year', (int) $cursor->year)
+                ->where('period_month', (int) $cursor->month)
+                ->whereNull('region_id')
+                ->whereNull('site_id')
+                ->where('status', '!=', PayrollRunStatus::Cancelled->value)
+                ->exists();
+            if ($alreadyRun) {
+                $this->command?->line('Skipping '.$cursor->format('F Y').' payroll. A run already exists.');
+                $cursor->addMonth();
+
+                continue;
+            }
+
             $this->command?->line('Calculating '.$cursor->format('F Y').' payroll…');
             $run = $payroll->createDraft([
                 'period_year' => (int) $cursor->year,
@@ -972,7 +1005,7 @@ class WorkflowOperationsSeeder extends Seeder
         $closed = PayrollRunService::lastClosedPeriod()->startOfMonth();
         $sites = collect($regions)->flatMap(fn (array $row) => $row['sites'])->values();
 
-        $cursor = Carbon::parse('2026-01-01')->startOfMonth();
+        $cursor = $this->seedStart()->copy()->startOfMonth();
         while ($cursor->lte($closed)) {
             $this->command?->line('Invoicing '.$cursor->format('F Y').'…');
             $periodStart = $cursor->copy()->startOfMonth()->toDateString();
@@ -982,6 +1015,15 @@ class WorkflowOperationsSeeder extends Seeder
             $isPrevious = $cursor->isSameMonth($closed->copy()->subMonth());
 
             foreach ($sites as $siteIndex => $site) {
+                $alreadyInvoiced = Invoice::query()
+                    ->where('site_id', $site->id)
+                    ->whereDate('period_start', $periodStart)
+                    ->where('status', '!=', InvoiceStatus::Cancelled->value)
+                    ->exists();
+                if ($alreadyInvoiced) {
+                    continue;
+                }
+
                 $lines = $invoices->suggestLines((int) $site->client_id, (int) $site->id, $periodStart, $periodEnd);
                 if ($lines === []) {
                     continue;
@@ -1034,7 +1076,7 @@ class WorkflowOperationsSeeder extends Seeder
     private function printReport(string $mode, array $report): void
     {
         $this->command?->newLine();
-        $this->command?->info('Workflow seed ('.$mode.') from 1 January 2026 through '.now()->toDateString());
+        $this->command?->info('Workflow seed ('.$mode.') from '.$this->seedStart()->format('j F Y').' through '.now()->toDateString());
         foreach ($report as $label => $count) {
             $this->command?->line($label.': '.$count);
         }

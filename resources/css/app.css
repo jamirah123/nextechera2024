@@ -26,11 +26,19 @@
     --color-steel-850: #121c2f;
     --color-steel-900: #0c1424;
     --color-steel-950: #070d18;
+
+    /* Desktop shell and wide module rows share one width, including a scaled desktop monitor. */
+    --breakpoint-lg: 56rem;
+    --breakpoint-xl: 56rem;
 }
 
 @layer base {
     html {
         @apply antialiased;
+        height: 100%;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        -webkit-tap-highlight-color: transparent;
     }
 
     body {
@@ -155,10 +163,32 @@
 
     .field__control--select {
         @apply cursor-pointer appearance-none bg-white pr-8 dark:bg-slate-900;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2394a3b8'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: right 0.45rem center;
         background-size: 1rem 1rem;
+    }
+
+    input[type='date'].field__control,
+    input[type='datetime-local'].field__control,
+    input[type='time'].field__control,
+    input[type='month'].field__control,
+    input[type='week'].field__control {
+        min-height: 2rem;
+        min-width: 0;
+        max-width: 100%;
+        line-height: 1.25rem;
+    }
+
+    input[type='date'].field__control::-webkit-date-and-time-value,
+    input[type='datetime-local'].field__control::-webkit-date-and-time-value,
+    input[type='time'].field__control::-webkit-date-and-time-value,
+    input[type='month'].field__control::-webkit-date-and-time-value {
+        min-height: 1.25em;
+        text-align: left;
     }
 
     .field__control--readonly {
@@ -296,6 +326,7 @@
 
     .data-table td {
         @apply px-3 py-1.5;
+        overflow-wrap: break-word;
     }
 
     .form-alert {
@@ -907,6 +938,85 @@ select.ts-hidden-accessible + .ts-wrapper {
 
     html.dark .psg-stack td::before {
         color: rgb(148 163 184);
+    }
+}
+
+/*
+ | Cross-browser shell.
+ | 100% and 100vh keep the app full-height where 100dvh is unknown.
+ | The last declaration wins in Chrome, Edge, Firefox, and Safari.
+ */
+.h-dvh {
+    height: 100%;
+    height: 100vh;
+    height: 100dvh;
+}
+
+.min-h-dvh {
+    min-height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+.psg-safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+}
+
+.psg-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.psg-safe-left {
+    padding-left: env(safe-area-inset-left, 0px);
+}
+
+.backdrop-blur,
+.backdrop-blur-sm {
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.backdrop-blur-sm {
+    -webkit-backdrop-filter: blur(4px);
+}
+
+/*
+ | iOS Safari zooms the whole page when a focused field is under 16px.
+ | Desktop type stays compact. Phones and tablets get a readable control size.
+ */
+@media screen and (max-width: 55.99rem) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='hidden']):not([type='button']):not([type='submit']):not([type='reset']),
+    select,
+    textarea {
+        font-size: 16px;
+    }
+}
+
+/*
+ | Desktop rows follow the content width.
+ | Stat strips and filters stay on one line when the page has room, and wrap
+ | to a readable width on a smaller desktop instead of stretching or stacking.
+ */
+@media screen and (min-width: 56rem) {
+    main form.grid[class*='items-end'] {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.75rem), 1fr));
+        align-items: end;
+    }
+
+    main form.grid[class*='items-end'] > * {
+        grid-column: auto;
+        min-width: 0;
+    }
+
+    main form.grid[class*='items-end'] > .field:has(input[type='search']) {
+        grid-column: span 2;
+    }
+
+    main section.grid[class*='grid-cols-4'],
+    main section.grid[class*='grid-cols-5'],
+    main section.grid[class*='grid-cols-8'],
+    main div.grid[class*='grid-cols-4'],
+    main div.grid[class*='grid-cols-5'] {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
     }
 }
 

@@ -28,17 +28,6 @@ class DatabaseSeeder extends Seeder
             return;
         }
 
-        if ($mode === 'legacy') {
-            $this->call([
-                SmallCompanySeeder::class,
-                ExpandOrgSeeder::class,
-                ExpandHrModulesSeeder::class,
-                RealisticOpsSeeder::class,
-            ]);
-
-            return;
-        }
-
         $this->call(WorkflowOperationsSeeder::class);
     }
 }

@@ -36,7 +36,7 @@
     </section>
 
     <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-        <form method="GET" action="{{ route('shifts.index') }}" x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-7 xl:items-end">
+        <form method="GET" action="{{ route('shifts.index') }}" x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-7 lg:items-end">
             <x-form-field label="Date" name="date" type="date" :value="$filters['date'] ?? $date" x-on:change="$refs.filterForm.requestSubmit()" />
             <x-form-field
                 label="Search"

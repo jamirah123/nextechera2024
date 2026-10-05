@@ -93,41 +93,12 @@ php artisan psg:queue-health
 
 ## Demo seed
 
-```bash
-php artisan migrate:fresh --seed
-```
+`php artisan db:seed` writes nothing while `PSG_SEED_MODE=off`. That is the production setting.
 
-Runs **SmallCompanySeeder** — a lean footprint for a small security company:
+On an empty database, `PSG_SEED_MODE` can be `story`, `full`, or `load`. `load` builds the 1,000-guard history from `PSG_SEED_START_DATE` (1 January 2025) through the current date. Leave that mode off on the live company database.
 
-| Record | Count |
-| --- | --- |
-| HQ users | 5 (admin, ops, HR, shifts, finance) |
-| Region supervisor users | 2 (Kampala + Western) |
-| Regions | 2 (Kampala, Western) |
-| Field supervisors | 2 (1 per region) |
-| Clients | 4 |
-| Sites | 4 (2 per region) |
-| Guards | 16 (8 per region; 12 deployed, 4 awaiting) |
-| Office staff | 3 |
-| Active deployments | 12 |
-
-Password for all seeded users: `Password@123`  
-Primary login: `admin@platinumsecurity.local`  
-Western supervisor: `supervisor.western@platinumsecurity.local`
-
-### Realistic operational history (Jan → today)
-
-After the lean seed (or on an existing small-company database), load multi-month history **through the same services** used by live users (deployments, duties, absences, leave, billing, invoices, payments, payroll, audits):
-
-```bash
-php artisan psg:seed-realistic
-# optional:
-php artisan psg:seed-realistic --from=2026-01-01 --to=2026-09-24
-# wipe + lean seed + realistic history:
-php artisan psg:seed-realistic --fresh
-```
-
-Does **not** invent orphan rows or bypass validations. Closed months get historical postings; the current month stays on active postings. Payroll is opened only for completed calendar months.
+Password for seeded users: `Password@123`  
+Primary login: `admin@platinumsecurity.local`
 
 Scheduled maintenance (requires `php artisan schedule:work` or cron — full table in [docs/ops-queue-scheduler.md](./docs/ops-queue-scheduler.md)):
 

@@ -2,7 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="{{ $brand['theme_sidebar'] ?? '#070d18' }}">
     <link rel="icon" href="{{ $brand['favicon_url'] ?? asset('images/logo.jpeg') }}" type="image/png">
@@ -35,7 +35,7 @@
         <div class="flex max-w-lg items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-lg">
             <p class="flex-1">
                 You will be signed out soon due to inactivity
-                (<span class="font-semibold" x-text="'(' + remainingLabel + ')'"></span>.
+                (<span class="font-semibold" x-text="remainingLabel"></span>).
                 Move the mouse or press a key to stay signed in.
             </p>
             <button type="button" class="rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800" @click="poke()">
@@ -66,7 +66,7 @@
 
         {{-- Sidebar --}}
         <aside
-            class="no-print fixed inset-y-0 left-0 z-50 flex h-dvh max-w-[85vw] flex-col bg-steel-950 text-white transition-[transform,width] duration-300 ease-out lg:static lg:z-0 lg:h-full lg:max-w-none lg:shrink-0"
+            class="psg-safe-top psg-safe-bottom psg-safe-left no-print fixed inset-y-0 left-0 z-50 flex h-dvh max-w-[85vw] flex-col bg-steel-950 text-white transition-[transform,width] duration-300 ease-out lg:static lg:z-0 lg:h-full lg:max-w-none lg:shrink-0"
             :class="{
                 'translate-x-0': mobileOpen,
                 '-translate-x-full lg:translate-x-0': ! mobileOpen,
@@ -112,7 +112,7 @@
 
         {{-- Main column --}}
         <div class="flex min-h-0 min-w-0 flex-1 flex-col">
-            <header class="no-print z-30 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
+            <header class="psg-safe-top no-print z-30 shrink-0 border-b border-slate-200/80 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">
                 <div class="flex flex-wrap items-center gap-2 px-3 py-2 sm:gap-3 sm:px-4 lg:px-6">
                     <div class="flex min-w-0 flex-1 items-center gap-2 md:w-56 md:flex-none lg:w-64">
                         <button
@@ -145,7 +145,7 @@
                 </div>
             </header>
 
-            <main class="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-2 sm:px-4 sm:py-3 lg:px-5">
+            <main class="psg-safe-bottom min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-2 sm:px-4 sm:py-3 lg:px-5">
                 <x-flash-status />
 
                 @if (session('error'))

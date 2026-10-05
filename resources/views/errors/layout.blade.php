@@ -3,7 +3,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="robots" content="noindex">
     <title>@yield('title', 'Something went wrong') — {{ config('psg.company', config('app.name')) }}</title>
     <style>
@@ -12,9 +12,10 @@
         body {
             margin: 0;
             min-height: 100vh;
+            min-height: 100dvh;
+            padding: calc(1.5rem + env(safe-area-inset-top, 0px)) calc(1.5rem + env(safe-area-inset-right, 0px)) calc(1.5rem + env(safe-area-inset-bottom, 0px)) calc(1.5rem + env(safe-area-inset-left, 0px));
             display: grid;
             place-items: center;
-            padding: 1.5rem;
             font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
             background: #0b1220;
             color: #e2e8f0;

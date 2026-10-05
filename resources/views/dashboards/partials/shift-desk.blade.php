@@ -17,7 +17,7 @@
         <span class="text-[11px] text-slate-400">{{ \Illuminate\Support\Carbon::parse($shiftDesk['date'])->format('D, j M Y') }}</span>
     </div>
 
-    <div class="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <a href="{{ $shiftDesk['links']['deploy_board'] }}" class="rounded-md border border-brand-200 bg-brand-50 px-3 py-2 transition hover:bg-brand-100/70">
             <p class="text-[10px] font-semibold uppercase tracking-wide text-brand-700">Awaiting deploy</p>
             <p class="text-lg font-semibold text-brand-950">{{ number_format($shiftDesk['awaiting_deployment']) }}</p>

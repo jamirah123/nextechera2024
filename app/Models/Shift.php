@@ -7,6 +7,7 @@ use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Models\Concerns\TracksUserChanges;
+use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Database\Factories\ShiftFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -185,7 +186,20 @@ class Shift extends Model
 
     public function scopeForDate($query, ?string $date = null)
     {
-        return $query->whereDate('shift_date', $date ?: now()->toDateString());
+        return $query->betweenDates($date ?: now()->toDateString(), $date ?: now()->toDateString());
+    }
+
+    /**
+     * Inclusive calendar range that can use the shift_date index.
+     * whereDate() wraps the column in DATE() and forces a scan of the duty history.
+     */
+    public function scopeBetweenDates($query, string $from, string $to)
+    {
+        $start = Carbon::parse($from)->toDateString();
+        $end = Carbon::parse($to)->addDay()->toDateString();
+
+        return $query->where('shift_date', '>=', $start)
+            ->where('shift_date', '<', $end);
     }
 
     public function scopeBlocking($query)

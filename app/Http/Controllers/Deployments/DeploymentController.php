@@ -22,17 +22,17 @@ use App\Models\User;
 use App\Services\AbsenceService;
 use App\Services\Deployments\BulkDeploymentService;
 use App\Services\DeploymentService;
-use App\Services\ManpowerService;
 use App\Services\Documents\LetterPdfService;
+use App\Services\ManpowerService;
 use App\Services\Shifts\BulkShiftAllocationService;
 use App\Services\Shifts\ShiftLifecycleService;
 use App\Support\Deployments\DeploymentShiftSchedule;
 use App\Support\Historical\HistoricalDates;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -201,7 +201,7 @@ class DeploymentController extends Controller
             'boardManpower' => app(ManpowerService::class)->postingBoardCoverage($sites, $dutyDate),
             'shiftWindows' => $shiftSchedule->labels(),
             'stats' => [
-                'awaiting' => (clone $this->boardGuardQuery($request, $user, applyRegionFilter: false, dutyDate: $dutyDate))->count(),
+                'awaiting' => (int) $regionCounts->sum(),
                 'active' => (clone $activeDeployments)->count(),
                 'day' => (clone $activeDeployments)->where('shift_type', DeploymentShiftType::Day)->count(),
                 'night' => (clone $activeDeployments)->where('shift_type', DeploymentShiftType::Night)->count(),
@@ -539,7 +539,7 @@ class DeploymentController extends Controller
             ->with('site:id,name')
             ->blocking()
             ->whereIn('guard_id', $ids)
-            ->whereDate('shift_date', $dutyDate)
+            ->forDate($dutyDate)
             ->get(['id', 'guard_id', 'site_id', 'period']);
 
         foreach ($shifts as $shift) {

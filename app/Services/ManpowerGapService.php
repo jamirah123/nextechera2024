@@ -18,7 +18,9 @@ use App\Models\ManpowerGap;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Support\Finance\PayrollRates;
+use App\Support\Historical\HistoricalDates;
 use App\Support\Performance\DashboardCache;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -299,6 +301,55 @@ class ManpowerGapService
         }
 
         $sites = Site::query()->whereIn('id', $siteIds)->get()->keyBy('id');
+        $permanent = $this->deploymentCountsBySite(
+            Deployment::query()
+                ->current()
+                ->permanent()
+                ->whereIn('site_id', $siteIds),
+        );
+        $temporary = $this->deploymentCountsBySite(
+            Deployment::query()
+                ->temporary()
+                ->whereIn('site_id', $siteIds)
+                ->whereIn('status', [DeploymentStatus::Active, DeploymentStatus::Ended])
+                ->where('start_date', '<=', HistoricalDates::endOfCalendarDay($date))
+                ->where(function ($query) use ($date): void {
+                    $query->whereNull('end_date')->orWhere('end_date', '>=', $date);
+                }),
+        );
+        $shiftCounts = Shift::query()
+            ->forDate($date)
+            ->whereIn('site_id', $siteIds)
+            ->whereIn('status', ShiftStatus::blockingAllocationValues())
+            ->whereIn('shift_type', [ShiftType::Overtime->value, ShiftType::Normal->value])
+            ->selectRaw('site_id, period, shift_type, COUNT(*) as aggregate')
+            ->groupBy('site_id', 'period', 'shift_type')
+            ->get();
+        $normalTempShiftIds = Shift::query()
+            ->forDate($date)
+            ->whereIn('site_id', $siteIds)
+            ->where('shift_type', ShiftType::Normal->value)
+            ->whereIn('status', ShiftStatus::blockingAllocationValues())
+            ->whereHas('deployment', fn ($query) => $query->temporary())
+            ->selectRaw('site_id, period, COUNT(*) as aggregate')
+            ->groupBy('site_id', 'period')
+            ->get();
+
+        $otShifts = [];
+        foreach ($shiftCounts as $row) {
+            $type = $row->shift_type instanceof \BackedEnum ? $row->shift_type->value : (string) $row->shift_type;
+            if ($type !== ShiftType::Overtime->value) {
+                continue;
+            }
+            $period = $row->period instanceof \BackedEnum ? $row->period->value : (string) $row->period;
+            $otShifts[(int) $row->site_id][$period] = (int) $row->aggregate;
+        }
+        $normalTemp = [];
+        foreach ($normalTempShiftIds as $row) {
+            $period = $row->period instanceof \BackedEnum ? $row->period->value : (string) $row->period;
+            $normalTemp[(int) $row->site_id][$period] = (int) $row->aggregate;
+        }
+
         $result = [];
 
         foreach ($siteIds as $siteId) {
@@ -312,10 +363,10 @@ class ManpowerGapService
                 $required = $period === ShiftPeriod::Night
                     ? (int) $site->required_night_guards
                     : (int) $site->required_day_guards;
-                $permanent = $this->permanentDeployedCount($site, $period);
-                $liveShortage = max(0, $required - $permanent);
-                $ot = $this->overtimeCoveredCount($site, $date, $period);
-                // OT used to fill a gap (or standing OT when permanent already full) is the deficit.
+                $permanentCount = $this->countForPeriod($permanent, $siteId, $key);
+                $liveShortage = max(0, $required - $permanentCount);
+                $fromTemp = $this->countForPeriod($temporary, $siteId, $key);
+                $ot = max($fromTemp, ($otShifts[$siteId][$key] ?? 0) + ($normalTemp[$siteId][$key] ?? 0));
                 $otCovered = $liveShortage > 0 ? min($liveShortage, $ot) : $ot;
 
                 $result[$siteId][$key] = [
@@ -327,6 +378,39 @@ class ManpowerGapService
         }
 
         return $result;
+    }
+
+    /**
+     * @param  Builder<Deployment>  $query
+     * @return array<int, array<string, int>>
+     */
+    private function deploymentCountsBySite($query): array
+    {
+        $counts = [];
+
+        foreach ($query->selectRaw('site_id, shift_type, COUNT(*) as aggregate')->groupBy('site_id', 'shift_type')->get() as $row) {
+            $type = $row->shift_type instanceof \BackedEnum ? $row->shift_type->value : (string) $row->shift_type;
+            $counts[(int) $row->site_id][$type] = (int) $row->aggregate;
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @param  array<int, array<string, int>>  $counts
+     */
+    private function countForPeriod(array $counts, int $siteId, string $period): int
+    {
+        $types = $period === 'night'
+            ? [DeploymentShiftType::Night->value, DeploymentShiftType::Rotating->value]
+            : [DeploymentShiftType::Day->value, DeploymentShiftType::Rotating->value];
+        $total = 0;
+
+        foreach ($types as $type) {
+            $total += $counts[$siteId][$type] ?? 0;
+        }
+
+        return $total;
     }
 
     /**

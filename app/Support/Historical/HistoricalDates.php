@@ -77,4 +77,19 @@ final class HistoricalDates
 
         return $start->lte($today) && $end->gte($today);
     }
+
+    /**
+     * Last instant of a calendar day.
+     * A DATE or DATETIME value stored as midnight still compares as that day
+     * on MySQL and on sqlite, without wrapping the column in DATE().
+     */
+    public static function endOfCalendarDay(string|CarbonInterface $date): string
+    {
+        return self::parseDate($date)->endOfDay()->toDateTimeString();
+    }
+
+    public static function nextCalendarDay(string|CarbonInterface $date): string
+    {
+        return self::parseDate($date)->addDay()->toDateString();
+    }
 }

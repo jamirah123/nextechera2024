@@ -714,7 +714,7 @@
                                     onchange="window.psgPaintBoardRow(this)"
                                     class="mt-1 w-full"
                                 >
-                                    @include('deployments.partials.board-site-options', ['guard' => $guard])
+                                    <option value="">Choose a site…</option>
                                 </x-board-select>
                             </label>
                             <div>
@@ -811,7 +811,7 @@
                                             :compact="true"
                                             class="min-w-[14rem]"
                                         >
-                                            @include('deployments.partials.board-site-options', ['guard' => $guard])
+                                            <option value="">Choose a site…</option>
                                         </x-board-select>
                                     </td>
                                     <td class="px-2.5 py-1.5">
@@ -854,6 +854,21 @@
                     </table>
                 </div>
             </div>
+
+            <div id="board-site-option-templates" hidden>
+                @foreach ($regions as $region)
+                    <template data-region-options="{{ $region->id }}">
+                        @include('deployments.partials.board-site-options', ['regionName' => $region->name, 'regionId' => $region->id])
+                    </template>
+                @endforeach
+            </div>
+            <script>
+                document.querySelectorAll('[data-row-site]').forEach((select) => {
+                    const template = document.querySelector('[data-region-options="' + select.dataset.regionId + '"]');
+                    if (! template) return;
+                    select.replaceChildren(template.content.cloneNode(true));
+                });
+            </script>
 
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p class="text-xs text-slate-500">

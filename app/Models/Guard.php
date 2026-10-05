@@ -323,7 +323,7 @@ class Guard extends Model
 
             $query->whereDoesntHave('shifts', function ($shifts) use ($date, $period, $blocking): void {
                 $shifts->whereIn('status', $blocking)
-                    ->whereDate('shift_date', $date)
+                    ->forDate($date)
                     ->where('period', $period);
             });
 

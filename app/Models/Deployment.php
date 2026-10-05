@@ -6,6 +6,7 @@ use App\Enums\DeploymentShiftType;
 use App\Enums\DeploymentStatus;
 use App\Enums\ShiftType;
 use App\Models\Concerns\TracksUserChanges;
+use App\Support\Historical\HistoricalDates;
 use Database\Factories\DeploymentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -127,10 +128,10 @@ class Deployment extends Model
     public function scopeActiveOnDate($query, string $date)
     {
         return $query
-            ->whereDate('start_date', '<=', $date)
+            ->where('start_date', '<=', HistoricalDates::endOfCalendarDay($date))
             ->where(function ($q) use ($date): void {
                 $q->whereNull('end_date')
-                    ->orWhereDate('end_date', '>=', $date);
+                    ->orWhere('end_date', '>=', $date);
             });
     }
 
@@ -140,28 +141,33 @@ class Deployment extends Model
      */
     public function scopeWithDutyOnDate($query, string $date)
     {
-        return $query->where(function ($outer) use ($date): void {
+        $start = HistoricalDates::parseDate($date)->toDateString();
+        $end = HistoricalDates::nextCalendarDay($date);
+
+        return $query->where(function ($outer) use ($date, $start, $end): void {
             $outer
-                ->whereExists(function ($q) use ($date): void {
+                ->whereExists(function ($q) use ($start, $end): void {
                     $q->selectRaw('1')
                         ->from('shifts')
                         ->whereColumn('shifts.deployment_id', 'deployments.id')
-                        ->whereDate('shifts.shift_date', $date);
+                        ->where('shifts.shift_date', '>=', $start)
+                        ->where('shifts.shift_date', '<', $end);
                 })
-                ->orWhere(function ($fallback) use ($date): void {
+                ->orWhere(function ($fallback) use ($date, $start, $end): void {
                     $fallback
-                        ->whereExists(function ($q) use ($date): void {
+                        ->whereExists(function ($q) use ($start, $end): void {
                             $q->selectRaw('1')
                                 ->from('shifts')
                                 ->whereColumn('shifts.guard_id', 'deployments.guard_id')
                                 ->whereColumn('shifts.site_id', 'deployments.site_id')
-                                ->whereDate('shifts.shift_date', $date)
+                                ->where('shifts.shift_date', '>=', $start)
+                                ->where('shifts.shift_date', '<', $end)
                                 ->whereNull('shifts.deployment_id');
                         })
-                        ->whereDate('deployments.start_date', '<=', $date)
+                        ->where('deployments.start_date', '<=', HistoricalDates::endOfCalendarDay($date))
                         ->where(function ($coverage) use ($date): void {
                             $coverage->whereNull('deployments.end_date')
-                                ->orWhereDate('deployments.end_date', '>=', $date);
+                                ->orWhere('deployments.end_date', '>=', $date);
                         });
                 });
         });

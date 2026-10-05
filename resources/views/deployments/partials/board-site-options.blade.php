@@ -1,11 +1,8 @@
 @php
     /** @var \Illuminate\Support\Collection<int, \Illuminate\Support\Collection<int, \App\Models\Site>> $sitesByRegion */
-    /** @var \App\Models\Guard|null $guard */
-    $guard = $guard ?? null;
-    $regionName = $guard?->region?->name ?? 'this region';
-    $guardSites = $guard
-        ? $sitesByRegion->get((int) $guard->region_id, collect())
-        : collect();
+    $regionName = $regionName ?? ($guard?->region?->name ?? 'this region');
+    $regionId = (int) ($regionId ?? $guard?->region_id ?? 0);
+    $guardSites = $sitesByRegion->get($regionId, collect());
 @endphp
 <option value="">Choose site in {{ $regionName }}…</option>
 @forelse ($guardSites as $site)

@@ -15,10 +15,14 @@ use App\Models\Staff;
 use App\Services\Documents\LetterPdfService;
 use App\Services\LeaveService;
 use App\Services\ReportExportService;
+use App\Support\Historical\HistoricalDates;
+use App\Support\Performance\ReferenceData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -36,10 +40,13 @@ class LeaveController extends Controller
     public function index(Request $request): View
     {
         $this->authorize('viewAny', Leave::class);
-        $this->leaves->syncDue();
+        $this->syncLeaveWithoutBlocking();
 
         $today = now()->toDateString();
+        $todayEnd = HistoricalDates::endOfCalendarDay($today);
+        $tomorrow = HistoricalDates::nextCalendarDay($today);
         $weekEnd = now()->addDays(7)->toDateString();
+        $weekEndNext = HistoricalDates::nextCalendarDay($weekEnd);
 
         $leaves = $this->filteredLeaves($request)
             ->with([
@@ -59,7 +66,7 @@ class LeaveController extends Controller
 
         $onLeave = Leave::query()
             ->where('status', LeaveStatus::Approved)
-            ->where('start_date', '<=', $today)
+            ->where('start_date', '<=', $todayEnd)
             ->where('end_date', '>=', $today)
             ->selectRaw('COUNT(*) as total, SUM(CASE WHEN guard_id IS NOT NULL THEN 1 ELSE 0 END) as guards_total, SUM(CASE WHEN staff_id IS NOT NULL AND guard_id IS NULL THEN 1 ELSE 0 END) as staff_total')
             ->first();
@@ -68,9 +75,9 @@ class LeaveController extends Controller
             'leaves' => $leaves,
             'statuses' => LeaveStatus::cases(),
             'types' => LeaveTypeConfig::query()->where('is_active', true)->orderBy('name')->get(),
-            'regions' => \App\Support\Performance\ReferenceData::regions(),
-            'sites' => \App\Support\Performance\ReferenceData::sites(),
-            'supervisors' => \App\Support\Performance\ReferenceData::supervisors(),
+            'regions' => ReferenceData::regions(),
+            'sites' => ReferenceData::sites(),
+            'supervisors' => ReferenceData::supervisors(),
             'filters' => $request->only(['q', 'status', 'leave_type', 'leave_type_id', 'from', 'to', 'employee_type', 'region_id', 'site_id', 'supervisor_id']),
             'canManage' => $request->user()->can('create', Leave::class),
             'canManageTypes' => $request->user()->can('create', LeaveTypeConfig::class),
@@ -79,16 +86,47 @@ class LeaveController extends Controller
                 'guards_on_leave' => (int) ($onLeave->guards_total ?? 0),
                 'staff_on_leave' => (int) ($onLeave->staff_total ?? 0),
                 'pending' => Leave::query()->where('status', LeaveStatus::Pending)->count(),
-                'returning_today' => Leave::query()->where('status', LeaveStatus::Approved)->where('expected_return_date', $today)->count(),
-                'returning_week' => Leave::query()->where('status', LeaveStatus::Approved)->whereBetween('expected_return_date', [$today, $weekEnd])->count(),
+                'returning_today' => Leave::query()->where('status', LeaveStatus::Approved)->where('expected_return_date', '>=', $today)->where('expected_return_date', '<', $tomorrow)->count(),
+                'returning_week' => Leave::query()->where('status', LeaveStatus::Approved)->where('expected_return_date', '>=', $today)->where('expected_return_date', '<', $weekEndNext)->count(),
                 'low_balance' => LeaveEntitlement::query()
                     ->where('year', now()->year)
                     ->where('opening_balance', '>', 0)
                     ->whereRaw('(opening_balance + accrued + carried_forward + adjustments - taken - pending - expired) <= 3')
                     ->count(),
-                'upcoming' => Leave::query()->where('status', LeaveStatus::Approved)->where('start_date', '>', $today)->where('start_date', '<=', $weekEnd)->count(),
+                'upcoming' => Leave::query()->where('status', LeaveStatus::Approved)->where('start_date', '>=', $tomorrow)->where('start_date', '<', $weekEndNext)->count(),
             ],
         ]);
+    }
+
+    /**
+     * A handful of ended leaves are completed on the page. A large backlog is
+     * handed to the existing leave-sync command so the list can render.
+     */
+    private function syncLeaveWithoutBlocking(): void
+    {
+        $today = now()->toDateString();
+        $due = Leave::query()
+            ->where('status', LeaveStatus::Approved)
+            ->where('end_date', '<', $today)
+            ->count();
+
+        if ($due === 0) {
+            return;
+        }
+
+        if ($due <= 5) {
+            $this->leaves->syncDue();
+
+            return;
+        }
+
+        $cacheKey = 'psg.leave.sync_queued.'.$today;
+        if (Cache::has($cacheKey)) {
+            return;
+        }
+
+        Cache::put($cacheKey, true, now()->addMinutes(15));
+        Artisan::queue('psg:sync-leave-status');
     }
 
     public function export(Request $request): StreamedResponse

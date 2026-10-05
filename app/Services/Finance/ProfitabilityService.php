@@ -17,6 +17,8 @@ use App\Models\Region;
 use App\Models\Shift;
 use App\Models\Site;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ProfitabilityService
 {
@@ -51,17 +53,27 @@ class ProfitabilityService
             ->where('status', InvoiceStatus::Overdue->value)
             ->sum('balance');
 
-        $byClient = [];
         $clients = Client::query()->orderBy('name')->get(['id', 'name']);
+        $sites = Site::query()->with('client:id,name')->orderBy('name')->get(['id', 'name', 'code', 'client_id', 'region_id']);
+        $regions = Region::query()->orderBy('name')->get(['id', 'name', 'code']);
+        $issued = Invoice::query()->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value]);
+        $revenueByClient = (clone $issued)
+            ->whereBetween('issue_date', [$from, $to])
+            ->selectRaw('client_id, SUM(total) as revenue')
+            ->groupBy('client_id')
+            ->pluck('revenue', 'client_id');
+        $revenueBySite = (clone $issued)
+            ->whereBetween('issue_date', [$from, $to])
+            ->whereNotNull('site_id')
+            ->selectRaw('site_id, SUM(total) as revenue')
+            ->groupBy('site_id')
+            ->pluck('revenue', 'site_id');
+        $costs = $this->groupedPayrollCosts($from, $to, $sites, $clients->pluck('id'));
 
+        $byClient = [];
         foreach ($clients as $client) {
-            $revenue = (float) Invoice::query()
-                ->where('client_id', $client->id)
-                ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value])
-                ->whereBetween('issue_date', [$from, $to])
-                ->sum('total');
-
-            $costRow = $this->payrollCost($client->id, null, null, $from, $to);
+            $revenue = round((float) ($revenueByClient[$client->id] ?? 0), 2);
+            $costRow = $costs['clients'][$client->id] ?? ['cost' => 0.0, 'source' => 'estimated'];
             if ($revenue <= 0 && $costRow['cost'] <= 0) {
                 continue;
             }
@@ -78,16 +90,9 @@ class ProfitabilityService
         }
 
         $bySite = [];
-        $sites = Site::query()->with('client:id,name')->orderBy('name')->get(['id', 'name', 'code', 'client_id', 'region_id']);
-
         foreach ($sites as $site) {
-            $siteRevenue = (float) Invoice::query()
-                ->where('site_id', $site->id)
-                ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value])
-                ->whereBetween('issue_date', [$from, $to])
-                ->sum('total');
-
-            $costRow = $this->payrollCost($site->client_id, $site->id, $site->region_id, $from, $to);
+            $siteRevenue = round((float) ($revenueBySite[$site->id] ?? 0), 2);
+            $costRow = $costs['sites'][$site->id] ?? ['cost' => 0.0, 'source' => 'estimated'];
 
             if ($siteRevenue <= 0 && $costRow['cost'] <= 0) {
                 continue;
@@ -106,15 +111,10 @@ class ProfitabilityService
         }
 
         $byRegion = [];
-        foreach (Region::query()->orderBy('name')->get(['id', 'name', 'code']) as $region) {
-            $siteIds = Site::query()->where('region_id', $region->id)->pluck('id');
-            $revenue = (float) Invoice::query()
-                ->whereIn('site_id', $siteIds)
-                ->whereNotIn('status', [InvoiceStatus::Draft->value, InvoiceStatus::Cancelled->value])
-                ->whereBetween('issue_date', [$from, $to])
-                ->sum('total');
-
-            $costRow = $this->payrollCost(null, null, $region->id, $from, $to);
+        foreach ($regions as $region) {
+            $regionSiteIds = $sites->where('region_id', $region->id)->pluck('id');
+            $revenue = round((float) $regionSiteIds->sum(fn ($id) => (float) ($revenueBySite[$id] ?? 0)), 2);
+            $costRow = $costs['regions'][$region->id] ?? ['cost' => 0.0, 'source' => 'estimated'];
             if ($revenue <= 0 && $costRow['cost'] <= 0) {
                 continue;
             }
@@ -147,6 +147,215 @@ class ProfitabilityService
             'by_site' => $bySite,
             'by_region' => $byRegion,
         ];
+    }
+
+    /**
+     * Payroll cost for every client, site, and region in a few grouped queries.
+     *
+     * @param  Collection<int, Site>  $sites
+     * @param  Collection<int, int>  $clientIds
+     * @return array{
+     *     sites: array<int, array{cost: float, source: string}>,
+     *     clients: array<int, array{cost: float, source: string}>,
+     *     regions: array<int, array{cost: float, source: string}>
+     * }
+     */
+    private function groupedPayrollCosts(string $from, string $to, Collection $sites, Collection $clientIds): array
+    {
+        $siteRuns = $this->paidRunsInPeriod($from, $to)
+            ->whereNotNull('site_id')
+            ->selectRaw('site_id, SUM(gross_total) as total')
+            ->groupBy('site_id')
+            ->pluck('total', 'site_id');
+
+        $allocatedBySite = [];
+        $allocatedByClient = [];
+        $allocatedByRegion = [];
+        $links = DB::table('payroll_payslips as payslips')
+            ->join('payroll_runs as runs', 'runs.id', '=', 'payslips.payroll_run_id')
+            ->join('payroll_payslip_shifts as links', 'links.payroll_payslip_id', '=', 'payslips.id')
+            ->join('shifts', 'shifts.id', '=', 'links.shift_id')
+            ->join('sites', 'sites.id', '=', 'shifts.site_id')
+            ->where('runs.status', PayrollRunStatus::Paid->value)
+            ->where(function ($period) use ($from, $to): void {
+                $period->whereBetween('runs.period_start', [$from, $to])
+                    ->orWhereBetween('runs.period_end', [$from, $to])
+                    ->orWhere(function ($enclosing) use ($from, $to): void {
+                        $enclosing->where('runs.period_start', '<=', $from)
+                            ->where('runs.period_end', '>=', $to);
+                    });
+            })
+            ->select('payslips.id as payslip_id', 'payslips.gross_pay', 'sites.id as site_id', 'sites.client_id', 'sites.region_id')
+            ->distinct()
+            ->get();
+
+        $seenSite = [];
+        $seenClient = [];
+        $seenRegion = [];
+        foreach ($links as $link) {
+            $gross = (float) $link->gross_pay;
+            $siteKey = $link->payslip_id.'-'.$link->site_id;
+            if (! isset($seenSite[$siteKey])) {
+                $seenSite[$siteKey] = true;
+                $allocatedBySite[(int) $link->site_id] = ($allocatedBySite[(int) $link->site_id] ?? 0) + $gross;
+            }
+            $clientKey = $link->payslip_id.'-'.$link->client_id;
+            if (! isset($seenClient[$clientKey])) {
+                $seenClient[$clientKey] = true;
+                $allocatedByClient[(int) $link->client_id] = ($allocatedByClient[(int) $link->client_id] ?? 0) + $gross;
+            }
+            $regionKey = $link->payslip_id.'-'.$link->region_id;
+            if (! isset($seenRegion[$regionKey])) {
+                $seenRegion[$regionKey] = true;
+                $allocatedByRegion[(int) $link->region_id] = ($allocatedByRegion[(int) $link->region_id] ?? 0) + $gross;
+            }
+        }
+
+        $profiles = BillingProfile::query()
+            ->active()
+            ->where('effective_from', '<=', $to)
+            ->where(fn ($query) => $query->whereNull('effective_to')->orWhere('effective_to', '>=', $from))
+            ->get();
+
+        $clientWideCost = [];
+        $siteSpecificCost = [];
+        $clientProfileCost = [];
+        $unscopedProfileCost = 0.0;
+        foreach ($profiles as $profile) {
+            $cost = $this->profileContractCost($profile);
+            $clientId = (int) $profile->client_id;
+            $clientProfileCost[$clientId] = ($clientProfileCost[$clientId] ?? 0) + $cost;
+            if ($profile->site_id === null) {
+                $clientWideCost[$clientId] = ($clientWideCost[$clientId] ?? 0) + $cost;
+                $unscopedProfileCost += $cost;
+            } else {
+                $siteId = (int) $profile->site_id;
+                $siteSpecificCost[$siteId] = ($siteSpecificCost[$siteId] ?? 0) + $cost;
+            }
+        }
+
+        $shared = $this->companyStaffAndSalaryCost($from, $to);
+        $salaryBySite = PayrollPayslip::query()
+            ->whereNotNull('payroll_payslips.guard_id')
+            ->whereNull('payroll_payslips.staff_id')
+            ->where('payroll_payslips.compensation_type', CompensationType::Salary->value)
+            ->whereHas('run', fn (Builder $query) => $this->applyPeriodOverlap(
+                $query->where('status', PayrollRunStatus::Paid->value),
+                $from,
+                $to,
+            ))
+            ->join('guards', 'guards.id', '=', 'payroll_payslips.guard_id')
+            ->whereNull('guards.deleted_at')
+            ->whereNotNull('guards.current_site_id')
+            ->selectRaw('guards.current_site_id as site_id, SUM(payroll_payslips.gross_pay) as total')
+            ->groupBy('guards.current_site_id')
+            ->pluck('total', 'site_id');
+        $siteCosts = [];
+        foreach ($sites as $site) {
+            $runTotal = round((float) ($siteRuns[$site->id] ?? 0), 2);
+            if ($runTotal > 0) {
+                $siteCosts[(int) $site->id] = ['cost' => $runTotal, 'source' => 'actual'];
+
+                continue;
+            }
+
+            $allocated = round((float) ($allocatedBySite[$site->id] ?? 0) + (float) ($salaryBySite[$site->id] ?? 0), 2);
+            if ($allocated > 0) {
+                $siteCosts[(int) $site->id] = ['cost' => $allocated, 'source' => 'actual'];
+
+                continue;
+            }
+
+            $estimated = ($clientWideCost[(int) $site->client_id] ?? 0) + ($siteSpecificCost[(int) $site->id] ?? 0);
+            $siteCosts[(int) $site->id] = ['cost' => round($estimated, 2), 'source' => 'estimated'];
+        }
+
+        $clientCosts = [];
+        foreach ($clientIds->unique() as $clientId) {
+            $clientId = (int) $clientId;
+            $shiftCost = round((float) ($allocatedByClient[$clientId] ?? 0), 2);
+            $actual = round($shiftCost + $shared, 2);
+            if ($actual > 0) {
+                $clientCosts[$clientId] = ['cost' => $actual, 'source' => 'actual'];
+
+                continue;
+            }
+
+            $clientCosts[$clientId] = ['cost' => round((float) ($clientProfileCost[$clientId] ?? 0), 2), 'source' => 'estimated'];
+        }
+
+        $regionCosts = [];
+        foreach ($sites->pluck('region_id')->unique()->filter() as $regionId) {
+            $regionId = (int) $regionId;
+            $regionSiteIds = $sites->where('region_id', $regionId)->pluck('id');
+            $regionRun = (float) $this->paidRunsInPeriod($from, $to)
+                ->where(function (Builder $query) use ($regionId, $regionSiteIds): void {
+                    $query->where(function (Builder $scoped) use ($regionId): void {
+                        $scoped->where('region_id', $regionId)->whereNull('site_id');
+                    })->orWhereIn('site_id', $regionSiteIds);
+                })
+                ->sum('gross_total');
+            if ($regionRun > 0) {
+                $regionCosts[$regionId] = ['cost' => round($regionRun, 2), 'source' => 'actual'];
+
+                continue;
+            }
+
+            $allocated = round($this->allocatedPayslipGross($from, $to, null, null, $regionId), 2);
+            if ($allocated > 0) {
+                $regionCosts[$regionId] = ['cost' => $allocated, 'source' => 'actual'];
+
+                continue;
+            }
+
+            $estimated = $unscopedProfileCost;
+            foreach ($regionSiteIds as $regionSiteId) {
+                $estimated += ($siteSpecificCost[(int) $regionSiteId] ?? 0);
+            }
+            $regionCosts[$regionId] = ['cost' => round($estimated, 2), 'source' => 'estimated'];
+        }
+
+        return [
+            'sites' => $siteCosts,
+            'clients' => $clientCosts,
+            'regions' => $regionCosts,
+        ];
+    }
+
+    private function companyStaffAndSalaryCost(string $from, string $to): float
+    {
+        $staffBased = (float) PayrollPayslip::query()
+            ->whereNotNull('staff_id')
+            ->whereHas('run', fn (Builder $query) => $this->applyPeriodOverlap(
+                $query->where('status', PayrollRunStatus::Paid->value),
+                $from,
+                $to,
+            ))
+            ->whereHas('assignedStaff')
+            ->sum('gross_pay');
+
+        $salaryGuards = (float) PayrollPayslip::query()
+            ->whereNotNull('guard_id')
+            ->whereNull('staff_id')
+            ->where('compensation_type', CompensationType::Salary->value)
+            ->whereHas('run', fn (Builder $query) => $this->applyPeriodOverlap(
+                $query->where('status', PayrollRunStatus::Paid->value),
+                $from,
+                $to,
+            ))
+            ->sum('gross_pay');
+
+        return round($staffBased + $salaryGuards, 2);
+    }
+
+    private function profileContractCost(BillingProfile $profile): float
+    {
+        if ($profile->contractedGuardTotal() <= 0) {
+            return 0.0;
+        }
+
+        return ((int) $profile->contracted_armed_guards * (float) $profile->monthly_cost_per_armed_guard)
+            + ((int) $profile->contracted_unarmed_guards * (float) $profile->monthly_cost_per_unarmed_guard);
     }
 
     /**

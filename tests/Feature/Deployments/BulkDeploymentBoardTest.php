@@ -672,13 +672,21 @@ class BulkDeploymentBoardTest extends TestCase
             ->assertDontSee('other region', false)
             ->getContent();
 
+        preg_match('/data-region-options="'.$home->region_id.'".*?<\/template>/s', $html, $homeTemplate);
+        preg_match('/data-region-options="'.$away->region_id.'".*?<\/template>/s', $html, $awayTemplate);
+        $this->assertNotEmpty($homeTemplate);
+        $this->assertStringContainsString('Home Region Gate', $homeTemplate[0]);
+        $this->assertStringNotContainsString('Away Region Gate', $homeTemplate[0]);
+        $this->assertStringContainsString('Choose site in', $homeTemplate[0]);
+        $this->assertNotEmpty($awayTemplate);
+        $this->assertStringContainsString('Away Region Gate', $awayTemplate[0]);
+
         preg_match_all('/name="rows\['.$guard->id.'\]\[site_id\]".*?<\/select>/s', $html, $matches);
         $this->assertCount(2, $matches[0]);
 
         foreach ($matches[0] as $select) {
-            $this->assertStringContainsString('Home Region Gate', $select);
+            $this->assertStringContainsString('data-region-id="'.$home->region_id.'"', $select);
             $this->assertStringNotContainsString('Away Region Gate', $select);
-            $this->assertStringContainsString('Choose site in', $select);
         }
     }
 

@@ -23,6 +23,7 @@ use App\Support\Deployments\DeploymentShiftSchedule;
 use App\Support\Historical\HistoricalDates;
 use App\Support\Performance\DashboardCache;
 use App\Support\Shifts\ShiftDutyTypeResolver;
+use App\Support\Supervisors\SupervisorCoverageClassifier;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -83,11 +84,11 @@ class DeploymentService
                     || $workPeriod === $permanentPeriod;
 
                 if ($sameWindow) {
-                throw new InvalidArgumentException($this->shiftWindowConflictMessage(
-                    $existing->site_id,
-                    $workPeriod,
-                    $dutyFrom,
-                ));
+                    throw new InvalidArgumentException($this->shiftWindowConflictMessage(
+                        $existing->site_id,
+                        $workPeriod,
+                        $dutyFrom,
+                    ));
                 }
 
                 $cover = $this->deployTemporaryCoverage([
@@ -375,7 +376,7 @@ class DeploymentService
         $dutyDate = (string) ($data['start_date'] ?? now()->toDateString());
         $period = ShiftDutyTypeResolver::workPeriodFor($shiftType);
 
-        $dutyType = \App\Support\Supervisors\SupervisorCoverageClassifier::classify($shiftType);
+        $dutyType = SupervisorCoverageClassifier::classify($shiftType);
         // Day cover may be promoted to OT (e.g. after-hours day work subject to approval).
         // Night / rotating cover cannot be downgraded to Normal.
         $requested = ShiftType::tryFrom((string) ($data['duty_type'] ?? ''));
@@ -398,12 +399,12 @@ class DeploymentService
             );
         }
 
-        $classification = \App\Support\Supervisors\SupervisorCoverageClassifier::label($dutyType);
+        $classification = SupervisorCoverageClassifier::label($dutyType);
         $noteParts = array_filter([
             $data['notes'] ?? null,
             'Reason: Manpower Shortage.',
             'Classification: '.$classification.'.',
-            \App\Support\Supervisors\SupervisorCoverageClassifier::payrollHint($dutyType).'.',
+            SupervisorCoverageClassifier::payrollHint($dutyType).'.',
             'Temporary supervisor cover — not a permanent guard posting.',
         ]);
 
@@ -1308,7 +1309,7 @@ class DeploymentService
             $existing = Shift::query()
                 ->blocking()
                 ->where('guard_id', $guard->id)
-                ->whereDate('shift_date', $day->toDateString())
+                ->forDate($day->toDateString())
                 ->where('period', $period->value)
                 ->first();
 

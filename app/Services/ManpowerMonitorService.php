@@ -160,8 +160,7 @@ class ManpowerMonitorService
         $shifts = Shift::query()
             ->blocking()
             ->with(['assignedGuard:id,employment_id,full_name,region_id', 'assignedGuard.region:id,name', 'site:id,name'])
-            ->whereDate('shift_date', '>=', $from)
-            ->whereDate('shift_date', '<=', $asOf)
+            ->betweenDates($from, $asOf)
             ->when($regionId, fn ($query) => $query->where('region_id', $regionId))
             ->orderBy('starts_at')
             ->get(['id', 'guard_id', 'site_id', 'region_id', 'shift_date', 'starts_at', 'ends_at', 'period', 'shift_type', 'status']);
@@ -240,8 +239,7 @@ class ManpowerMonitorService
                 ->whereIn('site_id', $ranked->pluck('id'))
                 ->where('shift_type', ShiftType::Overtime->value)
                 ->whereIn('status', ShiftStatus::blockingAllocationValues())
-                ->whereDate('shift_date', '>=', $month->toDateString())
-                ->whereDate('shift_date', '<=', $end)
+                ->betweenDates($month->toDateString(), $end)
                 ->selectRaw('site_id, COUNT(*) as aggregate')
                 ->groupBy('site_id')
                 ->pluck('aggregate', 'site_id');
@@ -276,8 +274,7 @@ class ManpowerMonitorService
         $otBySite = Shift::query()
             ->where('shift_type', ShiftType::Overtime->value)
             ->whereIn('status', ShiftStatus::blockingAllocationValues())
-            ->whereDate('shift_date', '>=', $from)
-            ->whereDate('shift_date', '<=', $today)
+            ->betweenDates($from, $today)
             ->selectRaw('site_id, COUNT(*) as aggregate')
             ->groupBy('site_id')
             ->pluck('aggregate', 'site_id');
@@ -417,8 +414,7 @@ class ManpowerMonitorService
             ->whereIn('site_id', $sites->pluck('id'))
             ->where('shift_type', ShiftType::Overtime->value)
             ->whereIn('status', ShiftStatus::blockingAllocationValues())
-            ->whereDate('shift_date', '>=', $from)
-            ->whereDate('shift_date', '<=', $date)
+            ->betweenDates($from, $date)
             ->selectRaw('site_id, period, COUNT(*) as aggregate')
             ->groupBy('site_id', 'period')
             ->get();

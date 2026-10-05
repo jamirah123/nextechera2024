@@ -6,6 +6,7 @@ use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Enums\DeploymentStatus;
 use App\Enums\OperationalStatus;
+use App\Enums\SalaryChangeReason;
 use App\Enums\StaffSalaryChangeType;
 use App\Models\EmployeePromotion;
 use App\Models\Guard;
@@ -125,7 +126,7 @@ class EmployeePromotionService
     {
         $due = EmployeePromotion::query()
             ->where('status', 'scheduled')
-            ->whereDate('effective_from', '<=', now()->toDateString())
+            ->where('effective_from', '<=', now()->toDateString())
             ->orderBy('effective_from')
             ->orderBy('id')
             ->get();
@@ -179,7 +180,7 @@ class EmployeePromotionService
                     $guard,
                     (float) $promotion->new_salary,
                     $effective,
-                    \App\Enums\SalaryChangeReason::Promotion,
+                    SalaryChangeReason::Promotion,
                     $actor,
                     $promotion->reason,
                 );

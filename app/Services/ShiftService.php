@@ -11,16 +11,15 @@ use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Models\Deployment;
-use App\Models\Guard;
 use App\Models\Shift;
 use App\Models\ShiftRecurrence;
 use App\Models\Site;
 use App\Services\Finance\PayrollCalculationService;
+use App\Services\Operations\OperationalPeriodService;
 use App\Services\Shifts\ShiftValidationResult;
 use App\Services\Shifts\ShiftValidationService;
 use App\Support\Historical\HistoricalDates;
 use App\Support\Shifts\ShiftDutyTypeResolver;
-use App\Services\Operations\OperationalPeriodService;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Carbon\CarbonPeriod;
@@ -144,7 +143,7 @@ class ShiftService
                     $conflictSiteId = Shift::query()
                         ->blocking()
                         ->where('guard_id', $data['guard_id'])
-                        ->whereDate('shift_date', $data['shift_date'])
+                        ->forDate(\Illuminate\Support\Carbon::parse($data['shift_date'])->toDateString())
                         ->where('period', $period->value)
                         ->value('site_id');
                     $conflictSite = Site::query()->whereKey($conflictSiteId)->value('name') ?: 'another site';

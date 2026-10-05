@@ -8,19 +8,19 @@ use App\Models\Region;
 use App\Models\Site;
 use App\Models\Supervisor;
 use App\Policies\AuditLogPolicy;
-use App\Support\Notifications\EmailFailureMessage;
-use App\Support\Notifications\QueuedWorkflowMail;
 use App\Policies\FinancePolicy;
 use App\Policies\ReportPolicy;
 use App\Services\SystemSettingService;
 use App\Support\Access\RolePermissionService;
-use App\Support\Performance\ReferenceData;
 use App\Support\Navigation\RoleNavigation;
+use App\Support\Notifications\EmailFailureMessage;
+use App\Support\Notifications\QueuedWorkflowMail;
+use App\Support\Performance\ReferenceData;
 use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Http\Request;
 use Illuminate\Console\Events\ScheduledTaskFailed;
-use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Queue\Events\JobFailed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -143,7 +143,7 @@ class AppServiceProvider extends ServiceProvider
 
         View::composer(['layouts.app', 'layouts.guest', 'auth.login', 'admin.settings.index'], function ($view): void {
             try {
-                if (Schema::hasTable('system_settings')) {
+                if ($this->settingsTableExists()) {
                     $view->with('brand', app(SystemSettingService::class)->branding());
                 }
             } catch (\Throwable) {

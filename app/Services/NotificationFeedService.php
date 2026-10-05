@@ -23,10 +23,11 @@ use App\Models\Site;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Support\Access\Access;
+use App\Support\Historical\HistoricalDates;
 use App\Support\Notifications\NotificationPreferences;
 use App\Support\Notifications\WorkflowActionCatalog;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 
 class NotificationFeedService
@@ -74,8 +75,8 @@ class NotificationFeedService
             ->with(['notificationStates' => fn ($query) => $query->where('user_id', $user->id)])
             ->when($panel === 'unread', fn (Builder $query) => $this->whereUnread($query, $user))
             ->when($panel === 'important', fn (Builder $query) => $this->whereAttention($query))
-            ->latest('created_at')
-            ->latest('id')
+            ->orderByDesc('audit_logs.created_at')
+            ->orderByDesc('audit_logs.id')
             ->limit($limit)
             ->get();
 
@@ -105,8 +106,8 @@ class NotificationFeedService
         }
 
         $query->search($filters['q'] ?? null)
-            ->when(filled($filters['from'] ?? null), fn (Builder $inner) => $inner->whereDate('created_at', '>=', $filters['from']))
-            ->when(filled($filters['to'] ?? null), fn (Builder $inner) => $inner->whereDate('created_at', '<=', $filters['to']))
+            ->when(filled($filters['from'] ?? null), fn (Builder $inner) => $inner->where('audit_logs.created_at', '>=', $filters['from']))
+            ->when(filled($filters['to'] ?? null), fn (Builder $inner) => $inner->where('audit_logs.created_at', '<=', HistoricalDates::endOfCalendarDay((string) $filters['to'])))
             ->when(filled($filters['group'] ?? null), fn (Builder $inner) => $this->whereGroup($inner, (string) $filters['group']))
             ->when(filled($filters['priority'] ?? null), fn (Builder $inner) => $this->wherePriority($inner, (string) $filters['priority']))
             ->when(($filters['read'] ?? '') === 'unread', fn (Builder $inner) => $this->whereUnread($inner, $user))
@@ -114,8 +115,8 @@ class NotificationFeedService
 
         $page = $query
             ->with(['notificationStates' => fn ($state) => $state->where('user_id', $user->id)])
-            ->latest('created_at')
-            ->latest('id')
+            ->orderByDesc('audit_logs.created_at')
+            ->orderByDesc('audit_logs.id')
             ->paginate(20)
             ->withQueryString();
 
@@ -215,15 +216,15 @@ class NotificationFeedService
         $since = now()->subDays(max(1, (int) config('psg.notifications.retention_days', 180)));
 
         $query = AuditLog::query()
-            ->where('category', '!=', AuditCategory::Auth->value)
-            ->where('created_at', '>=', $since)
+            ->where('audit_logs.category', '!=', AuditCategory::Auth->value)
+            ->where('audit_logs.created_at', '>=', $since)
             ->whereIn('audit_logs.id', function ($sub) use ($user, $includeDismissed): void {
-                $sub->select('audit_log_id')
+                $sub->select('notification_states.audit_log_id')
                     ->from('notification_states')
-                    ->where('user_id', $user->id);
+                    ->where('notification_states.user_id', $user->id);
 
                 if (! $includeDismissed) {
-                    $sub->whereNull('dismissed_at');
+                    $sub->whereNull('notification_states.dismissed_at');
                 }
             });
 
@@ -289,7 +290,7 @@ class NotificationFeedService
                             ->orWhereNotNull('read_at')));
 
                     if ($readAt) {
-                        $open->where('created_at', '>', $readAt);
+                        $open->where('audit_logs.created_at', '>', $readAt);
                     }
                 });
         });
@@ -307,7 +308,7 @@ class NotificationFeedService
 
             if ($readAt) {
                 $inner->orWhere(function (Builder $watermark) use ($user, $readAt): void {
-                    $watermark->where('created_at', '<=', $readAt)
+                    $watermark->where('audit_logs.created_at', '<=', $readAt)
                         ->whereDoesntHave('notificationStates', fn (Builder $state) => $state
                             ->where('user_id', $user->id)
                             ->where('pinned_unread', true));

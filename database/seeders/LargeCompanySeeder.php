@@ -877,155 +877,261 @@ class LargeCompanySeeder extends Seeder
             $byRegion[$site['region_id']][] = $site;
         }
 
-        $budgets = [2023 => 920, 2024 => 680, 2025 => 420, 2026 => 160];
+        $segmentDays = 200;
         $plans = [];
-        for ($pass = 0; $pass < 6; $pass++) {
-            $plans = $this->buildPlans($guards, $byRegion, $budgets);
+        for ($pass = 0; $pass < 5; $pass++) {
+            $plans = $this->buildPlans($guards, $byRegion, $segmentDays);
             $estimate = $this->countPlanDays($plans);
             $deployments = count($plans);
-            if ($estimate >= 1_200_000 && $estimate <= 1_500_000 && $deployments >= 5_000 && $deployments <= 7_000) {
+            if ($deployments >= 5_000 && $deployments <= 7_000) {
                 break;
             }
-            if ($estimate > 1_500_000 || $deployments > 7_000) {
-                foreach ($budgets as $year => $days) {
-                    $budgets[$year] = max(40, (int) round($days * 0.9));
-                }
-            } else {
-                foreach ($budgets as $year => $days) {
-                    $budgets[$year] = (int) round($days * 1.08);
-                }
+            if ($estimate < 1) {
+                break;
             }
+            $segmentDays = $deployments > 7_000
+                ? (int) ceil($estimate / 5_500)
+                : max(21, (int) floor($estimate / 6_500));
         }
 
-        $this->command?->info('Deployment plan: '.count($plans).' postings, about '.$this->countPlanDays($plans).' duties.');
+        $this->assertPlansWithinManpower($plans, $sites);
+        $this->command?->info('Deployment plan: '.count($plans).' postings, about '.$this->countPlanDays($plans).' duties, each site kept within its day and night requirement.');
 
         return $plans;
     }
 
     /**
+     * Fill each site's day and night posts up to the contracted requirement.
+     * A guard holds one post at a time. A post is never stacked past required_day_guards
+     * or required_night_guards, which is the check DeploymentService enforces.
+     *
      * @param  list<array{id: int, region_id: int, hired: string, left: string|null, active: bool}>  $guards
-     * @param  array<int, list<array{id: int, region_id: int, supervisor_id: int|null, opened: string}>>  $sitesByRegion
-     * @param  array<int, int>  $budgets
+     * @param  array<int, list<array{id: int, region_id: int, supervisor_id: int|null, opened: string, day: int, night: int}>>  $sitesByRegion
      * @return list<array<string, mixed>>
      */
-    private function buildPlans(array $guards, array $sitesByRegion, array $budgets): array
+    private function buildPlans(array $guards, array $sitesByRegion, int $segmentDays): array
     {
+        $horizon = $this->seedEnd()->toDateString();
         $plans = [];
-        $transfersLeft = 50;
-        $regionCursor = [];
+        $segmentDays = max(21, $segmentDays);
 
+        $guardsByRegion = [];
         foreach ($guards as $guard) {
-            $sites = $sitesByRegion[$guard['region_id']] ?? [];
-            if ($sites === []) {
+            $guardsByRegion[$guard['region_id']][] = $guard;
+        }
+
+        foreach ($sitesByRegion as $regionId => $sites) {
+            $pool = $guardsByRegion[$regionId] ?? [];
+            if ($pool === []) {
                 continue;
             }
+            usort($pool, fn (array $a, array $b): int => [$a['hired'], $a['id']] <=> [$b['hired'], $b['id']]);
 
-            $until = $guard['active'] ? $this->seedEnd()->toDateString() : ($guard['left'] ?? $guard['hired']);
-            if ($until <= $guard['hired']) {
-                continue;
+            $freeFrom = [];
+            foreach ($pool as $guard) {
+                $freeFrom[$guard['id']] = $guard['hired'];
             }
 
-            $span = $this->inclusiveDays($guard['hired'], $until);
-            $year = (int) $this->yearOf($guard['hired']);
-            $budget = min($span, $budgets[$year] ?? $budgets[2026]);
-            $segments = $span >= 800 ? 3 : ($span >= 250 ? 2 : 1);
-            $gap = 10;
-            $usable = max($segments, $budget - (($segments - 1) * $gap));
-            $each = max(1, intdiv($usable, $segments));
-            $cursor = $guard['hired'];
-            $previousIndex = null;
+            $lanes = [];
+            foreach ($sites as $site) {
+                for ($slot = 0; $slot < max(0, (int) $site['day']); $slot++) {
+                    $lanes[] = ['site' => $site, 'period' => DeploymentShiftType::Day->value, 'cursor' => $site['opened']];
+                }
+                for ($slot = 0; $slot < max(0, (int) $site['night']); $slot++) {
+                    $lanes[] = ['site' => $site, 'period' => DeploymentShiftType::Night->value, 'cursor' => $site['opened']];
+                }
+            }
 
-            for ($segment = 0; $segment < $segments && $cursor <= $until; $segment++) {
-                $site = $this->nextOpenSite($sites, $cursor, $regionCursor, $guard['region_id']);
-                if ($site === null) {
-                    break;
-                }
-                if ($cursor < $site['opened']) {
-                    $cursor = $site['opened'];
-                }
-                if ($cursor > $until) {
-                    break;
-                }
-
-                $length = $segment === $segments - 1 ? max(1, $usable - ($each * ($segments - 1))) : $each;
-                if ($segment === $segments - 1 && $guard['active']) {
-                    $currentStart = $this->addDays($until, -($length - 1));
-                    if ($currentStart > $cursor) {
-                        $cursor = $currentStart;
+            $steps = 0;
+            while ($steps++ < 200000) {
+                $laneIndex = null;
+                $earliest = '9999-99-99';
+                foreach ($lanes as $index => $lane) {
+                    if ($lane['cursor'] <= $horizon && $lane['cursor'] < $earliest) {
+                        $earliest = $lane['cursor'];
+                        $laneIndex = $index;
                     }
-                    $end = $until;
-                } else {
-                    $end = $this->addDays($cursor, $length - 1);
                 }
-                if ($end > $until) {
-                    $end = $until;
-                }
-                if ($end < $cursor) {
+                if ($laneIndex === null) {
                     break;
                 }
 
-                $rotating = count($plans) % 12 === 0;
-                $period = $rotating
-                    ? DeploymentShiftType::Rotating->value
-                    : (($segment % 2 === 0) ? DeploymentShiftType::Day->value : DeploymentShiftType::Night->value);
-                $isCurrent = $guard['active'] && $segment === $segments - 1 && $end === $until;
-                $isTransfer = $previousIndex !== null && $transfersLeft > 0;
-                if ($isTransfer) {
-                    $plans[$previousIndex]['status'] = DeploymentStatus::Transferred->value;
-                    $plans[$previousIndex]['is_current'] = false;
-                    $transfersLeft--;
+                $cursor = $lanes[$laneIndex]['cursor'];
+                $guard = $this->claimGuard($pool, $freeFrom, $cursor, $horizon);
+                if ($guard === null) {
+                    $jump = $this->earliestLaterOpening($pool, $freeFrom, $cursor, $horizon);
+                    $destination = ($jump === null || $jump <= $cursor)
+                        ? $this->addDays($horizon, 1)
+                        : $jump;
+                    foreach ($lanes as $index => $lane) {
+                        if ($lane['cursor'] === $cursor) {
+                            $lanes[$index]['cursor'] = $destination;
+                        }
+                    }
+
+                    continue;
                 }
+
+                $until = $this->guardWindowEnd($guard, $horizon);
+                $length = min($segmentDays, $this->inclusiveDays($cursor, $until));
+                if ($length < 1) {
+                    $freeFrom[$guard['id']] = $this->addDays($horizon, 1);
+
+                    continue;
+                }
+                $postEnd = $this->addDays($cursor, $length - 1);
+                $isCurrent = $guard['active'] && $postEnd === $horizon;
 
                 $plans[] = [
                     'guard_id' => $guard['id'],
-                    'site_id' => $site['id'],
-                    'region_id' => $guard['region_id'],
-                    'supervisor_id' => $site['supervisor_id'],
-                    'shift_type' => $period,
-                    'status' => $isCurrent ? DeploymentStatus::Active->value : ($isTransfer ? DeploymentStatus::Active->value : DeploymentStatus::Ended->value),
+                    'site_id' => $lanes[$laneIndex]['site']['id'],
+                    'region_id' => (int) $regionId,
+                    'supervisor_id' => $lanes[$laneIndex]['site']['supervisor_id'],
+                    'shift_type' => $lanes[$laneIndex]['period'],
+                    'status' => $isCurrent ? DeploymentStatus::Active->value : DeploymentStatus::Ended->value,
                     'start_date' => $cursor,
-                    'end_date' => $isCurrent ? null : $end,
+                    'end_date' => $isCurrent ? null : $postEnd,
                     'is_current' => $isCurrent,
                     'is_temporary' => false,
                     'duty_type' => ShiftType::Normal->value,
-                    'transfer_from' => $isTransfer ? $previousIndex : null,
-                    'work_end' => $end,
+                    'transfer_from' => null,
+                    'work_end' => $postEnd,
                 ];
-                $previousIndex = count($plans) - 1;
-                $cursor = $this->addDays($end, $gap + 1);
-            }
-        }
 
-        $temporary = 0;
-        foreach ($plans as $plan) {
-            if ($temporary >= 180 || ! $plan['is_current']) {
-                continue;
+                $next = $this->addDays($postEnd, 1);
+                $freeFrom[$guard['id']] = $next;
+                $lanes[$laneIndex]['cursor'] = $next;
             }
-            if ($temporary % 1 === 0 && $plan['shift_type'] !== DeploymentShiftType::Rotating->value && $this->inclusiveDays($plan['start_date'], $plan['work_end']) > 30) {
-                $coverStart = $this->addDays($plan['start_date'], 15);
-                $coverEnd = $this->addDays($coverStart, 6);
-                if ($coverEnd <= $plan['work_end']) {
-                    $plans[] = [
-                        'guard_id' => $plan['guard_id'],
-                        'site_id' => $plan['site_id'],
-                        'region_id' => $plan['region_id'],
-                        'supervisor_id' => $plan['supervisor_id'],
-                        'shift_type' => $plan['shift_type'] === DeploymentShiftType::Day->value ? DeploymentShiftType::Night->value : DeploymentShiftType::Day->value,
-                        'status' => DeploymentStatus::Ended->value,
-                        'start_date' => $coverStart,
-                        'end_date' => $coverEnd,
-                        'is_current' => false,
-                        'is_temporary' => true,
-                        'duty_type' => ShiftType::Overtime->value,
-                        'transfer_from' => null,
-                        'work_end' => $coverEnd,
-                    ];
-                    $temporary++;
+
+            foreach ($lanes as $lane) {
+                if ($lane['cursor'] <= $horizon) {
+                    throw new \RuntimeException('Posting plan did not finish within the step limit.');
                 }
             }
         }
 
         return $plans;
+    }
+
+    /**
+     * @param  list<array{id: int, hired: string, left: string|null, active: bool}>  $pool
+     * @param  array<int, string>  $freeFrom
+     */
+    private function claimGuard(array $pool, array $freeFrom, string $cursor, string $horizon): ?array
+    {
+        $best = null;
+        foreach ($pool as $guard) {
+            $until = $this->guardWindowEnd($guard, $horizon);
+            $available = $freeFrom[$guard['id']];
+            if ($available > $cursor || $available > $until || $until < $cursor) {
+                continue;
+            }
+            if ($best === null
+                || $available < $freeFrom[$best['id']]
+                || ($available === $freeFrom[$best['id']] && $guard['id'] < $best['id'])) {
+                $best = $guard;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * @param  list<array{id: int, hired: string, left: string|null, active: bool}>  $pool
+     * @param  array<int, string>  $freeFrom
+     */
+    private function earliestLaterOpening(array $pool, array $freeFrom, string $cursor, string $horizon): ?string
+    {
+        $next = null;
+        foreach ($pool as $guard) {
+            $until = $this->guardWindowEnd($guard, $horizon);
+            $available = $freeFrom[$guard['id']];
+            if ($available <= $cursor || $available > $until) {
+                continue;
+            }
+            if ($next === null || $available < $next) {
+                $next = $available;
+            }
+        }
+
+        return $next;
+    }
+
+    /** @param  array{active: bool, left: string|null, hired: string}  $guard */
+    private function guardWindowEnd(array $guard, string $horizon): string
+    {
+        return $guard['active'] ? $horizon : ($guard['left'] ?? $guard['hired']);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $plans
+     * @param  list<array{id: int, day: int, night: int}>  $sites
+     */
+    private function assertPlansWithinManpower(array $plans, array $sites): void
+    {
+        $capacity = [];
+        foreach ($sites as $site) {
+            $capacity[$site['id']] = [
+                DeploymentShiftType::Day->value => (int) $site['day'],
+                DeploymentShiftType::Night->value => (int) $site['night'],
+            ];
+        }
+
+        $siteEvents = [];
+        $guardEvents = [];
+        $currentByGuard = [];
+
+        foreach ($plans as $plan) {
+            if ($plan['is_current']) {
+                $currentByGuard[$plan['guard_id']] = ($currentByGuard[$plan['guard_id']] ?? 0) + 1;
+                if ($currentByGuard[$plan['guard_id']] > 1) {
+                    throw new \RuntimeException('Guard '.$plan['guard_id'].' has more than one current posting.');
+                }
+            }
+
+            $periods = $plan['shift_type'] === DeploymentShiftType::Rotating->value
+                ? [DeploymentShiftType::Day->value, DeploymentShiftType::Night->value]
+                : [$plan['shift_type']];
+            $release = $this->addDays($plan['work_end'], 1);
+            foreach ($periods as $period) {
+                $siteEvents[$plan['site_id']][$period][] = [$plan['start_date'], 1];
+                $siteEvents[$plan['site_id']][$period][] = [$release, -1];
+            }
+            $guardEvents[$plan['guard_id']][] = [$plan['start_date'], 1];
+            $guardEvents[$plan['guard_id']][] = [$release, -1];
+        }
+
+        foreach ($siteEvents as $siteId => $byPeriod) {
+            foreach ($byPeriod as $period => $events) {
+                $peak = $this->peakOverlap($events);
+                $limit = $capacity[$siteId][$period] ?? 0;
+                if ($limit > 0 && $peak > $limit) {
+                    throw new \RuntimeException('Site '.$siteId.' '.$period.' peaks at '.$peak.' against a requirement of '.$limit.'.');
+                }
+            }
+        }
+
+        foreach ($guardEvents as $guardId => $events) {
+            if ($this->peakOverlap($events) > 1) {
+                throw new \RuntimeException('Guard '.$guardId.' is posted on two sites for the same day.');
+            }
+        }
+    }
+
+    /** @param  list<array{0: string, 1: int}>  $events */
+    private function peakOverlap(array $events): int
+    {
+        usort($events, fn (array $left, array $right): int => [$left[0], $left[1]] <=> [$right[0], $right[1]]);
+        $running = 0;
+        $peak = 0;
+        foreach ($events as [$date, $delta]) {
+            $running += $delta;
+            if ($running > $peak) {
+                $peak = $running;
+            }
+        }
+
+        return $peak;
     }
 
     /** @param  list<array<string, mixed>>  $plans */
@@ -1168,32 +1274,34 @@ class LargeCompanySeeder extends Seeder
             if (count($transfers) >= 50) {
                 break;
             }
-            if (count($guardRows) < 2) {
-                continue;
+            for ($index = 0; $index < count($guardRows) - 1 && count($transfers) < 50; $index++) {
+                $from = $guardRows[$index];
+                $to = $guardRows[$index + 1];
+                if ((int) $from->site_id === (int) $to->site_id || $from->is_temporary || $to->is_temporary || $from->end_date === null) {
+                    continue;
+                }
+                if ($this->addDays($from->end_date, 1) !== $to->start_date) {
+                    continue;
+                }
+                DB::table('deployments')->where('id', $from->id)->update([
+                    'status' => DeploymentStatus::Transferred->value,
+                    'is_current' => false,
+                    'end_date' => $from->end_date,
+                ]);
+                $transfers[] = [
+                    'guard_id' => $guardId,
+                    'from_deployment_id' => $from->id,
+                    'to_deployment_id' => $to->id,
+                    'from_site_id' => $from->site_id,
+                    'to_site_id' => $to->site_id,
+                    'reason' => 'Client requested a change of post.',
+                    'notes' => 'Transfer recorded in '.$this->yearOf($to->start_date).'.',
+                    'transferred_by' => $actor,
+                    'effective_at' => $to->start_date.' 06:00:00',
+                    'created_at' => $to->start_date.' 06:00:00',
+                    'updated_at' => $to->start_date.' 06:00:00',
+                ];
             }
-            $from = $guardRows[0];
-            $to = $guardRows[1];
-            if ((int) $from->site_id === (int) $to->site_id || $from->is_temporary || $to->is_temporary) {
-                continue;
-            }
-            DB::table('deployments')->where('id', $from->id)->update([
-                'status' => DeploymentStatus::Transferred->value,
-                'is_current' => false,
-                'end_date' => $from->end_date ?: $this->addDays($to->start_date, -1),
-            ]);
-            $transfers[] = [
-                'guard_id' => $guardId,
-                'from_deployment_id' => $from->id,
-                'to_deployment_id' => $to->id,
-                'from_site_id' => $from->site_id,
-                'to_site_id' => $to->site_id,
-                'reason' => 'Client requested a change of post.',
-                'notes' => 'Transfer recorded in '.$this->yearOf($to->start_date).'.',
-                'transferred_by' => $actor,
-                'effective_at' => $to->start_date.' 06:00:00',
-                'created_at' => $to->start_date.' 06:00:00',
-                'updated_at' => $to->start_date.' 06:00:00',
-            ];
         }
 
         if ($transfers !== []) {
@@ -1830,23 +1938,6 @@ class LargeCompanySeeder extends Seeder
         }
 
         return $open[$sequence % count($open)];
-    }
-
-    /**
-     * @param  list<array{id: int, opened: string, supervisor_id: int|null}>  $sites
-     * @param  array<int, int>  $cursors
-     * @return array{id: int, opened: string, supervisor_id: int|null}|null
-     */
-    private function nextOpenSite(array $sites, string $date, array &$cursors, int $regionId): ?array
-    {
-        $open = array_values(array_filter($sites, fn (array $site) => $site['opened'] <= $date));
-        if ($open === []) {
-            return null;
-        }
-        $index = $cursors[$regionId] ?? 0;
-        $cursors[$regionId] = $index + 1;
-
-        return $open[$index % count($open)];
     }
 
     private function guardHireDate(int $index, int $total): string

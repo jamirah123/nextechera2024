@@ -93,9 +93,9 @@ php artisan psg:queue-health
 
 ## Demo seed
 
-`php artisan db:seed` writes nothing while `PSG_SEED_MODE=off`. That is the production setting.
+`php artisan db:seed` creates the seven head-office users when `PSG_SEED_MODE=off`. An email that already exists is left unchanged. Production refuses the seeder unless `PSG_SEED_ALLOW_PRODUCTION=true`.
 
-On an empty database, `PSG_SEED_MODE` can be `story`, `full`, or `load`. `load` builds the 1,000-guard history from `PSG_SEED_START_DATE` (1 January 2025) through the current date. Leave that mode off on the live company database.
+`PSG_SEED_MODE=load` on an empty database builds the large company from `PSG_SEED_START_DATE` (1 January 2023) through today: guards, sites, duties, payroll, billing, and audit history. It stops if region `KLA` is already present, unless `PSG_SEED_RESUME=true`.
 
 Password for seeded users: `Password@123`  
 Primary login: `admin@platinumsecurity.local`

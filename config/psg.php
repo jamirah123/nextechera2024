@@ -131,9 +131,9 @@ return [
         'send_payslip_email_on_approve' => filter_var(env('PSG_PAYROLL_SEND_PAYSLIP_EMAIL', false), FILTER_VALIDATE_BOOL),
     ],
     'seed' => [
-        // off writes nothing. load is the 1,000-guard dataset and belongs on an empty test database.
+        // off writes the head-office users only. load builds the large company from the start date through today.
         'mode' => env('PSG_SEED_MODE', 'off'),
-        'start_date' => env('PSG_SEED_START_DATE', '2025-01-01'),
+        'start_date' => env('PSG_SEED_START_DATE', '2023-01-01'),
         'resume' => filter_var(env('PSG_SEED_RESUME', false), FILTER_VALIDATE_BOOL),
         'allow_production' => filter_var(env('PSG_SEED_ALLOW_PRODUCTION', false), FILTER_VALIDATE_BOOL),
     ],

@@ -137,9 +137,10 @@ npm ci
 npm run build
 php artisan migrate --force
 php artisan storage:link
-# Leave PSG_SEED_MODE=off. php artisan db:seed then writes nothing.
-# The 1,000-guard history (PSG_SEED_MODE=load, PSG_SEED_START_DATE=2025-01-01)
-# belongs on an empty test database, not on the live company database.
+# Leave PSG_SEED_MODE=off. php artisan db:seed then creates head-office users only,
+# and production refuses it unless PSG_SEED_ALLOW_PRODUCTION=true.
+# PSG_SEED_MODE=load (from PSG_SEED_START_DATE through today) belongs on an empty
+# test database, not on the live company database.
 ```
 
 ## 5. Optimize Laravel

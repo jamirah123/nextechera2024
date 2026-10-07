@@ -3,15 +3,19 @@
 namespace App\Models;
 
 use App\Enums\CompensationType;
+use App\Enums\DeploymentShiftType;
+use App\Enums\DeploymentStatus;
 use App\Enums\EmploymentStatus;
 use App\Enums\GuardClassification;
 use App\Enums\GuardGender;
 use App\Enums\OperationalStatus;
 use App\Enums\ShiftStatus;
+use Illuminate\Support\Carbon;
 use App\Models\Concerns\CapturesDeletionSnapshot;
 use App\Models\Concerns\TracksUserChanges;
 use Database\Factories\GuardFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -309,6 +313,7 @@ class Guard extends Model
     {
         $blocking = ShiftStatus::blockingAllocationValues();
         $live = $date >= now()->toDateString();
+        $nextDay = Carbon::parse($date)->addDay()->toDateString();
         $unavailable = [
             OperationalStatus::OnLeave->value,
             OperationalStatus::Absent->value,
@@ -318,40 +323,61 @@ class Guard extends Model
             OperationalStatus::Training->value,
         ];
 
-        $periodOpen = function ($query, string $period) use ($date, $blocking, $live): void {
-            $shiftTypes = $period === 'night' ? ['night', 'rotating'] : ['day', 'rotating'];
-
-            $query->whereDoesntHave('shifts', function ($shifts) use ($date, $period, $blocking): void {
-                $shifts->whereIn('status', $blocking)
-                    ->forDate($date)
-                    ->where('period', $period);
-            });
-
-            if ($live) {
-                $query->whereDoesntHave('deployments', function ($deployments) use ($shiftTypes): void {
-                    $deployments->current()->whereIn('shift_type', $shiftTypes);
-                });
-            }
-        };
+        $dayTaken = $this->guardIdsTakenForWindow($date, $nextDay, 'day', $blocking, $live);
+        $nightTaken = $this->guardIdsTakenForWindow($date, $nextDay, 'night', $blocking, $live);
+        $blockedOnBothWindows = array_values(array_intersect($dayTaken, $nightTaken));
 
         $query
             ->regularGuards()
             ->where(function ($q) use ($date): void {
                 $q->whereNull('date_employed')
-                    ->orWhereDate('date_employed', '<=', $date);
+                    ->orWhere('date_employed', '<=', $date);
             })
             ->where(function ($q) use ($date): void {
                 $q->whereNull('employment_end_date')
-                    ->orWhereDate('employment_end_date', '>=', $date);
+                    ->orWhere('employment_end_date', '>=', $date);
             })
             ->whereNotIn('operational_status', $unavailable)
-            ->where(function ($free) use ($periodOpen): void {
-                $free->where(function ($day) use ($periodOpen): void {
-                    $periodOpen($day, 'day');
-                })->orWhere(function ($night) use ($periodOpen): void {
-                    $periodOpen($night, 'night');
-                });
-            });
+            ->when(
+                $blockedOnBothWindows !== [],
+                fn ($free) => $free->whereNotIn('guards.id', $blockedOnBothWindows),
+            );
+    }
+
+    /**
+     * Guards already committed to one shift window on this date.
+     * The board hides a guard only when both windows are in this set.
+     *
+     * @param  list<string>  $blocking
+     * @return list<int>
+     */
+    private function guardIdsTakenForWindow(string $date, string $nextDay, string $period, array $blocking, bool $live): array
+    {
+        $shiftIds = DB::table('shifts')
+            ->where('shift_date', '>=', $date)
+            ->where('shift_date', '<', $nextDay)
+            ->where('period', $period)
+            ->whereIn('status', $blocking)
+            ->distinct()
+            ->pluck('guard_id')
+            ->all();
+
+        if (! $live) {
+            return array_map('intval', $shiftIds);
+        }
+
+        $shiftTypes = $period === 'night'
+            ? [DeploymentShiftType::Night->value, DeploymentShiftType::Rotating->value]
+            : [DeploymentShiftType::Day->value, DeploymentShiftType::Rotating->value];
+
+        $deploymentIds = DB::table('deployments')
+            ->where('is_current', true)
+            ->where('status', DeploymentStatus::Active->value)
+            ->whereIn('shift_type', $shiftTypes)
+            ->pluck('guard_id')
+            ->all();
+
+        return array_map('intval', array_unique([...$shiftIds, ...$deploymentIds]));
     }
 
     /**

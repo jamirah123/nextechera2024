@@ -141,8 +141,17 @@ class AbsenceService
     {
         $today = ($asOf ?? now())->toDateString();
 
+        $absentGuardIds = Guard::query()
+            ->where('operational_status', OperationalStatus::Absent)
+            ->pluck('id');
+
+        if ($absentGuardIds->isEmpty()) {
+            return 0;
+        }
+
         $eligibleGuardIds = Absence::query()
             ->select('guard_id')
+            ->whereIn('guard_id', $absentGuardIds)
             ->groupBy('guard_id')
             ->havingRaw('MAX(absence_date) < ?', [$today])
             ->pluck('guard_id');

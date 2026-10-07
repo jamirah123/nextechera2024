@@ -32,6 +32,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -156,22 +158,42 @@ class DeploymentController extends Controller
         )->toDateString();
         $isHistorical = HistoricalDates::isPastCalendarDay($dutyDate);
         $shiftSchedule = DeploymentShiftSchedule::fromConfig();
-        $baseQuery = $this->boardGuardQuery($request, $user, dutyDate: $dutyDate);
+        $pool = $this->boardGuardQuery($request, $user, applyRegionFilter: false, dutyDate: $dutyDate);
 
-        $guards = (clone $baseQuery)
-            ->paginate(table_per_page())
-            ->withQueryString();
+        $regionCounts = (clone $pool)
+            ->reorder()
+            ->selectRaw('region_id, COUNT(*) as total')
+            ->groupBy('region_id')
+            ->pluck('total', 'region_id');
+
+        $perPage = table_per_page();
+        $regionFiltered = $request->filled('region_id') && ! $user->mustStayInOwnRegion();
+
+        if ($regionFiltered) {
+            $guards = (clone $pool)
+                ->where('guards.region_id', $request->integer('region_id'))
+                ->reorder()
+                ->orderBy('full_name')
+                ->paginate($perPage)
+                ->withQueryString();
+        } else {
+            $page = Paginator::resolveCurrentPage();
+            $guards = new LengthAwarePaginator(
+                (clone $pool)->forPage($page, $perPage)->get(),
+                (int) $regionCounts->sum(),
+                $perPage,
+                $page,
+                [
+                    'path' => Paginator::resolveCurrentPath(),
+                    'query' => $request->query(),
+                ],
+            );
+        }
 
         $regions = Region::query()
             ->when($user->mustStayInOwnRegion(), fn ($q) => $q->where('id', $regionId))
             ->orderBy('name')
             ->get(['id', 'name', 'code']);
-
-        $regionCounts = (clone $this->boardGuardQuery($request, $user, applyRegionFilter: false, dutyDate: $dutyDate))
-            ->reorder()
-            ->selectRaw('region_id, COUNT(*) as total')
-            ->groupBy('region_id')
-            ->pluck('total', 'region_id');
 
         $sites = Site::query()
             ->where('status', SiteStatus::Active)

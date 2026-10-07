@@ -777,14 +777,20 @@ class ManpowerService
 
         $requirements = SiteManpowerRequirement::query()
             ->whereIn('site_id', $sites->keys())
-            ->whereDate('effective_from', '<=', $date)
+            ->where('effective_from', '<=', $date)
             ->where(function ($query) use ($date): void {
                 $query->whereNull('effective_to')
-                    ->orWhereDate('effective_to', '>=', $date);
+                    ->orWhere('effective_to', '>=', $date);
             })
             ->orderByDesc('effective_from')
             ->orderByDesc('id')
-            ->get()
+            ->get([
+                'id',
+                'site_id',
+                'required_day',
+                'required_night',
+                'effective_from',
+            ])
             ->unique('site_id')
             ->keyBy('site_id');
 
@@ -795,9 +801,9 @@ class ManpowerService
                 DeploymentStatus::Ended,
                 DeploymentStatus::Transferred,
             ])
-            ->whereDate('start_date', '<=', $date)
+            ->where('start_date', '<=', $date)
             ->where(function ($query) use ($date): void {
-                $query->whereNull('end_date')->orWhereDate('end_date', '>=', $date);
+                $query->whereNull('end_date')->orWhere('end_date', '>=', $date);
             })
             ->when($date >= now()->toDateString(), function ($query): void {
                 $query->where('is_current', true);

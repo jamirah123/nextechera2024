@@ -35,6 +35,7 @@
             if (! this.defaults.site_id) return;
             const siteId = String(this.defaults.site_id);
             this.$root.querySelectorAll('[data-row-site]').forEach((el) => {
+                if (window.psgFillBoardSiteSelect) window.psgFillBoardSiteSelect(el);
                 const option = Array.from(el.options).find((o) => String(o.value) === siteId);
                 if (! option || option.disabled) return;
                 const siteRegion = option.getAttribute('data-region-id');
@@ -290,6 +291,15 @@
             window.psgBoardSave(store);
             return store;
         };
+        window.psgFillBoardSiteSelect = function (select) {
+            if (! select || select.dataset.sitesReady === '1') return;
+            const template = document.querySelector('[data-region-options="' + select.dataset.regionId + '"]');
+            if (! template) return;
+            const current = select.value;
+            select.replaceChildren(template.content.cloneNode(true));
+            if (current) select.value = current;
+            select.dataset.sitesReady = '1';
+        };
         window.psgBoardApplyVisible = function () {
             const store = window.psgBoardLoad();
             document.querySelectorAll('[data-row-check]').forEach((check) => {
@@ -300,8 +310,11 @@
                 const site = row.querySelector('[data-row-site]');
                 const type = row.querySelector('[data-row-type]');
                 const duty = row.querySelector('[data-row-duty]');
-                if (site && saved.siteId && Array.from(site.options).some((option) => option.value === String(saved.siteId) && ! option.disabled)) {
-                    site.value = String(saved.siteId);
+                if (site && saved.siteId) {
+                    window.psgFillBoardSiteSelect(site);
+                    if (Array.from(site.options).some((option) => option.value === String(saved.siteId) && ! option.disabled)) {
+                        site.value = String(saved.siteId);
+                    }
                 }
                 if (type && saved.shiftType) type.value = saved.shiftType;
                 if (duty && saved.dutyType) duty.value = saved.dutyType;
@@ -864,9 +877,12 @@
             </div>
             <script>
                 document.querySelectorAll('[data-row-site]').forEach((select) => {
-                    const template = document.querySelector('[data-region-options="' + select.dataset.regionId + '"]');
-                    if (! template) return;
-                    select.replaceChildren(template.content.cloneNode(true));
+                    const fill = function () {
+                        if (window.psgFillBoardSiteSelect) window.psgFillBoardSiteSelect(select);
+                    };
+                    select.addEventListener('pointerdown', fill);
+                    select.addEventListener('focus', fill);
+                    select.addEventListener('keydown', fill);
                 });
             </script>
 

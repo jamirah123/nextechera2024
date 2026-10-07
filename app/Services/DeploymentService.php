@@ -967,12 +967,10 @@ class DeploymentService
      */
     public function releaseGuardsAfterShiftWindow(?int $regionId = null): int
     {
-        $released = 0;
         $today = now()->toDateString();
 
-        Deployment::query()
+        $candidates = Deployment::query()
             ->current()
-            ->with('assignedGuard')
             ->when($regionId, fn ($query) => $query->where('region_id', $regionId))
             ->where(function ($query) use ($today): void {
                 $query->whereIn('shift_type', [
@@ -980,48 +978,40 @@ class DeploymentService
                     DeploymentShiftType::Night->value,
                 ])->orWhere(function ($rotating) use ($today): void {
                     $rotating->where('shift_type', DeploymentShiftType::Rotating->value)
-                        ->whereDate('start_date', '<', $today);
+                        ->where('start_date', '<', $today);
                 });
             })
             ->orderBy('id')
-            ->each(function (Deployment $deployment) use (&$released): void {
-                if ($this->deploymentHasOpenOrUpcomingShifts($deployment)) {
-                    return;
+            ->get();
+
+        if ($candidates->isEmpty()) {
+            return 0;
+        }
+
+        $openPairs = $this->openOrUpcomingShiftPairs($candidates->pluck('guard_id')->unique()->all());
+        $ending = $candidates
+            ->filter(function (Deployment $deployment) use ($openPairs): bool {
+                if (isset($openPairs[$deployment->guard_id.'|'.$deployment->site_id])) {
+                    return false;
                 }
 
-                $startedBeforeToday = $deployment->start_date !== null
-                    && $deployment->start_date->copy()->startOfDay()->lt(now()->startOfDay());
+                return $this->postingWindowShouldEnd($deployment);
+            })
+            ->values();
 
-                if ($startedBeforeToday) {
-                    $this->end(
-                        $deployment,
-                        now()->toDateString(),
-                        'Deployment released — no open duty remains on this posting.',
-                    );
-                    $released++;
+        if ($ending->isEmpty()) {
+            return 0;
+        }
 
-                    return;
-                }
+        if ($ending->count() > 25) {
+            return $this->bulkReleaseClosedPostings($ending);
+        }
 
-                if (DeploymentShiftSchedule::isOnShift($deployment->shift_type)) {
-                    return;
-                }
+        foreach ($ending as $deployment) {
+            $this->end($deployment, $today, $this->releaseNote($deployment));
+        }
 
-                // Night posted during the day must stay until that night's window finishes
-                // (otherwise daytime posting is immediately auto-ended).
-                if (! $this->coverWindowHasCompletedSinceStart($deployment)) {
-                    return;
-                }
-
-                $this->end(
-                    $deployment,
-                    now()->toDateString(),
-                    'Deployment released — '.$deployment->shift_type->label().' shift window ended.',
-                );
-                $released++;
-            });
-
-        return $released;
+        return $ending->count();
     }
 
     /**
@@ -1070,24 +1060,189 @@ class DeploymentService
         );
     }
 
-    private function deploymentHasOpenOrUpcomingShifts(Deployment $deployment): bool
+    /**
+     * @param  list<int>  $guardIds
+     * @return array<string, true>
+     */
+    private function openOrUpcomingShiftPairs(array $guardIds): array
     {
-        // A duty that already ended must not keep the standing posting locked —
-        // even if lifecycle has not yet flipped In Progress → Completed.
-        return Shift::query()
-            ->where('guard_id', $deployment->guard_id)
-            ->where('site_id', $deployment->site_id)
-            ->whereIn('status', [
-                ShiftStatus::Scheduled->value,
-                ShiftStatus::Confirmed->value,
-                ShiftStatus::InProgress->value,
-                ShiftStatus::Recorded->value,
-            ])
-            ->where(function ($query): void {
-                $query->where('ends_at', '>', now())
-                    ->orWhereDate('shift_date', '>', now()->toDateString());
-            })
-            ->exists();
+        if ($guardIds === []) {
+            return [];
+        }
+
+        $today = now()->toDateString();
+        $statuses = [
+            ShiftStatus::Scheduled->value,
+            ShiftStatus::Confirmed->value,
+            ShiftStatus::InProgress->value,
+            ShiftStatus::Recorded->value,
+        ];
+        $pairs = [];
+
+        $collect = function ($rows) use (&$pairs): void {
+            foreach ($rows as $row) {
+                $pairs[$row->guard_id.'|'.$row->site_id] = true;
+            }
+        };
+
+        $collect(
+            Shift::query()
+                ->whereIn('guard_id', $guardIds)
+                ->whereIn('status', $statuses)
+                ->where('ends_at', '>', now())
+                ->select('guard_id', 'site_id')
+                ->distinct()
+                ->get()
+        );
+
+        $collect(
+            Shift::query()
+                ->whereIn('guard_id', $guardIds)
+                ->whereIn('status', $statuses)
+                ->where('shift_date', '>', $today)
+                ->select('guard_id', 'site_id')
+                ->distinct()
+                ->get()
+        );
+
+        return $pairs;
+    }
+
+    private function postingWindowShouldEnd(Deployment $deployment): bool
+    {
+        if ($deployment->start_date !== null
+            && $deployment->start_date->copy()->startOfDay()->lt(now()->startOfDay())) {
+            return true;
+        }
+
+        if (DeploymentShiftSchedule::isOnShift($deployment->shift_type)) {
+            return false;
+        }
+
+        return $this->coverWindowHasCompletedSinceStart($deployment);
+    }
+
+    private function releaseNote(Deployment $deployment): string
+    {
+        if ($deployment->start_date !== null
+            && $deployment->start_date->copy()->startOfDay()->lt(now()->startOfDay())) {
+            return 'Deployment released — no open duty remains on this posting.';
+        }
+
+        return 'Deployment released — '.$deployment->shift_type->label().' shift window ended.';
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Deployment>  $ending
+     */
+    private function bulkReleaseClosedPostings($ending): int
+    {
+        $today = now()->toDateString();
+        $this->operationalPeriods->assertWritableForDate($today, auth()->user(), null);
+
+        DB::transaction(function () use ($ending, $today): void {
+            foreach ($ending->groupBy(fn (Deployment $deployment): string => $this->releaseNote($deployment)) as $note => $rows) {
+                Deployment::query()
+                    ->whereIn('id', $rows->pluck('id')->all())
+                    ->update([
+                        'status' => DeploymentStatus::Ended->value,
+                        'is_current' => false,
+                        'end_date' => $today,
+                        'notes' => $note,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            $this->withdrawOpenShiftsForEndedPostings($ending, $today);
+            $this->returnGuardsAfterBulkRelease($ending->pluck('guard_id')->unique()->all());
+
+            $this->audit->log(
+                action: 'deployment.window_released',
+                summary: 'Released '.$ending->count().' postings whose shift window ended.',
+                category: AuditCategory::Deployment,
+                severity: AuditSeverity::Notice,
+                context: ['count' => $ending->count()],
+            );
+        });
+
+        DashboardCache::flush();
+
+        return $ending->count();
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Deployment>  $ending
+     */
+    private function withdrawOpenShiftsForEndedPostings($ending, string $asOfDate): void
+    {
+        $ending->chunk(40)->each(function ($rows) use ($asOfDate): void {
+            Shift::query()
+                ->whereIn('status', [
+                    ShiftStatus::Scheduled->value,
+                    ShiftStatus::Confirmed->value,
+                    ShiftStatus::InProgress->value,
+                ])
+                ->where('shift_date', '>=', $asOfDate)
+                ->where(function ($query) use ($rows): void {
+                    foreach ($rows as $deployment) {
+                        $query->orWhere(function ($pair) use ($deployment): void {
+                            $pair->where('guard_id', $deployment->guard_id)
+                                ->where('site_id', $deployment->site_id);
+                        });
+                    }
+                })
+                ->update([
+                    'status' => ShiftStatus::Cancelled->value,
+                    'notes' => DB::raw("TRIM(CONCAT(COALESCE(notes, ''), CHAR(10), 'Withdrawn — deployment ended.'))"),
+                    'updated_at' => now(),
+                ]);
+        });
+    }
+
+    /**
+     * @param  list<int>  $guardIds
+     */
+    private function returnGuardsAfterBulkRelease(array $guardIds): void
+    {
+        if ($guardIds === []) {
+            return;
+        }
+
+        $stillPosted = Deployment::query()
+            ->current()
+            ->whereIn('guard_id', $guardIds)
+            ->pluck('guard_id')
+            ->all();
+        $free = array_values(array_diff($guardIds, $stillPosted));
+
+        if ($free === []) {
+            return;
+        }
+
+        $supervisorIds = Supervisor::query()
+            ->whereIn('guard_id', $free)
+            ->pluck('guard_id')
+            ->all();
+        $regular = array_values(array_diff($free, $supervisorIds));
+        $now = now();
+
+        if ($regular !== []) {
+            Guard::query()->whereIn('id', $regular)->update([
+                'current_site_id' => null,
+                'current_supervisor_id' => null,
+                'operational_status' => OperationalStatus::AwaitingDeployment->value,
+                'updated_at' => $now,
+            ]);
+        }
+
+        if ($supervisorIds !== []) {
+            Guard::query()->whereIn('id', $supervisorIds)->update([
+                'current_site_id' => null,
+                'current_supervisor_id' => null,
+                'operational_status' => OperationalStatus::OffDuty->value,
+                'updated_at' => $now,
+            ]);
+        }
     }
 
     /**

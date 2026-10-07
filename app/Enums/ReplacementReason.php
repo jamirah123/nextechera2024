@@ -10,6 +10,7 @@ enum ReplacementReason: string
     case Emergency = 'emergency';
     case Transport = 'transport';
     case NoShow = 'no_show';
+    case Absence = 'absence';
     case Other = 'other';
 
     public function label(): string
@@ -21,6 +22,7 @@ enum ReplacementReason: string
             self::Emergency => 'Emergency',
             self::Transport => 'Transport',
             self::NoShow => 'No show',
+            self::Absence => 'Absence',
             self::Other => 'Other',
         };
     }
@@ -34,6 +36,7 @@ enum ReplacementReason: string
             self::Emergency => 'rose',
             self::Transport => 'violet',
             self::NoShow => 'rose',
+            self::Absence => 'amber',
             self::Other => 'slate',
         };
     }

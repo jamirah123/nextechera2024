@@ -1099,7 +1099,6 @@ class DatabaseSeeder extends Seeder
                     continue;
                 }
                 $postEnd = $this->addDays($cursor, $length - 1);
-                $isCurrent = $guard['active'] && $postEnd === $horizon;
 
                 $plans[] = [
                     'guard_id' => $guard['id'],
@@ -1107,10 +1106,10 @@ class DatabaseSeeder extends Seeder
                     'region_id' => (int) $regionId,
                     'supervisor_id' => $lanes[$laneIndex]['site']['supervisor_id'],
                     'shift_type' => $lanes[$laneIndex]['period'],
-                    'status' => $isCurrent ? DeploymentStatus::Active->value : DeploymentStatus::Ended->value,
+                    'status' => DeploymentStatus::Ended->value,
                     'start_date' => $cursor,
-                    'end_date' => $isCurrent ? null : $postEnd,
-                    'is_current' => $isCurrent,
+                    'end_date' => $postEnd,
+                    'is_current' => false,
                     'is_temporary' => false,
                     'duty_type' => ShiftType::Normal->value,
                     'transfer_from' => null,
@@ -2193,14 +2192,9 @@ class DatabaseSeeder extends Seeder
             throw new \RuntimeException($beforeHire.' deployments start before the guard was employed.');
         }
 
-        $twoCurrent = DB::table('deployments')
-            ->select('guard_id')
-            ->where('is_current', true)
-            ->groupBy('guard_id')
-            ->havingRaw('COUNT(*) > 1')
-            ->count();
-        if ($twoCurrent > 0) {
-            throw new \RuntimeException($twoCurrent.' guards have more than one current posting.');
+        $openPosts = (int) DB::table('deployments')->where('is_current', true)->count();
+        if ($openPosts > 0) {
+            throw new \RuntimeException($openPosts.' postings were left open. Seeded history must end so guards stay available for posting.');
         }
 
         $sites = DB::table('sites')->where('status', SiteStatus::Active->value)->whereNull('deleted_at')->get();

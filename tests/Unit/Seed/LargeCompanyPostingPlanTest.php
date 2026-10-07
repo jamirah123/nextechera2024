@@ -41,10 +41,13 @@ class LargeCompanyPostingPlanTest extends TestCase
         $this->assertLessThanOrEqual(2, $this->peak($plans, 10, 'night'));
         $this->assertSame(1, $this->peakForGuard($plans));
 
-        $current = array_filter($plans, fn (array $plan): bool => $plan['is_current'] && $plan['shift_type'] === 'day');
-        $this->assertCount(1, $current);
-        $currentNight = array_filter($plans, fn (array $plan): bool => $plan['is_current'] && $plan['shift_type'] === 'night');
-        $this->assertCount(2, $currentNight);
+        $open = array_filter($plans, fn (array $plan): bool => $plan['is_current'] || $plan['end_date'] === null);
+        $this->assertCount(0, $open);
+
+        $closedDay = array_filter($plans, fn (array $plan): bool => $plan['work_end'] === '2023-04-01' && $plan['shift_type'] === 'day');
+        $closedNight = array_filter($plans, fn (array $plan): bool => $plan['work_end'] === '2023-04-01' && $plan['shift_type'] === 'night');
+        $this->assertCount(1, $closedDay);
+        $this->assertCount(2, $closedNight);
     }
 
     public function test_a_guard_is_not_posted_before_hire_or_after_leaving(): void

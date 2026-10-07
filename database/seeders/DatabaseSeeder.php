@@ -1184,17 +1184,37 @@ class DatabaseSeeder extends Seeder
      */
     private function seedDeploymentsAndShifts(array $plans, array $leaveDays): void
     {
-        $already = DB::table('deployments')->pluck('guard_id')->unique()->flip();
+        $existingDeployments = DB::table('deployments')
+            ->get([
+                'id',
+                'guard_id',
+                'site_id',
+                'shift_type',
+                'status',
+                'start_date',
+                'end_date',
+                'is_current',
+                'is_temporary',
+                'duty_type',
+            ])
+            ->keyBy(fn (object $deployment): string => $this->deploymentIdentity($deployment));
+
         $pending = [];
+        $now = now()->toDateTimeString();
+
         foreach ($plans as $plan) {
-            if (isset($already[$plan['guard_id']])) {
+            $stored = $existingDeployments->get($this->deploymentIdentity($plan));
+
+            if ($stored === null) {
+                $pending[] = $plan;
+
                 continue;
             }
-            $pending[] = $plan;
+
+            $this->alignStoredDeployment($stored, $plan, $now);
         }
 
         if ($pending !== []) {
-            $now = now()->toDateTimeString();
             $rows = [];
             foreach ($pending as $plan) {
                 $rows[] = [
@@ -1285,6 +1305,51 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->command?->info('Duties stored: '.DB::table('shifts')->count().'.');
+    }
+
+    /** @param  object|array<string, mixed>  $deployment */
+    private function deploymentIdentity(object|array $deployment): string
+    {
+        $value = function (string $field) use ($deployment): mixed {
+            return is_array($deployment) ? ($deployment[$field] ?? null) : ($deployment->{$field} ?? null);
+        };
+
+        return implode('|', [
+            (int) $value('guard_id'),
+            (int) $value('site_id'),
+            (string) $value('shift_type'),
+            substr((string) $value('start_date'), 0, 10),
+            (int) $value('is_temporary'),
+            (string) ($value('duty_type') ?? ''),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $plan
+     */
+    private function alignStoredDeployment(object $stored, array $plan, string $now): void
+    {
+        $current = (bool) $plan['is_current'];
+        $endDate = $current ? null : ($plan['end_date'] !== null ? substr((string) $plan['end_date'], 0, 10) : null);
+        $storedEnd = $stored->end_date !== null ? substr((string) $stored->end_date, 0, 10) : null;
+        $status = (string) $stored->status;
+
+        if ($current) {
+            $status = DeploymentStatus::Active->value;
+        } elseif ($status !== DeploymentStatus::Transferred->value) {
+            $status = (string) $plan['status'];
+        }
+
+        if ($storedEnd === $endDate && (bool) $stored->is_current === $current && (string) $stored->status === $status) {
+            return;
+        }
+
+        DB::table('deployments')->where('id', $stored->id)->update([
+            'status' => $status,
+            'end_date' => $endDate,
+            'is_current' => $current,
+            'updated_at' => $now,
+        ]);
     }
 
     /** @param  list<array<string, mixed>>  $plans */

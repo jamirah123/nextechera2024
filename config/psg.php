@@ -134,6 +134,7 @@ return [
         // off writes the head-office users only. load builds the large company from the start date through today.
         'mode' => env('PSG_SEED_MODE', 'off'),
         'start_date' => env('PSG_SEED_START_DATE', '2023-01-01'),
+        'guards' => (int) env('PSG_SEED_GUARDS', 300),
         'resume' => filter_var(env('PSG_SEED_RESUME', false), FILTER_VALIDATE_BOOL),
         'allow_production' => filter_var(env('PSG_SEED_ALLOW_PRODUCTION', false), FILTER_VALIDATE_BOOL),
     ],

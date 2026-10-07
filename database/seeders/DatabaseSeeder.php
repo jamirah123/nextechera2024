@@ -16,10 +16,14 @@ use App\Enums\LeaveStatus;
 use App\Enums\OperationalStatus;
 use App\Enums\RegionStatus;
 use App\Enums\SalaryChangeReason;
+use App\Enums\IncidentSeverity;
+use App\Enums\IncidentStatus;
+use App\Enums\IncidentType;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
 use App\Enums\ShiftType;
 use App\Enums\SiteStatus;
+use App\Enums\UniformChargeStatus;
 use App\Enums\StaffSalaryChangeType;
 use App\Enums\UserRole;
 use App\Models\Guard;
@@ -36,6 +40,7 @@ use App\Services\GuardSalaryService;
 use App\Services\GuardService;
 use App\Services\StaffSalaryService;
 use App\Services\StaffService;
+use App\Services\UniformChargeExemptionService;
 use App\Services\UserAccessService;
 use App\Support\Access\RolePermissionService;
 use Carbon\Carbon;
@@ -47,11 +52,11 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Head-office users, then the company history from PSG_SEED_START_DATE
+ * Head-office users, then a company of about 300 guards from PSG_SEED_START_DATE
  * (1 January 2023) through today when PSG_SEED_MODE=load.
  *
- * Company records are created in year order: founding sites and guards, then later
- * expansion, transfers, promotions, salary changes, duties, payroll, and billing.
+ * Records follow employment order: regions and sites, then guards, promotions,
+ * duties, payroll, billing, and incidents. Names and contracts are fictional.
  */
 class DatabaseSeeder extends Seeder
 {
@@ -61,21 +66,18 @@ class DatabaseSeeder extends Seeder
 
     private const GUARD_MONTHLY_GROSS = 170000;
 
-    private const TARGET_GUARDS = 2500;
+    private const TARGET_SUPERVISORS = 10;
 
-    private const TARGET_SITES = 300;
-
-    private const TARGET_CLIENTS = 67;
-
-    private const TARGET_SUPERVISORS = 32;
-
-    private const TARGET_OFFICE_STAFF = 35;
+    private const TARGET_OFFICE_STAFF = 24;
 
     /** @var list<string> */
-    private array $firstNames = ['Musa', 'Esther', 'Brian', 'Irene', 'Peter', 'Grace', 'Samuel', 'Peace', 'Robert', 'Scovia', 'Denis', 'Janet', 'Francis', 'Doreen', 'Isaac', 'Naomi', 'Daniel', 'Amina', 'Joseph', 'Ruth'];
+    private array $maleNames = ['Richard', 'Brian', 'Ivan', 'Derrick', 'Joseph', 'Patrick', 'Samuel', 'Daniel', 'Moses', 'Ronald', 'Peter', 'Francis', 'Isaac', 'Denis', 'Robert', 'Emmanuel', 'Andrew', 'Charles', 'David', 'Fred', 'Herbert', 'Julius', 'Kenneth', 'Lawrence', 'Martin', 'Nicholas', 'Paul', 'Stephen', 'Timothy', 'Walter', 'Yusuf', 'Hamza', 'Simon', 'Godfrey', 'Henry'];
 
     /** @var list<string> */
-    private array $lastNames = ['Kakooza', 'Nakato', 'Ssempala', 'Achieng', 'Okello', 'Nabwire', 'Turyamureeba', 'Kyomuhendo', 'Bwambale', 'Akello', 'Muhwezi', 'Katusiime', 'Byaruhanga', 'Ninsiima', 'Otim', 'Namuli', 'Kiprotich', 'Juma', 'Mugisha', 'Asiimwe'];
+    private array $femaleNames = ['Sarah', 'Sharon', 'Grace', 'Joan', 'Esther', 'Irene', 'Peace', 'Scovia', 'Janet', 'Doreen', 'Naomi', 'Amina', 'Ruth', 'Prossy', 'Rebecca', 'Christine', 'Florence', 'Harriet', 'Immaculate', 'Juliet', 'Linda', 'Mary', 'Norah', 'Olivia', 'Patience', 'Rita', 'Stella', 'Teddy', 'Violet', 'Winnie', 'Zahara', 'Agnes', 'Betty', 'Claire', 'Diana'];
+
+    /** @var list<string> */
+    private array $lastNames = ['Kaheru', 'Mugisha', 'Tumusiime', 'Mwesigwa', 'Okello', 'Ouma', 'Kato', 'Ssekabira', 'Tumwine', 'Namukasa', 'Nanyonga', 'Atim', 'Akello', 'Nakato', 'Kakooza', 'Ssempala', 'Achieng', 'Nabwire', 'Turyamureeba', 'Kyomuhendo', 'Bwambale', 'Muhwezi', 'Katusiime', 'Byaruhanga', 'Ninsiima', 'Otim', 'Namuli', 'Kiprotich', 'Asiimwe', 'Wasswa', 'Ochieng', 'Odong', 'Babirye', 'Nakimuli', 'Lubega', 'Muwonge', 'Nsubuga', 'Opio', 'Adong', 'Kirabo'];
 
     public function run(): void
     {
@@ -125,6 +127,7 @@ class DatabaseSeeder extends Seeder
         $sites = $this->seedSites($regions, $clients);
         $guards = $this->seedOperationalGuards($regions);
         $this->seedSalaryHistory($guards);
+        $this->seedUniformExemptions($guards);
         $this->seedPromotions($guards);
         $this->markLeavers($guards);
         $leaveDays = $this->seedLeave($guards);
@@ -133,10 +136,13 @@ class DatabaseSeeder extends Seeder
         $this->seedReplacements();
         $this->seedAttendanceAndAbsence();
         $this->refreshGuardPostings();
+        $this->noteRosterVariety();
+        $this->seedIncidents();
         $this->seedPayroll();
         $this->seedBillingProfiles($sites);
         $this->seedInvoices($clients, $sites);
         $this->seedAuditAndNotifications();
+        $this->assertOperationalDataset();
         $this->printReport();
         Auth::logout();
     }
@@ -235,8 +241,11 @@ class DatabaseSeeder extends Seeder
     {
         $definitions = [
             ['code' => 'KLA', 'name' => 'Kampala'],
-            ['code' => 'WES', 'name' => 'Western'],
-            ['code' => 'NTH', 'name' => 'Northern'],
+            ['code' => 'WKS', 'name' => 'Wakiso'],
+            ['code' => 'MUK', 'name' => 'Mukono'],
+            ['code' => 'ENT', 'name' => 'Entebbe'],
+            ['code' => 'JIN', 'name' => 'Jinja'],
+            ['code' => 'MBA', 'name' => 'Mbarara'],
         ];
         $regions = [];
         foreach ($definitions as $definition) {
@@ -264,13 +273,13 @@ class DatabaseSeeder extends Seeder
         }
 
         $staff = app(StaffService::class);
-        $perRegion = [12, 11, 9];
+        $perRegion = [3, 2, 2, 1, 1, 1];
         $salaries = [1200000, 1350000, 1500000, 1100000, 1600000, 1450000, 1250000];
         $cursor = 0;
         Auth::login(User::query()->where('email', 'hr@platinumsecurity.local')->first() ?? Auth::user());
 
         foreach ($regions as $regionIndex => $region) {
-            for ($s = 0; $s < $perRegion[$regionIndex]; $s++) {
+            for ($s = 0; $s < ($perRegion[$regionIndex] ?? 1); $s++) {
                 $hired = $this->spreadDate($cursor, self::TARGET_SUPERVISORS, $this->seedStart()->toDateString(), '2026-03-01');
                 $email = strtolower($region->code).'.s'.$s.'@platinumsecurity.local';
                 if (Staff::query()->where('email', $email)->exists()) {
@@ -280,11 +289,11 @@ class DatabaseSeeder extends Seeder
                 }
 
                 $staff->createStaff([
-                    'first_name' => $this->firstNames[($cursor + 3) % 20],
-                    'last_name' => $this->lastNames[($cursor + 5) % 20],
+                    'first_name' => $this->givenName($cursor + 3),
+                    'last_name' => $this->familyName($cursor + 5),
                     'phone' => '+256702'.str_pad((string) $cursor, 6, '0', STR_PAD_LEFT),
                     'email' => $email,
-                    'gender' => $cursor % 2 === 0 ? GuardGender::Male->value : GuardGender::Female->value,
+                    'gender' => $this->isFemale($cursor + 3) ? GuardGender::Female->value : GuardGender::Male->value,
                     'region_id' => $region->id,
                     'date_employed' => $hired,
                     'job_title' => 'Supervisor',
@@ -357,11 +366,11 @@ class DatabaseSeeder extends Seeder
             }
 
             $member = $staff->createStaff([
-                'first_name' => $this->firstNames[$i % 20],
-                'last_name' => $this->lastNames[($i + 4) % 20],
+                'first_name' => $this->givenName($i + 11),
+                'last_name' => $this->familyName($i + 4),
                 'phone' => '+256705'.str_pad((string) $i, 6, '0', STR_PAD_LEFT),
                 'email' => $email,
-                'gender' => $i % 2 === 0 ? GuardGender::Female->value : GuardGender::Male->value,
+                'gender' => $this->isFemale($i + 11) ? GuardGender::Female->value : GuardGender::Male->value,
                 'region_id' => $region->id,
                 'date_employed' => $hired,
                 'job_title' => $title[0],
@@ -405,7 +414,7 @@ class DatabaseSeeder extends Seeder
             }
 
             $access->create([
-                'name' => $this->firstNames[$i].' '.$this->lastNames[$i + 8],
+                'name' => $this->givenName($i + 2).' '.$this->familyName($i + 8),
                 'email' => $email,
                 'phone' => '+256706'.str_pad((string) $i, 6, '0', STR_PAD_LEFT),
                 'role' => UserRole::ShiftManager->value,
@@ -420,18 +429,34 @@ class DatabaseSeeder extends Seeder
      */
     private function seedClients(): array
     {
-        $opened = array_merge(
-            array_fill(0, 7, $this->seedStart()->toDateString()),
-            array_fill(0, 8, '2024-01-01'),
-            array_fill(0, 12, '2025-01-01'),
-        );
-        $lateStarts = ['2026-03-01', '2026-04-01', '2026-05-01', '2026-06-01', '2026-07-01', '2026-08-01'];
-        for ($i = 0; $i < 40; $i++) {
-            $opened[] = $lateStarts[$i % count($lateStarts)];
+        $names = [
+            'Nakasero Office Complex', 'Ntinda Business Park', 'Namanve Industrial Yard', 'Bweyogerere Warehouse',
+            'Entebbe Road Distribution Centre', 'Jinja Road Factory', 'Mbarara High Street Offices', 'Kololo Residential Estate',
+            'Bugolobi Shopping Centre', 'Luzira Industrial Warehouse', 'Kireka Commercial Centre', 'Seeta School Campus',
+            'Mukono Hospital Annex', 'Kajjansi Warehouse', 'Kawempe Market Offices', 'Wandegeya Court Offices',
+            'Port Bell Distribution Yard', 'Njeru Industrial Area', 'Walukuba Factory', 'Kakoba Residential Estate',
+            'Nyamitanga Office Block', 'Kigungu Airport Road Complex', 'Abaita Ababiri Estate', 'Katosi Landing Warehouse',
+            'Gayaza Road School', 'Banda Industrial Park', 'Nsambya Hospital Gate', 'Rubaga Hill Offices',
+            'Kitgum House Annex', 'Crested Towers Annex',
+        ];
+        $opened = [];
+        $waves = [
+            [$this->seedStart()->toDateString(), 8],
+            ['2024-01-01', 8],
+            ['2025-01-01', 8],
+            ['2026-03-01', 6],
+        ];
+        foreach ($waves as [$start, $count]) {
+            for ($n = 0; $n < $count; $n++) {
+                $opened[] = $this->spreadDate($n, $count, $start, $this->addDays($start, 300));
+            }
         }
 
         $clients = [];
         foreach ($opened as $index => $start) {
+            if ($start > $this->seedEnd()->toDateString()) {
+                $start = $this->seedEnd()->toDateString();
+            }
             $email = 'client'.($index + 1).'@example.test';
             $existing = DB::table('clients')->where('email', $email)->first();
             if ($existing !== null) {
@@ -441,15 +466,15 @@ class DatabaseSeeder extends Seeder
             }
 
             $id = DB::table('clients')->insertGetId([
-                'name' => 'Client '.($index + 1),
-                'contact_person' => $this->firstNames[$index % 20].' '.$this->lastNames[($index + 4) % 20],
+                'name' => $names[$index % count($names)].' (test)',
+                'contact_person' => $this->givenName($index + 6).' '.$this->familyName($index + 2),
                 'phone' => '+256703'.str_pad((string) $index, 6, '0', STR_PAD_LEFT),
                 'email' => $email,
-                'address' => 'Uganda',
+                'address' => $names[$index % count($names)].', Uganda',
                 'contract_start_date' => $start,
                 'contract_end_date' => $this->seedEnd()->copy()->endOfYear()->toDateString(),
                 'contract_status' => ContractStatus::Active->value,
-                'notes' => 'Contract opened in '.$this->yearOf($start).'.',
+                'notes' => 'Fictional test contract. Not a record of a real engagement.',
                 'created_by' => Auth::id(),
                 'created_at' => $start.' 08:00:00',
                 'updated_at' => $start.' 08:00:00',
@@ -470,19 +495,23 @@ class DatabaseSeeder extends Seeder
     private function seedSites(array $regions, array $clients): array
     {
         $waves = [
-            'KLA' => [36, 28, 32, 24],
-            'WES' => [30, 24, 26, 20],
-            'NTH' => [24, 18, 22, 16],
+            'KLA' => [6, 5, 5, 4],
+            'WKS' => [4, 4, 3, 3],
+            'MUK' => [3, 3, 3, 2],
+            'ENT' => [3, 2, 2, 2],
+            'JIN' => [3, 2, 2, 2],
+            'MBA' => [2, 2, 2, 2],
         ];
         $years = [2023, 2024, 2025, 2026];
-        $patterns = [[6, 3, 3], [4, 2, 2], [8, 4, 4], [3, 2, 1], [5, 2, 3]];
+        $patterns = [[2, 1, 1], [4, 2, 2], [6, 3, 3], [3, 2, 1], [5, 2, 3], [8, 4, 4]];
+        $kinds = ['Office Complex', 'Warehouse', 'Factory', 'Shopping Centre', 'Hotel', 'Hospital', 'School', 'Residential Estate', 'Distribution Centre', 'Industrial Yard'];
         $sites = [];
         $billing = app(BillingService::class);
 
         foreach ($regions as $region) {
             $sequence = 0;
             $supervisors = Supervisor::query()->where('region_id', $region->id)->orderBy('assignment_date')->get();
-            foreach ($waves[$region->code] as $waveIndex => $count) {
+            foreach ($waves[$region->code] ?? [] as $waveIndex => $count) {
                 for ($n = 0; $n < $count; $n++) {
                     $sequence++;
                     $code = $region->code.'-'.str_pad((string) $sequence, 3, '0', STR_PAD_LEFT);
@@ -495,20 +524,22 @@ class DatabaseSeeder extends Seeder
                     }
 
                     $existing = Site::query()->where('code', $code)->first();
-                    $pattern = $patterns[$sequence % count($patterns)];
+                    $pattern = $region->code === 'KLA' && $sequence === 12
+                        ? [20, 10, 10]
+                        : ($sequence % 15 === 0 ? [12, 6, 6] : $patterns[$sequence % count($patterns)]);
                     $client = $this->clientOpenBy($clients, $opened, $sequence);
                     $supervisor = $supervisors->first(fn (Supervisor $row) => $row->assignment_date === null || $row->assignment_date->toDateString() <= $opened)
                         ?? $supervisors->first();
 
                     if ($existing === null) {
                         $existing = Site::query()->create([
-                            'name' => $region->name.' Site '.$sequence,
+                            'name' => $region->name.' '.$kinds[$sequence % count($kinds)].' '.$sequence,
                             'code' => $code,
                             'client_id' => $client['id'],
                             'region_id' => $region->id,
                             'supervisor_id' => $supervisor?->id,
-                            'physical_location' => $region->name.' plot '.$sequence,
-                            'site_contact_person' => 'Site contact '.$sequence,
+                            'physical_location' => $region->name.', plot '.$sequence,
+                            'site_contact_person' => $this->givenName($sequence + 8).' '.$this->familyName($sequence),
                             'site_contact_phone' => '+256708'.str_pad((string) $sequence, 6, '0', STR_PAD_LEFT),
                             'contract_start_date' => $opened,
                             'contract_end_date' => $this->seedEnd()->copy()->endOfYear()->toDateString(),
@@ -557,6 +588,12 @@ class DatabaseSeeder extends Seeder
                         ]);
                     }
 
+                    if ($sequence % 11 === 0) {
+                        $existing->update(['status' => SiteStatus::Closed->value]);
+
+                        continue;
+                    }
+
                     $sites[] = [
                         'id' => $existing->id,
                         'region_id' => (int) $existing->region_id,
@@ -584,22 +621,14 @@ class DatabaseSeeder extends Seeder
         $positionId = Position::query()->where('code', 'security_guard')->value('id');
         $service = app(GuardService::class);
         Auth::login(User::query()->where('email', 'hr@platinumsecurity.local')->first() ?? Auth::user());
-        $targetOperational = self::TARGET_GUARDS - Guard::query()->whereHas('supervisorProfile')->count();
+        $targetOperational = $this->targetGuards() - Guard::query()->whereHas('supervisorProfile')->count();
         $existing = Guard::query()->whereDoesntHave('supervisorProfile')->count();
-        $regionWeights = [
-            $regions[0]->id => 1000,
-            $regions[1]->id => 800,
-            $regions[2]->id => 700,
-        ];
+        $shares = $this->regionShares(count($regions), max(0, $targetOperational));
         $regionIds = [];
-        foreach ($regionWeights as $regionId => $weight) {
-            $share = (int) round($targetOperational * ($weight / 2500));
-            for ($n = 0; $n < $share && count($regionIds) < $targetOperational; $n++) {
-                $regionIds[] = $regionId;
+        foreach ($regions as $regionIndex => $region) {
+            for ($n = 0; $n < ($shares[$regionIndex] ?? 0); $n++) {
+                $regionIds[] = $region->id;
             }
-        }
-        while (count($regionIds) < $targetOperational) {
-            $regionIds[] = $regions[count($regionIds) % 3]->id;
         }
 
         for ($i = $existing; $i < $targetOperational; $i++) {
@@ -609,11 +638,16 @@ class DatabaseSeeder extends Seeder
             }
 
             $hired = $this->guardHireDate($i, $targetOperational);
+            $rate = match ($i % 5) {
+                0 => 200000,
+                1 => 180000,
+                default => self::GUARD_MONTHLY_GROSS,
+            };
             $service->createGuard([
-                'first_name' => $this->firstNames[$i % 20],
-                'last_name' => $this->lastNames[($i * 3) % 20],
+                'first_name' => $this->givenName($i),
+                'last_name' => $this->familyName($i * 3),
                 'region_id' => $regionIds[$i],
-                'gender' => $i % 2 === 0 ? GuardGender::Male->value : GuardGender::Female->value,
+                'gender' => $i % 3 === 0 ? GuardGender::Female->value : GuardGender::Male->value,
                 'phone' => $phone,
                 'date_employed' => $hired,
                 'employment_status' => EmploymentStatus::Active->value,
@@ -621,15 +655,15 @@ class DatabaseSeeder extends Seeder
                 'rank_designation' => 'Security Guard',
                 'position_id' => $positionId,
                 'guard_classification' => GuardClassification::Unarmed->value,
-                'address' => 'Uganda',
+                'address' => $regions[$i % count($regions)]->name.', Uganda',
                 'compensation_type' => CompensationType::Shift->value,
-                'base_shift_rate' => self::GUARD_MONTHLY_GROSS,
+                'base_shift_rate' => $rate,
                 'bank_name' => 'Centenary Bank',
                 'bank_account' => '30'.str_pad((string) $i, 8, '0', STR_PAD_LEFT),
                 'nssf_number' => 'NSSF'.str_pad((string) $i, 6, '0', STR_PAD_LEFT),
             ]);
 
-            if (($i + 1) % 250 === 0) {
+            if (($i + 1) % 50 === 0) {
                 $this->command?->info('Guards created: '.($i + 1).' / '.$targetOperational.'.');
             }
         }
@@ -669,7 +703,7 @@ class DatabaseSeeder extends Seeder
         $done = 0;
 
         foreach ($guards as $index => $guard) {
-            if ($index % 8 !== 0 || $done >= 250) {
+            if ($index % 8 !== 0 || $done >= 40) {
                 continue;
             }
 
@@ -685,7 +719,7 @@ class DatabaseSeeder extends Seeder
 
             $salaries->increment(
                 $model,
-                self::GUARD_MONTHLY_GROSS + 15000,
+                (float) $model->base_shift_rate + 15000,
                 Carbon::parse($review),
                 SalaryChangeReason::LengthOfService,
                 $hr,
@@ -698,9 +732,11 @@ class DatabaseSeeder extends Seeder
     }
 
     /** @param  list<array{id: int, region_id: int, hired: string, left: string|null, active: bool}>  $guards */
-    private function seedPromotions(array $guards): void
+    private function seedPromotions(array &$guards): void
     {
         $position = Position::query()->where('code', 'senior_guard')->first();
+        $officer = Position::query()->where('code', 'operations_officer')->first();
+        $supervisorPosition = Position::query()->where('code', 'supervisor')->first();
         if ($position === null) {
             return;
         }
@@ -708,10 +744,59 @@ class DatabaseSeeder extends Seeder
         $promotions = app(EmployeePromotionService::class);
         $hr = User::query()->where('email', 'hr@platinumsecurity.local')->first();
         Auth::login($hr ?? Auth::user());
+        $moved = 0;
+
+        foreach ($guards as $index => $guard) {
+            if ($moved >= 3 || $this->yearOf($guard['hired']) > 2024 || $index % 40 !== 7) {
+                continue;
+            }
+
+            $next = $moved === 0 ? $supervisorPosition : $officer;
+            if ($next === null) {
+                continue;
+            }
+
+            $effective = $this->addDays($guard['hired'], 500);
+            if ($effective >= $this->seedEnd()->toDateString()) {
+                continue;
+            }
+
+            $model = Guard::query()->find($guard['id']);
+            if ($model === null || $model->promotions()->exists()) {
+                continue;
+            }
+
+            $promotion = $promotions->schedule(
+                $model,
+                $next,
+                $next->is_supervisor_position ? 1400000 : 900000,
+                Carbon::parse($effective),
+                'Moved from the guard roster after field service.',
+                $hr,
+                'MOVE-'.$model->id,
+                null,
+                $guard['region_id'],
+            );
+            $staffStart = Carbon::parse($effective)->startOfMonth()->addMonth()->toDateString();
+            $guardLast = Carbon::parse($staffStart)->subDay()->toDateString();
+            if ($promotion->staff_id) {
+                Staff::query()->whereKey($promotion->staff_id)->update([
+                    'date_employed' => $staffStart,
+                    'compensation_from' => $staffStart,
+                ]);
+            }
+            Guard::query()->whereKey($model->id)->update([
+                'guard_pay_until' => $guardLast,
+            ]);
+            $guards[$index]['active'] = false;
+            $guards[$index]['left'] = $guardLast;
+            $moved++;
+        }
+
         $done = 0;
 
         foreach ($guards as $index => $guard) {
-            if ($index % 25 !== 0 || $done >= 80) {
+            if ($index % 20 !== 0 || $done >= 15 || ! $guard['active']) {
                 continue;
             }
 
@@ -721,14 +806,14 @@ class DatabaseSeeder extends Seeder
             }
 
             $model = Guard::query()->find($guard['id']);
-            if ($model === null || $model->promotions()->exists()) {
+            if ($model === null || $model->promotions()->exists() || $model->salaryRevisions()->count() > 1) {
                 continue;
             }
 
             $promotions->schedule(
                 $model,
                 $position,
-                self::GUARD_MONTHLY_GROSS + 25000,
+                (float) $model->base_shift_rate + 25000,
                 Carbon::parse($effective),
                 'Promoted to Senior Guard after a full year on post.',
                 $hr,
@@ -739,7 +824,7 @@ class DatabaseSeeder extends Seeder
             $done++;
         }
 
-        $this->command?->info('Promotions applied: '.$done.'.');
+        $this->command?->info('Promotions applied: '.($done + $moved).', including '.$moved.' who left the guard roster.');
     }
 
     /** @param  list<array{id: int, region_id: int, hired: string, left: string|null, active: bool}>  $guards */
@@ -748,12 +833,14 @@ class DatabaseSeeder extends Seeder
         $service = app(GuardService::class);
         $hr = User::query()->where('email', 'hr@platinumsecurity.local')->first();
         Auth::login($hr ?? Auth::user());
-        $statuses = array_merge(
-            array_fill(0, 30, EmploymentStatus::Resigned),
-            array_fill(0, 30, EmploymentStatus::Retired),
-            array_fill(0, 30, EmploymentStatus::Terminated),
-        );
+        $statuses = [
+            EmploymentStatus::Resigned,
+            EmploymentStatus::Terminated,
+            EmploymentStatus::Retired,
+            EmploymentStatus::Suspended,
+        ];
         $marked = 0;
+        $limit = max(8, (int) round(count($guards) * 0.08));
 
         foreach ($guards as $index => $guard) {
             $model = Guard::query()->find($guard['id']);
@@ -764,7 +851,7 @@ class DatabaseSeeder extends Seeder
 
                 continue;
             }
-            if ($marked >= 90) {
+            if ($marked >= $limit) {
                 continue;
             }
             if ($this->yearOf($guard['hired']) > 2024) {
@@ -784,7 +871,7 @@ class DatabaseSeeder extends Seeder
                 continue;
             }
 
-            $status = $statuses[$marked];
+            $status = $statuses[$marked % count($statuses)];
             $service->updateGuard($model, [
                 'employment_status' => $status->value,
                 'employment_end_date' => $left,
@@ -808,7 +895,7 @@ class DatabaseSeeder extends Seeder
      */
     private function seedLeave(array $guards): array
     {
-        if (DB::table('leaves')->count() >= 420) {
+        if (DB::table('leaves')->count() >= 160) {
             return $this->leaveSkipDays();
         }
 
@@ -821,7 +908,7 @@ class DatabaseSeeder extends Seeder
         $rejected = (int) DB::table('leaves')->where('status', LeaveStatus::Rejected->value)->count();
 
         foreach ($guards as $index => $guard) {
-            if (count($already) + count($rows) >= 420) {
+            if (count($already) + count($rows) >= 160) {
                 break;
             }
             if (isset($already[$guard['id']])) {
@@ -1261,7 +1348,7 @@ class DatabaseSeeder extends Seeder
                         $kind = ($deployment->id + $dayIndex) % 100;
                         $recorded = $kind !== 0 && $kind !== 1;
                         $status = $recorded ? ShiftStatus::Recorded->value : ($kind === 0 ? ShiftStatus::Missed->value : ShiftStatus::Cancelled->value);
-                        $type = $deployment->is_temporary || ($recorded && $kind % 40 === 0)
+                        $type = $deployment->is_temporary || ($recorded && $kind % 5 === 0)
                             ? ShiftType::Overtime->value
                             : ShiftType::Normal->value;
                         $night = $period === ShiftPeriod::Night->value;
@@ -1917,83 +2004,268 @@ class DatabaseSeeder extends Seeder
             return;
         }
 
-        $have = (int) DB::table('audit_logs')->count();
-        $needed = max(0, 100000 - $have);
-        $guardIds = DB::table('guards')->orderBy('id')->limit(500)->pluck('id')->all();
-        $siteIds = DB::table('sites')->orderBy('id')->limit(300)->pluck('id')->all();
-        $start = $this->seedStart();
-        $end = $this->seedEnd();
-        $span = max(1, $start->diffInDays($end));
-        $actions = [
-            ['shift.recorded', 'operations', 'Duty recorded for the post.'],
-            ['deployment.reviewed', 'operations', 'Posting reviewed against the site manpower.'],
-            ['payroll.reviewed', 'finance', 'Monthly payroll figures reviewed.'],
-            ['invoice.reviewed', 'finance', 'Client invoice reviewed before issue.'],
-            ['leave.reviewed', 'hr', 'Leave request reviewed.'],
-        ];
-        $rows = [];
-        for ($i = 0; $i < $needed; $i++) {
-            $when = $start->copy()->addDays((int) floor(($i / max(1, $needed)) * $span))->setTime(8 + ($i % 8), $i % 60);
-            $action = $actions[$i % count($actions)];
-            $subjectType = $i % 2 === 0 ? Guard::class : Site::class;
-            $subjectId = $i % 2 === 0
-                ? ($guardIds[$i % max(1, count($guardIds))] ?? null)
-                : ($siteIds[$i % max(1, count($siteIds))] ?? null);
-            $actor = $users[$i % count($users)];
-            $rows[] = [
-                'action' => $action[0],
-                'category' => $action[1],
-                'severity' => 'info',
-                'summary' => $action[2],
-                'subject_type' => $subjectType,
-                'subject_id' => $subjectId,
-                'actor_id' => $actor,
-                'actor_name' => 'Seed history',
-                'actor_role' => 'operations_manager',
-                'context' => json_encode(['source' => 'large-company-history', 'sequence' => $have + $i + 1]),
-                'is_override' => false,
-                'created_at' => $when->toDateTimeString(),
-            ];
-            if (count($rows) >= 500) {
-                DB::table('audit_logs')->insert($rows);
-                $rows = [];
-            }
-        }
-        if ($rows !== []) {
-            DB::table('audit_logs')->insert($rows);
-        }
-
-        $states = [];
-        $recent = $this->seedEnd()->copy()->subDays(30)->toDateTimeString();
+        $since = $this->seedEnd()->copy()->subDays(90)->toDateTimeString();
+        $readBefore = $this->seedEnd()->copy()->subDays(14)->toDateTimeString();
         $userCount = count($users);
-        DB::table('audit_logs')->orderBy('id')->select(['id', 'created_at'])->chunkById(1000, function ($audits) use (&$states, $users, $userCount, $recent): void {
-            foreach ($audits as $audit) {
-                $picked = [];
-                foreach ([0, 7, 19] as $offset) {
-                    $picked[$users[($audit->id + $offset) % $userCount]] = true;
-                }
-                foreach (array_keys($picked) as $userId) {
+        $states = [];
+
+        DB::table('audit_logs')
+            ->where('created_at', '>=', $since)
+            ->orderBy('id')
+            ->select(['id', 'created_at'])
+            ->chunkById(500, function ($audits) use (&$states, $users, $userCount, $readBefore): void {
+                foreach ($audits as $audit) {
+                    $recipient = $users[$audit->id % $userCount];
                     $states[] = [
-                        'user_id' => $userId,
+                        'user_id' => $recipient,
                         'audit_log_id' => $audit->id,
                         'priority' => 'normal',
                         'delivery_status' => 'delivered',
                         'delivered_at' => $audit->created_at,
-                        'read_at' => $audit->created_at < $recent ? $audit->created_at : null,
+                        'read_at' => $audit->created_at < $readBefore ? $audit->created_at : null,
                         'dismissed_at' => null,
                         'pinned_unread' => false,
                         'created_at' => $audit->created_at,
                         'updated_at' => $audit->created_at,
                     ];
                 }
-            }
-            if ($states !== []) {
-                DB::table('notification_states')->insertOrIgnore($states);
-                $states = [];
-            }
-        });
+
+                if ($states !== []) {
+                    DB::table('notification_states')->insertOrIgnore($states);
+                    $states = [];
+                }
+            });
 
         $this->command?->info('Audit records: '.DB::table('audit_logs')->count().', notifications: '.DB::table('notification_states')->count().'.');
+    }
+
+    /** @param  list<array{id: int, hired: string}>  $guards */
+    private function seedUniformExemptions(array $guards): void
+    {
+        $hr = User::query()->where('email', 'hr@platinumsecurity.local')->first();
+        if ($hr === null) {
+            return;
+        }
+
+        Auth::login($hr);
+        $service = app(UniformChargeExemptionService::class);
+        $recorded = 0;
+
+        foreach ($guards as $index => $guard) {
+            if ($index % 18 !== 0 || $recorded >= 16) {
+                continue;
+            }
+
+            $model = Guard::query()->find($guard['id']);
+            if ($model === null) {
+                continue;
+            }
+
+            $from = $this->addDays($guard['hired'], 30);
+            if ($from > $this->seedEnd()->toDateString()) {
+                continue;
+            }
+
+            $service->record(
+                $model,
+                UniformChargeStatus::Exempt,
+                Carbon::parse($from),
+                'Uniform was issued at engagement and is not charged again.',
+                'Fictional exemption for payroll testing.',
+                $hr,
+            );
+            $recorded++;
+        }
+
+        $this->command?->info('Uniform exemptions: '.$recorded.'.');
+    }
+
+    private function noteRosterVariety(): void
+    {
+        $ids = Guard::query()
+            ->where('employment_status', EmploymentStatus::Active->value)
+            ->whereDoesntHave('supervisorProfile')
+            ->whereDoesntHave('deployments', fn ($query) => $query->where('is_current', true))
+            ->orderBy('id')
+            ->limit(8)
+            ->pluck('id');
+        $statuses = [
+            OperationalStatus::OnLeave,
+            OperationalStatus::Training,
+            OperationalStatus::SickUnavailable,
+            OperationalStatus::OnLeave,
+        ];
+        $service = app(GuardService::class);
+
+        foreach ($ids as $offset => $id) {
+            $guard = Guard::query()->find($id);
+            if ($guard === null) {
+                continue;
+            }
+
+            $service->updateGuard($guard, [
+                'operational_status' => $statuses[$offset % count($statuses)]->value,
+            ], 'roster_variety');
+        }
+    }
+
+    private function seedIncidents(): void
+    {
+        if (DB::table('incidents')->count() >= 50) {
+            return;
+        }
+
+        $posts = DB::table('deployments')->orderBy('id')->get(['guard_id', 'site_id', 'start_date']);
+        if ($posts->isEmpty()) {
+            return;
+        }
+
+        $types = IncidentType::cases();
+        $severities = IncidentSeverity::cases();
+        $statuses = [IncidentStatus::Closed, IncidentStatus::Resolved, IncidentStatus::Investigating, IncidentStatus::Reported];
+        $titles = [
+            'Late arrival at the gate',
+            'Client reported a missed patrol',
+            'Visitor refused to sign in',
+            'Perimeter light not working',
+            'Unattended package at reception',
+            'Guard absent at shift start',
+            'Alarm activated in the warehouse',
+            'Dispute at the vehicle gate',
+        ];
+        $reporter = User::query()->where('email', 'operations@platinumsecurity.local')->value('id');
+        $rows = [];
+        $target = 70;
+        $step = max(1, intdiv($posts->count(), $target));
+
+        for ($n = 0; $n < $target; $n++) {
+            $post = $posts[min($posts->count() - 1, $n * $step)];
+            $when = $post->start_date.' '.sprintf('%02d:15:00', 8 + ($n % 10));
+            $rows[] = [
+                'reference' => 'INC-'.$this->yearOf($post->start_date).'-'.str_pad((string) ($n + 1), 4, '0', STR_PAD_LEFT),
+                'site_id' => $post->site_id,
+                'guard_id' => $post->guard_id,
+                'shift_id' => null,
+                'incident_type' => $types[$n % count($types)]->value,
+                'severity' => $severities[$n % count($severities)]->value,
+                'status' => $statuses[$n % count($statuses)]->value,
+                'occurred_at' => $when,
+                'reported_at' => $when,
+                'title' => $titles[$n % count($titles)],
+                'description' => 'Fictional occurrence recorded for operations testing.',
+                'action_taken' => 'Supervisor notified and the occurrence book updated.',
+                'client_notified' => $n % 4 === 0,
+                'reported_by' => $reporter,
+                'created_by' => $reporter,
+                'created_at' => $when,
+                'updated_at' => $when,
+            ];
+        }
+
+        DB::table('incidents')->insert($rows);
+        $this->command?->info('Incidents: '.count($rows).'.');
+    }
+
+    private function assertOperationalDataset(): void
+    {
+        $duplicateIds = DB::table('guards')
+            ->select('employment_id')
+            ->whereNotNull('employment_id')
+            ->groupBy('employment_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->pluck('employment_id');
+        if ($duplicateIds->isNotEmpty()) {
+            throw new \RuntimeException('Duplicate guard employment IDs: '.$duplicateIds->implode(', '));
+        }
+
+        $missingIds = DB::table('guards')->where(function ($query): void {
+            $query->whereNull('employment_id')->orWhere('employment_id', '');
+        })->count();
+        if ($missingIds > 0) {
+            throw new \RuntimeException($missingIds.' guards have no employment ID.');
+        }
+
+        $beforeHire = DB::table('deployments')
+            ->join('guards', 'guards.id', '=', 'deployments.guard_id')
+            ->whereColumn('deployments.start_date', '<', 'guards.date_employed')
+            ->count();
+        if ($beforeHire > 0) {
+            throw new \RuntimeException($beforeHire.' deployments start before the guard was employed.');
+        }
+
+        $twoCurrent = DB::table('deployments')
+            ->select('guard_id')
+            ->where('is_current', true)
+            ->groupBy('guard_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->count();
+        if ($twoCurrent > 0) {
+            throw new \RuntimeException($twoCurrent.' guards have more than one current posting.');
+        }
+
+        $sites = DB::table('sites')->where('status', SiteStatus::Active->value)->whereNull('deleted_at')->get();
+        foreach ($sites as $site) {
+            if ((int) $site->required_guards !== (int) $site->required_day_guards + (int) $site->required_night_guards) {
+                throw new \RuntimeException('Site '.$site->code.' day and night requirements do not add up to the total.');
+            }
+            $hasManpower = DB::table('site_manpower_requirements')->where('site_id', $site->id)->exists();
+            if (! $hasManpower) {
+                throw new \RuntimeException('Site '.$site->code.' has no manpower requirement.');
+            }
+        }
+
+        $orphanDeployments = DB::table('deployments')
+            ->leftJoin('guards', 'guards.id', '=', 'deployments.guard_id')
+            ->leftJoin('sites', 'sites.id', '=', 'deployments.site_id')
+            ->where(function ($query): void {
+                $query->whereNull('guards.id')->orWhereNull('sites.id');
+            })
+            ->count();
+        if ($orphanDeployments > 0) {
+            throw new \RuntimeException($orphanDeployments.' deployments point at a missing guard or site.');
+        }
+
+        $this->command?->info('Operational dataset checks passed.');
+    }
+
+    private function targetGuards(): int
+    {
+        return max(50, (int) config('psg.seed.guards', 300));
+    }
+
+    /** @return list<int> */
+    private function regionShares(int $regions, int $total): array
+    {
+        $weights = [22, 18, 16, 15, 15, 14];
+        $counts = [];
+        $assigned = 0;
+        for ($index = 0; $index < $regions; $index++) {
+            $weight = $weights[$index] ?? (int) floor(100 / max(1, $regions));
+            $counts[$index] = (int) floor($total * $weight / 100);
+            $assigned += $counts[$index];
+        }
+        if ($counts !== []) {
+            $counts[0] += $total - $assigned;
+        }
+
+        return $counts;
+    }
+
+    private function isFemale(int $index): bool
+    {
+        return $index % 3 === 0;
+    }
+
+    private function givenName(int $index): string
+    {
+        $pool = $this->isFemale($index) ? $this->femaleNames : $this->maleNames;
+
+        return $pool[abs($index) % count($pool)];
+    }
+
+    private function familyName(int $index): string
+    {
+        return $this->lastNames[abs($index) % count($this->lastNames)];
     }
 
     private function printReport(): void
@@ -2007,23 +2279,47 @@ class DatabaseSeeder extends Seeder
             'Staff '.Staff::query()->count(),
             'Guards '.Guard::query()->count(),
             'Active guards '.Guard::query()->where('employment_status', EmploymentStatus::Active->value)->count(),
+            'Inactive guards '.Guard::query()->where('employment_status', '!=', EmploymentStatus::Active->value)->count(),
+            'Currently deployed '.DB::table('deployments')->where('is_current', true)->count(),
+            'Available guards '.Guard::query()->where('operational_status', OperationalStatus::AwaitingDeployment->value)->count(),
             'Deployments '.DB::table('deployments')->count(),
+            'Overtime deployments '.DB::table('deployments')->where('duty_type', ShiftType::Overtime->value)->count(),
             'Transfers '.DB::table('deployment_transfers')->count(),
             'Shifts '.DB::table('shifts')->count(),
+            'Overtime shifts '.DB::table('shifts')->where('shift_type', ShiftType::Overtime->value)->count(),
             'Replacements '.DB::table('shift_replacements')->count(),
             'Leave '.DB::table('leaves')->count(),
             'Attendance '.DB::table('attendances')->count(),
+            'Absences '.DB::table('absences')->count(),
             'Payroll runs '.DB::table('payroll_runs')->count(),
             'Payslips '.DB::table('payroll_payslips')->count(),
             'Billing profiles '.DB::table('billing_profiles')->count(),
             'Invoices '.DB::table('invoices')->count(),
             'Payments '.DB::table('payments')->count(),
+            'Incidents '.DB::table('incidents')->count(),
+            'Day shortage '.$this->shortage(DeploymentShiftType::Day->value, 'required_day_guards'),
+            'Night shortage '.$this->shortage(DeploymentShiftType::Night->value, 'required_night_guards'),
             'Audit '.DB::table('audit_logs')->count(),
             'Notifications '.DB::table('notification_states')->count(),
         ];
         foreach ($lines as $line) {
             $this->command?->info($line);
         }
+    }
+
+    private function shortage(string $shiftType, string $column): int
+    {
+        $required = (int) DB::table('sites')
+            ->where('status', SiteStatus::Active->value)
+            ->whereNull('deleted_at')
+            ->sum($column);
+        $deployed = (int) DB::table('deployments')
+            ->where('is_current', true)
+            ->where('status', DeploymentStatus::Active->value)
+            ->where('shift_type', $shiftType)
+            ->count();
+
+        return max(0, $required - $deployed);
     }
 
     /** @param  list<array{id: int, opened: string}>  $clients */

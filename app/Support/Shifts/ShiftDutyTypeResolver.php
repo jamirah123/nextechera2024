@@ -13,25 +13,23 @@ class ShiftDutyTypeResolver
         ShiftPeriod $workPeriod,
         ?ShiftType $explicit = null,
     ): ShiftType {
+        // The Shift Manager's choice is stored as given.
+        // A missing choice still treats the opposite window as overtime.
+        if ($explicit !== null) {
+            return $explicit;
+        }
+
         if ($normalPosting === DeploymentShiftType::Rotating) {
-            return $explicit ?? ShiftType::Normal;
+            return ShiftType::Normal;
         }
 
         $normalPeriod = $normalPosting === DeploymentShiftType::Night
             ? ShiftPeriod::Night
             : ShiftPeriod::Day;
 
-        $derived = $workPeriod === $normalPeriod
+        return $workPeriod === $normalPeriod
             ? ShiftType::Normal
             : ShiftType::Overtime;
-
-        // A night posting worked by day (or the reverse) is overtime.
-        // An explicit Normal duty must not downgrade that.
-        if ($explicit === null || $explicit === ShiftType::Normal) {
-            return $derived;
-        }
-
-        return $explicit;
     }
 
     public static function workPeriodFor(DeploymentShiftType $posting): ShiftPeriod

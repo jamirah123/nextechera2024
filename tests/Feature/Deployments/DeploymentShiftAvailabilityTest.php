@@ -63,7 +63,9 @@ class DeploymentShiftAvailabilityTest extends TestCase
             ->get(route('deployments.board'))
             ->assertOk()
             ->assertSee('Awaiting Guard', false)
-            ->assertDontSee('Deployed Guard', false);
+            ->assertSee('Deployed Guard', false)
+            ->assertSee('Day: Available', false)
+            ->assertSee('Night: Available', false);
     }
 
     public function test_guard_disappears_from_board_after_deployment(): void
@@ -87,6 +89,26 @@ class DeploymentShiftAvailabilityTest extends TestCase
                     $guard->id => [
                         'site_id' => $site->id,
                         'shift_type' => DeploymentShiftType::Day->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($manager)
+            ->get(route('deployments.board'))
+            ->assertOk()
+            ->assertSee('Fresh Guard', false)
+            ->assertSee('Day: '.$site->name, false)
+            ->assertSee('Night: Available', false);
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => now()->toDateString(),
+                'selected' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $site->id,
+                        'shift_type' => DeploymentShiftType::Night->value,
                     ],
                 ],
             ])
@@ -145,18 +167,22 @@ class DeploymentShiftAvailabilityTest extends TestCase
         $this->actingAs($ops)
             ->get(route('deployments.board'))
             ->assertOk()
-            ->assertDontSee('Day Shift Guard', false);
-
-        Carbon::setTestNow('2026-08-28 18:00:00');
+            ->assertSee('Day Shift Guard', false)
+            ->assertSee('Night: Available', false);
 
         $this->actingAs($ops)
-            ->get(route('deployments.board'))
+            ->get(route('deployments.board', ['start_date' => '2026-08-29']))
             ->assertOk()
-            ->assertSee('Day Shift Guard', false);
+            ->assertSee('Day Shift Guard', false)
+            ->assertSee('Day: Available', false)
+            ->assertSee('Night: Available', false);
 
         $guard->refresh();
-        $this->assertSame(OperationalStatus::AwaitingDeployment, $guard->operational_status);
-        $this->assertFalse($guard->currentDeployment()->exists());
+        $this->assertSame(OperationalStatus::OnDuty, $guard->operational_status);
+        $this->assertTrue(Deployment::query()
+            ->where('guard_id', $guard->id)
+            ->whereDate('start_date', '2026-08-28')
+            ->exists());
     }
 
     public function test_night_guard_returns_to_board_when_night_shift_window_ends(): void
@@ -186,19 +212,20 @@ class DeploymentShiftAvailabilityTest extends TestCase
             ->assertRedirect();
 
         $this->actingAs($ops)
-            ->get(route('deployments.board'))
+            ->get(route('deployments.board', ['start_date' => '2026-08-28']))
             ->assertOk()
-            ->assertDontSee('Night Shift Guard', false);
-
-        Carbon::setTestNow('2026-08-29 06:00:00');
+            ->assertSee('Night Shift Guard', false)
+            ->assertSee('Day: Available', false);
 
         $this->actingAs($ops)
-            ->get(route('deployments.board'))
+            ->get(route('deployments.board', ['start_date' => '2026-08-29']))
             ->assertOk()
-            ->assertSee('Night Shift Guard', false);
+            ->assertSee('Night Shift Guard', false)
+            ->assertSee('Day: Available', false)
+            ->assertSee('Night: Available', false);
 
         $guard->refresh();
-        $this->assertSame(OperationalStatus::AwaitingDeployment, $guard->operational_status);
+        $this->assertTrue(Deployment::query()->where('guard_id', $guard->id)->exists());
     }
 
     public function test_night_posting_created_during_daytime_is_not_released_before_night_window(): void

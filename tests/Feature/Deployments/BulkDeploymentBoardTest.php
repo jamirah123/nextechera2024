@@ -226,6 +226,112 @@ class BulkDeploymentBoardTest extends TestCase
             ->get(route('deployments.board', ['start_date' => $dutyDate]))
             ->assertOk()
             ->assertDontSee('Agnes Adong', false);
+
+        $this->assertTrue(Deployment::query()
+            ->where('guard_id', $guard->id)
+            ->where('site_id', $siteA->id)
+            ->whereDate('start_date', $dutyDate)
+            ->exists());
+        $this->assertTrue(Deployment::query()
+            ->where('guard_id', $guard->id)
+            ->where('site_id', $siteB->id)
+            ->whereDate('start_date', $nextDate)
+            ->exists());
+    }
+
+    public function test_shift_manager_chooses_normal_or_overtime_for_each_window(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-08 14:00:00'));
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $daySite = Site::factory()->create([
+            'name' => 'Wakiso Hospital 5',
+            'required_day_guards' => 2,
+            'required_night_guards' => 2,
+            'required_guards' => 4,
+        ]);
+        $nightSite = Site::factory()->create([
+            'name' => 'Wakiso Shopping Centre 13',
+            'region_id' => $daySite->region_id,
+            'required_day_guards' => 2,
+            'required_night_guards' => 2,
+            'required_guards' => 4,
+        ]);
+        $guard = Guard::factory()->create([
+            'full_name' => 'Agnes Adong',
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $daySite->region_id,
+            'current_site_id' => null,
+            'date_employed' => '2025-01-01',
+        ]);
+        $dutyDate = '2026-10-08';
+
+        Shift::factory()->create([
+            'reference' => 'SH77-20261008-d',
+            'guard_id' => $guard->id,
+            'site_id' => $daySite->id,
+            'region_id' => $daySite->region_id,
+            'shift_date' => $dutyDate,
+            'starts_at' => '2026-10-08 06:00:00',
+            'ends_at' => '2026-10-08 18:00:00',
+            'period' => 'day',
+            'shift_type' => ShiftType::Normal,
+            'status' => ShiftStatus::Recorded,
+            'is_overnight' => false,
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $dutyDate,
+                'selected' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $nightSite->id,
+                        'shift_type' => DeploymentShiftType::Night->value,
+                        'duty_type' => ShiftType::Normal->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $night = Shift::query()
+            ->where('guard_id', $guard->id)
+            ->where('period', 'night')
+            ->whereDate('shift_date', $dutyDate)
+            ->first();
+
+        $this->assertNotNull($night);
+        $this->assertSame(ShiftType::Normal, $night->shift_type);
+        $this->assertSame(ShiftType::Normal, Shift::query()->where('reference', 'SH77-20261008-d')->first()?->shift_type);
+
+        $overtimeGuard = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $daySite->region_id,
+            'current_site_id' => null,
+            'date_employed' => '2025-01-01',
+        ]);
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $dutyDate,
+                'selected' => [$overtimeGuard->id],
+                'rows' => [
+                    $overtimeGuard->id => [
+                        'site_id' => $nightSite->id,
+                        'shift_type' => DeploymentShiftType::Night->value,
+                        'duty_type' => ShiftType::Overtime->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertSame(
+            ShiftType::Overtime,
+            Shift::query()->where('guard_id', $overtimeGuard->id)->where('period', 'night')->first()?->shift_type,
+        );
     }
 
     public function test_past_date_keeps_the_guard_available_for_the_other_shift(): void
@@ -398,12 +504,34 @@ class BulkDeploymentBoardTest extends TestCase
             ->assertOk()
             ->assertSee('Off Duty Guard', false)
             ->assertSee('Stale Posting Guard', false)
+            ->assertSee('Day: Available', false)
             ->assertDontSee('Absent Guard', false);
 
-        $this->assertFalse($stale->fresh()->currentDeployment()->exists());
-        $this->assertSame(OperationalStatus::AwaitingDeployment, $stale->fresh()->operational_status);
+        $this->assertTrue($stale->fresh()->currentDeployment()->exists());
+        $this->assertSame(OperationalStatus::OnDuty, $stale->fresh()->operational_status);
         $this->assertSame(OperationalStatus::OffDuty, $offDuty->fresh()->operational_status);
         $this->assertSame(OperationalStatus::Absent, $absent->fresh()->operational_status);
+
+        $this->actingAs($ops)
+            ->post(route('deployments.board.store'), [
+                'start_date' => now()->toDateString(),
+                'selected' => [$stale->id],
+                'rows' => [
+                    $stale->id => [
+                        'site_id' => $site->id,
+                        'shift_type' => DeploymentShiftType::Day->value,
+                        'duty_type' => ShiftType::Normal->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->assertTrue(Shift::query()
+            ->where('guard_id', $stale->id)
+            ->whereDate('shift_date', now()->toDateString())
+            ->where('period', 'day')
+            ->exists());
     }
 
     public function test_past_duty_date_lists_guards_free_that_day_even_if_on_duty_today(): void
@@ -446,7 +574,9 @@ class BulkDeploymentBoardTest extends TestCase
         $this->actingAs($ops)
             ->get(route('deployments.board'))
             ->assertOk()
-            ->assertDontSee('Historical Free Guard', false);
+            ->assertSee('Historical Free Guard', false)
+            ->assertSee('Day: Available', false)
+            ->assertSee('Night: Available', false);
     }
 
     public function test_guards_index_shows_deployed_guard_even_if_status_is_off_duty(): void
@@ -631,6 +761,29 @@ class BulkDeploymentBoardTest extends TestCase
             'is_current' => false,
             'is_temporary' => true,
             'duty_type' => ShiftType::Overtime,
+        ]);
+        Shift::factory()->create([
+            'guard_id' => $standing->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'shift_date' => '2026-03-10',
+            'starts_at' => '2026-03-10 06:00:00',
+            'ends_at' => '2026-03-10 18:00:00',
+            'period' => 'day',
+            'shift_type' => ShiftType::Normal,
+            'status' => ShiftStatus::Recorded,
+        ]);
+        Shift::factory()->create([
+            'guard_id' => $overtimeGuard->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'shift_date' => '2026-03-10',
+            'starts_at' => '2026-03-10 18:00:00',
+            'ends_at' => '2026-03-11 06:00:00',
+            'period' => 'night',
+            'shift_type' => ShiftType::Overtime,
+            'status' => ShiftStatus::Recorded,
+            'is_overnight' => true,
         ]);
 
         $awaiting = Guard::factory()->create([
@@ -984,8 +1137,8 @@ class BulkDeploymentBoardTest extends TestCase
                 'shift_type' => DeploymentShiftType::Day,
                 'status' => DeploymentStatus::Active,
                 'start_date' => '2026-08-01',
-                'end_date' => null,
-                'is_current' => true,
+                'end_date' => '2026-08-19',
+                'is_current' => false,
                 'is_temporary' => false,
                 'duty_type' => ShiftType::Normal,
             ]);

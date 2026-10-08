@@ -15,6 +15,7 @@ use App\Models\Region;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Models\SiteManpowerRequirement;
+use App\Support\Historical\HistoricalDates;
 use Illuminate\Support\Collection;
 
 class ManpowerService
@@ -756,9 +757,8 @@ class ManpowerService
      * When no revision covers that date, the site's configured day and night
      * requirements are used. Counts are never hard-coded.
      *
-     * A past duty date counts every posting whose dates cover that day.
-     * Today and later count only postings that are still open, so a posting
-     * closed this morning is not treated as deployed.
+     * Headcount is the shift recorded for that date, plus a deployment whose
+     * own dates cover that day. An open posting counts only on its start date.
      *
      * @param  Collection<int, Site>  $sites
      * @return array<string, array{
@@ -794,24 +794,46 @@ class ManpowerService
             ->unique('site_id')
             ->keyBy('site_id');
 
+        $live = $date >= now()->toDateString();
+        $nextDay = HistoricalDates::nextCalendarDay($date);
+        $statuses = $live
+            ? [DeploymentStatus::Active]
+            : [DeploymentStatus::Active, DeploymentStatus::Ended, DeploymentStatus::Transferred];
+
+        $shifts = Shift::query()
+            ->blocking()
+            ->whereIn('site_id', $sites->keys())
+            ->where('shift_date', '>=', $date)
+            ->where('shift_date', '<', $nextDay)
+            ->get(['guard_id', 'site_id', 'period', 'shift_type']);
+
         $deployments = Deployment::query()
             ->whereIn('site_id', $sites->keys())
-            ->whereIn('status', [
-                DeploymentStatus::Active,
-                DeploymentStatus::Ended,
-                DeploymentStatus::Transferred,
-            ])
-            ->where('start_date', '<=', $date)
+            ->whereIn('status', $statuses)
+            ->whereDate('start_date', '<=', $date)
             ->where(function ($query) use ($date): void {
-                $query->whereNull('end_date')->orWhere('end_date', '>=', $date);
+                $query->where(function ($ranged) use ($date): void {
+                    $ranged->whereNotNull('end_date')->whereDate('end_date', '>=', $date);
+                })->orWhere(function ($open) use ($date): void {
+                    $open->whereNull('end_date')->whereDate('start_date', $date);
+                });
             })
-            ->when($date >= now()->toDateString(), function ($query): void {
-                $query->where('is_current', true);
-            })
-            ->get(['site_id', 'shift_type', 'is_temporary', 'duty_type']);
+            ->get(['guard_id', 'site_id', 'shift_type', 'is_temporary', 'duty_type']);
 
-        /** @var array<int, array<string, array{normal: int, ot: int, cover: int}>> $counts */
-        $counts = [];
+        /** @var array<string, string> $assigned */
+        $assigned = [];
+
+        foreach ($shifts as $shift) {
+            $period = $shift->period instanceof ShiftPeriod ? $shift->period->value : (string) $shift->period;
+            if (! in_array($period, ['day', 'night'], true)) {
+                continue;
+            }
+
+            $assigned[$shift->site_id.'|'.$shift->guard_id.'|'.$period] = $shift->shift_type === ShiftType::Overtime
+                ? 'ot'
+                : 'normal';
+        }
+
         foreach ($deployments as $deployment) {
             $periods = $deployment->shift_type === DeploymentShiftType::Rotating
                 ? ['day', 'night']
@@ -820,11 +842,25 @@ class ManpowerService
             $bucket = 'normal';
             if ($deployment->is_temporary) {
                 $bucket = $deployment->duty_type === ShiftType::Overtime ? 'ot' : 'cover';
+            } elseif ($deployment->duty_type === ShiftType::Overtime) {
+                $bucket = 'ot';
             }
 
             foreach ($periods as $period) {
-                $counts[$deployment->site_id][$period][$bucket] = ($counts[$deployment->site_id][$period][$bucket] ?? 0) + 1;
+                $key = $deployment->site_id.'|'.$deployment->guard_id.'|'.$period;
+                if (isset($assigned[$key])) {
+                    continue;
+                }
+
+                $assigned[$key] = $bucket;
             }
+        }
+
+        /** @var array<int, array<string, array{normal: int, ot: int, cover: int}>> $counts */
+        $counts = [];
+        foreach ($assigned as $key => $bucket) {
+            [$siteId, , $period] = explode('|', $key);
+            $counts[(int) $siteId][$period][$bucket] = ($counts[(int) $siteId][$period][$bucket] ?? 0) + 1;
         }
 
         $payload = [];

@@ -211,7 +211,7 @@ class DeploymentController extends Controller
 
         return view('deployments.board', [
             'guards' => $guards,
-            'boardAvailability' => $this->boardShiftAvailability($guards->getCollection(), $dutyDate, $isHistorical),
+            'boardAvailability' => $this->boardShiftAvailability($guards->getCollection(), $dutyDate),
             'sites' => $sites,
             'sitesByRegion' => $sitesByRegion,
             'regions' => $regions,
@@ -526,22 +526,18 @@ class DeploymentController extends Controller
     {
         $this->shiftLifecycle->sync();
         $this->absences->releaseEligibleAbsentGuards();
-        $this->deployments->releaseGuardsAfterShiftWindow(
-            $user->mustStayInOwnRegion() ? $user->regionId() : null,
-        );
     }
 
     /**
      * Day and night state for the guards on this page.
      *
-     * A past date uses recorded shifts only, so a closed standing post does not
-     * mark a missed duty as already deployed. An open posting occupies its
-     * start date; the following day the guard is available again.
+     * A window is deployed only when this guard already has a shift for that
+     * exact date and period. An open posting does not mark later dates.
      *
      * @param  Collection<int, Guard>  $guards
      * @return array<int, array{day: array{deployed: bool, site: ?string}, night: array{deployed: bool, site: ?string}}>
      */
-    private function boardShiftAvailability(Collection $guards, string $dutyDate, bool $historical): array
+    private function boardShiftAvailability(Collection $guards, string $dutyDate): array
     {
         $ids = $guards->pluck('id');
         $state = [];
@@ -574,34 +570,6 @@ class DeploymentController extends Controller
                 'deployed' => true,
                 'site' => $shift->site?->name,
             ];
-        }
-
-        if ($historical) {
-            return $state;
-        }
-
-        $deployments = Deployment::query()
-            ->with('site:id,name')
-            ->current()
-            ->coveringBoardDate($dutyDate)
-            ->whereIn('guard_id', $ids)
-            ->get(['id', 'guard_id', 'site_id', 'shift_type', 'start_date', 'end_date']);
-
-        foreach ($deployments as $deployment) {
-            $periods = $deployment->shift_type === DeploymentShiftType::Rotating
-                ? ['day', 'night']
-                : [$deployment->shift_type === DeploymentShiftType::Night ? 'night' : 'day'];
-
-            foreach ($periods as $period) {
-                if ($state[$deployment->guard_id][$period]['deployed']) {
-                    continue;
-                }
-
-                $state[$deployment->guard_id][$period] = [
-                    'deployed' => true,
-                    'site' => $deployment->site?->name,
-                ];
-            }
         }
 
         return $state;

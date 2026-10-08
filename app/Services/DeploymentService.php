@@ -65,53 +65,10 @@ class DeploymentService
             $dutyFrom = (string) ($data['start_date'] ?? now()->toDateString());
             $dutyTo = $data['duty_date_to'] ?? null;
             $historicalOnly = $this->isHistoricalPostingOnly($data);
-            $workPeriod = ShiftDutyTypeResolver::workPeriodFor($shiftType);
+            $dutyType ??= ShiftType::Normal;
 
-            // A past date is recorded on its own. It must not be folded into
-            // today's standing posting or change the guard's current status.
-            $existing = $historicalOnly
-                ? null
-                : Deployment::query()
-                    ->current()
-                    ->permanent()
-                    ->where('guard_id', $guard->id)
-                    ->first();
-
-            if ($existing) {
-                $permanentPeriod = ShiftDutyTypeResolver::workPeriodFor($existing->shift_type);
-                $sameWindow = $existing->shift_type === DeploymentShiftType::Rotating
-                    || $shiftType === DeploymentShiftType::Rotating
-                    || $workPeriod === $permanentPeriod;
-
-                if ($sameWindow) {
-                    if ($this->currentPostingCoversDutyDates($existing, $dutyFrom, $dutyTo ? (string) $dutyTo : null)) {
-                        throw new InvalidArgumentException($this->shiftWindowConflictMessage(
-                            $existing->site_id,
-                            $workPeriod,
-                            $dutyFrom,
-                        ));
-                    }
-
-                    $this->end(
-                        $existing,
-                        $this->lastCoveredDutyDate($existing),
-                        'Posting closed after its duty date so the guard can be allocated again.',
-                    );
-                } else {
-                    $cover = $this->deployTemporaryCoverage([
-                        ...$data,
-                        'shift_type' => $shiftType->value,
-                        'duty_type' => ShiftDutyTypeResolver::resolve($existing->shift_type, $workPeriod, $dutyType)->value,
-                        'start_date' => $dutyFrom,
-                        'duty_date_to' => $dutyTo ?? $dutyFrom,
-                    ]);
-
-                    app(ManpowerGapService::class)->syncSiteDate($site, $dutyFrom);
-
-                    return $cover;
-                }
-            }
-
+            // A previous posting is history. It does not have to be closed
+            // before the Shift Manager assigns this date and shift.
             $this->operationalPeriods->assertWritableForDate(
                 $dutyFrom,
                 auth()->user(),
@@ -126,7 +83,7 @@ class DeploymentService
             }
 
             if (! $historicalOnly && empty($data['allow_overstaffing'])) {
-                $this->assertSiteHasPostingCapacity($site, $shiftType);
+                $this->assertSiteHasPostingCapacity($site, $shiftType, $dutyFrom);
             }
 
             $this->assertNoSameShiftDutyElsewhere(
@@ -140,6 +97,7 @@ class DeploymentService
             $lastDutyDate = $dutyTo
                 ? Carbon::parse((string) $dutyTo)->toDateString()
                 : $dutyFrom;
+            $coversToday = HistoricalDates::coversToday($dutyFrom, $lastDutyDate);
 
             $deployment = Deployment::query()->create([
                 'guard_id' => $guard->id,
@@ -149,15 +107,17 @@ class DeploymentService
                 'shift_type' => $shiftType->value,
                 'status' => $historicalOnly ? DeploymentStatus::Ended->value : DeploymentStatus::Active->value,
                 'start_date' => $dutyFrom,
-                'end_date' => $historicalOnly ? $lastDutyDate : null,
-                'is_current' => ! $historicalOnly,
+                'end_date' => $lastDutyDate,
+                'is_current' => $coversToday,
+                'is_temporary' => $dutyType === ShiftType::Overtime,
+                'duty_type' => $dutyType->value,
                 'notes' => $data['notes'] ?? ($historicalOnly
                     ? 'Historical posting recorded after the duty date.'
                     : null),
             ]);
 
-            // Past-date history must not flip current operational status to On Duty.
-            if (! $historicalOnly) {
+            // Only an assignment that includes today updates the guard's present site.
+            if ($coversToday) {
                 $this->syncGuardAssignment($guard, $site, OperationalStatus::OnDuty);
             }
 
@@ -600,9 +560,8 @@ class DeploymentService
 
             $incomingShiftType = DeploymentShiftType::tryFrom((string) ($data['shift_type'] ?? ''))
                 ?? $deployment->shift_type;
-            $this->assertSiteHasPostingCapacity($toSite, $incomingShiftType);
-
             $effectiveDate = $data['effective_date'] ?? now()->toDateString();
+            $this->assertSiteHasPostingCapacity($toSite, $incomingShiftType, $effectiveDate);
             $this->operationalPeriods->assertWritableForDate(
                 $effectiveDate,
                 auth()->user(),
@@ -1321,19 +1280,19 @@ class DeploymentService
         }
     }
 
-    private function assertSiteHasPostingCapacity(Site $site, DeploymentShiftType $shiftType): void
+    private function assertSiteHasPostingCapacity(Site $site, DeploymentShiftType $shiftType, string $dutyDate): void
     {
         if ($shiftType === DeploymentShiftType::Rotating) {
-            $this->assertPeriodPostingCapacity($site, DeploymentShiftType::Day);
-            $this->assertPeriodPostingCapacity($site, DeploymentShiftType::Night);
+            $this->assertPeriodPostingCapacity($site, DeploymentShiftType::Day, $dutyDate);
+            $this->assertPeriodPostingCapacity($site, DeploymentShiftType::Night, $dutyDate);
 
             return;
         }
 
-        $this->assertPeriodPostingCapacity($site, $shiftType);
+        $this->assertPeriodPostingCapacity($site, $shiftType, $dutyDate);
     }
 
-    private function assertPeriodPostingCapacity(Site $site, DeploymentShiftType $periodType): void
+    private function assertPeriodPostingCapacity(Site $site, DeploymentShiftType $periodType, string $dutyDate): void
     {
         $required = $periodType === DeploymentShiftType::Night
             ? (int) $site->required_night_guards
@@ -1343,12 +1302,17 @@ class DeploymentService
             return;
         }
 
-        $current = $this->activeCountForSiteByShift($site, $periodType);
+        $current = Shift::query()
+            ->blocking()
+            ->where('site_id', $site->id)
+            ->forDate($dutyDate)
+            ->where('period', ShiftDutyTypeResolver::workPeriodFor($periodType)->value)
+            ->count();
+
         if ($current >= $required) {
             throw new InvalidArgumentException(
-                'Site '.$periodType->label().' posting capacity is full ('
-                .$current.'/'.$required.'). End or transfer a '.$periodType->label()
-                .' posting first, or raise the site '.$periodType->label().' manpower requirement.'
+                'Site '.$periodType->label().' shift on '.Carbon::parse($dutyDate)->format('j F Y')
+                .' is already at capacity ('.$current.'/'.$required.').'
             );
         }
     }
@@ -1368,19 +1332,6 @@ class DeploymentService
             OperationalStatus::Training,
         ], true)) {
             throw new InvalidArgumentException('This guard is not operationally available for deployment.');
-        }
-
-        $hasCurrentDeployment = Deployment::query()
-            ->current()
-            ->where('guard_id', $guard->id)
-            ->exists();
-
-        if (! $hasCurrentDeployment && $guard->operational_status !== OperationalStatus::AwaitingDeployment) {
-            if ($guard->supervisorProfile()->exists()) {
-                return;
-            }
-
-            throw new InvalidArgumentException('Only guards awaiting deployment can be posted. HR must update operational status from Training first.');
         }
     }
 
@@ -1483,25 +1434,6 @@ class DeploymentService
                     $day->toDateString(),
                 ));
             }
-
-            // Standing posting only blocks same-period cover for today/future — not past backfills.
-            if ($day->lt(now()->copy()->startOfDay())) {
-                continue;
-            }
-
-            $standing = Deployment::query()
-                ->current()
-                ->where('guard_id', $guard->id)
-                ->where('site_id', '!=', $site->id)
-                ->first();
-
-            if ($standing && ShiftDutyTypeResolver::workPeriodFor($standing->shift_type) === $period) {
-                throw new InvalidArgumentException($this->shiftWindowConflictMessage(
-                    $standing->site_id,
-                    $period,
-                    $day->toDateString(),
-                ));
-            }
         }
     }
 
@@ -1540,41 +1472,6 @@ class DeploymentService
         );
 
         return $fresh;
-    }
-
-    private function currentPostingCoversDutyDates(Deployment $existing, string $from, ?string $to): bool
-    {
-        $start = Carbon::parse($from)->startOfDay();
-        $end = Carbon::parse($to ?: $from)->startOfDay();
-
-        for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
-            $date = $day->toDateString();
-
-            if (Deployment::query()->whereKey($existing->id)->coveringBoardDate($date)->exists()) {
-                return true;
-            }
-
-            if (Shift::query()->blocking()->where('deployment_id', $existing->id)->forDate($date)->exists()) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function lastCoveredDutyDate(Deployment $existing): string
-    {
-        $latestShift = Shift::query()
-            ->where('deployment_id', $existing->id)
-            ->max('shift_date');
-
-        if ($latestShift) {
-            return Carbon::parse((string) $latestShift)->toDateString();
-        }
-
-        return $existing->end_date?->toDateString()
-            ?? $existing->start_date?->toDateString()
-            ?? now()->toDateString();
     }
 
     private function shiftWindowConflictMessage(int|string|null $site, ShiftPeriod $period, string $date): string

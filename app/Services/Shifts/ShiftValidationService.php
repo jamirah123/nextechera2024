@@ -14,7 +14,6 @@ use App\Models\Guard;
 use App\Models\Shift;
 use App\Models\Site;
 use App\Services\LeaveService;
-use App\Support\Shifts\ShiftDutyTypeResolver;
 use Carbon\CarbonInterface;
 
 class ShiftValidationService
@@ -121,27 +120,11 @@ class ShiftValidationService
             ->where('guard_id', $guard->id)
             ->first();
 
-        if (! $deployment) {
-            $message = 'Guard has no active deployment. Deploy them before scheduling.';
-            if ($isCorrection) {
-                $result->warning('not_deployed', $message.' Allowed for historical correction.');
-            } else {
-                $result->critical('not_deployed', $message);
-            }
-        } elseif ((int) $deployment->site_id !== (int) $site->id) {
-            $deploymentPeriod = ShiftDutyTypeResolver::workPeriodFor($deployment->shift_type);
-            $isPastDuty = $startsAt->copy()->startOfDay()->lt(now()->copy()->startOfDay());
-
-            if ($deploymentPeriod === $period && ! $isPastDuty) {
-                $message = 'Guard already deployed for the '.$period->label().' shift on '
-                    .$startsAt->format('j F Y').' at '.($deployment->site?->name ?: 'another site').'.';
-                $result->critical('same_shift_site', $message);
-            } elseif ($deploymentPeriod !== $period) {
-                $message = 'Guard’s current posting is at '.$deployment->site?->name
-                    .' ('.$deployment->shift_type->label().'). Opposite-period cover at this site is allowed.';
-                $result->warning('wrong_site', $message);
-            }
-            // Past-date backfill at another site is allowed; same_shift_slot / shift checks still apply.
+        if (! $deployment && ! $isCorrection) {
+            $result->warning(
+                'not_deployed',
+                'Guard has no posting covering today. The shift is still recorded for this date.',
+            );
         }
 
         if ($classification === GuardClassification::Armed

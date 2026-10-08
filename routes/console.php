@@ -75,10 +75,5 @@ Schedule::command('psg:queue-health')
     ->hourly()
     ->withoutOverlapping();
 
-Schedule::command('psg:release-shift-window-guards')
-    ->dailyAt('06:00')
-    ->withoutOverlapping();
-
-Schedule::command('psg:release-shift-window-guards')
-    ->dailyAt('18:00')
-    ->withoutOverlapping();
+// Availability is the selected date and shift. Postings are not closed on a
+// timer. psg:release-shift-window-guards remains available as a manual command.

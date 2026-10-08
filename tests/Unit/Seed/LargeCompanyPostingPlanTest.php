@@ -2,7 +2,7 @@
 
 namespace Tests\Unit\Seed;
 
-use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\LargeCompanySeeder;
 use Illuminate\Support\Carbon;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -92,10 +92,10 @@ class LargeCompanyPostingPlanTest extends TestCase
      */
     private function plans(array $guards, array $sites): array
     {
-        $method = new ReflectionMethod(DatabaseSeeder::class, 'deploymentPlans');
+        $method = new ReflectionMethod(LargeCompanySeeder::class, 'deploymentPlans');
         $method->setAccessible(true);
 
-        return $method->invoke(new DatabaseSeeder, $guards, $sites);
+        return $method->invoke(new LargeCompanySeeder, $guards, $sites);
     }
 
     /** @param  list<array<string, mixed>>  $plans */

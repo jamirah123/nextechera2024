@@ -137,5 +137,7 @@ return [
         'guards' => (int) env('PSG_SEED_GUARDS', 300),
         'resume' => filter_var(env('PSG_SEED_RESUME', false), FILTER_VALIDATE_BOOL),
         'allow_production' => filter_var(env('PSG_SEED_ALLOW_PRODUCTION', false), FILTER_VALIDATE_BOOL),
+        // psg:replace-seeded-database runs only while Git is on this branch.
+        'replace_branch' => 'seed/current-300-guards',
     ],
 ];

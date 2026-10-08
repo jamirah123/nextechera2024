@@ -535,8 +535,8 @@ class DeploymentController extends Controller
      * Day and night state for the guards on this page.
      *
      * A past date uses recorded shifts only, so a closed standing post does not
-     * mark a missed duty as already deployed. Today also treats an open posting
-     * as occupying its shift window.
+     * mark a missed duty as already deployed. An open posting occupies its
+     * start date; the following day the guard is available again.
      *
      * @param  Collection<int, Guard>  $guards
      * @return array<int, array{day: array{deployed: bool, site: ?string}, night: array{deployed: bool, site: ?string}}>
@@ -583,8 +583,9 @@ class DeploymentController extends Controller
         $deployments = Deployment::query()
             ->with('site:id,name')
             ->current()
+            ->coveringBoardDate($dutyDate)
             ->whereIn('guard_id', $ids)
-            ->get(['id', 'guard_id', 'site_id', 'shift_type']);
+            ->get(['id', 'guard_id', 'site_id', 'shift_type', 'start_date', 'end_date']);
 
         foreach ($deployments as $deployment) {
             $periods = $deployment->shift_type === DeploymentShiftType::Rotating

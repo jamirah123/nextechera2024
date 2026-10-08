@@ -86,7 +86,7 @@ class BulkDeploymentBoardTest extends TestCase
         $this->assertSame(OperationalStatus::OnDuty, $guard->operational_status);
     }
 
-    public function test_deployed_guard_does_not_appear_on_board(): void
+    public function test_a_day_posting_keeps_the_guard_on_the_board_with_the_night_still_open(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-09-30 10:00:00'));
         $ops = User::factory()->role(UserRole::OperationsManager)->create();
@@ -119,8 +119,113 @@ class BulkDeploymentBoardTest extends TestCase
             ->get(route('deployments.board'))
             ->assertOk()
             ->assertSee($guard->full_name, false)
-            ->assertSee('Day: Deployed', false)
+            ->assertSee('Day: '.$site->name, false)
             ->assertSee('Night: Available', false);
+    }
+
+    public function test_guard_returns_to_the_board_the_day_after_both_shifts_are_allocated(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-08 10:00:00'));
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $siteA = Site::factory()->create([
+            'name' => 'Site A',
+            'required_day_guards' => 2,
+            'required_night_guards' => 2,
+            'required_guards' => 4,
+        ]);
+        $siteB = Site::factory()->create([
+            'name' => 'Site B',
+            'region_id' => $siteA->region_id,
+            'required_day_guards' => 2,
+            'required_night_guards' => 2,
+            'required_guards' => 4,
+        ]);
+        $guard = Guard::factory()->create([
+            'full_name' => 'Agnes Adong',
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::AwaitingDeployment,
+            'region_id' => $siteA->region_id,
+            'current_site_id' => null,
+            'date_employed' => '2025-01-01',
+        ]);
+        $dutyDate = '2026-10-09';
+        $nextDate = '2026-10-10';
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $dutyDate,
+                'selected' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $siteA->id,
+                        'shift_type' => DeploymentShiftType::Day->value,
+                        'duty_type' => ShiftType::Normal->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->actingAs($manager)
+            ->get(route('deployments.board', ['start_date' => $dutyDate]))
+            ->assertOk()
+            ->assertSee('Agnes Adong', false)
+            ->assertSee('Day: Site A', false)
+            ->assertSee('Night: Available', false);
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $dutyDate,
+                'selected' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $siteA->id,
+                        'shift_type' => DeploymentShiftType::Night->value,
+                        'duty_type' => ShiftType::Normal->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('status');
+
+        $this->actingAs($manager)
+            ->get(route('deployments.board', ['start_date' => $dutyDate]))
+            ->assertOk()
+            ->assertDontSee('Agnes Adong', false);
+
+        $this->actingAs($manager)
+            ->get(route('deployments.board', ['start_date' => $nextDate]))
+            ->assertOk()
+            ->assertSee('Agnes Adong', false)
+            ->assertSee('Day: Available', false)
+            ->assertSee('Night: Available', false);
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $nextDate,
+                'selected' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $siteB->id,
+                        'shift_type' => DeploymentShiftType::Day->value,
+                        'duty_type' => ShiftType::Normal->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('deployments.board', ['start_date' => $nextDate]))
+            ->assertSessionHas('status');
+
+        $this->actingAs($manager)
+            ->get(route('deployments.board', ['start_date' => $nextDate]))
+            ->assertOk()
+            ->assertSee('Agnes Adong', false)
+            ->assertSee('Day: Site B', false)
+            ->assertSee('Night: Available', false);
+
+        $this->actingAs($manager)
+            ->get(route('deployments.board', ['start_date' => $dutyDate]))
+            ->assertOk()
+            ->assertDontSee('Agnes Adong', false);
     }
 
     public function test_past_date_keeps_the_guard_available_for_the_other_shift(): void
@@ -183,7 +288,7 @@ class BulkDeploymentBoardTest extends TestCase
             ->get(route('deployments.board', ['start_date' => $dutyDate]))
             ->assertOk()
             ->assertSee('Kaheru Richard', false)
-            ->assertSee('Day: Deployed — Site A', false)
+            ->assertSee('Day: Site A', false)
             ->assertSee('Night: Available', false);
 
         $this->actingAs($manager)

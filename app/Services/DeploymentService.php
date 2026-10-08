@@ -84,24 +84,32 @@ class DeploymentService
                     || $workPeriod === $permanentPeriod;
 
                 if ($sameWindow) {
-                    throw new InvalidArgumentException($this->shiftWindowConflictMessage(
-                        $existing->site_id,
-                        $workPeriod,
-                        $dutyFrom,
-                    ));
+                    if ($this->currentPostingCoversDutyDates($existing, $dutyFrom, $dutyTo ? (string) $dutyTo : null)) {
+                        throw new InvalidArgumentException($this->shiftWindowConflictMessage(
+                            $existing->site_id,
+                            $workPeriod,
+                            $dutyFrom,
+                        ));
+                    }
+
+                    $this->end(
+                        $existing,
+                        $this->lastCoveredDutyDate($existing),
+                        'Posting closed after its duty date so the guard can be allocated again.',
+                    );
+                } else {
+                    $cover = $this->deployTemporaryCoverage([
+                        ...$data,
+                        'shift_type' => $shiftType->value,
+                        'duty_type' => ShiftDutyTypeResolver::resolve($existing->shift_type, $workPeriod, $dutyType)->value,
+                        'start_date' => $dutyFrom,
+                        'duty_date_to' => $dutyTo ?? $dutyFrom,
+                    ]);
+
+                    app(ManpowerGapService::class)->syncSiteDate($site, $dutyFrom);
+
+                    return $cover;
                 }
-
-                $cover = $this->deployTemporaryCoverage([
-                    ...$data,
-                    'shift_type' => $shiftType->value,
-                    'duty_type' => ShiftDutyTypeResolver::resolve($existing->shift_type, $workPeriod, $dutyType)->value,
-                    'start_date' => $dutyFrom,
-                    'duty_date_to' => $dutyTo ?? $dutyFrom,
-                ]);
-
-                app(ManpowerGapService::class)->syncSiteDate($site, $dutyFrom);
-
-                return $cover;
             }
 
             $this->operationalPeriods->assertWritableForDate(
@@ -1532,6 +1540,41 @@ class DeploymentService
         );
 
         return $fresh;
+    }
+
+    private function currentPostingCoversDutyDates(Deployment $existing, string $from, ?string $to): bool
+    {
+        $start = Carbon::parse($from)->startOfDay();
+        $end = Carbon::parse($to ?: $from)->startOfDay();
+
+        for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
+            $date = $day->toDateString();
+
+            if (Deployment::query()->whereKey($existing->id)->coveringBoardDate($date)->exists()) {
+                return true;
+            }
+
+            if (Shift::query()->blocking()->where('deployment_id', $existing->id)->forDate($date)->exists()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function lastCoveredDutyDate(Deployment $existing): string
+    {
+        $latestShift = Shift::query()
+            ->where('deployment_id', $existing->id)
+            ->max('shift_date');
+
+        if ($latestShift) {
+            return Carbon::parse((string) $latestShift)->toDateString();
+        }
+
+        return $existing->end_date?->toDateString()
+            ?? $existing->start_date?->toDateString()
+            ?? now()->toDateString();
     }
 
     private function shiftWindowConflictMessage(int|string|null $site, ShiftPeriod $period, string $date): string

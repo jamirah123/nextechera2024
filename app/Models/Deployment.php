@@ -136,6 +136,30 @@ class Deployment extends Model
     }
 
     /**
+     * A posting occupies the board on this date only.
+     * A dated posting uses its start and end. An open posting occupies its
+     * start date; later dates stay free so the guard returns after that shift.
+     */
+    public function scopeCoveringBoardDate($query, string $date)
+    {
+        $nextDay = HistoricalDates::nextCalendarDay($date);
+
+        return $query->where(function ($coverage) use ($date, $nextDay): void {
+            $coverage
+                ->where(function ($ranged) use ($date): void {
+                    $ranged->where('start_date', '<=', HistoricalDates::endOfCalendarDay($date))
+                        ->whereNotNull('end_date')
+                        ->where('end_date', '>=', $date);
+                })
+                ->orWhere(function ($open) use ($date, $nextDay): void {
+                    $open->whereNull('end_date')
+                        ->where('start_date', '>=', $date)
+                        ->where('start_date', '<', $nextDay);
+                });
+        });
+    }
+
+    /**
      * Deployments for guards who have a duty on this exact shift date at that site.
      * Prefers the deployment linked on the shift row when present.
      */

@@ -370,9 +370,9 @@ class Guard extends Model
             ? [DeploymentShiftType::Night->value, DeploymentShiftType::Rotating->value]
             : [DeploymentShiftType::Day->value, DeploymentShiftType::Rotating->value];
 
-        $deploymentIds = DB::table('deployments')
-            ->where('is_current', true)
-            ->where('status', DeploymentStatus::Active->value)
+        $deploymentIds = Deployment::query()
+            ->current()
+            ->coveringBoardDate($date)
             ->whereIn('shift_type', $shiftTypes)
             ->pluck('guard_id')
             ->all();

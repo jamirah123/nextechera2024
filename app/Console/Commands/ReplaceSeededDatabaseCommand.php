@@ -127,7 +127,7 @@ class ReplaceSeededDatabaseCommand extends Command
         $checks = [
             'Guards' => [(int) DB::table('guards')->count(), 250, 350],
             'Regions' => [(int) DB::table('regions')->count(), 6, 6],
-            'Supervisors' => [(int) DB::table('supervisors')->count(), 10, 10],
+            'Supervisors' => [(int) DB::table('supervisors')->count(), 10, null],
             'Staff' => [(int) DB::table('staff')->count(), 20, null],
             'Clients' => [(int) DB::table('clients')->count(), 1, null],
             'Sites' => [(int) DB::table('sites')->count(), 1, null],

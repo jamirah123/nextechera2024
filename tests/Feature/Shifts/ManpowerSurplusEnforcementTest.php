@@ -258,6 +258,57 @@ class ManpowerSurplusEnforcementTest extends TestCase
             ->assertSee('deployed', false);
     }
 
+    public function test_shifts_index_ignores_current_postings_that_were_not_posted(): void
+    {
+        $manager = User::factory()->role(UserRole::ShiftManager)->create();
+        $site = Site::factory()->create([
+            'name' => 'Posted Only Site',
+            'required_guards' => 3,
+            'required_day_guards' => 3,
+            'required_night_guards' => 2,
+        ]);
+
+        foreach (range(1, 3) as $i) {
+            $guard = Guard::factory()->create([
+                'employment_status' => EmploymentStatus::Active,
+                'operational_status' => OperationalStatus::OnDuty,
+                'region_id' => $site->region_id,
+                'current_site_id' => $site->id,
+            ]);
+            Shift::factory()->create([
+                'guard_id' => $guard->id,
+                'site_id' => $site->id,
+                'region_id' => $site->region_id,
+                'supervisor_id' => $site->supervisor_id,
+                'shift_date' => now()->toDateString(),
+                'period' => ShiftPeriod::Day,
+                'status' => ShiftStatus::Recorded,
+            ]);
+        }
+
+        $standing = Guard::factory()->create([
+            'employment_status' => EmploymentStatus::Active,
+            'operational_status' => OperationalStatus::OnDuty,
+            'region_id' => $site->region_id,
+            'current_site_id' => $site->id,
+        ]);
+        Deployment::factory()->create([
+            'guard_id' => $standing->id,
+            'site_id' => $site->id,
+            'region_id' => $site->region_id,
+            'supervisor_id' => $site->supervisor_id,
+            'shift_type' => DeploymentShiftType::Rotating,
+            'status' => DeploymentStatus::Active,
+            'is_current' => true,
+        ]);
+
+        $this->actingAs($manager)
+            ->get(route('shifts.index', ['date' => now()->toDateString()]))
+            ->assertOk()
+            ->assertDontSee('Overstaffed')
+            ->assertDontSee('4/3');
+    }
+
     /** @return array{0: Site, 1: Collection<int, Guard>} */
     private function siteWithDayRequirement(int $requiredDay, int $guardCount): array
     {

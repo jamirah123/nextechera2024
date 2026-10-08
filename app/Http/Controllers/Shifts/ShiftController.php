@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Shifts;
 
-use App\Enums\DeploymentShiftType;
 use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
 use App\Enums\ShiftStatus;
@@ -63,43 +62,35 @@ class ShiftController extends Controller
             ->paginate(table_per_page())
             ->withQueryString();
 
-        // Overstaff flags follow current site postings (same rules as deployment capacity),
-        // not shift row counts — ending a deployment clears surplus even if a shift remains.
-        $shiftSiteIds = Shift::query()
+        // Overstaff flags count the shifts posted for this date. A current or
+        // rotating posting with no shift on this date does not add to the total.
+        $rawShiftCounts = Shift::query()
             ->forDate($date)
             ->blocking()
-            ->distinct()
-            ->pluck('site_id')
-            ->all();
+            ->selectRaw('site_id, period, count(*) as deployed')
+            ->groupBy('site_id', 'period')
+            ->get()
+            ->groupBy('site_id');
 
-        $deploymentPeriodCounts = collect();
+        $deploymentPeriodCounts = $rawShiftCounts->map(function ($rows) {
+            $byPeriod = $rows->mapWithKeys(function ($row) {
+                $period = $row->period instanceof ShiftPeriod
+                    ? $row->period->value
+                    : (string) $row->getRawOriginal('period');
+
+                return [$period => (int) $row->deployed];
+            });
+
+            return [
+                ShiftPeriod::Day->value => (int) ($byPeriod[ShiftPeriod::Day->value] ?? 0),
+                ShiftPeriod::Night->value => (int) ($byPeriod[ShiftPeriod::Night->value] ?? 0),
+            ];
+        });
+
+        $shiftSiteIds = $deploymentPeriodCounts->keys()->all();
         $overstaffedSites = [];
 
         if ($shiftSiteIds !== []) {
-            $rawDeploymentCounts = Deployment::query()
-                ->current()
-                ->whereIn('site_id', $shiftSiteIds)
-                ->selectRaw('site_id, shift_type, count(*) as deployed')
-                ->groupBy('site_id', 'shift_type')
-                ->get()
-                ->groupBy('site_id');
-
-            $deploymentPeriodCounts = $rawDeploymentCounts->map(function ($rows) {
-                $byType = $rows->mapWithKeys(function ($row) {
-                    $type = $row->shift_type instanceof DeploymentShiftType
-                        ? $row->shift_type->value
-                        : (string) $row->getRawOriginal('shift_type');
-
-                    return [$type => (int) $row->deployed];
-                });
-
-                $rotating = (int) ($byType[DeploymentShiftType::Rotating->value] ?? 0);
-
-                return [
-                    ShiftPeriod::Day->value => (int) ($byType[DeploymentShiftType::Day->value] ?? 0) + $rotating,
-                    ShiftPeriod::Night->value => (int) ($byType[DeploymentShiftType::Night->value] ?? 0) + $rotating,
-                ];
-            });
 
             $sitesForCoverage = Site::query()
                 ->whereIn('id', $shiftSiteIds)

@@ -176,13 +176,21 @@
             toastPreferences: true,
 
             init() {
-                this.fetchFeed();
-                this.pollTimer = window.setInterval(() => {
-                    if (document.hidden) {
-                        return;
-                    }
+                const start = () => {
                     this.fetchFeed();
-                }, Math.max(this.pollSeconds, 15) * 1000);
+                    this.pollTimer = window.setInterval(() => {
+                        if (document.hidden) {
+                            return;
+                        }
+                        this.fetchFeed();
+                    }, Math.max(this.pollSeconds, 15) * 1000);
+                };
+
+                if (typeof window.requestIdleCallback === 'function') {
+                    window.requestIdleCallback(start, { timeout: 1200 });
+                } else {
+                    window.setTimeout(start, 600);
+                }
 
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden && Date.now() - this.lastFetchedAt > 10000) {

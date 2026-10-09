@@ -124,6 +124,18 @@ class PermissionCatalog
                 ],
             ],
             [
+                'key' => 'clients.manage',
+                'group' => 'Organization',
+                'label' => 'Create and edit clients',
+                'description' => 'Register clients and update their contract details.',
+                'roles' => [
+                    UserRole::SuperAdmin->value,
+                    UserRole::ManagingDirector->value,
+                    UserRole::OperationsManager->value,
+                    UserRole::HrManager->value,
+                ],
+            ],
+            [
                 'key' => 'organization.view',
                 'group' => 'Organization',
                 'label' => 'View organization structure',

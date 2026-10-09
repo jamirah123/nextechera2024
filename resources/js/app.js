@@ -72,14 +72,22 @@ Alpine.data('sidebarNav', (config = {}) => ({
             return;
         }
 
-        this.fetchBadges();
-        this.pollTimer = window.setInterval(() => {
-            if (document.hidden) {
-                return;
-            }
-
+        const startBadges = () => {
             this.fetchBadges();
-        }, this.pollSeconds * 1000);
+            this.pollTimer = window.setInterval(() => {
+                if (document.hidden) {
+                    return;
+                }
+
+                this.fetchBadges();
+            }, this.pollSeconds * 1000);
+        };
+
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(startBadges, { timeout: 1200 });
+        } else {
+            window.setTimeout(startBadges, 600);
+        }
 
         document.addEventListener('visibilitychange', () => {
             if (! document.hidden) {

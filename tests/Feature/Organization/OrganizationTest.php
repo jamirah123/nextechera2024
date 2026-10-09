@@ -216,6 +216,52 @@ class OrganizationTest extends TestCase
             ->assertSee('4 armed · 6 unarmed');
     }
 
+    public function test_hr_manager_can_create_and_update_clients(): void
+    {
+        $hr = User::factory()->role(UserRole::HrManager)->create();
+        $payload = [
+            'name' => 'HR Registered Client',
+            'contact_person' => 'Sarah Nalwoga',
+            'phone' => '+256700000040',
+            'email' => 'hr.client@example.com',
+            'address' => 'Kampala',
+            'contract_start_date' => now()->toDateString(),
+            'contract_end_date' => now()->addYear()->toDateString(),
+            'contract_status' => 'active',
+            'notes' => null,
+        ];
+
+        $this->actingAs($hr)
+            ->get(route('clients.create'))
+            ->assertOk()
+            ->assertSee('Create client');
+
+        $this->actingAs($hr)
+            ->post(route('clients.store'), $payload)
+            ->assertRedirect();
+
+        $client = Client::query()->where('name', 'HR Registered Client')->firstOrFail();
+
+        $this->actingAs($hr)
+            ->put(route('clients.update', $client), [
+                ...$payload,
+                'name' => 'HR Registered Client Ltd',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('HR Registered Client Ltd', $client->fresh()->name);
+
+        $this->actingAs($hr)
+            ->get(route('regions.create'))
+            ->assertForbidden();
+
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+
+        $this->actingAs($finance)
+            ->get(route('clients.create'))
+            ->assertForbidden();
+    }
+
     public function test_manpower_coverage_page_loads(): void
     {
         $user = User::factory()->role(UserRole::ShiftManager)->create();

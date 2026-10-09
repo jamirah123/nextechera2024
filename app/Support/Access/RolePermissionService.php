@@ -4,12 +4,17 @@ namespace App\Support\Access;
 
 use App\Enums\UserRole;
 use App\Models\User;
+use Illuminate\Container\Attributes\Scoped;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
+#[Scoped]
 class RolePermissionService
 {
     private const CACHE_KEY = 'role_permissions.matrix';
+
+    /** @var array<string, list<string>>|null */
+    private ?array $matrixMemo = null;
 
     public function userCan(User $user, string $permission): bool
     {
@@ -46,7 +51,11 @@ class RolePermissionService
      */
     public function matrix(): array
     {
-        return Cache::rememberForever(self::CACHE_KEY, function (): array {
+        if ($this->matrixMemo !== null) {
+            return $this->matrixMemo;
+        }
+
+        return $this->matrixMemo = Cache::rememberForever(self::CACHE_KEY, function (): array {
             $stored = $this->storedMatrix();
             $hasConfiguredRows = DB::table('role_permissions')->exists();
 
@@ -215,6 +224,7 @@ class RolePermissionService
 
     public function flushCache(): void
     {
+        $this->matrixMemo = null;
         Cache::forget(self::CACHE_KEY);
     }
 

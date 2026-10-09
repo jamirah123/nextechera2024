@@ -173,7 +173,7 @@ class AppServiceProvider extends ServiceProvider
 
     private function seedPermissionsWhenEmpty(): void
     {
-        if (! app()->runningUnitTests() && Cache::get('psg.boot.permissions_seeded') === true) {
+        if (! app()->runningUnitTests() && Cache::get('psg.boot.permissions_seeded.v2') === true) {
             return;
         }
 
@@ -181,12 +181,16 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
+        $service = app(RolePermissionService::class);
+
         if (DB::table('role_permissions')->count() === 0) {
-            app(RolePermissionService::class)->seedDefaults();
+            $service->seedDefaults();
+        } elseif (! app()->runningUnitTests()) {
+            $service->mergeMissingPermissions();
         }
 
         if (! app()->runningUnitTests()) {
-            Cache::forever('psg.boot.permissions_seeded', true);
+            Cache::forever('psg.boot.permissions_seeded.v2', true);
         }
     }
 

@@ -232,6 +232,11 @@ class OrganizationTest extends TestCase
         ];
 
         $this->actingAs($hr)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee(route('clients.index'), false);
+
+        $this->actingAs($hr)
             ->get(route('clients.create'))
             ->assertOk()
             ->assertSee('Create client');

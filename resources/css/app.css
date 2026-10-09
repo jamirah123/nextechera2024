@@ -821,6 +821,94 @@ select.ts-hidden-accessible + .ts-wrapper {
 }
 
 /*
+ | Phones show each table row as a full card. Columns stay readable
+ | instead of being clipped by the screen edge.
+ */
+@media screen and (max-width: 55.99rem) {
+    main :is(.overflow-hidden, .overflow-x-auto, .data-table-shell):has(table) {
+        overflow: visible;
+        max-width: 100%;
+    }
+
+    main table:has(thead) {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    main table:has(thead) thead {
+        display: none;
+    }
+
+    main table:has(thead) :is(tbody, tfoot) {
+        display: block;
+    }
+
+    main table:has(thead) tr {
+        display: block;
+        margin-bottom: 0.5rem;
+        border: 1px solid rgb(226 232 240);
+        border-radius: 0.5rem;
+        background: white;
+        padding: 0.7rem 0.75rem;
+        box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+    }
+
+    main table:has(thead) td {
+        display: grid;
+        grid-template-columns: minmax(4.75rem, 38%) minmax(0, 1fr);
+        column-gap: 0.75rem;
+        align-items: start;
+        border: 0;
+        padding: 0.3rem 0;
+        text-align: left;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    main table:has(thead) td::before {
+        content: attr(data-label);
+        padding-top: 0.15rem;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: rgb(100 116 139);
+    }
+
+    main table:has(thead) td > * {
+        min-width: 0;
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    main table:has(thead) td[data-label="#"],
+    main table:has(thead) td[data-label=""]::before,
+    main table:has(thead) td:not([data-label])::before {
+        display: none;
+    }
+
+    main table:has(thead) td[data-label="#"] {
+        display: none;
+    }
+
+    main table:has(thead) td:not([data-label]),
+    main table:has(thead) td[data-label=""] {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    html.dark main table:has(thead) tr {
+        border-color: rgb(51 65 85);
+        background: rgb(15 23 42);
+    }
+
+    html.dark main table:has(thead) td::before {
+        color: rgb(148 163 184);
+    }
+}
+
+/*
  | Finance tables become one card per row below the desktop sidebar breakpoint.
  | Print and wide screens keep the original columns.
  */

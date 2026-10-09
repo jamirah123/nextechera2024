@@ -3,12 +3,14 @@ import './searchable-selects';
 import { initAppearance } from './theme';
 import { registerDashboardCharts } from './charts';
 import { initAutoHideScrollbars } from './scrollbars';
+import { watchPhoneTables } from './phone-tables';
 
 window.Alpine = Alpine;
 
 initAppearance();
 registerDashboardCharts();
 initAutoHideScrollbars();
+watchPhoneTables();
 
 const SIDEBAR_COLLAPSED_KEY = 'psg.sidebar.collapsed';
 

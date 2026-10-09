@@ -253,8 +253,7 @@ class RoleNavigation
             UserRole::HrManager => [
                 self::module('All Guards', 'Register and maintain guard employment records.', 'shield', 'brand', route('guards.index')),
                 self::module('Staff', 'Register salaried office and admin employees.', 'users', 'indigo', route('staff.index')),
-                self::module('Clients', 'Register clients and keep their contracts up to date.', 'building', 'sky', route('clients.index')),
-                self::module('Organization', 'View regions, sites and supervisors.', 'building', 'indigo', route('organization.index')),
+                self::module('Organization', 'Regions, sites, supervisors and clients.', 'building', 'indigo', route('organization.index')),
                 self::module('Leave Management', 'Approve leave and detect schedule conflicts.', 'leave', 'sky', route('leaves.index')),
                 self::module('Absences', 'Record absences and trigger replacements.', 'alert', 'amber', route('absences.index')),
                 self::module('Assets & uniforms', 'Issue kit, radios, boots and weapons. Track returns and cost recovery.', 'shield', 'indigo', route('assets.index')),
@@ -543,7 +542,6 @@ class RoleNavigation
             self::nav('Staff', 'users', route('staff.index'), 'staff.*'),
             self::nav('Ops Dashboard', 'chart', route('ops-dashboards.company'), 'ops-dashboards.*'),
             self::nav('Deployments', 'map', route('deployments.index'), 'deployments.*'),
-            self::nav('Clients', 'building', route('clients.index'), 'clients.*'),
             self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|supervisors.*|clients.*|sites.*', [
                 ['label' => 'Overview', 'href' => route('organization.index')],
                 ['label' => 'Clients', 'href' => route('clients.index')],

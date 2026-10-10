@@ -5,13 +5,15 @@ namespace App\Http\Controllers\Reports;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\Region;
+use App\Models\ReportArchive;
 use App\Models\Site;
 use App\Models\User;
-use App\Services\ReportExportService;
 use App\Services\Reports\MonthlyShiftCalculationService;
 use App\Services\Reports\OperationalReportService;
+use App\Services\Reports\ReportArchiveService;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -21,7 +23,7 @@ class ReportController extends Controller
     public function __construct(
         private MonthlyShiftCalculationService $monthlyShifts,
         private OperationalReportService $reports,
-        private ReportExportService $exports,
+        private ReportArchiveService $archives,
     ) {}
 
     public function index(Request $request): View
@@ -31,6 +33,71 @@ class ReportController extends Controller
         return view('reports.index', [
             'cards' => $this->cardsFor($request->user()),
         ]);
+    }
+
+    public function history(Request $request): View
+    {
+        $this->authorizeReports();
+
+        $user = $request->user();
+        $keys = $this->visibleArchiveKeys($user);
+        $filters = [
+            'q' => $request->string('q')->toString(),
+            'report_key' => $request->string('report_key')->toString(),
+            'from' => $request->string('from')->toString(),
+            'to' => $request->string('to')->toString(),
+        ];
+
+        $archives = ReportArchive::query()
+            ->with('author:id,name')
+            ->whereIn('report_key', $keys)
+            ->when($user->mustStayInOwnRegion(), fn ($query) => $query->where('user_id', $user->id))
+            ->when($filters['report_key'] !== '' && in_array($filters['report_key'], $keys, true), fn ($query) => $query->where('report_key', $filters['report_key']))
+            ->when($filters['from'] !== '', fn ($query) => $query->whereDate('created_at', '>=', $filters['from']))
+            ->when($filters['to'] !== '', fn ($query) => $query->whereDate('created_at', '<=', $filters['to']))
+            ->search($filters['q'])
+            ->latest('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('reports.history', [
+            'archives' => $archives,
+            'filters' => $filters,
+            'reportKeys' => $keys,
+        ]);
+    }
+
+    public function storeHistory(Request $request): RedirectResponse
+    {
+        $key = $request->string('report')->toString();
+        abort_unless(array_key_exists($key, ReportArchive::LABELS), 404);
+        $this->authorizeReportKey($key);
+
+        $bundle = $this->bundle($key, $request);
+        $archive = $this->archives->store(
+            $request->user(),
+            $bundle['key'],
+            $bundle['title'],
+            $bundle['period'],
+            $bundle['filters'],
+            $bundle['filename'],
+            $bundle['headers'],
+            $bundle['rows'],
+        );
+
+        return redirect()
+            ->route('reports.history', ['q' => $archive->period_label])
+            ->with('status', 'Saved '.$archive->title.' for '.$archive->period_label.'.');
+    }
+
+    public function downloadHistory(Request $request, ReportArchive $archive): StreamedResponse
+    {
+        $this->authorizeReports();
+        $user = $request->user();
+        abort_unless(in_array($archive->report_key, $this->visibleArchiveKeys($user), true), 403);
+        abort_if($user->mustStayInOwnRegion() && $archive->user_id !== $user->id, 403);
+
+        return $this->archives->download($archive);
     }
 
     public function monthlyShifts(Request $request): View
@@ -53,21 +120,7 @@ class ReportController extends Controller
 
     public function exportMonthlyShifts(Request $request): StreamedResponse
     {
-        $this->authorizeReportKey('monthly_shifts');
-
-        $filters = $this->monthFilters($request);
-        $rows = $this->monthlyShifts->calculate($filters);
-        $filename = sprintf(
-            'psg-monthly-shifts-%04d-%02d',
-            $filters['year'],
-            $filters['month'],
-        );
-
-        return $this->downloadCsv(
-            $filename,
-            $this->monthlyShifts->exportHeaders(),
-            $this->monthlyShifts->exportRows($rows),
-        );
+        return $this->streamBundle('monthly_shifts', $request);
     }
 
     public function dailyShifts(Request $request): View
@@ -88,25 +141,7 @@ class ReportController extends Controller
 
     public function exportDailyShifts(Request $request): StreamedResponse
     {
-        $this->authorizeReportKey('daily_shifts');
-
-        $filters = $this->dailyFilters($request);
-        $report = $this->reports->dailyShifts($filters);
-        $headers = ['#', 'Reference', 'Employment ID', 'Guard', 'Site', 'Period', 'Type', 'Status', 'Start', 'End'];
-        $data = $report['rows']->values()->map(fn ($shift, int $index) => [
-            $index + 1,
-            $shift->reference,
-            $shift->assignedGuard?->employment_id,
-            $shift->assignedGuard?->full_name,
-            $shift->site?->name,
-            $shift->period->label(),
-            $shift->shift_type->label(),
-            $shift->status->label(),
-            $shift->starts_at->format('H:i'),
-            $shift->ends_at->format('H:i'),
-        ]);
-
-        return $this->downloadCsv('psg-daily-shifts-'.$filters['date'], $headers, $data);
+        return $this->streamBundle('daily_shifts', $request);
     }
 
     public function weeklyShifts(Request $request): View
@@ -127,30 +162,7 @@ class ReportController extends Controller
 
     public function exportWeeklyShifts(Request $request): StreamedResponse
     {
-        $this->authorizeReportKey('weekly_shifts');
-
-        $filters = $this->weeklyFilters($request);
-        $report = $this->reports->weeklyShifts($filters);
-        $headers = ['#', 'Date', 'Reference', 'Employment ID', 'Guard', 'Site', 'Period', 'Type', 'Status', 'Start', 'End'];
-        $data = $report['rows']->values()->map(fn ($shift, int $index) => [
-            $index + 1,
-            $shift->shift_date->toDateString(),
-            $shift->reference,
-            $shift->assignedGuard?->employment_id,
-            $shift->assignedGuard?->full_name,
-            $shift->site?->name,
-            $shift->period->label(),
-            $shift->shift_type->label(),
-            $shift->status->label(),
-            $shift->starts_at->format('H:i'),
-            $shift->ends_at->format('H:i'),
-        ]);
-
-        return $this->downloadCsv(
-            'psg-weekly-shifts-'.$report['week_start'].'-to-'.$report['week_end'],
-            $headers,
-            $data,
-        );
+        return $this->streamBundle('weekly_shifts', $request);
     }
 
     public function guards(Request $request): View
@@ -170,21 +182,7 @@ class ReportController extends Controller
 
     public function exportGuards(Request $request): StreamedResponse
     {
-        $this->authorizeReportKey('guards');
-
-        $report = $this->reports->guards($request->only(['region_id', 'employment_status', 'operational_status']));
-        $headers = ['#', 'Employment ID', 'Name', 'Region', 'Site', 'Employment', 'Operational'];
-        $data = $report['rows']->values()->map(fn ($guard, int $index) => [
-            $index + 1,
-            $guard->employment_id,
-            $guard->full_name,
-            $guard->region?->name,
-            $guard->currentSite?->name,
-            $guard->employment_status->label(),
-            $guard->operational_status->label(),
-        ]);
-
-        return $this->downloadCsv('psg-guards-report', $headers, $data);
+        return $this->streamBundle('guards', $request);
     }
 
     public function deployments(Request $request): View
@@ -207,42 +205,7 @@ class ReportController extends Controller
 
     public function exportDeployments(Request $request): StreamedResponse
     {
-        $this->authorizeReportKey('deployments');
-
-        $filters = $this->deploymentFilters($request);
-        $report = $this->reports->deployments($filters);
-
-        $headers = ['#', 'Record type', 'Employment ID', 'Guard', 'Site / From', 'To site', 'Status', 'Date'];
-        $data = collect();
-        $serial = 1;
-
-        foreach ($report['deployments'] as $deployment) {
-            $data->push([
-                $serial++,
-                'Deployment',
-                $deployment->assignedGuard?->employment_id,
-                $deployment->assignedGuard?->full_name,
-                $deployment->site?->name,
-                '',
-                $deployment->status->label(),
-                optional($deployment->start_date)?->toDateString() ?? '',
-            ]);
-        }
-
-        foreach ($report['transfers'] as $transfer) {
-            $data->push([
-                $serial++,
-                'Transfer',
-                '',
-                '',
-                $transfer->fromSite?->name,
-                $transfer->toSite?->name,
-                'Transferred',
-                optional($transfer->effective_at)?->toDateString() ?? '',
-            ]);
-        }
-
-        return $this->downloadCsv('psg-deployments-report', $headers, $data);
+        return $this->streamBundle('deployments', $request);
     }
 
     public function hr(Request $request): View
@@ -259,62 +222,7 @@ class ReportController extends Controller
 
     public function exportHr(Request $request): StreamedResponse
     {
-        $this->authorizeReportKey('hr');
-
-        $filters = $this->hrFilters($request);
-        $report = $this->reports->hr($filters);
-
-        $headers = ['#', 'Category', 'Employment ID', 'Guard', 'Detail', 'Status', 'From / Date', 'To', 'Site'];
-        $data = collect();
-        $serial = 1;
-
-        foreach ($report['leaves'] as $leave) {
-            $data->push([
-                $serial++,
-                'Leave',
-                $leave->assignedGuard?->employment_id,
-                $leave->assignedGuard?->full_name,
-                $leave->typeLabel(),
-                $leave->status->label(),
-                $leave->start_date->toDateString(),
-                $leave->end_date->toDateString(),
-                '',
-            ]);
-        }
-
-        foreach ($report['absences'] as $absence) {
-            $data->push([
-                $serial++,
-                'Absence',
-                $absence->assignedGuard?->employment_id,
-                $absence->assignedGuard?->full_name,
-                $absence->reason?->label() ?? '',
-                'Recorded',
-                $absence->absence_date->toDateString(),
-                '',
-                $absence->site?->name,
-            ]);
-        }
-
-        foreach ($report['desertions'] as $desertion) {
-            $data->push([
-                $serial++,
-                'Desertion',
-                $desertion->assignedGuard?->employment_id,
-                $desertion->assignedGuard?->full_name,
-                '',
-                $desertion->hr_status->label(),
-                $desertion->date_reported->toDateString(),
-                '',
-                $desertion->lastKnownSite?->name,
-            ]);
-        }
-
-        return $this->downloadCsv(
-            'psg-hr-report-'.$filters['from'].'-to-'.$filters['to'],
-            $headers,
-            $data,
-        );
+        return $this->streamBundle('hr', $request);
     }
 
     /**
@@ -518,13 +426,303 @@ class ReportController extends Controller
         return array_filter($filters, fn ($value) => $value !== null && $value !== '');
     }
 
-    /**
-     * @param  list<string>  $headers
-     * @param  iterable<int, list<string|int|float|null>>|Collection<int, list<string|int|float|null>>  $rows
-     */
-    private function downloadCsv(string $filename, array $headers, iterable $rows): StreamedResponse
+    private function streamBundle(string $key, Request $request): StreamedResponse
     {
-        return $this->exports->downloadCsv($filename.'.csv', $headers, $rows);
+        $this->authorizeReportKey($key);
+        $bundle = $this->bundle($key, $request);
+        $archive = $this->archives->store(
+            $request->user(),
+            $bundle['key'],
+            $bundle['title'],
+            $bundle['period'],
+            $bundle['filters'],
+            $bundle['filename'],
+            $bundle['headers'],
+            $bundle['rows'],
+        );
+
+        return $this->archives->download($archive);
+    }
+
+    /**
+     * @return array{key: string, title: string, period: string, filters: array<string, mixed>, filename: string, headers: list<string>, rows: iterable<int, list<string|int|float|null>>}
+     */
+    private function bundle(string $key, Request $request): array
+    {
+        return match ($key) {
+            'monthly_shifts' => $this->monthlyBundle($request),
+            'daily_shifts' => $this->dailyBundle($request),
+            'weekly_shifts' => $this->weeklyBundle($request),
+            'guards' => $this->guardsBundle($request),
+            'deployments' => $this->deploymentsBundle($request),
+            'hr' => $this->hrBundle($request),
+            default => abort(404),
+        };
+    }
+
+    /**
+     * @return array{key: string, title: string, period: string, filters: array<string, mixed>, filename: string, headers: list<string>, rows: iterable<int, list<string|int|float|null>>}
+     */
+    private function monthlyBundle(Request $request): array
+    {
+        $filters = $this->monthFilters($request);
+        $rows = $this->monthlyShifts->calculate($filters);
+
+        return [
+            'key' => 'monthly_shifts',
+            'title' => ReportArchive::labelFor('monthly_shifts'),
+            'period' => $this->withPlace(Carbon::create($filters['year'], $filters['month'], 1)->format('F Y'), $filters),
+            'filters' => $filters,
+            'filename' => sprintf('psg-monthly-shifts-%04d-%02d', $filters['year'], $filters['month']),
+            'headers' => $this->monthlyShifts->exportHeaders(),
+            'rows' => $this->monthlyShifts->exportRows($rows),
+        ];
+    }
+
+    /**
+     * @return array{key: string, title: string, period: string, filters: array<string, mixed>, filename: string, headers: list<string>, rows: iterable<int, list<string|int|float|null>>}
+     */
+    private function dailyBundle(Request $request): array
+    {
+        $filters = $this->dailyFilters($request);
+        $report = $this->reports->dailyShifts($filters);
+
+        return [
+            'key' => 'daily_shifts',
+            'title' => ReportArchive::labelFor('daily_shifts'),
+            'period' => $this->withPlace(Carbon::parse($filters['date'])->format('d M Y'), $filters),
+            'filters' => $filters,
+            'filename' => 'psg-daily-shifts-'.$filters['date'],
+            'headers' => ['#', 'Reference', 'Employment ID', 'Guard', 'Site', 'Period', 'Type', 'Status', 'Start', 'End'],
+            'rows' => $report['rows']->values()->map(fn ($shift, int $index) => [
+                $index + 1,
+                $shift->reference,
+                $shift->assignedGuard?->employment_id,
+                $shift->assignedGuard?->full_name,
+                $shift->site?->name,
+                $shift->period->label(),
+                $shift->shift_type->label(),
+                $shift->status->label(),
+                $shift->starts_at->format('H:i'),
+                $shift->ends_at->format('H:i'),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * @return array{key: string, title: string, period: string, filters: array<string, mixed>, filename: string, headers: list<string>, rows: iterable<int, list<string|int|float|null>>}
+     */
+    private function weeklyBundle(Request $request): array
+    {
+        $filters = $this->weeklyFilters($request);
+        $report = $this->reports->weeklyShifts($filters);
+        $period = Carbon::parse($report['week_start'])->format('d M Y').' – '.Carbon::parse($report['week_end'])->format('d M Y');
+
+        return [
+            'key' => 'weekly_shifts',
+            'title' => ReportArchive::labelFor('weekly_shifts'),
+            'period' => $this->withPlace($period, $filters),
+            'filters' => $filters,
+            'filename' => 'psg-weekly-shifts-'.$report['week_start'].'-to-'.$report['week_end'],
+            'headers' => ['#', 'Date', 'Reference', 'Employment ID', 'Guard', 'Site', 'Period', 'Type', 'Status', 'Start', 'End'],
+            'rows' => $report['rows']->values()->map(fn ($shift, int $index) => [
+                $index + 1,
+                $shift->shift_date->toDateString(),
+                $shift->reference,
+                $shift->assignedGuard?->employment_id,
+                $shift->assignedGuard?->full_name,
+                $shift->site?->name,
+                $shift->period->label(),
+                $shift->shift_type->label(),
+                $shift->status->label(),
+                $shift->starts_at->format('H:i'),
+                $shift->ends_at->format('H:i'),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * @return array{key: string, title: string, period: string, filters: array<string, mixed>, filename: string, headers: list<string>, rows: iterable<int, list<string|int|float|null>>}
+     */
+    private function guardsBundle(Request $request): array
+    {
+        $filters = $request->only(['region_id', 'employment_status', 'operational_status']);
+        $report = $this->reports->guards($filters);
+        $extra = array_filter([
+            filled($filters['employment_status'] ?? null) ? (string) $filters['employment_status'] : null,
+            filled($filters['operational_status'] ?? null) ? (string) $filters['operational_status'] : null,
+        ]);
+
+        return [
+            'key' => 'guards',
+            'title' => ReportArchive::labelFor('guards'),
+            'period' => $this->withPlace($extra === [] ? 'All guards' : 'All guards · '.implode(' · ', $extra), $filters),
+            'filters' => $filters,
+            'filename' => 'psg-guards-report',
+            'headers' => ['#', 'Employment ID', 'Name', 'Region', 'Site', 'Employment', 'Operational'],
+            'rows' => $report['rows']->values()->map(fn ($guard, int $index) => [
+                $index + 1,
+                $guard->employment_id,
+                $guard->full_name,
+                $guard->region?->name,
+                $guard->currentSite?->name,
+                $guard->employment_status->label(),
+                $guard->operational_status->label(),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * @return array{key: string, title: string, period: string, filters: array<string, mixed>, filename: string, headers: list<string>, rows: iterable<int, list<string|int|float|null>>}
+     */
+    private function deploymentsBundle(Request $request): array
+    {
+        $filters = $this->deploymentFilters($request);
+        $report = $this->reports->deployments($filters);
+        $headers = ['#', 'Record type', 'Employment ID', 'Guard', 'Site / From', 'To site', 'Status', 'Date'];
+        $data = collect();
+        $serial = 1;
+
+        foreach ($report['deployments'] as $deployment) {
+            $data->push([
+                $serial++,
+                'Deployment',
+                $deployment->assignedGuard?->employment_id,
+                $deployment->assignedGuard?->full_name,
+                $deployment->site?->name,
+                '',
+                $deployment->status->label(),
+                optional($deployment->start_date)?->toDateString() ?? '',
+            ]);
+        }
+
+        foreach ($report['transfers'] as $transfer) {
+            $data->push([
+                $serial++,
+                'Transfer',
+                '',
+                '',
+                $transfer->fromSite?->name,
+                $transfer->toSite?->name,
+                'Transferred',
+                optional($transfer->effective_at)?->toDateString() ?? '',
+            ]);
+        }
+
+        $period = $filters['current_only'] ? 'Current deployments' : 'All deployments';
+
+        if (filled($filters['from']) || filled($filters['to'])) {
+            $from = filled($filters['from']) ? Carbon::parse($filters['from'])->format('d M Y') : 'Start';
+            $to = filled($filters['to']) ? Carbon::parse($filters['to'])->format('d M Y') : 'Today';
+            $period = $from.' – '.$to;
+        }
+
+        return [
+            'key' => 'deployments',
+            'title' => ReportArchive::labelFor('deployments'),
+            'period' => $this->withPlace($period, $filters),
+            'filters' => $filters,
+            'filename' => 'psg-deployments-report',
+            'headers' => $headers,
+            'rows' => $data->all(),
+        ];
+    }
+
+    /**
+     * @return array{key: string, title: string, period: string, filters: array<string, mixed>, filename: string, headers: list<string>, rows: iterable<int, list<string|int|float|null>>}
+     */
+    private function hrBundle(Request $request): array
+    {
+        $filters = $this->hrFilters($request);
+        $report = $this->reports->hr($filters);
+        $headers = ['#', 'Category', 'Employment ID', 'Guard', 'Detail', 'Status', 'From / Date', 'To', 'Site'];
+        $data = collect();
+        $serial = 1;
+
+        foreach ($report['leaves'] as $leave) {
+            $data->push([
+                $serial++,
+                'Leave',
+                $leave->assignedGuard?->employment_id,
+                $leave->assignedGuard?->full_name,
+                $leave->typeLabel(),
+                $leave->status->label(),
+                $leave->start_date->toDateString(),
+                $leave->end_date->toDateString(),
+                '',
+            ]);
+        }
+
+        foreach ($report['absences'] as $absence) {
+            $data->push([
+                $serial++,
+                'Absence',
+                $absence->assignedGuard?->employment_id,
+                $absence->assignedGuard?->full_name,
+                $absence->reason?->label() ?? '',
+                'Recorded',
+                $absence->absence_date->toDateString(),
+                '',
+                $absence->site?->name,
+            ]);
+        }
+
+        foreach ($report['desertions'] as $desertion) {
+            $data->push([
+                $serial++,
+                'Desertion',
+                $desertion->assignedGuard?->employment_id,
+                $desertion->assignedGuard?->full_name,
+                '',
+                $desertion->hr_status->label(),
+                $desertion->date_reported->toDateString(),
+                '',
+                $desertion->lastKnownSite?->name,
+            ]);
+        }
+
+        $period = Carbon::parse($filters['from'])->format('d M Y').' – '.Carbon::parse($filters['to'])->format('d M Y');
+
+        return [
+            'key' => 'hr',
+            'title' => ReportArchive::labelFor('hr'),
+            'period' => $period,
+            'filters' => $filters,
+            'filename' => 'psg-hr-report-'.$filters['from'].'-to-'.$filters['to'],
+            'headers' => $headers,
+            'rows' => $data->all(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function withPlace(string $period, array $filters): string
+    {
+        $place = [];
+
+        if (! empty($filters['site_id'])) {
+            $place[] = Site::query()->whereKey($filters['site_id'])->value('name');
+        }
+
+        if (! empty($filters['region_id'])) {
+            $place[] = Region::query()->whereKey($filters['region_id'])->value('name');
+        }
+
+        $place = array_values(array_filter($place));
+
+        return $place === [] ? $period : $period.' · '.implode(' · ', $place);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function visibleArchiveKeys(User $user): array
+    {
+        return array_values(array_filter(
+            array_keys(ReportArchive::LABELS),
+            fn (string $key) => $this->userCanSeeReport($user, $key),
+        ));
     }
 
     private function authorizeReports(): void

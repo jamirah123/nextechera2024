@@ -260,6 +260,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/attendances', [AttendanceController::class, 'store'])->name('attendances.store');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/history', [ReportController::class, 'history'])->name('reports.history');
+    Route::post('/reports/history', [ReportController::class, 'storeHistory'])
+        ->middleware('throttle:exports')
+        ->name('reports.history.store');
+    Route::get('/reports/history/{archive}', [ReportController::class, 'downloadHistory'])
+        ->name('reports.history.download');
     Route::get('/reports/monthly-shifts', [ReportController::class, 'monthlyShifts'])->name('reports.monthly-shifts');
     Route::get('/reports/monthly-shifts/export', [ReportController::class, 'exportMonthlyShifts'])
         ->middleware('throttle:exports')

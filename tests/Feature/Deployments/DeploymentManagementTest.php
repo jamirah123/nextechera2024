@@ -735,6 +735,8 @@ class DeploymentManagementTest extends TestCase
             ->post(route('deployments.board.store'), [
                 'start_date' => '2026-09-07',
                 'selected' => [$guard->id],
+                'overtime_reviewed' => '1',
+                'confirm_overtime' => [$guard->id],
                 'rows' => [
                     $guard->id => [
                         'site_id' => $siteB->id,

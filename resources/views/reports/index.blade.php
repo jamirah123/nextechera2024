@@ -8,8 +8,12 @@
 <div class="space-y-3">
     <x-page-header
         title="Reports hub"
-        subtitle="On-screen summaries with CSV and Excel exports for operations, HR and finance."
-    />
+        subtitle="On-screen summaries with CSV exports. Each export is kept so you can search for it later."
+    >
+        <x-slot:actions>
+            <a href="{{ route('reports.history') }}" class="btn btn-secondary">Saved reports</a>
+        </x-slot:actions>
+    </x-page-header>
 
     <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         @foreach ($cards as $card)

@@ -737,7 +737,7 @@ class PayrollCalculationService
     {
         return Shift::query()
             ->where('guard_id', $guardId)
-            ->whereBetween('shift_date', [$start, $end])
+            ->betweenDates($start, $end)
             ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
             ->when($run->site_id, fn ($q) => $q->where('site_id', $run->site_id))
             ->whereIn('status', ShiftStatus::payableValues())
@@ -1053,7 +1053,7 @@ class PayrollCalculationService
 
         $shiftIds = Shift::query()
             ->where('guard_id', $guardId)
-            ->whereBetween('shift_date', [$start, $end])
+            ->betweenDates($start, $end)
             ->when($run->region_id, fn ($q) => $q->where('region_id', $run->region_id))
             ->when($run->site_id, fn ($q) => $q->where('site_id', $run->site_id))
             ->whereIn('status', ShiftStatus::payableValues())

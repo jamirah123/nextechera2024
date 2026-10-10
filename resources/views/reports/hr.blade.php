@@ -14,6 +14,8 @@
         <x-slot:actions>
             <x-report-actions
                 :csv="route('reports.hr.export', array_merge($exportQuery, ['format' => 'csv']))"
+                save-report="hr"
+                :save-fields="$exportQuery"
             />
         </x-slot:actions>
     </x-page-header>

@@ -96,7 +96,7 @@ class MonthlyShiftCalculationService
         $guards = (clone $guardQuery)->count();
 
         $counts = Shift::query()
-            ->whereBetween('shift_date', [$start->toDateString(), $end->toDateString()])
+            ->betweenDates($start->toDateString(), $end->toDateString())
             ->when(! empty($filters['region_id']), fn ($q) => $q->where('region_id', $filters['region_id']))
             ->when(! empty($filters['site_id']), fn ($q) => $q->where('site_id', $filters['site_id']))
             ->whereIn('guard_id', (clone $guardQuery)->select('id'))
@@ -209,7 +209,7 @@ class MonthlyShiftCalculationService
         $end = $start->copy()->endOfMonth();
 
         $shiftRows = Shift::query()
-            ->whereBetween('shift_date', [$start->toDateString(), $end->toDateString()])
+            ->betweenDates($start->toDateString(), $end->toDateString())
             ->when(! empty($filters['region_id']), fn ($q) => $q->where('region_id', $filters['region_id']))
             ->when(! empty($filters['site_id']), fn ($q) => $q->where('site_id', $filters['site_id']))
             ->whereIn('guard_id', $guards->pluck('id'))
@@ -267,7 +267,7 @@ class MonthlyShiftCalculationService
 
         $shifts = Shift::query()
             ->where('guard_id', $guardId)
-            ->whereBetween('shift_date', [$start, $end])
+            ->betweenDates($start, $end)
             ->when($run?->region_id, fn ($q) => $q->where('region_id', $run->region_id))
             ->when($run?->site_id, fn ($q) => $q->where('site_id', $run->site_id))
             ->get(['shift_type', 'status']);

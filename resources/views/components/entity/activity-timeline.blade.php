@@ -1,13 +1,25 @@
-@props(['entries', 'title' => 'Activity timeline'])
+@props(['entries', 'title' => 'Activity timeline', 'compact' => false])
 
-<section {{ $attributes->merge(['class' => 'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm']) }}>
-    <div class="border-b border-slate-100 px-3 py-2.5">
-        <h2 class="text-base font-semibold text-slate-900">{{ $title }}</h2>
-        <p class="mt-0.5 text-sm text-slate-500">Shifts, deployments, HR, finance and audit events in one feed.</p>
+<section {{ $attributes->merge(['class' => 'overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900']) }}>
+    <div class="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+        <h2 @class([
+            'font-semibold text-slate-900 dark:text-slate-100',
+            'text-xs' => $compact,
+            'text-base' => ! $compact,
+        ])>{{ $title }}</h2>
+        <p @class([
+            'mt-0.5 text-slate-500',
+            'text-[11px]' => $compact,
+            'text-sm' => ! $compact,
+        ])>Shifts, deployments, HR, finance and audit events in one feed.</p>
     </div>
 
     @if ($entries->isEmpty())
-        <p class="px-5 py-6 text-sm text-slate-500 sm:px-6">No activity recorded yet.</p>
+        <p @class([
+            'text-slate-500',
+            'px-3 py-4 text-xs' => $compact,
+            'px-5 py-6 text-sm sm:px-6' => ! $compact,
+        ])>No activity recorded yet.</p>
     @else
         <ol class="divide-y divide-slate-100">
             @foreach ($entries as $entry)
@@ -16,9 +28,9 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
                             @if ($entry['url'])
-                                <a href="{{ $entry['url'] }}" class="font-semibold text-brand-700 hover:text-brand-800">{{ $entry['summary'] }}</a>
+                                <a href="{{ $entry['url'] }}" @class(['font-semibold text-brand-700 hover:text-brand-800', 'text-xs' => $compact])>{{ $entry['summary'] }}</a>
                             @else
-                                <p class="font-semibold text-slate-900">{{ $entry['summary'] }}</p>
+                                <p @class(['font-semibold text-slate-900 dark:text-slate-100', 'text-xs' => $compact])>{{ $entry['summary'] }}</p>
                             @endif
                             <span @class([
                                 'rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
@@ -34,7 +46,7 @@
                                 <x-status-badge :tone="$entry['severity_tone'] ?? 'slate'" :label="$entry['severity_label']" />
                             @endif
                         </div>
-                        <p class="mt-1 text-xs text-slate-500">
+                        <p @class(['text-slate-500', 'mt-0.5 text-[10px]' => $compact, 'mt-1 text-xs' => ! $compact])>
                             @if ($entry['occurred_at'])
                                 {{ $entry['occurred_at']->timezone(config('app.timezone'))->format('d M Y, H:i T') }}
                             @else

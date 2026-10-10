@@ -39,6 +39,31 @@ class ReportExportService
     }
 
     /**
+     * @param  list<string>  $headers
+     * @param  iterable<int, list<string|int|float|null>>|Collection<int, list<string|int|float|null>>  $rows
+     */
+    public function toCsv(array $headers, iterable $rows): string
+    {
+        $handle = fopen('php://temp', 'r+');
+
+        fwrite($handle, "\xEF\xBB\xBF");
+        fputcsv($handle, $headers);
+
+        foreach ($rows as $row) {
+            fputcsv($handle, array_map(
+                fn ($value) => $this->stringify($value),
+                is_array($row) ? $row : (array) $row,
+            ));
+        }
+
+        rewind($handle);
+        $contents = stream_get_contents($handle) ?: '';
+        fclose($handle);
+
+        return $contents;
+    }
+
+    /**
      * Excel-compatible spreadsheet download (tab-separated .xls for broad compatibility
      * without requiring an external Excel package).
      *

@@ -7,96 +7,99 @@
     $grade = $currentRevision?->grade ?: $staff->job_grade;
 @endphp
 
-<section class="form-card">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-            <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Current employment</h2>
-            <dl class="mt-2 grid gap-2 text-xs sm:grid-cols-3">
-                <div>
-                    <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Position</dt>
-                    <dd class="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{{ $position ?: '—' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Salary</dt>
-                    <dd class="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">{{ \App\Support\Money::format($currentSalary) }}</dd>
-                </div>
-                <div>
-                    <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Effective from</dt>
-                    <dd class="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">
-                        {{ $currentRevision?->effective_from?->format('d M Y') ?? '—' }}
-                    </dd>
-                </div>
-            </dl>
-            @if ($grade)
-                <p class="mt-2 text-[11px] text-slate-500">Grade {{ $grade }}</p>
-            @endif
+<section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="border-b border-slate-100 bg-slate-50/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/50">
+        <h2 class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Current employment</h2>
+    </div>
+    <dl class="grid gap-0 sm:grid-cols-3">
+        <div class="border-b border-slate-100 px-3 py-2 sm:border-b-0 sm:border-r dark:border-slate-800">
+            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Position</dt>
+            <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">
+                {{ $position ?: 'Not recorded' }}
+                @if ($grade)
+                    <span class="mt-0.5 block text-[10px] font-normal text-slate-500">Grade {{ $grade }}</span>
+                @endif
+            </dd>
         </div>
+        <div class="border-b border-slate-100 px-3 py-2 sm:border-b-0 sm:border-r dark:border-slate-800">
+            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Salary</dt>
+            <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">{{ \App\Support\Money::format($currentSalary) }}</dd>
+        </div>
+        <div class="px-3 py-2">
+            <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Effective from</dt>
+            <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">
+                {{ $currentRevision?->effective_from?->format('d M Y') ?? 'Not recorded' }}
+            </dd>
+        </div>
+    </dl>
+
+    <div class="border-t border-slate-100 px-3 py-2 dark:border-slate-800">
+        <h3 class="text-xs font-semibold text-slate-900 dark:text-slate-100">Salary &amp; employment history</h3>
+        <p class="mt-0.5 text-[11px] leading-snug text-slate-500">Each change stays on file. Payroll uses the salary in force during the pay period.</p>
+
+        @if ($revisions->isEmpty())
+            <p class="mt-2 text-[11px] text-slate-500">No salary changes have been recorded.</p>
+        @else
+            <ul class="mt-2 divide-y divide-slate-100 overflow-hidden rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
+                @foreach ($revisions->sortByDesc(fn ($revision) => $revision->effective_from->toDateString()) as $revision)
+                    <li class="px-2.5 py-2">
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            @if ($revision->isCurrent())
+                                <x-status-badge tone="emerald" label="Current" />
+                            @elseif ($revision->isScheduled())
+                                <x-status-badge tone="amber" label="Scheduled" />
+                            @else
+                                <x-status-badge tone="slate" label="Historical" />
+                            @endif
+                            <p class="text-xs font-semibold text-slate-900 dark:text-slate-100">
+                                {{ $revision->job_title ?: 'Position not recorded' }}
+                                <span class="font-normal text-slate-500">· {{ \App\Support\Money::format($revision->salary) }}</span>
+                            </p>
+                        </div>
+                        <p class="mt-1 text-[11px] leading-snug text-slate-600 dark:text-slate-300">
+                            {{ $revision->effective_from->format('d M Y') }}
+                            –
+                            {{ $revision->effective_to?->format('d M Y') ?? 'Current' }}
+                            · {{ $revision->change_type->label() }}
+                            @if ($revision->previous_salary !== null)
+                                · was {{ \App\Support\Money::format($revision->previous_salary) }}
+                            @endif
+                            @if ($revision->grade)
+                                · grade {{ $revision->grade }}
+                            @endif
+                        </p>
+                        <p class="mt-0.5 text-[10px] leading-snug text-slate-500">
+                            @if ($revision->reason)
+                                {{ $revision->reason }}
+                            @endif
+                            @if ($revision->approver)
+                                · {{ $revision->approver->name }}
+                                @if ($revision->approved_at)
+                                    {{ $revision->approved_at->format('d M Y H:i') }}
+                                @endif
+                            @endif
+                            @if ($revision->creator)
+                                · recorded by {{ $revision->creator->name }}
+                                @if ($revision->created_at)
+                                    {{ $revision->created_at->format('d M Y H:i') }}
+                                @endif
+                            @endif
+                            @if ($revision->notes)
+                                · {{ $revision->notes }}
+                            @endif
+                        </p>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
     </div>
 
-    <h3 class="mt-4 text-sm font-semibold text-slate-900 dark:text-slate-100">Salary &amp; employment history</h3>
-    <p class="mt-1 text-xs text-slate-500">Each change stays on file. Payroll uses the salary in force during the pay period.</p>
-
-    @if ($revisions->isNotEmpty())
-        <div class="psg-stack mt-3 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-            <table class="data-table min-w-full">
-                <thead>
-                    <tr>
-                        <th>Status</th>
-                        <th>Effective from</th>
-                        <th>Effective to</th>
-                        <th>Position</th>
-                        <th>Grade</th>
-                        <th>Previous salary</th>
-                        <th>Salary</th>
-                        <th>Change</th>
-                        <th>Reason</th>
-                        <th>Approved by</th>
-                        <th>Approval date</th>
-                        <th>Created by</th>
-                        <th>Created</th>
-                        <th>Notes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($revisions->sortByDesc(fn ($revision) => $revision->effective_from->toDateString()) as $revision)
-                        <tr>
-                            <td data-label="Status">
-                                @if ($revision->isCurrent())
-                                    <span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900/50">Current</span>
-                                @elseif ($revision->isScheduled())
-                                    <span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 ring-1 ring-amber-100">Scheduled</span>
-                                @else
-                                    <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">Historical</span>
-                                @endif
-                            </td>
-                            <td data-label="Effective from">{{ $revision->effective_from->format('Y-m-d') }}</td>
-                            <td data-label="Effective to">{{ $revision->effective_to?->format('Y-m-d') ?? '—' }}</td>
-                            <td data-label="Position">{{ $revision->job_title ?: '—' }}</td>
-                            <td data-label="Grade">{{ $revision->grade ?: '—' }}</td>
-                            <td data-label="Previous salary">{{ $revision->previous_salary !== null ? \App\Support\Money::format($revision->previous_salary) : '—' }}</td>
-                            <td data-label="Salary" class="font-medium">{{ \App\Support\Money::format($revision->salary) }}</td>
-                            <td data-label="Change">{{ $revision->change_type->label() }}</td>
-                            <td data-label="Reason">{{ $revision->reason ?: '—' }}</td>
-                            <td data-label="Approved by">{{ $revision->approver?->name ?? '—' }}</td>
-                            <td data-label="Approval date">{{ $revision->approved_at?->format('d M Y H:i') ?? '—' }}</td>
-                            <td data-label="Created by">{{ $revision->creator?->name ?? '—' }}</td>
-                            <td data-label="Created">{{ $revision->created_at?->format('d M Y H:i') ?? '—' }}</td>
-                            <td data-label="Notes">{{ $revision->notes ?: '—' }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    @else
-        <p class="mt-3 text-sm text-slate-500">No salary changes have been recorded.</p>
-    @endif
-
     @if ($canManageSalary)
-        <form method="POST" action="{{ route('staff.salary-revisions.store', $staff) }}" class="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 dark:border-slate-700">
+        <form method="POST" action="{{ route('staff.salary-revisions.store', $staff) }}" class="grid gap-2 border-t border-slate-100 px-3 py-3 sm:grid-cols-2 dark:border-slate-800">
             @csrf
             <div class="sm:col-span-2">
                 <h3 class="text-xs font-semibold text-slate-900 dark:text-slate-100">Record a salary or position change</h3>
-                <p class="mt-1 text-xs text-slate-500">
+                <p class="mt-0.5 text-[11px] leading-snug text-slate-500">
                     Current salary: {{ \App\Support\Money::format($currentSalary) }}.
                     Enter the same salary when only the position or grade changes.
                 </p>
@@ -115,7 +118,7 @@
             <x-form-field label="Reason" name="reason" :value="old('reason')" :required="true" class="sm:col-span-2" />
             <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes')" class="sm:col-span-2" />
             <div class="sm:col-span-2">
-                <button type="submit" class="inline-flex items-center rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">Record salary change</button>
+                <button type="submit" class="btn btn-primary">Record salary change</button>
             </div>
         </form>
     @endif

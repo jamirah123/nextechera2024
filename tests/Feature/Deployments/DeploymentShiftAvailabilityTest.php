@@ -105,6 +105,8 @@ class DeploymentShiftAvailabilityTest extends TestCase
             ->post(route('deployments.board.store'), [
                 'start_date' => now()->toDateString(),
                 'selected' => [$guard->id],
+                'overtime_reviewed' => '1',
+                'confirm_overtime' => [$guard->id],
                 'rows' => [
                     $guard->id => [
                         'site_id' => $site->id,

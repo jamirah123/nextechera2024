@@ -55,6 +55,10 @@
         historical: @js($isHistorical),
         overstaffOpen: @js(session()->has('overstaffing_warnings')),
         overstaffWarnings: @js(array_values(session('overstaffing_warnings', []))),
+        overtimeOpen: @js(session()->has('overtime_prompts')),
+        overtimePrompts: @js(array_values(session('overtime_prompts', []))),
+        overtimeConflicts: @js(array_values(session('overtime_conflicts', []))),
+        overtimeChecked: {},
         focusSite: '',
         focusShift: '',
         summary: { visible: false, blocks: [], notes: [] },
@@ -495,8 +499,51 @@
             });
             return warnings;
         };
+        window.psgDetectRowOvertime = function (row) {
+            const type = row.querySelector('[data-row-type]')?.value;
+            const duty = row.querySelector('[data-row-duty]');
+            if (! duty || ! type || type === 'rotating') return;
+            const other = type === 'night' ? 'day' : 'night';
+            if (row.dataset[other + 'Deployed'] === '1' && row.dataset[other + 'Duty'] === 'normal') {
+                duty.value = 'overtime';
+            }
+        };
+        window.psgBoardConfirmOvertime = function () {
+            const root = document.querySelector('[data-posting-board]');
+            const form = root?.querySelector('form[method="post"]');
+            if (! root || ! form || ! window.Alpine) return;
+            const state = window.Alpine.$data(root);
+            const chosen = (state.overtimePrompts || []).filter((prompt) => state.overtimeChecked[prompt.guard_id]);
+            if (chosen.length === 0) {
+                state.overtimeOpen = false;
+                return;
+            }
+            const store = window.psgBoardLoad ? window.psgBoardLoad() : {};
+            chosen.forEach((prompt) => {
+                const saved = store[String(prompt.guard_id)];
+                if (saved) saved.dutyType = 'overtime';
+            });
+            if (window.psgBoardSave) window.psgBoardSave(store);
+            form.querySelectorAll('input[data-overtime-confirm]').forEach((el) => el.remove());
+            const reviewed = document.createElement('input');
+            reviewed.type = 'hidden';
+            reviewed.name = 'overtime_reviewed';
+            reviewed.value = '1';
+            reviewed.setAttribute('data-overtime-confirm', '1');
+            form.appendChild(reviewed);
+            chosen.forEach((prompt) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'confirm_overtime[]';
+                input.value = String(prompt.guard_id);
+                input.setAttribute('data-overtime-confirm', '1');
+                form.appendChild(input);
+            });
+            state.overtimeOpen = false;
+            form.requestSubmit();
+        };
         window.psgBoardConfirmOverstaff = function () {
-            const form = document.querySelector('[data-posting-board] form');
+            const form = document.querySelector('[data-posting-board] form[method="post"]');
             if (! form) return;
             let input = form.querySelector('input[name="acknowledge_overstaffing"]');
             if (! input) {
@@ -564,7 +611,10 @@
         };
         window.psgPaintBoardRow = function (select) {
             const row = select.closest('tr, article');
-            if (row) window.psgBoardSyncRow(row);
+            if (row) {
+                window.psgDetectRowOvertime(row);
+                window.psgBoardSyncRow(row);
+            }
             window.psgBoardApplyVisible();
             window.psgPaintBoardAll();
             window.psgBoardRenderPanel();
@@ -587,6 +637,12 @@
     <form method="POST" action="{{ route('deployments.board.store') }}" class="space-y-4">
             @csrf
             <input type="hidden" name="start_date" value="{{ old('start_date', $dutyDate) }}">
+            @if (session()->has('overtime_confirmed_ids'))
+                <input type="hidden" name="overtime_reviewed" value="1">
+                @foreach (session('overtime_confirmed_ids', []) as $confirmedGuardId)
+                    <input type="hidden" name="confirm_overtime[]" value="{{ $confirmedGuardId }}">
+                @endforeach
+            @endif
 
             <div class="rounded-lg border border-emerald-200 bg-white p-3 shadow-sm dark:border-emerald-800 dark:bg-slate-800">
                 <div class="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
@@ -693,7 +749,13 @@
                 </label>
 
                 @foreach ($guards as $guard)
-                    <article class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                    <article
+                        class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800"
+                        data-day-deployed="{{ ($boardAvailability[$guard->id]['day']['deployed'] ?? false) ? '1' : '0' }}"
+                        data-night-deployed="{{ ($boardAvailability[$guard->id]['night']['deployed'] ?? false) ? '1' : '0' }}"
+                        data-day-duty="{{ $boardAvailability[$guard->id]['day']['duty'] ?? '' }}"
+                        data-night-duty="{{ $boardAvailability[$guard->id]['night']['duty'] ?? '' }}"
+                    >
                         <div class="flex items-start gap-2">
                             <input
                                 type="checkbox"
@@ -792,7 +854,13 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                             @foreach ($guards as $guard)
-                                <tr class="transition hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30">
+                                <tr
+                                    class="transition hover:bg-emerald-50/40 dark:hover:bg-emerald-950/30"
+                                    data-day-deployed="{{ ($boardAvailability[$guard->id]['day']['deployed'] ?? false) ? '1' : '0' }}"
+                                    data-night-deployed="{{ ($boardAvailability[$guard->id]['night']['deployed'] ?? false) ? '1' : '0' }}"
+                                    data-day-duty="{{ $boardAvailability[$guard->id]['day']['duty'] ?? '' }}"
+                                    data-night-duty="{{ $boardAvailability[$guard->id]['night']['duty'] ?? '' }}"
+                                >
                                     <td class="px-2.5 py-1.5 align-middle">
                                         <input
                                             type="checkbox"
@@ -982,6 +1050,53 @@
                 <div class="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3 sm:flex-row sm:justify-end dark:border-slate-800 dark:bg-slate-950/50">
                     <button type="button" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" @click="overstaffOpen = false">Go back</button>
                     <button type="button" class="rounded-lg bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800" onclick="window.psgBoardConfirmOverstaff()">Deploy extra cover</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template x-teleport="body">
+        <div
+            x-cloak
+            x-show="overtimeOpen"
+            class="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="overtime-title"
+            @keydown.escape.window="overtimeOpen = false"
+        >
+            <div class="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" @click="overtimeOpen = false"></div>
+            <div class="relative max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-lg border border-amber-200 bg-white shadow-2xl dark:border-amber-900 dark:bg-slate-900" @click.stop>
+                <div class="border-b border-amber-100 px-4 py-3 dark:border-amber-900/60">
+                    <h3 id="overtime-title" class="text-xs font-semibold text-slate-900 dark:text-slate-100">Overtime Detected</h3>
+                    <p class="mt-1 text-[11px] text-slate-600 dark:text-slate-300">Confirm each guard separately. Cancelling posts none of this selection.</p>
+                </div>
+                <div class="space-y-2 px-4 py-3">
+                    <template x-for="prompt in overtimePrompts" :key="'ot-' + prompt.guard_id">
+                        <label class="block rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-700">
+                            <span class="flex items-start gap-2">
+                                <input type="checkbox" class="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-brand-700" :checked="!!overtimeChecked[prompt.guard_id]" @change="overtimeChecked[prompt.guard_id] = $event.target.checked">
+                                <span class="min-w-0">
+                                    <span class="block text-xs font-semibold text-slate-900 dark:text-slate-100" x-text="prompt.name + ' (' + prompt.employment_id + ')'"></span>
+                                    <span class="mt-0.5 block text-[11px] text-slate-600 dark:text-slate-300" x-text="prompt.name + ' has already been assigned a normal shift on ' + prompt.operational_date + '. Should this additional shift be recorded as overtime?'"></span>
+                                </span>
+                            </span>
+                            <dl class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-500">
+                                <div><dt class="font-semibold uppercase">Previous shift</dt><dd class="text-xs font-semibold text-slate-800 dark:text-slate-100" x-text="prompt.previous_period + ' — ' + prompt.previous_duty"></dd></div>
+                                <div><dt class="font-semibold uppercase">Previous site</dt><dd class="text-xs font-semibold text-slate-800 dark:text-slate-100" x-text="prompt.previous_site"></dd></div>
+                                <div><dt class="font-semibold uppercase">New shift</dt><dd class="text-xs font-semibold text-slate-800 dark:text-slate-100" x-text="prompt.new_period"></dd></div>
+                                <div><dt class="font-semibold uppercase">New site</dt><dd class="text-xs font-semibold text-slate-800 dark:text-slate-100" x-text="prompt.new_site"></dd></div>
+                                <div class="col-span-2"><dt class="font-semibold uppercase">Operational date</dt><dd class="text-xs font-semibold text-slate-800 dark:text-slate-100" x-text="prompt.operational_date"></dd></div>
+                            </dl>
+                        </label>
+                    </template>
+                    <template x-for="(conflict, index) in overtimeConflicts" :key="'ot-conflict-' + index">
+                        <p class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100" x-text="conflict.message"></p>
+                    </template>
+                </div>
+                <div class="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3 sm:flex-row sm:justify-end dark:border-slate-800 dark:bg-slate-950/50">
+                    <button type="button" class="btn btn-secondary" @click="overtimeOpen = false">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="window.psgBoardConfirmOvertime()">Confirm Overtime</button>
                 </div>
             </div>
         </div>

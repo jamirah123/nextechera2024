@@ -27,6 +27,7 @@ use App\Services\ManpowerService;
 use App\Services\Shifts\BulkShiftAllocationService;
 use App\Services\Shifts\ShiftLifecycleService;
 use App\Support\Deployments\DeploymentShiftSchedule;
+use App\Support\Deployments\OvertimePostingReview;
 use App\Support\Historical\HistoricalDates;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -311,6 +312,67 @@ class DeploymentController extends Controller
             return back()->withErrors(['selected' => 'Select at least one guard with a valid site.']);
         }
 
+        $review = app(OvertimePostingReview::class)->review($rows);
+        $prompts = $review['prompts'];
+        $boardQuery = array_filter([
+            'q' => $request->input('q'),
+            'region_id' => $request->input('region_id'),
+            'start_date' => $data['start_date'],
+        ], fn ($value) => $value !== null && $value !== '');
+
+        if ($prompts !== [] && ! $request->boolean('overtime_reviewed')) {
+            return redirect()
+                ->route('deployments.board', $boardQuery)
+                ->withInput()
+                ->with('overtime_prompts', $prompts)
+                ->with('overtime_conflicts', $review['conflicts']);
+        }
+
+        $confirmedIds = collect($request->input('confirm_overtime', []))
+            ->map(fn ($id) => (int) $id)
+            ->all();
+        $promptsByGuard = collect($prompts)->keyBy(fn (array $prompt) => (int) $prompt['guard_id']);
+        $held = [];
+        $deployRows = [];
+
+        foreach ($rows as $row) {
+            $prompt = $promptsByGuard->get((int) $row['guard_id']);
+
+            if ($prompt === null) {
+                $deployRows[] = $row;
+
+                continue;
+            }
+
+            if (! in_array((int) $row['guard_id'], $confirmedIds, true)) {
+                $held[] = $prompt['name'].' ('.$prompt['employment_id'].') was not confirmed as overtime, so that shift was not posted.';
+
+                continue;
+            }
+
+            $deployRows[] = [
+                ...$row,
+                'duty_type' => ShiftType::Overtime->value,
+                'overtime_confirmation' => [
+                    'previous_shift_id' => $prompt['previous_shift_id'],
+                    'previous_period' => $prompt['previous_period'],
+                    'previous_duty_type' => $prompt['previous_duty'],
+                    'previous_site' => $prompt['previous_site'],
+                    'new_period' => $prompt['new_period'],
+                    'new_site' => $prompt['new_site'],
+                    'operational_date' => $prompt['operational_date_iso'],
+                ],
+            ];
+        }
+
+        if ($deployRows === []) {
+            return redirect()
+                ->route('deployments.board', $boardQuery)
+                ->with('deployment_errors', array_slice($held, 0, 12));
+        }
+
+        $rows = $deployRows;
+
         $sites = Site::query()->whereIn('id', collect($rows)->pluck('site_id')->unique())->get();
         $warnings = app(ManpowerService::class)->overstaffingWarnings(
             app(ManpowerService::class)->postingBoardCoverage($sites, $data['start_date']),
@@ -318,9 +380,15 @@ class DeploymentController extends Controller
         );
 
         if ($warnings !== [] && ! $request->boolean('acknowledge_overstaffing')) {
-            return back()
+            $redirect = back()
                 ->withInput()
                 ->with('overstaffing_warnings', $warnings);
+
+            if ($request->boolean('overtime_reviewed')) {
+                $redirect->with('overtime_confirmed_ids', $confirmedIds);
+            }
+
+            return $redirect;
         }
 
         if ($request->boolean('acknowledge_overstaffing')) {
@@ -336,7 +404,7 @@ class DeploymentController extends Controller
         );
 
         $message = "Posted {$result['created']} guard(s). Shift recorded for the duty date(s).";
-        $errors = $result['errors'];
+        $errors = array_merge($held, $result['errors']);
 
         if ($result['skipped'] > 0) {
             $message .= " Skipped {$result['skipped']}.";
@@ -544,8 +612,8 @@ class DeploymentController extends Controller
 
         foreach ($ids as $id) {
             $state[(int) $id] = [
-                'day' => ['deployed' => false, 'site' => null],
-                'night' => ['deployed' => false, 'site' => null],
+                'day' => ['deployed' => false, 'site' => null, 'duty' => null],
+                'night' => ['deployed' => false, 'site' => null, 'duty' => null],
             ];
         }
 
@@ -558,7 +626,7 @@ class DeploymentController extends Controller
             ->blocking()
             ->whereIn('guard_id', $ids)
             ->forDate($dutyDate)
-            ->get(['id', 'guard_id', 'site_id', 'period']);
+            ->get(['id', 'guard_id', 'site_id', 'period', 'shift_type']);
 
         foreach ($shifts as $shift) {
             $period = $shift->period instanceof ShiftPeriod ? $shift->period->value : (string) $shift->period;
@@ -569,6 +637,7 @@ class DeploymentController extends Controller
             $state[$shift->guard_id][$period] = [
                 'deployed' => true,
                 'site' => $shift->site?->name,
+                'duty' => $shift->shift_type instanceof ShiftType ? $shift->shift_type->value : (string) $shift->shift_type,
             ];
         }
 

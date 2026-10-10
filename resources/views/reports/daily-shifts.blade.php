@@ -14,6 +14,8 @@
         <x-slot:actions>
             <x-report-actions
                 :csv="route('reports.daily-shifts.export', array_merge($exportQuery, ['format' => 'csv']))"
+                save-report="daily_shifts"
+                :save-fields="$exportQuery"
             />
         </x-slot:actions>
     </x-page-header>

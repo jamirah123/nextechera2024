@@ -8,7 +8,7 @@
     <meta name="description" content="{{ config('psg.company') }} — {{ config('psg.system_subtitle', 'Operations System') }}">
     <link rel="icon" href="{{ $brand['favicon_url'] ?? asset('images/logo.jpeg') }}" type="image/png">
 
-    <title>@yield('title', 'Sign In') — {{ config('psg.company') }}</title>
+    <title>@yield('title', 'Sign In') - {{ config('psg.app_name') }}</title>
 
     @fonts
     <x-theme-script />

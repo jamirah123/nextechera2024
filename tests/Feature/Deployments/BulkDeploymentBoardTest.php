@@ -177,6 +177,8 @@ class BulkDeploymentBoardTest extends TestCase
             ->post(route('deployments.board.store'), [
                 'start_date' => $dutyDate,
                 'selected' => [$guard->id],
+                'overtime_reviewed' => '1',
+                'confirm_overtime' => [$guard->id],
                 'rows' => [
                     $guard->id => [
                         'site_id' => $siteA->id,
@@ -293,6 +295,28 @@ class BulkDeploymentBoardTest extends TestCase
                 ],
             ])
             ->assertRedirect()
+            ->assertSessionHas('overtime_prompts')
+            ->assertSessionMissing('status');
+
+        $this->assertNull(
+            Shift::query()->where('guard_id', $guard->id)->where('period', 'night')->whereDate('shift_date', $dutyDate)->first()
+        );
+
+        $this->actingAs($manager)
+            ->post(route('deployments.board.store'), [
+                'start_date' => $dutyDate,
+                'selected' => [$guard->id],
+                'overtime_reviewed' => '1',
+                'confirm_overtime' => [$guard->id],
+                'rows' => [
+                    $guard->id => [
+                        'site_id' => $nightSite->id,
+                        'shift_type' => DeploymentShiftType::Night->value,
+                        'duty_type' => ShiftType::Normal->value,
+                    ],
+                ],
+            ])
+            ->assertRedirect()
             ->assertSessionHas('status');
 
         $night = Shift::query()
@@ -302,7 +326,7 @@ class BulkDeploymentBoardTest extends TestCase
             ->first();
 
         $this->assertNotNull($night);
-        $this->assertSame(ShiftType::Normal, $night->shift_type);
+        $this->assertSame(ShiftType::Overtime, $night->shift_type);
         $this->assertSame(ShiftType::Normal, Shift::query()->where('reference', 'SH77-20261008-d')->first()?->shift_type);
 
         $overtimeGuard = Guard::factory()->create([
@@ -421,6 +445,8 @@ class BulkDeploymentBoardTest extends TestCase
             ->post(route('deployments.board.store'), [
                 'start_date' => $dutyDate,
                 'selected' => [$guard->id],
+                'overtime_reviewed' => '1',
+                'confirm_overtime' => [$guard->id],
                 'rows' => [
                     $guard->id => [
                         'site_id' => $siteA->id,

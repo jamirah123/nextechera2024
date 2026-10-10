@@ -71,6 +71,7 @@ class BulkDeploymentService
                         'start_date' => $row['start_date'] ?? now()->toDateString(),
                         'duty_date_to' => $row['duty_date_to'] ?? null,
                         'allow_overstaffing' => ! empty($row['allow_overstaffing']),
+                        'overtime_confirmation' => $row['overtime_confirmation'] ?? null,
                         'notes' => $row['notes'] ?? 'Recorded from site posting board',
                     ]);
                 });

@@ -7,6 +7,7 @@
 @section('content')
 <div class="space-y-3">
     <x-page-header
+        size="sm"
         :title="$deployment->assignedGuard?->full_name ?? 'Deployment'"
         :subtitle="$deployment->assignedGuard?->employment_id.' · '.$deployment->site?->name"
         :back="route('deployments.index')"
@@ -103,18 +104,18 @@
         </div>
         <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Guard</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Guard</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                     @if ($deployment->assignedGuard)
                         <a href="{{ route('guards.show', $deployment->assignedGuard) }}" class="text-brand-700 hover:text-brand-800">{{ $deployment->assignedGuard->full_name }}</a>
-                        <span class="block text-xs font-normal text-slate-500">{{ $deployment->assignedGuard->employment_id }}</span>
+                        <span class="mt-0.5 block text-[10px] font-normal text-slate-500">{{ $deployment->assignedGuard->employment_id }}</span>
                     @else —
                     @endif
                 </dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Site</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Site</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                     @if ($deployment->site)
                         <a href="{{ route('sites.show', $deployment->site) }}" class="text-brand-700 hover:text-brand-800">{{ $deployment->site->name }}</a>
                     @else —
@@ -122,37 +123,37 @@
                 </dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Region</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $deployment->region?->name ?? '—' }}</dd>
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Region</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $deployment->region?->name ?? '—' }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Supervisor</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ $deployment->supervisor?->name ?? '—' }}</dd>
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Supervisor</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $deployment->supervisor?->name ?? '—' }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r lg:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Start date (operational)</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($deployment->start_date)->format('d M Y') }}</dd>
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Start date (operational)</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ optional($deployment->start_date)->format('d M Y') }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">End date</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($deployment->end_date)->format('d M Y') ?: '—' }}</dd>
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">End date</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ optional($deployment->end_date)->format('d M Y') ?: '—' }}</dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r sm:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Entered on</dt>
-                <dd class="mt-1 text-sm font-semibold text-slate-900">{{ optional($deployment->created_at)->format('d M Y, H:i') ?: '—' }}</dd>
-                <p class="mt-0.5 text-[11px] text-slate-500">System entry time — separate from the operational duty date.</p>
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Entered on</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ optional($deployment->created_at)->format('d M Y, H:i') ?: '—' }}</dd>
+                <p class="mt-0.5 text-[10px] leading-snug text-slate-500">System entry time, separate from the operational duty date.</p>
             </div>
             <div class="px-3 py-2.5 sm:col-span-2 lg:col-span-2 sm:px-6">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notes</dt>
-                <dd class="mt-1 text-sm text-slate-700">{{ $deployment->notes ?: '—' }}</dd>
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Notes</dt>
+                <dd class="mt-0.5 text-xs leading-snug text-slate-700">{{ $deployment->notes ?: '—' }}</dd>
             </div>
         </dl>
     </section>
 
     <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
         <div class="border-b border-slate-100 px-3 py-2.5">
-            <h2 class="text-base font-semibold text-slate-900">Transfer history</h2>
-            <p class="mt-0.5 text-sm text-slate-500">Site moves linked to this deployment record.</p>
+            <h2 class="text-xs font-semibold text-slate-900">Transfer history</h2>
+            <p class="mt-0.5 text-[11px] leading-snug text-slate-500">Site moves linked to this deployment record.</p>
         </div>
         @if ($transfers->isEmpty())
             <div class="p-5 sm:p-6">
@@ -169,7 +170,7 @@
                             @endif
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="text-sm font-semibold text-slate-900">
+                            <p class="text-xs font-semibold text-slate-900">
                                 {{ $transfer->fromSite?->name ?? '—' }}
                                 <span class="font-normal text-slate-400">→</span>
                                 {{ $transfer->toSite?->name ?? '—' }}

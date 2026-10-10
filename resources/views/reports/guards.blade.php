@@ -18,6 +18,8 @@
         <x-slot:actions>
             <x-report-actions
                 :csv="route('reports.guards.export', array_merge($exportQuery, ['format' => 'csv']))"
+                save-report="guards"
+                :save-fields="$exportQuery"
             />
         </x-slot:actions>
     </x-page-header>

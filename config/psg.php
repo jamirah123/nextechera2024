@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'app_name' => env('APP_NAME', 'Shfts Pulse System'),
     'company' => env('PSG_COMPANY_NAME', 'Platinum Security Group'),
     'logo' => env('PSG_LOGO', 'images/logo.jpeg'),
     'fallback_logo' => env('PSG_LOGO', 'images/logo.jpeg'),

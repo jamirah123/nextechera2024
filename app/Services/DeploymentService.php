@@ -128,6 +128,7 @@ class DeploymentService
             ], $shiftType, $shiftType);
 
             $fresh = $deployment->fresh(['assignedGuard', 'site', 'region', 'supervisor']);
+            $confirmation = is_array($data['overtime_confirmation'] ?? null) ? $data['overtime_confirmation'] : null;
             $this->audit->log(
                 action: $historicalOnly ? 'deployment.historical_recorded' : 'deployment.created',
                 summary: $historicalOnly
@@ -140,13 +141,40 @@ class DeploymentService
                 subject: $fresh,
                 context: [
                     'guard_id' => $guard->id,
+                    'employment_id' => $guard->employment_id,
                     'site_id' => $site->id,
                     'shift_type' => $shiftType->value,
+                    'duty_type' => $dutyType->value,
                     'duty_date' => $dutyFrom,
                     'duty_date_to' => $dutyTo,
                     'historical_only' => $historicalOnly,
+                    'entered_at' => now()->toDateTimeString(),
+                    'entered_by' => auth()->id(),
                 ],
             );
+
+            if ($confirmation !== null) {
+                $this->audit->log(
+                    action: 'deployment.overtime_confirmed',
+                    summary: 'Overtime confirmed for '.$guard->employment_id.' on '.$dutyFrom.' ('.$shiftType->label().' at '.$site->name.').',
+                    category: AuditCategory::Deployment,
+                    severity: AuditSeverity::Notice,
+                    subject: $fresh,
+                    context: [
+                        ...$confirmation,
+                        'guard_id' => $guard->id,
+                        'employment_id' => $guard->employment_id,
+                        'new_deployment_id' => $fresh->id,
+                        'new_duty_type' => $dutyType->value,
+                        'new_shift_window' => $shiftType->label(),
+                        'new_site' => $site->name,
+                        'operational_date' => $dutyFrom,
+                        'confirmed_by' => auth()->id(),
+                        'confirmed_at' => now()->toDateTimeString(),
+                        'historical_only' => $historicalOnly,
+                    ],
+                );
+            }
 
             app(ManpowerGapService::class)->syncSiteDate($site, $dutyFrom);
 

@@ -138,7 +138,7 @@ class InvoiceController extends Controller
             return back()->withInput()->withErrors(['invoice' => $e->getMessage()]);
         }
 
-        return redirect()->route('invoices.show', $invoice)->with('status', 'Draft invoice created.');
+        return redirect()->route('invoices.show', $invoice)->with('status', 'Draft invoice created successfully.');
     }
 
     public function show(Invoice $invoice): View
@@ -224,7 +224,7 @@ class InvoiceController extends Controller
             return back()->withErrors(['invoice' => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Invoice issued.');
+        return back()->with('status', 'Invoice issued successfully.');
     }
 
     public function cancel(Invoice $invoice): RedirectResponse

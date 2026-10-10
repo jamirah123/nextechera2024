@@ -445,9 +445,13 @@ class ShiftController extends Controller
             return back()->withInput()->withErrors(['shift' => $e->getMessage()]);
         }
 
+        $created = (int) ($result['created'] ?? 0);
+        $skipped = (int) ($result['skipped'] ?? 0);
+
         return redirect()
             ->route('shifts.index')
-            ->with('status', "Recurring pattern saved. Created {$result['created']} shift(s), skipped {$result['skipped']}.");
+            ->with('status', "Recurring pattern saved. Created {$created} shift(s), skipped {$skipped}.")
+            ->with('toast_tone', $created > 0 && $skipped === 0 ? 'success' : 'warning');
     }
 
     public function validatePreview(Request $request)

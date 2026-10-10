@@ -46,20 +46,9 @@ class RoleNavigation
      */
     public static function groups(User $user): array
     {
-        $badges = NavigationBadges::for($user);
-        $items = array_map(function (array $item) use ($badges) {
-            $item['badge'] = $badges[$item['href']] ?? null;
-
-            if (! empty($item['children'])) {
-                $item['children'] = array_map(function (array $child) use ($badges) {
-                    $child['badge'] = $badges[$child['href']] ?? null;
-
-                    return $child;
-                }, $item['children']);
-            }
-
-            return $item;
-        }, self::for($user));
+        // Attention counts load from /navigation/badges after the page paints.
+        // Counting them here held every module open on extra queries.
+        $items = self::for($user);
 
         $order = [
             'overview' => 'Overview',

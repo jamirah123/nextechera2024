@@ -108,7 +108,7 @@ class PaymentController extends Controller
             return back()->withInput()->withErrors(['payment' => $e->getMessage()]);
         }
 
-        return redirect()->route('payments.show', $payment)->with('status', 'Payment recorded.');
+        return redirect()->route('payments.show', $payment)->with('status', 'Payment recorded successfully.');
     }
 
     public function show(Payment $payment): View

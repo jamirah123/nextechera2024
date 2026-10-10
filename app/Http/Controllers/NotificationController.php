@@ -27,7 +27,7 @@ class NotificationController extends Controller
 
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
-            'group' => ['nullable', 'in:operations,hr,payroll,finance,administration'],
+            'group' => ['nullable', 'in:operations,deployments,manpower,hr,payroll,finance,administration,system'],
             'priority' => ['nullable', 'in:normal,important,urgent'],
             'read' => ['nullable', 'in:unread,read'],
             'status' => ['nullable', 'in:dismissed'],
@@ -43,10 +43,14 @@ class NotificationController extends Controller
         ]);
     }
 
-    public function markRead(Request $request, NotificationFeedService $feed): JsonResponse
+    public function markRead(Request $request, NotificationFeedService $feed): JsonResponse|RedirectResponse
     {
         $user = $request->user();
         $feed->markRead($user);
+
+        if (! $request->expectsJson()) {
+            return back()->with('status', 'Notifications marked as read.');
+        }
 
         return response()->json([
             'unread_count' => 0,
@@ -60,8 +64,23 @@ class NotificationController extends Controller
         abort_unless($feed->visibleTo($user, $auditLog), 404);
 
         $data = $request->validate([
-            'action' => ['required', 'in:read,unread,dismiss'],
+            'action' => ['required', 'in:read,unread,dismiss,open'],
         ]);
+
+        if ($data['action'] === 'open') {
+            $destination = $feed->open($user, $auditLog);
+
+            if (! $request->expectsJson()) {
+                return $destination
+                    ? redirect()->to($destination)
+                    : back()->with('error', 'This record is no longer available, or you do not have access to it.');
+            }
+
+            return response()->json([
+                'unread_count' => $feed->unreadCount($user),
+                'url' => $destination,
+            ]);
+        }
 
         $feed->setState($user, $auditLog, $data['action']);
 

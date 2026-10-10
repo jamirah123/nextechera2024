@@ -169,7 +169,7 @@ class SystemSettingController extends Controller
 
         return redirect()
             ->route('settings.index')
-            ->with('status', 'Platform settings saved.');
+            ->with('status', 'Settings saved successfully.');
     }
 
     public function removeLogo(): RedirectResponse

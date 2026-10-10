@@ -25,7 +25,6 @@ use App\Services\DeploymentService;
 use App\Services\Documents\LetterPdfService;
 use App\Services\ManpowerService;
 use App\Services\Shifts\BulkShiftAllocationService;
-use App\Services\Shifts\ShiftLifecycleService;
 use App\Support\Deployments\DeploymentShiftSchedule;
 use App\Support\Deployments\OvertimePostingReview;
 use App\Support\Historical\HistoricalDates;
@@ -50,7 +49,6 @@ class DeploymentController extends Controller
         private BulkShiftAllocationService $bulkAllocation,
         private AbsenceService $absences,
         private LetterPdfService $letters,
-        private ShiftLifecycleService $shiftLifecycle,
     ) {}
 
     public function index(Request $request): View
@@ -150,7 +148,7 @@ class DeploymentController extends Controller
     {
         $this->authorize('board', Deployment::class);
 
-        $this->releaseBoardPoolGuards($request->user());
+        $this->releaseBoardPoolGuards();
 
         $user = $request->user();
         $regionId = $user->regionId();
@@ -236,7 +234,7 @@ class DeploymentController extends Controller
     {
         $this->authorize('board', Deployment::class);
 
-        $this->releaseBoardPoolGuards($request->user());
+        $this->releaseBoardPoolGuards();
 
         $data = $request->validate([
             'selected' => ['required', 'array', 'min:1'],
@@ -413,12 +411,13 @@ class DeploymentController extends Controller
         return redirect()
             ->route('deployments.board', $request->only(['q', 'region_id', 'start_date']))
             ->with('status', $message)
+            ->with('toast_tone', $errors !== [] ? 'warning' : 'success')
             ->with('deployment_errors', $errors !== [] ? array_slice($errors, 0, 12) : null);
     }
 
     public function store(StoreDeploymentRequest $request): RedirectResponse
     {
-        $this->releaseBoardPoolGuards($request->user());
+        $this->releaseBoardPoolGuards();
 
         try {
             $deployment = $this->deployments->deploy($request->validated());
@@ -590,9 +589,10 @@ class DeploymentController extends Controller
             );
     }
 
-    private function releaseBoardPoolGuards(User $user): void
+    private function releaseBoardPoolGuards(): void
     {
-        $this->shiftLifecycle->sync();
+        // Finished duty windows are closed by psg:sync-shift-statuses. Doing that
+        // walk on this page rewrote every overdue shift before the board could render.
         $this->absences->releaseEligibleAbsentGuards();
     }
 

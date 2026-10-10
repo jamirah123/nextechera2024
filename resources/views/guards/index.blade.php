@@ -100,61 +100,7 @@
             @endif
         </x-empty-state>
     @else
-        {{-- Mobile / tablet cards --}}
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:hidden">
-            @foreach ($guards as $guard)
-                <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div class="flex items-start gap-3">
-                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-950 text-xs font-bold text-white">
-                            {{ collect(explode(' ', $guard->full_name))->take(2)->map(fn ($p) => mb_strtoupper(mb_substr($p, 0, 1)))->implode('') }}
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <a href="{{ route('guards.show', $guard) }}" class="block truncate font-semibold text-slate-900 hover:text-brand-700">
-                                {{ $guard->full_name }}
-                            </a>
-                            <p class="mt-0.5 text-xs font-medium tracking-wide text-slate-500">{{ $guard->employment_id }}</p>
-                        </div>
-                    </div>
-
-                    <div class="mt-4 flex flex-wrap gap-1.5">
-                        <x-status-badge :tone="$guard->employment_status->tone()" :label="$guard->employment_status->label()" />
-                        <x-status-badge :tone="$guard->operational_status->tone()" :label="$guard->operational_status->label()" />
-                    </div>
-
-                    <dl class="mt-4 space-y-2 text-sm">
-                        <div class="flex justify-between gap-3">
-                            <dt class="text-slate-500">Region</dt>
-                            <dd class="truncate font-medium text-slate-800">{{ $guard->region?->name ?? '—' }}</dd>
-                        </div>
-                        <div class="flex justify-between gap-3">
-                            <dt class="text-slate-500">Rank</dt>
-                            <dd class="truncate font-medium text-slate-800">{{ $guard->rank_designation ?: '—' }}</dd>
-                        </div>
-                        <div class="flex justify-between gap-3">
-                            <dt class="text-slate-500">Phone</dt>
-                            <dd class="truncate font-medium text-slate-800">{{ $guard->phone ?: '—' }}</dd>
-                        </div>
-                    </dl>
-
-                    <div class="mt-4 flex flex-wrap items-center gap-2.5 sm:gap-3 lg:gap-3.5 border-t border-slate-100 pt-3">
-                        <x-action-icon :href="route('guards.show', $guard)" label="View" icon="eye" tone="brand" />
-                        @if ($canManage)
-                            <x-action-icon :href="route('guards.edit', $guard)" label="Edit" icon="pencil" tone="slate" />
-                        @endif
-                        @if ($canDelete)
-                            <x-delete-button
-                                :action="route('guards.destroy', $guard)"
-                                confirm="Archive this guard? Status history is preserved."
-                                :icon-only="true"
-                            />
-                        @endif
-                    </div>
-                </article>
-            @endforeach
-        </div>
-
-        {{-- Desktop table --}}
-        <div class="data-table-shell hidden lg:block">
+        <div class="data-table-shell">
             <div class="overflow-x-auto">
                 <table class="data-table">
                     <thead>

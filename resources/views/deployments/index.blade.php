@@ -90,29 +90,7 @@
             @endif
         </x-empty-state>
     @else
-        <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 lg:hidden">
-            @foreach ($deployments as $deployment)
-                <article class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                            <a href="{{ route('deployments.show', $deployment) }}" class="text-xs font-medium text-slate-900 hover:text-brand-700">{{ $deployment->assignedGuard?->full_name }}</a>
-                            <p class="mt-0.5 text-[10px] text-slate-500">{{ $deployment->assignedGuard?->employment_id }}</p>
-                        </div>
-                        <x-status-badge :tone="$deployment->status->tone()" :label="$deployment->status->label()" />
-                    </div>
-                    <p class="mt-2 text-xs text-slate-700">{{ $deployment->site?->name }}</p>
-                    <p class="mt-0.5 text-[10px] text-slate-500">{{ $deployment->region?->name }} · {{ $deployment->shift_type->label() }}</p>
-                    <div class="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5">
-                        <x-action-icon :href="route('deployments.show', $deployment)" label="View" icon="eye" tone="brand" class="!h-6 !w-6" />
-                        @if ($canManage && $deployment->isActive())
-                            <x-action-icon :href="route('deployments.transfer', $deployment)" label="Transfer" icon="swap" tone="slate" class="!h-6 !w-6" />
-                        @endif
-                    </div>
-                </article>
-            @endforeach
-        </div>
-
-        <div class="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:block">
+        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
                     <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">

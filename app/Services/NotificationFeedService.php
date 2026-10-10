@@ -28,6 +28,8 @@ use App\Support\Notifications\NotificationPreferences;
 use App\Support\Notifications\WorkflowActionCatalog;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 
 class NotificationFeedService
@@ -71,6 +73,26 @@ class NotificationFeedService
      */
     public function feed(User $user, int $limit = 12, string $panel = 'all'): array
     {
+        if (! in_array($panel, ['all', 'unread', 'important'], true)) {
+            $panel = 'all';
+        }
+
+        if (app()->runningUnitTests()) {
+            return $this->buildFeed($user, $limit, $panel);
+        }
+
+        return Cache::remember(
+            $this->feedCacheKey($user, $panel),
+            20,
+            fn (): array => $this->buildFeed($user, $limit, $panel),
+        );
+    }
+
+    /**
+     * @return array{unread_count: int, badge_tone: string, history_url: string, notifications: list<array<string, mixed>>}
+     */
+    private function buildFeed(User $user, int $limit, string $panel): array
+    {
         $logs = $this->baseQuery($user)
             ->with(['notificationStates' => fn ($query) => $query->where('user_id', $user->id)])
             ->when($panel === 'unread', fn (Builder $query) => $this->whereUnread($query, $user))
@@ -92,7 +114,13 @@ class NotificationFeedService
 
     public function unreadCount(User $user): int
     {
-        return $this->whereUnread($this->baseQuery($user), $user)->count();
+        $count = fn (): int => $this->whereUnread($this->baseQuery($user), $user)->count();
+
+        if (app()->runningUnitTests()) {
+            return $count();
+        }
+
+        return (int) Cache::remember($this->unreadCountKey($user), 20, $count);
     }
 
     public function history(User $user, array $filters): LengthAwarePaginator
@@ -105,7 +133,9 @@ class NotificationFeedService
                 ->whereNotNull('dismissed_at'));
         }
 
-        $query->search($filters['q'] ?? null)
+        $this->whereSearch($query, $filters['q'] ?? null);
+
+        $query
             ->when(filled($filters['from'] ?? null), fn (Builder $inner) => $inner->where('audit_logs.created_at', '>=', $filters['from']))
             ->when(filled($filters['to'] ?? null), fn (Builder $inner) => $inner->where('audit_logs.created_at', '<=', HistoricalDates::endOfCalendarDay((string) $filters['to'])))
             ->when(filled($filters['group'] ?? null), fn (Builder $inner) => $this->whereGroup($inner, (string) $filters['group']))
@@ -113,12 +143,12 @@ class NotificationFeedService
             ->when(($filters['read'] ?? '') === 'unread', fn (Builder $inner) => $this->whereUnread($inner, $user))
             ->when(($filters['read'] ?? '') === 'read', fn (Builder $inner) => $this->whereRead($inner, $user));
 
-        $page = $query
+        $query
             ->with(['notificationStates' => fn ($state) => $state->where('user_id', $user->id)])
             ->orderByDesc('audit_logs.created_at')
-            ->orderByDesc('audit_logs.id')
-            ->paginate(20)
-            ->withQueryString();
+            ->orderByDesc('audit_logs.id');
+
+        $page = $this->paginateHistory($query, $user, $filters);
 
         $page->setCollection($page->getCollection()->map(fn (AuditLog $log) => $this->format($log, $user)));
 
@@ -135,7 +165,7 @@ class NotificationFeedService
             ? $log->notificationStates->contains(fn (NotificationState $state) => (int) $state->user_id === (int) $user->id)
             : $log->notificationStates()->where('user_id', $user->id)->exists();
 
-        if (! $assigned) {
+        if (! $assigned || ! $this->recipientMaySee($user, $log)) {
             return false;
         }
 
@@ -150,6 +180,8 @@ class NotificationFeedService
             'notifications_read_at' => now(),
         ])->save();
 
+        $this->forgetNotificationCache($user);
+
         NotificationState::query()
             ->where('user_id', $user->id)
             ->where('pinned_unread', true)
@@ -157,6 +189,20 @@ class NotificationFeedService
                 'pinned_unread' => false,
                 'read_at' => now(),
             ]);
+    }
+
+    /**
+     * Mark the alert read and return its destination when the user may open it.
+     */
+    public function open(User $user, AuditLog $log): ?string
+    {
+        $this->setState($user, $log, 'read');
+
+        if ($this->subjectMissing($log)) {
+            return null;
+        }
+
+        return $this->urlFor($log, $user);
     }
 
     public function setState(User $user, AuditLog $log, string $action): void
@@ -169,6 +215,8 @@ class NotificationFeedService
         if ($state === null) {
             return;
         }
+
+        $this->forgetNotificationCache($user);
 
         if ($action === 'unread') {
             $state->fill([
@@ -211,6 +259,73 @@ class NotificationFeedService
         ])->save();
     }
 
+    private function feedCacheKey(User $user, string $panel): string
+    {
+        return 'psg.notifications.feed.'.$user->id.'.'.$panel;
+    }
+
+    private function historyCountKey(User $user): string
+    {
+        return 'psg.notifications.history_count.'.$user->id;
+    }
+
+    private function unreadCountKey(User $user): string
+    {
+        return 'psg.notifications.unread_count.'.$user->id;
+    }
+
+    private function forgetNotificationCache(User $user): void
+    {
+        foreach (['all', 'unread', 'important'] as $panel) {
+            Cache::forget($this->feedCacheKey($user, $panel));
+        }
+
+        Cache::forget($this->historyCountKey($user));
+        Cache::forget($this->unreadCountKey($user));
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function paginateHistory(Builder $query, User $user, array $filters): LengthAwarePaginator
+    {
+        $perPage = 20;
+
+        if (! $this->canCacheHistoryCount($filters)) {
+            return $query->paginate($perPage)->withQueryString();
+        }
+
+        $pageNumber = Paginator::resolveCurrentPage();
+        $total = Cache::remember(
+            $this->historyCountKey($user),
+            20,
+            fn (): int => (clone $query)->count(),
+        );
+        $items = (clone $query)->forPage($pageNumber, $perPage)->get();
+
+        return (new \Illuminate\Pagination\LengthAwarePaginator($items, $total, $perPage, $pageNumber, [
+            'path' => Paginator::resolveCurrentPath(),
+        ]))->withQueryString();
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function canCacheHistoryCount(array $filters): bool
+    {
+        if (app()->runningUnitTests()) {
+            return false;
+        }
+
+        foreach (['q', 'group', 'priority', 'read', 'status', 'from', 'to'] as $key) {
+            if (filled($filters[$key] ?? null)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private function baseQuery(User $user, bool $includeDismissed = false): Builder
     {
         $since = now()->subDays(max(1, (int) config('psg.notifications.retention_days', 180)));
@@ -227,6 +342,8 @@ class NotificationFeedService
                     $sub->whereNull('notification_states.dismissed_at');
                 }
             });
+
+        $this->whereAuthorizedCategory($query, $user);
 
         return $this->applyPreferences($query, $user);
     }
@@ -325,15 +442,75 @@ class NotificationFeedService
             ->orWhereIn('action', $this->attentionActions()));
     }
 
+    private function whereAuthorizedCategory(Builder $query, User $user): Builder
+    {
+        $allowed = array_map(
+            fn (AuditCategory $category) => $category->value,
+            $this->categoriesFor($user),
+        );
+
+        return $query->where(function (Builder $inner) use ($allowed, $user): void {
+            $inner->whereIn('audit_logs.category', $allowed)
+                ->orWhereJsonContains('audit_logs.context->notify_user_ids', (int) $user->id)
+                ->orWhere('audit_logs.context->company_wide', true);
+        });
+    }
+
+    private function recipientMaySee(User $user, AuditLog $log): bool
+    {
+        $allowed = array_map(
+            fn (AuditCategory $category) => $category->value,
+            $this->categoriesFor($user),
+        );
+
+        if (in_array($log->category->value, $allowed, true)) {
+            return true;
+        }
+
+        $context = is_array($log->context) ? $log->context : [];
+
+        if (($context['company_wide'] ?? false) === true) {
+            return true;
+        }
+
+        $ids = $context['notify_user_ids'] ?? [];
+
+        return is_array($ids) && in_array((int) $user->id, array_map('intval', $ids), true);
+    }
+
+    private function whereSearch(Builder $query, mixed $term): Builder
+    {
+        $term = trim((string) $term);
+        if ($term === '') {
+            return $query;
+        }
+
+        $like = '%'.$term.'%';
+
+        return $query->where(function (Builder $inner) use ($like): void {
+            $inner->where('summary', 'like', $like)
+                ->orWhere('action', 'like', $like)
+                ->orWhere('actor_name', 'like', $like)
+                ->orWhere('context', 'like', $like);
+        });
+    }
+
     private function whereGroup(Builder $query, string $group): Builder
     {
         $categories = match ($group) {
             'operations' => [AuditCategory::Shift->value, AuditCategory::Deployment->value, AuditCategory::Organization->value],
+            'deployments' => [AuditCategory::Shift->value, AuditCategory::Deployment->value],
             'hr' => [AuditCategory::Hr->value, AuditCategory::Guard->value],
             'payroll', 'finance' => [AuditCategory::Finance->value],
-            'administration' => [AuditCategory::System->value, AuditCategory::Security->value],
+            'administration', 'system' => [AuditCategory::System->value, AuditCategory::Security->value],
             default => [],
         };
+
+        if ($group === 'manpower') {
+            return $query->where(fn (Builder $inner) => $inner
+                ->where('action', 'like', 'manpower.%')
+                ->orWhereIn('action', ['site.understaffed', 'site.sla_breach']));
+        }
 
         if ($categories === []) {
             return $query;
@@ -348,6 +525,12 @@ class NotificationFeedService
         if ($group === 'finance') {
             return $query->whereIn('category', $categories)
                 ->where('action', 'not like', 'payroll.%');
+        }
+
+        if (in_array($group, ['deployments', 'operations'], true)) {
+            return $query->whereIn('category', $categories)
+                ->where('action', 'not like', 'manpower.%')
+                ->whereNotIn('action', ['site.understaffed', 'site.sla_breach']);
         }
 
         return $query->whereIn('category', $categories);
@@ -411,6 +594,8 @@ class NotificationFeedService
             'group' => $group['label'],
             'group_key' => $group['key'],
             'category_badge_class' => $this->categoryBadgeClass($group['key'], $priority),
+            'icon' => $group['icon'],
+            'reference' => $this->referenceFor($log),
             'priority' => $priority,
             'priority_label' => ucfirst($priority),
             'severity' => $log->severity->value,
@@ -456,20 +641,54 @@ class NotificationFeedService
     }
 
     /**
-     * @return array{key: string, label: string}
+     * @return array{key: string, label: string, icon: string}
      */
     private function groupFor(AuditLog $log): array
     {
         if (str_starts_with($log->action, 'payroll.') || str_contains($log->action, 'salary_changed')) {
-            return ['key' => 'payroll', 'label' => 'Payroll'];
+            return ['key' => 'payroll', 'label' => 'Payroll', 'icon' => 'payroll'];
+        }
+
+        if (str_starts_with($log->action, 'manpower.') || in_array($log->action, ['site.understaffed', 'site.sla_breach'], true)) {
+            return ['key' => 'manpower', 'label' => 'Manpower', 'icon' => 'alert'];
         }
 
         return match ($log->category) {
-            AuditCategory::Shift, AuditCategory::Deployment, AuditCategory::Organization => ['key' => 'operations', 'label' => 'Operations'],
-            AuditCategory::Hr, AuditCategory::Guard => ['key' => 'hr', 'label' => 'HR'],
-            AuditCategory::Finance => ['key' => 'finance', 'label' => 'Finance'],
-            default => ['key' => 'administration', 'label' => 'Administration'],
+            AuditCategory::Shift, AuditCategory::Deployment => ['key' => 'deployments', 'label' => 'Deployments', 'icon' => 'swap'],
+            AuditCategory::Organization => ['key' => 'operations', 'label' => 'Operations', 'icon' => 'map'],
+            AuditCategory::Hr, AuditCategory::Guard => ['key' => 'hr', 'label' => 'HR & leave', 'icon' => 'leave'],
+            AuditCategory::Finance => ['key' => 'finance', 'label' => 'Finance', 'icon' => 'invoice'],
+            default => ['key' => 'system', 'label' => 'System & security', 'icon' => 'shield'],
         };
+    }
+
+    private function referenceFor(AuditLog $log): string
+    {
+        $context = is_array($log->context) ? $log->context : [];
+        $parts = [];
+
+        foreach (['employment_id', 'site_name', 'site', 'reference', 'invoice'] as $key) {
+            $value = $context[$key] ?? null;
+
+            if (is_string($value) && trim($value) !== '') {
+                $parts[] = trim($value);
+            }
+        }
+
+        return implode(' · ', array_slice(array_unique($parts), 0, 3));
+    }
+
+    private function subjectMissing(AuditLog $log): bool
+    {
+        if (! is_string($log->subject_type) || $log->subject_id === null || ! class_exists($log->subject_type)) {
+            return false;
+        }
+
+        if (! is_subclass_of($log->subject_type, \Illuminate\Database\Eloquent\Model::class)) {
+            return false;
+        }
+
+        return ! $log->subject_type::query()->whereKey($log->subject_id)->exists();
     }
 
     /** @return list<string> */
@@ -557,10 +776,10 @@ class NotificationFeedService
         }
 
         return match ($group) {
-            'operations' => 'bg-brand-50 text-brand-800',
+            'operations', 'deployments', 'manpower' => 'bg-brand-50 text-brand-800',
             'hr' => 'bg-sky-50 text-sky-800',
             'payroll', 'finance' => 'bg-emerald-50 text-emerald-800',
-            'administration' => 'bg-violet-50 text-violet-800',
+            'administration', 'system' => 'bg-violet-50 text-violet-800',
             default => 'bg-slate-100 text-slate-700',
         };
     }

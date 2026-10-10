@@ -104,7 +104,7 @@ class UserController extends Controller
 
         return redirect()
             ->route('users.show', $user)
-            ->with('status', 'User account created.');
+            ->with('status', 'User account created successfully.');
     }
 
     public function show(User $user): View
@@ -184,7 +184,7 @@ class UserController extends Controller
 
         return redirect()
             ->route('users.show', $user)
-            ->with('status', 'User account updated.');
+            ->with('status', 'User account updated successfully.');
     }
 
     public function updatePassword(Request $request, User $user): RedirectResponse

@@ -164,11 +164,14 @@ class PayrollRunController extends Controller
             return back()->withErrors(['payroll' => $e->getMessage()]);
         }
 
-        $message = config('queue.default') === 'sync'
-            ? 'Payroll calculated. Review payslips and submit for approval when ready.'
-            : 'Payroll calculation queued. Refresh this page in a moment.';
+        $queued = config('queue.default') !== 'sync';
+        $message = $queued
+            ? 'Payroll calculation queued. Refresh this page in a moment.'
+            : 'Payroll calculated. Review payslips and submit for approval when ready.';
 
-        return back()->with('status', $message);
+        return back()
+            ->with('status', $message)
+            ->with('toast_tone', $queued ? 'info' : 'success');
     }
 
     public function submit(PayrollRun $payroll): RedirectResponse

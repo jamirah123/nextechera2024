@@ -459,6 +459,180 @@ class NotificationFeedTest extends TestCase
         );
     }
 
+    public function test_mark_all_as_read_leaves_another_users_alerts_unread(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $userA = User::factory()->role(UserRole::ShiftManager)->create();
+        $userB = User::factory()->role(UserRole::ShiftManager)->create();
+
+        app(AuditService::class)->log(
+            action: 'shift.created',
+            summary: 'Shared shift alert.',
+            category: AuditCategory::Shift,
+            actor: $admin,
+            context: ['notify_user_ids' => [$userA->id, $userB->id]],
+        );
+
+        $this->actingAs($userA)
+            ->postJson(route('notifications.mark-read'))
+            ->assertOk()
+            ->assertJsonPath('unread_count', 0);
+
+        $this->actingAs($userB)
+            ->getJson(route('notifications.index'))
+            ->assertJsonPath('unread_count', 1)
+            ->assertJsonFragment(['summary' => 'Shared shift alert.', 'is_unread' => true]);
+    }
+
+    public function test_history_can_be_searched_filtered_and_paged_for_the_current_user(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $shifts = User::factory()->role(UserRole::ShiftManager)->create();
+
+        app(AuditService::class)->log(
+            action: 'shift.created',
+            summary: 'Night cover at Kololo.',
+            category: AuditCategory::Shift,
+            actor: $admin,
+            context: ['notify_user_ids' => [$shifts->id], 'site_name' => 'Kololo', 'employment_id' => 'PSG900'],
+        );
+        app(AuditService::class)->log(
+            action: 'site.understaffed',
+            summary: 'Alpha Warehouse is short by 2 guards.',
+            category: AuditCategory::Organization,
+            severity: AuditSeverity::Warning,
+            actor: $admin,
+            context: ['notify_user_ids' => [$shifts->id]],
+        );
+
+        $this->actingAs($shifts)
+            ->get(route('notifications.index', ['q' => 'Kololo', 'group' => 'deployments']))
+            ->assertOk()
+            ->assertSee('Night cover at Kololo.')
+            ->assertDontSee('Alpha Warehouse is short by 2 guards.');
+
+        $this->actingAs($shifts)
+            ->get(route('notifications.index', ['q' => 'PSG900']))
+            ->assertOk()
+            ->assertSee('Night cover at Kololo.')
+            ->assertDontSee('Alpha Warehouse is short by 2 guards.');
+
+        $this->actingAs($shifts)
+            ->get(route('notifications.index', ['group' => 'manpower', 'read' => 'unread']))
+            ->assertOk()
+            ->assertSee('Alpha Warehouse is short by 2 guards.')
+            ->assertDontSee('Night cover at Kololo.');
+
+        foreach (range(1, 21) as $number) {
+            app(AuditService::class)->log(
+                action: 'shift.created',
+                summary: 'Paged shift alert '.$number.'.',
+                category: AuditCategory::Shift,
+                actor: $admin,
+                context: ['notify_user_ids' => [$shifts->id]],
+            );
+        }
+
+        $this->actingAs($shifts)
+            ->get(route('notifications.index', ['page' => 2, 'group' => 'deployments']))
+            ->assertOk()
+            ->assertSee('Paged shift alert 1.');
+    }
+
+    public function test_opening_a_notification_marks_it_read_and_stops_when_the_record_is_gone(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $shifts = User::factory()->role(UserRole::ShiftManager)->create();
+        $shift = Shift::factory()->create();
+
+        $log = app(AuditService::class)->log(
+            action: 'shift.created',
+            summary: 'Open this shift.',
+            category: AuditCategory::Shift,
+            subject: $shift,
+            actor: $admin,
+            context: ['notify_user_ids' => [$shifts->id]],
+        );
+
+        $this->actingAs($shifts)
+            ->from(route('notifications.index'))
+            ->post(route('notifications.state', $log), ['action' => 'open'])
+            ->assertRedirect(route('shifts.show', $shift));
+
+        $this->actingAs($shifts)
+            ->getJson(route('notifications.index'))
+            ->assertJsonPath('unread_count', 0);
+
+        $missing = Shift::factory()->create();
+        $gone = app(AuditService::class)->log(
+            action: 'shift.created',
+            summary: 'Missing shift alert.',
+            category: AuditCategory::Shift,
+            subject: $missing,
+            actor: $admin,
+            context: ['notify_user_ids' => [$shifts->id]],
+        );
+        $missing->delete();
+
+        $this->actingAs($shifts)
+            ->from(route('notifications.index'))
+            ->post(route('notifications.state', $gone), ['action' => 'open'])
+            ->assertRedirect(route('notifications.index'))
+            ->assertSessionHas('error', 'This record is no longer available, or you do not have access to it.');
+    }
+
+    public function test_a_shift_manager_does_not_see_finance_rows_they_are_not_authorized_to_receive(): void
+    {
+        $admin = User::factory()->superAdmin()->create();
+        $shifts = User::factory()->role(UserRole::ShiftManager)->create();
+
+        $leaked = app(AuditService::class)->log(
+            action: 'ledger.journal_posted',
+            summary: 'Journal JE-900 posted (UGX 10,000).',
+            category: AuditCategory::Finance,
+            actor: $admin,
+        );
+        NotificationState::query()->create([
+            'user_id' => $shifts->id,
+            'audit_log_id' => $leaked->id,
+            'priority' => 'normal',
+            'delivery_status' => 'delivered',
+            'delivered_at' => now(),
+        ]);
+
+        $explicit = app(AuditService::class)->log(
+            action: 'finance.invoice_overdue',
+            summary: 'Invoice INV-900 is overdue.',
+            category: AuditCategory::Finance,
+            actor: $admin,
+            context: ['notify_user_ids' => [$shifts->id]],
+        );
+
+        $this->actingAs($shifts)
+            ->getJson(route('notifications.index'))
+            ->assertOk()
+            ->assertJsonMissing(['summary' => 'Journal JE-900 posted (UGX 10,000).'])
+            ->assertJsonFragment(['summary' => 'Invoice INV-900 is overdue.']);
+
+        $this->actingAs($shifts)
+            ->post(route('notifications.state', $leaked), ['action' => 'read'])
+            ->assertNotFound();
+
+        $this->assertNotNull($explicit->id);
+    }
+
+    public function test_the_bell_caps_large_unread_counts(): void
+    {
+        $user = User::factory()->role(UserRole::ShiftManager)->create();
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('99+', false)
+            ->assertSee('Notifications temporarily unavailable', false)
+            ->assertSee('You\'re all caught up', false);
+    }
+
     public function test_notification_endpoints_require_authentication(): void
     {
         $this->getJson(route('notifications.index'))

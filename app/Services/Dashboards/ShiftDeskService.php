@@ -8,7 +8,9 @@ use App\Models\Deployment;
 use App\Models\Guard;
 use App\Models\Shift;
 use App\Models\User;
+use App\Support\Performance\DashboardCache;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class ShiftDeskService
 {
@@ -24,6 +26,33 @@ class ShiftDeskService
      * }
      */
     public function snapshot(?User $user = null, ?Carbon $asOf = null): array
+    {
+        $build = fn (): array => $this->buildSnapshot($user, $asOf);
+
+        if (app()->runningUnitTests()) {
+            return $build();
+        }
+
+        $date = ($asOf ?? now())->toDateString();
+        $region = $user?->mustStayInOwnRegion() ? (string) ($user->regionId() ?? 'none') : 'all';
+        $key = 'psg.shift_desk.'.DashboardCache::version().'.'.$date.'.'.$region;
+        $ttl = max(15, (int) config('psg.performance.dashboard_cache_seconds', 45));
+
+        return Cache::remember($key, $ttl, $build);
+    }
+
+    /**
+     * @return array{
+     *     date: string,
+     *     awaiting_deployment: int,
+     *     needs_allocation: int,
+     *     missed_today: int,
+     *     recorded_today: int,
+     *     deployed: int,
+     *     links: array<string, string>
+     * }
+     */
+    private function buildSnapshot(?User $user = null, ?Carbon $asOf = null): array
     {
         $date = ($asOf ?? now())->toDateString();
         $regionScoped = $user?->mustStayInOwnRegion() ?? false;
@@ -46,16 +75,32 @@ class ShiftDeskService
             })
             ->count();
 
-        $shiftBase = Shift::query()
+        $shiftCounts = Shift::query()
             ->forDate($date)
-            ->when($regionScoped, fn ($q) => $q->where('region_id', $regionId));
+            ->when($regionScoped, fn ($q) => $q->where('region_id', $regionId))
+            ->whereIn('status', [ShiftStatus::Missed->value, ShiftStatus::Recorded->value])
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        $missedToday = 0;
+        $recordedToday = 0;
+        foreach ($shiftCounts as $status => $aggregate) {
+            $value = $status instanceof ShiftStatus ? $status->value : (string) $status;
+            if ($value === ShiftStatus::Missed->value) {
+                $missedToday = (int) $aggregate;
+            }
+            if ($value === ShiftStatus::Recorded->value) {
+                $recordedToday = (int) $aggregate;
+            }
+        }
 
         return [
             'date' => $date,
             'awaiting_deployment' => $awaitingDeployment,
             'needs_allocation' => $needsAllocation,
-            'missed_today' => (clone $shiftBase)->where('status', ShiftStatus::Missed)->count(),
-            'recorded_today' => (clone $shiftBase)->where('status', ShiftStatus::Recorded)->count(),
+            'missed_today' => $missedToday,
+            'recorded_today' => $recordedToday,
             'deployed' => (clone $deployedQuery)->count(),
             'links' => [
                 'deploy_board' => route('deployments.board'),
@@ -67,11 +112,12 @@ class ShiftDeskService
     }
 
     /**
+     * @param  array<string, mixed>|null  $snapshot
      * @return list<array{label: string, value: string, hint: string, tone: string}>
      */
-    public function kpis(User $user): array
+    public function kpis(User $user, ?array $snapshot = null): array
     {
-        $desk = $this->snapshot($user);
+        $desk = $snapshot ?? $this->snapshot($user);
 
         return [
             [

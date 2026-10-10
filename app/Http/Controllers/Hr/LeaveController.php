@@ -214,7 +214,7 @@ class LeaveController extends Controller
             return back()->withInput()->withErrors(['leave' => $e->getMessage()]);
         }
 
-        return redirect()->route('leaves.show', $leave)->with('status', 'Leave request saved.');
+        return redirect()->route('leaves.show', $leave)->with('status', 'Leave request submitted successfully.');
     }
 
     public function show(Leave $leave): View

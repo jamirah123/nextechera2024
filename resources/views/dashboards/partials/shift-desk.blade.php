@@ -14,7 +14,25 @@
 <section class="mt-3 rounded-lg border border-slate-200 bg-white p-2.5 shadow-sm">
     <div class="flex flex-wrap items-center justify-between gap-2">
         <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-600">Today’s work queue</h3>
-        <span class="text-[11px] text-slate-400">{{ \Illuminate\Support\Carbon::parse($shiftDesk['date'])->format('D, j M Y') }}</span>
+        <span
+            class="text-[11px] tabular-nums text-slate-400"
+            x-data="{
+                dateLabel: @js(\Illuminate\Support\Carbon::parse($shiftDesk['date'])->format('D, j M Y')),
+                timeLabel: @js(now()->timezone(config('app.timezone'))->format('H:i')),
+                zone: @js(config('app.timezone')),
+                tick() {
+                    this.timeLabel = new Intl.DateTimeFormat('en-GB', {
+                        timeZone: this.zone,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hourCycle: 'h23',
+                    }).format(new Date());
+                },
+            }"
+            x-init="tick(); setInterval(() => tick(), 1000)"
+        >
+            <span x-text="`${dateLabel}, ${timeLabel}`">{{ \Illuminate\Support\Carbon::parse($shiftDesk['date'])->format('D, j M Y') }}, {{ now()->timezone(config('app.timezone'))->format('H:i') }}</span>
+        </span>
     </div>
 
     <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">

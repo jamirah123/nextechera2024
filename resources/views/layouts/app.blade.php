@@ -148,12 +148,6 @@
             <main class="psg-safe-bottom min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-2 sm:px-4 sm:py-3 lg:px-5">
                 <x-flash-status />
 
-                @if (session('error'))
-                    <div class="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300" role="alert">
-                        {{ session('error') }}
-                    </div>
-                @endif
-
                 @if ($errors->any())
                     <div class="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300" role="alert">
                         <p class="font-medium">Please correct the following:</p>

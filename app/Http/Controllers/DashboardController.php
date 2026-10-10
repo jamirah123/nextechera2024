@@ -41,7 +41,7 @@ class DashboardController extends Controller
 
         $kpis = match ($user->role?->value) {
             'shift_manager', 'operations_manager' => $shiftDeskSnapshot !== null
-                ? $this->shiftDesk->kpis($user)
+                ? $this->shiftDesk->kpis($user, $shiftDeskSnapshot)
                 : RoleNavigation::kpis($user),
             default => RoleNavigation::kpis($user),
         };

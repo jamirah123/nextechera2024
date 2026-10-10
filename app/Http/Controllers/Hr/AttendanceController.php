@@ -63,6 +63,6 @@ class AttendanceController extends Controller
 
         $attendance = $this->attendances->record($data);
 
-        return redirect()->route('attendances.index')->with('status', 'Attendance event recorded for '.$attendance->assignedGuard?->employment_id.'.');
+        return redirect()->route('attendances.index')->with('status', 'Attendance recorded successfully.');
     }
 }

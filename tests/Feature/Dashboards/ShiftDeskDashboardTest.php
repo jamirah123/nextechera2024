@@ -25,10 +25,13 @@ class ShiftDeskDashboardTest extends TestCase
             'region_id' => $site->region_id,
         ]);
 
+        $shownAt = now();
+
         $this->actingAs($manager)
             ->get(route('dashboard'))
             ->assertOk()
             ->assertSee('Today’s work queue', false)
+            ->assertSee($shownAt->format('D, j M Y').', '.$shownAt->format('H:i'), false)
             ->assertSee('Awaiting deploy', false)
             ->assertSee('Needs allocation', false)
             ->assertDontSee('Daily workflow', false)

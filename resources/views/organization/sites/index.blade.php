@@ -88,40 +88,7 @@
             @endif
         </x-empty-state>
     @else
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:hidden">
-            @foreach ($sites as $site)
-                @php $mp = $site->manpower; @endphp
-                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <div class="flex items-start justify-between gap-3">
-                        <a href="{{ route('sites.show', $site) }}" class="min-w-0">
-                            <p class="truncate font-semibold text-slate-900 hover:text-brand-700">{{ $site->name }}</p>
-                            <p class="mt-0.5 text-xs text-slate-500">{{ $site->code }}</p>
-                        </a>
-                        <x-status-badge :tone="$site->status->tone()" :label="$site->status->label()" />
-                    </div>
-                    <p class="mt-3 text-sm text-slate-600">{{ $site->client?->name ?? 'No client' }} · {{ $site->region?->name ?? 'No region' }}</p>
-                    <div class="mt-3 flex flex-wrap items-center gap-2">
-                        <x-status-badge :tone="$mp['status']->tone()" :label="$mp['status']->label()" />
-                        <span class="text-xs text-slate-500">{{ $mp['coverage_percent'] }}% · short {{ $mp['shortage'] }}</span>
-                    </div>
-                    <div class="mt-4 flex flex-wrap items-center gap-2.5 sm:gap-3 lg:gap-3.5 border-t border-slate-100 pt-3">
-                        <x-action-icon :href="route('sites.show', $site)" label="View" icon="eye" tone="brand" />
-                        @if ($canManage)
-                            <x-action-icon :href="route('sites.edit', $site)" label="Edit" icon="pencil" tone="slate" />
-                        @endif
-                        @if ($canDelete)
-                            <x-delete-button
-                                :action="route('sites.destroy', $site)"
-                                confirm="Delete this site? It will be archived from active operations."
-                                :icon-only="true"
-                            />
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
-
-        <div class="data-table-shell hidden lg:block">
+        <div class="data-table-shell">
             <div class="overflow-x-auto">
                 <table class="data-table">
                     <thead>

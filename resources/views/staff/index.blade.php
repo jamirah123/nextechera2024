@@ -101,7 +101,9 @@
                             </td>
                             <td><x-status-badge :tone="$member->employment_status->tone()" :label="$member->employment_status->label()" /></td>
                             <td class="text-right">
-                                <a href="{{ route('staff.show', $member) }}" class="text-brand-700 hover:underline dark:text-brand-400">View</a>
+                                <a href="{{ route('staff.show', $member) }}" class="inline-flex text-brand-700 hover:text-brand-800 dark:text-brand-400" aria-label="View {{ $member->full_name }}">
+                                    <x-icon name="eye" class="h-4 w-4" />
+                                </a>
                             </td>
                         </tr>
                     @endforeach

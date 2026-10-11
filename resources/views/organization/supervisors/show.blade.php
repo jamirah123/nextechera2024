@@ -49,10 +49,6 @@
                 </dd>
             </div>
             <div class="border-b border-slate-100 px-3 py-2 sm:border-r">
-                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Internal code</dt>
-                <dd class="mt-0.5 text-xs font-semibold text-slate-900">{{ $supervisor->supervisor_code }}</dd>
-            </div>
-            <div class="border-b border-slate-100 px-3 py-2">
                 <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Region</dt>
                 <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                     @if ($supervisor->region)
@@ -64,7 +60,7 @@
                     @endif
                 </dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2 sm:border-r">
+            <div class="border-b border-slate-100 px-3 py-2">
                 <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Staff profile</dt>
                 <dd class="mt-0.5 text-xs font-semibold text-slate-900">
                     @if ($supervisor->staffProfile)

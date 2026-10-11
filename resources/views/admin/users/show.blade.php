@@ -47,9 +47,6 @@
                     <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Linked supervisor / region</dt>
                     <dd class="mt-1 text-sm font-semibold text-slate-900">
                         {{ $user->supervisorProfile?->name ?? 'Not linked' }}
-                        @if ($user->supervisorProfile)
-                            <span class="font-normal text-slate-500">({{ $user->supervisorProfile->supervisor_code }})</span>
-                        @endif
                     </dd>
                     <p class="mt-0.5 text-xs text-slate-500">{{ $user->supervisorProfile?->region?->name ?? 'No region assigned' }}</p>
                 </div>

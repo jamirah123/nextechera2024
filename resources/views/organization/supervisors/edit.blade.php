@@ -61,7 +61,6 @@
                     @unless ($canCorrectEmploymentId)
                         <x-form-field label="Transfer reason" name="reason" :value="old('reason')" help="Required when changing region." />
                     @endunless
-                    <p class="sm:col-span-2 text-xs text-slate-500">Internal code: {{ $supervisor->supervisor_code }}</p>
                 </x-form-group>
             </div>
 

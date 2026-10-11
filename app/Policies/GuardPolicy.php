@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\UserRole;
 use App\Models\Guard;
 use App\Models\User;
 use App\Support\Access\Access;
@@ -27,6 +28,11 @@ class GuardPolicy
     public function update(User $user, Guard $guard): bool
     {
         return Access::userCan($user, 'guards.manage');
+    }
+
+    public function viewConfidential(User $user, Guard $guard): bool
+    {
+        return $this->view($user, $guard) && $user->role !== UserRole::ProcurementOfficer;
     }
 
     public function viewSalary(User $user, Guard $guard): bool

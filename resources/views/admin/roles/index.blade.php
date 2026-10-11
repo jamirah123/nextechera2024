@@ -25,7 +25,7 @@
             @csrf
             <div class="min-w-[12rem]">
                 <label for="source_role" class="mb-1 block text-[11px] font-medium text-slate-600">Copy from</label>
-                <select id="source_role" name="source_role" required class="block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs shadow-sm">
+                <select id="source_role" name="source_role" data-searchable="true" required class="block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs shadow-sm">
                     @foreach ($roles as $role)
                         <option value="{{ $role->value }}" @selected(old('source_role') === $role->value)>{{ $role->label() }}</option>
                     @endforeach
@@ -36,7 +36,7 @@
             </div>
             <div class="min-w-[12rem]">
                 <label for="target_role" class="mb-1 block text-[11px] font-medium text-slate-600">Apply to</label>
-                <select id="target_role" name="target_role" required class="block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs shadow-sm">
+                <select id="target_role" name="target_role" data-searchable="true" required class="block w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs shadow-sm">
                     @foreach ($roles as $role)
                         @if (! in_array($role, [\App\Enums\UserRole::SuperAdmin, \App\Enums\UserRole::ManagingDirector], true))
                             <option value="{{ $role->value }}" @selected(old('target_role') === $role->value)>{{ $role->label() }}</option>

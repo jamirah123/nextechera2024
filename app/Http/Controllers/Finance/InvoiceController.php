@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Finance;
 use App\Enums\InvoiceStatus;
 use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Finance\StoreInvoiceDraftRequest;
+use App\Http\Requests\Finance\UpdateInvoiceDraftRequest;
+use App\Models\BillingProfile;
 use App\Models\Client;
 use App\Models\Invoice;
-use App\Models\Site;
 use App\Services\EntityTimelineService;
 use App\Services\Finance\FinanceHistoryService;
 use App\Services\Finance\InvoicePdfService;
@@ -18,7 +20,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -79,61 +80,33 @@ class InvoiceController extends Controller
     {
         Gate::authorize('manageFinance');
 
-        $clients = Client::query()
-            ->with(['billingProfiles' => fn ($q) => $q->active()->latest('effective_from')])
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $profiles = BillingProfile::query()
+            ->approved()
+            ->with(['client:id,name', 'site:id,name,code'])
+            ->orderBy('id')
+            ->get();
+
+        $standings = BillingProfile::standingsFor($profiles);
+        $profiles = $profiles
+            ->sort(function (BillingProfile $left, BillingProfile $right): int {
+                $byDate = ($right->effective_from?->timestamp ?? 0) <=> ($left->effective_from?->timestamp ?? 0);
+
+                return $byDate !== 0 ? $byDate : ($right->id <=> $left->id);
+            })
+            ->values();
 
         return view('finance.invoices.create', [
-            'clients' => $clients,
-            'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code', 'client_id']),
+            'profiles' => $profiles->map(fn (BillingProfile $profile) => $this->profileOption($profile, $standings[$profile->id] ?? 'ended'))->values(),
             'currency' => Money::currency(),
-            'clientBillingHints' => $clients->mapWithKeys(function (Client $client) {
-                $profile = $client->billingProfiles->first();
-
-                return [
-                    $client->id => [
-                        'cash_no_tax' => (bool) ($profile?->cash_no_tax ?? false),
-                        'billing_mode' => $profile?->billing_mode?->value ?? 'monthly',
-                        'billing_mode_label' => $profile?->billing_mode?->label() ?? 'Monthly contracted posts',
-                    ],
-                ];
-            }),
+            'vatRate' => (float) config('psg.vat_rate', 18),
+            'dueDays' => (int) config('psg.invoice_due_days', 14),
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(StoreInvoiceDraftRequest $request): RedirectResponse
     {
-        Gate::authorize('manageFinance');
-
-        $request->merge([
-            'site_id' => $request->filled('site_id') ? $request->input('site_id') : null,
-        ]);
-
-        $data = $request->validate([
-            'client_id' => ['required', 'exists:clients,id'],
-            'site_id' => [
-                'nullable',
-                Rule::exists('sites', 'id')->where(fn ($q) => $q->where('client_id', $request->integer('client_id'))),
-            ],
-            'period_start' => ['required', 'date'],
-            'period_end' => ['required', 'date', 'after_or_equal:period_start'],
-            'due_date' => ['nullable', 'date'],
-            'tax_amount' => ['nullable', 'numeric', 'min:0'],
-            'notes' => ['nullable', 'string', 'max:2000'],
-            'auto_generate' => ['sometimes', 'boolean'],
-            'lines' => ['nullable', 'array'],
-            'lines.*.description' => ['required_with:lines', 'string', 'max:255'],
-            'lines.*.quantity' => ['required_with:lines', 'numeric', 'min:0.01'],
-            'lines.*.unit_price' => ['required_with:lines', 'numeric', 'min:0'],
-            'lines.*.site_id' => ['nullable', 'exists:sites,id'],
-        ]);
-
-        $data['auto_generate'] = $request->boolean('auto_generate');
-        $data['lines'] = array_values(array_filter($data['lines'] ?? [], fn ($line) => filled($line['description'] ?? null)));
-
         try {
-            $invoice = $this->invoices->createDraft($data);
+            $invoice = $this->invoices->createDraft($request->validated());
         } catch (InvalidArgumentException $e) {
             return back()->withInput()->withErrors(['invoice' => $e->getMessage()]);
         }
@@ -145,7 +118,7 @@ class InvoiceController extends Controller
     {
         Gate::authorize('viewFinance');
 
-        $invoice->load(['client', 'site', 'lines.site', 'payments.recorder', 'approver', 'creator', 'updater']);
+        $invoice->load(['client', 'site', 'billingProfile.site', 'lines.site', 'payments.recorder', 'approver', 'creator', 'updater']);
 
         return view('finance.invoices.show', array_merge($this->pdf->viewData($invoice), [
             'canManage' => request()->user()->can('manageFinance'),
@@ -171,39 +144,17 @@ class InvoiceController extends Controller
 
         $invoice->load('lines');
 
+        $invoice->loadMissing('billingProfile.site', 'client', 'site');
+
         return view('finance.invoices.edit', [
             'invoice' => $invoice,
-            'clients' => Client::query()->orderBy('name')->get(['id', 'name']),
-            'sites' => Site::query()->orderBy('name')->get(['id', 'name', 'code', 'client_id']),
             'currency' => Money::currency(),
         ]);
     }
 
-    public function update(Request $request, Invoice $invoice): RedirectResponse
+    public function update(UpdateInvoiceDraftRequest $request, Invoice $invoice): RedirectResponse
     {
-        Gate::authorize('manageFinance');
-
-        $request->merge([
-            'site_id' => $request->filled('site_id') ? $request->input('site_id') : null,
-        ]);
-
-        $data = $request->validate([
-            'client_id' => ['required', 'exists:clients,id'],
-            'site_id' => [
-                'nullable',
-                Rule::exists('sites', 'id')->where(fn ($q) => $q->where('client_id', $request->integer('client_id'))),
-            ],
-            'period_start' => ['required', 'date'],
-            'period_end' => ['required', 'date', 'after_or_equal:period_start'],
-            'due_date' => ['nullable', 'date'],
-            'tax_amount' => ['nullable', 'numeric', 'min:0'],
-            'notes' => ['nullable', 'string', 'max:2000'],
-            'lines' => ['required', 'array', 'min:1'],
-            'lines.*.description' => ['required', 'string', 'max:255'],
-            'lines.*.quantity' => ['required', 'numeric', 'min:0.01'],
-            'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
-            'lines.*.site_id' => ['nullable', 'exists:sites,id'],
-        ]);
+        $data = $request->validated();
 
         try {
             $this->invoices->updateDraft($invoice, $data);
@@ -312,5 +263,44 @@ class InvoiceController extends Controller
             $this->pdf->renderBinary($invoice),
             $this->pdf->filename($invoice),
         );
+    }
+
+    /** @return array<string, mixed> */
+    private function profileOption(BillingProfile $profile, string $standing): array
+    {
+        $treatment = $profile->vatTreatment();
+        $rate = $treatment->chargesVat() ? (float) config('psg.vat_rate', 18) : 0;
+        $period = $profile->invoicePeriod($standing);
+        $billable = $period !== null;
+
+        return [
+            'id' => $profile->id,
+            'label' => trim(($profile->client?->name ?? 'Client').' — '.$profile->scopeLabel().' — '.($profile->billing_mode?->label() ?? 'Monthly')),
+            'client' => $profile->client?->name ?? '—',
+            'scope' => $profile->scopeLabel(),
+            'mode' => $profile->billing_mode?->label() ?? 'Monthly day / night posts',
+            'vat' => $treatment->label().($treatment->chargesVat() ? ' · '.$rate.'%' : ''),
+            'cash' => (bool) $profile->cash_no_tax,
+            'posts' => 'Day '.(int) $profile->contracted_day_armed_guards.' armed / '.(int) $profile->contracted_day_unarmed_guards.' unarmed · Night '.(int) $profile->contracted_night_armed_guards.' armed / '.(int) $profile->contracted_night_unarmed_guards.' unarmed',
+            'monthly_armed' => (float) $profile->monthlyArmedRate(),
+            'monthly_unarmed' => (float) $profile->monthlyUnarmedRate(),
+            'shift_armed_day' => (float) $profile->rate_per_armed_day_shift,
+            'shift_armed_night' => (float) $profile->rate_per_armed_night_shift,
+            'shift_unarmed_day' => (float) $profile->rate_per_unarmed_day_shift,
+            'shift_unarmed_night' => (float) $profile->rate_per_unarmed_night_shift,
+            'uses_monthly' => $profile->billing_mode?->usesMonthlyRates() ?? true,
+            'uses_shift' => $profile->billing_mode?->usesShiftRates() ?? false,
+            'effective' => ($profile->effective_from?->format('d M Y') ?? '—').' – '.($profile->effective_to?->format('d M Y') ?? 'Open'),
+            'standing' => $standing,
+            'standing_label' => BillingProfile::standingLabel($standing),
+            'billable' => $billable,
+            'period' => $period === null
+                ? ''
+                : \Illuminate\Support\Carbon::parse($period[0])->format('d M Y').' – '.\Illuminate\Support\Carbon::parse($period[1])->format('d M Y'),
+            'due_on' => $period === null
+                ? ''
+                : \Illuminate\Support\Carbon::parse($period[1])->addDays((int) config('psg.invoice_due_days', 14))->toDateString(),
+            'block_reason' => $billable ? '' : BillingProfile::standingMessage($profile, $standing),
+        ];
     }
 }

@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Assets & Uniforms')
-@section('page-title', 'Assets & uniforms')
-@section('page-subtitle', 'Track issued kit, radios, boots and weapons per guard')
+@section('title', 'Issue & return assets')
+@section('page-title', 'Issue & return assets')
+@section('page-subtitle', 'Who currently holds company property')
 
 @section('content')
 <div class="space-y-3">
-    <x-page-header title="Assets & uniforms" subtitle="Issue company property to guards, record returns on termination, and recover replacement costs through payroll.">
+    <x-page-header title="Issue & return assets" subtitle="Assignments to guards and staff. The asset register lists everything the company owns, including items still in store.">
         <x-slot:actions>
             @if ($canManage)
                 <a href="{{ route('assets.create') }}" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">
@@ -33,7 +33,12 @@
 
     <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
         <form method="GET" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-6 xl:items-end" x-data x-ref="filterForm">
-            <x-form-field label="Search" name="q" type="search" :value="$filters['q'] ?? ''" class="sm:col-span-2" placeholder="Reference, guard, serial" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" />
+            <x-form-field label="Search" name="q" type="search" :value="$filters['q'] ?? ''" class="sm:col-span-2" placeholder="Reference, name, serial" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" />
+            <x-form-field label="Recipient" name="recipient" type="select" x-on:change="$refs.filterForm.requestSubmit()">
+                <option value="">Guards and staff</option>
+                <option value="guard" @selected(($filters['recipient'] ?? '') === 'guard')>Guards</option>
+                <option value="staff" @selected(($filters['recipient'] ?? '') === 'staff')>Staff</option>
+            </x-form-field>
             <x-form-field label="Issued date" name="date" type="date" :value="$filters['date'] ?? ''" x-on:change="$refs.filterForm.requestSubmit()" />
             <x-form-field label="Region" name="region_id" type="select" x-on:change="$refs.filterForm.requestSubmit()">
                 <option value="">All regions</option>
@@ -69,7 +74,7 @@
                     <tr>
                         <th class="w-14 px-3 py-2">#</th>
                         <th class="px-3 py-2">Reference</th>
-                        <th class="px-3 py-2">Guard</th>
+                        <th class="px-3 py-2">Recipient</th>
                         <th class="px-3 py-2">Type</th>
                         <th class="px-3 py-2">Issued</th>
                         <th class="px-3 py-2">Items</th>
@@ -84,8 +89,22 @@
                                 <a href="{{ route('assets.show', $issuance) }}" class="font-semibold text-brand-800 hover:underline">{{ $issuance->reference }}</a>
                             </td>
                             <td class="px-3 py-2">
-                                <a href="{{ route('guards.show', $issuance->assignedGuard) }}" class="font-semibold text-slate-900 hover:underline">{{ $issuance->assignedGuard?->full_name }}</a>
-                                <p class="text-[10px] text-slate-500">{{ $issuance->assignedGuard?->employment_id }}</p>
+                                @if ($issuance->isStaffRecipient() && $issuance->assignedStaff)
+                                    @can('view', $issuance->assignedStaff)
+                                        <a href="{{ route('staff.show', $issuance->assignedStaff) }}" class="font-semibold text-slate-900 hover:underline">{{ $issuance->assignedStaff->full_name }}</a>
+                                    @else
+                                        <span class="font-semibold text-slate-900">{{ $issuance->assignedStaff->full_name }}</span>
+                                    @endcan
+                                @elseif ($issuance->assignedGuard)
+                                    @can('view', $issuance->assignedGuard)
+                                        <a href="{{ route('guards.show', $issuance->assignedGuard) }}" class="font-semibold text-slate-900 hover:underline">{{ $issuance->assignedGuard->full_name }}</a>
+                                    @else
+                                        <span class="font-semibold text-slate-900">{{ $issuance->assignedGuard->full_name }}</span>
+                                    @endcan
+                                @else
+                                    <span class="font-semibold text-slate-900">{{ $issuance->recipientName() }}</span>
+                                @endif
+                                <p class="text-[10px] text-slate-500">{{ $issuance->recipient_type?->label() }} · {{ $issuance->recipientEmploymentId() }}</p>
                             </td>
                             <td class="px-3 py-2"><x-status-badge :tone="$issuance->issuance_type->tone()" :label="$issuance->issuance_type->label()" /></td>
                             <td class="px-3 py-2 text-slate-600">{{ $issuance->issued_at->format('d M Y') }}</td>

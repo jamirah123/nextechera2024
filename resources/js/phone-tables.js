@@ -3,6 +3,10 @@ function headerLabels(table) {
 }
 
 function labelTable(table) {
+    if (table.classList.contains('receipt-grid')) {
+        return;
+    }
+
     const labels = headerLabels(table);
     if (labels.length === 0) {
         return;
@@ -24,7 +28,7 @@ function labelTable(table) {
 }
 
 export function labelPhoneTables(root = document) {
-    root.querySelectorAll('main table').forEach(labelTable);
+    root.querySelectorAll('main table:not(.receipt-grid)').forEach(labelTable);
 }
 
 export function watchPhoneTables() {

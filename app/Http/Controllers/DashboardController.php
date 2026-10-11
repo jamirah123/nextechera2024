@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Compliance\ComplianceSnapshotService;
+use App\Services\Procurement\ProcurementWorkspaceService;
 use App\Services\Dashboards\DashboardStatisticsService;
 use App\Services\Dashboards\OperationalDashboardService;
 use App\Services\Dashboards\ShiftDeskService;
@@ -17,6 +18,7 @@ class DashboardController extends Controller
         private ShiftDeskService $shiftDesk,
         private ComplianceSnapshotService $compliance,
         private DashboardStatisticsService $statistics,
+        private ProcurementWorkspaceService $procurement,
     ) {}
 
     public function __invoke(Request $request): View
@@ -53,7 +55,10 @@ class DashboardController extends Controller
             'ops' => $this->opsDashboards->landingSnapshot(),
             'compliance' => $this->compliance->cachedSnapshot(),
             'shiftDesk' => $shiftDeskSnapshot,
-            'charts' => $this->statistics->for($user),
+            'charts' => $user->role?->value === 'procurement_officer' ? [] : $this->statistics->for($user),
+            'procurement' => $user->role?->value === 'procurement_officer'
+                ? $this->procurement->snapshot($request->string('from')->toString() ?: null, $request->string('to')->toString() ?: null)
+                : null,
         ]);
     }
 }

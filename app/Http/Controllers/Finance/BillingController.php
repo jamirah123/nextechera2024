@@ -3,15 +3,18 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Enums\BillingMode;
+use App\Enums\VatTreatment;
 use App\Http\Controllers\Concerns\ServesPdfDownload;
 use App\Http\Controllers\Controller;
 use App\Models\BillingProfile;
+use App\Models\Client;
 use App\Models\Site;
 use App\Services\Finance\BillingProfilePdfService;
 use App\Services\Finance\BillingService;
 use App\Services\Finance\FinanceHistoryService;
 use App\Services\ReportExportService;
 use App\Support\Money;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -63,6 +66,7 @@ class BillingController extends Controller
             'currency' => Money::currency(),
             'exportQuery' => array_filter($request->only(['q', 'client_id', 'status', 'scope']), fn ($v) => filled($v)),
             'stats' => $this->profileStats(),
+            'standings' => BillingProfile::standingsFor($profiles->getCollection()),
         ]);
     }
 
@@ -71,21 +75,39 @@ class BillingController extends Controller
         Gate::authorize('manageFinance');
 
         return view('finance.billing.create', [
-            'clients' => \App\Support\Performance\ReferenceData::clients(),
-            'sites' => Site::query()
-                ->orderBy('name')
-                ->get([
-                    'id',
-                    'name',
-                    'code',
-                    'client_id',
-                    'required_day_armed_guards',
-                    'required_day_unarmed_guards',
-                    'required_night_armed_guards',
-                    'required_night_unarmed_guards',
-                ]),
+            'clients' => $this->billingClients(),
             'currency' => Money::currency(),
             'billingModes' => BillingMode::cases(),
+        ]);
+    }
+
+    public function clientSites(Client $client): JsonResponse
+    {
+        Gate::authorize('manageFinance');
+
+        $sites = Site::query()
+            ->where('client_id', $client->id)
+            ->orderBy('code')
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'code',
+                'required_day_armed_guards',
+                'required_day_unarmed_guards',
+                'required_night_armed_guards',
+                'required_night_unarmed_guards',
+            ]);
+
+        return response()->json([
+            'sites' => $sites->map(fn (Site $site) => [
+                'id' => (string) $site->id,
+                'label' => $site->code.' — '.$site->name,
+                'day_armed' => (int) $site->required_day_armed_guards,
+                'day_unarmed' => (int) $site->required_day_unarmed_guards,
+                'night_armed' => (int) $site->required_night_armed_guards,
+                'night_unarmed' => (int) $site->required_night_unarmed_guards,
+            ])->values(),
         ]);
     }
 
@@ -129,19 +151,7 @@ class BillingController extends Controller
 
         return view('finance.billing.edit', [
             'profile' => $billing,
-            'clients' => \App\Support\Performance\ReferenceData::clients(),
-            'sites' => Site::query()
-                ->orderBy('name')
-                ->get([
-                    'id',
-                    'name',
-                    'code',
-                    'client_id',
-                    'required_day_armed_guards',
-                    'required_day_unarmed_guards',
-                    'required_night_armed_guards',
-                    'required_night_unarmed_guards',
-                ]),
+            'clients' => $this->billingClients(),
             'currency' => Money::currency(),
             'billingModes' => BillingMode::cases(),
         ]);
@@ -172,13 +182,14 @@ class BillingController extends Controller
             ->limit(5000)
             ->get();
 
-        $headers = ['#', 'Client', 'Site', 'Mode', 'Cash/no VAT', 'Armed posts', 'Unarmed posts', 'Total', 'Armed rate/mo', 'Unarmed rate/mo', 'Day shift', 'Night shift', 'Effective from', 'Effective to', 'Status'];
+        $headers = ['#', 'Client', 'Site', 'Mode', 'VAT treatment', 'Cash terms', 'Armed posts', 'Unarmed posts', 'Total', 'Armed rate/mo', 'Unarmed rate/mo', 'Day shift', 'Night shift', 'Effective from', 'Effective to', 'Status'];
         $data = $rows->values()->map(fn (BillingProfile $p, int $i) => [
             $i + 1,
             $p->client?->name,
             $p->site?->name ?? 'Client-wide',
             $p->billing_mode?->label() ?? 'Monthly',
-            $p->cash_no_tax ? 'Yes' : 'No',
+            $p->vatTreatment()->label(),
+            $p->cash_no_tax ? 'Cash' : 'Invoice',
             $p->contracted_armed_guards,
             $p->contracted_unarmed_guards,
             $p->contractedGuardTotal(),
@@ -226,6 +237,7 @@ class BillingController extends Controller
         $data = $request->validate($this->billingRules($request));
         $data['is_active'] = $request->boolean('is_active', true);
         $data['cash_no_tax'] = $request->boolean('cash_no_tax');
+        $data['vat_treatment'] = $data['vat_treatment'] ?? VatTreatment::Standard->value;
 
         $manpower = $this->billing->manpowerFor(
             (int) $data['client_id'],
@@ -285,6 +297,7 @@ class BillingController extends Controller
                 Rule::exists('sites', 'id')->where(fn ($q) => $q->where('client_id', $request->integer('client_id'))),
             ],
             'billing_mode' => ['required', Rule::enum(BillingMode::class)],
+            'vat_treatment' => ['sometimes', Rule::enum(VatTreatment::class)],
             'cash_no_tax' => ['sometimes', 'boolean'],
             'monthly_rate_per_armed_guard' => ['nullable', 'numeric', 'min:0'],
             'monthly_rate_per_unarmed_guard' => ['nullable', 'numeric', 'min:0'],
@@ -304,5 +317,11 @@ class BillingController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
             'is_active' => ['sometimes', 'boolean'],
         ];
+    }
+
+    /** @return \Illuminate\Support\Collection<int, Client> */
+    private function billingClients()
+    {
+        return Client::query()->orderBy('name')->get(['id', 'name']);
     }
 }

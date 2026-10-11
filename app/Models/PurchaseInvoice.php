@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PurchaseInvoiceStatus;
+use App\Enums\VatTreatment;
 use App\Models\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,7 @@ class PurchaseInvoice extends Model
 
     protected $fillable = [
         'reference',
+        'supplier_id',
         'supplier_name',
         'supplier_tin',
         'supplier_invoice_no',
@@ -20,14 +22,19 @@ class PurchaseInvoice extends Model
         'due_date',
         'status',
         'currency',
+        'vat_treatment',
         'subtotal',
         'tax_amount',
         'total',
         'expense_account_id',
         'description',
         'notes',
+        'attachment_path',
         'posted_at',
         'posted_by',
+        'cancellation_reason',
+        'cancelled_at',
+        'cancelled_by',
         'created_by',
         'updated_by',
     ];
@@ -36,8 +43,10 @@ class PurchaseInvoice extends Model
     {
         return [
             'status' => PurchaseInvoiceStatus::class,
+            'vat_treatment' => VatTreatment::class,
             'bill_date' => 'date',
             'due_date' => 'date',
+            'cancelled_at' => 'datetime',
             'subtotal' => 'decimal:2',
             'tax_amount' => 'decimal:2',
             'total' => 'decimal:2',
@@ -45,9 +54,19 @@ class PurchaseInvoice extends Model
         ];
     }
 
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
+    }
+
     public function expenseAccount(): BelongsTo
     {
         return $this->belongsTo(GlAccount::class, 'expense_account_id');
+    }
+
+    public function canceller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by');
     }
 
     public function poster(): BelongsTo

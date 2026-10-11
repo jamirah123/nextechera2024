@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BillingMode;
 use App\Enums\GuardClassification;
 use App\Enums\ShiftPeriod;
+use App\Enums\VatTreatment;
 use App\Models\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +20,9 @@ class BillingProfile extends Model
         'currency',
         'billing_mode',
         'cash_no_tax',
+        'vat_treatment',
+        'approved_at',
+        'approved_by',
         'monthly_site_fee',
         'contracted_armed_guards',
         'contracted_unarmed_guards',
@@ -57,6 +61,8 @@ class BillingProfile extends Model
         return [
             'billing_mode' => BillingMode::class,
             'cash_no_tax' => 'boolean',
+            'vat_treatment' => VatTreatment::class,
+            'approved_at' => 'datetime',
             'monthly_site_fee' => 'decimal:2',
             'contracted_armed_guards' => 'integer',
             'contracted_unarmed_guards' => 'integer',
@@ -86,6 +92,25 @@ class BillingProfile extends Model
             'effective_to' => 'date',
             'is_active' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $profile): void {
+            if ($profile->vat_treatment === null) {
+                $profile->vat_treatment = VatTreatment::Standard;
+            }
+
+            if ($profile->is_active && $profile->approved_at === null) {
+                $profile->approved_at = now();
+                $profile->approved_by ??= auth()->id();
+            }
+
+            if (! $profile->is_active) {
+                $profile->approved_at = null;
+                $profile->approved_by = null;
+            }
+        });
     }
 
     public function client(): BelongsTo
@@ -125,9 +150,173 @@ class BillingProfile extends Model
             ->first();
     }
 
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where('is_active', true)->whereNotNull('approved_at');
+    }
+
+    public function isApproved(): bool
+    {
+        return (bool) $this->is_active && $this->approved_at !== null;
+    }
+
+    public function scopeLabel(): string
+    {
+        if ($this->site) {
+            return trim(($this->site->code ? $this->site->code.' — ' : '').$this->site->name);
+        }
+
+        return 'All sites';
+    }
+
+    public function vatTreatment(): VatTreatment
+    {
+        return $this->vat_treatment ?? VatTreatment::Standard;
+    }
+
+    public function coversDate(string $date): bool
+    {
+        $day = \Illuminate\Support\Carbon::parse($date)->toDateString();
+
+        if ($this->effective_from !== null && $this->effective_from->toDateString() > $day) {
+            return false;
+        }
+
+        return $this->effective_to === null || $this->effective_to->toDateString() >= $day;
+    }
+
+    /**
+     * Current is the latest approved profile for a client and site that covers today.
+     *
+     * @param  iterable<int, self>  $profiles
+     * @return array<int, string> profile id => current|upcoming|superseded|ended
+     */
+    public static function standingsFor(iterable $profiles, ?string $on = null): array
+    {
+        $on ??= now()->toDateString();
+        $approved = static::query()
+            ->approved()
+            ->get(['id', 'client_id', 'site_id', 'effective_from', 'effective_to']);
+
+        $currentByScope = [];
+        foreach ($approved as $candidate) {
+            if (! $candidate->coversDate($on)) {
+                continue;
+            }
+
+            $key = $candidate->client_id.'|'.($candidate->site_id ?? 'client');
+            $existing = $currentByScope[$key] ?? null;
+            if ($existing === null || static::isNewerThan($candidate, $existing)) {
+                $currentByScope[$key] = $candidate;
+            }
+        }
+
+        $standings = [];
+        foreach ($profiles as $profile) {
+            $key = $profile->client_id.'|'.($profile->site_id ?? 'client');
+            if ($profile->isApproved() && $profile->effective_from !== null && $profile->effective_to !== null) {
+                $standings[$profile->id] = 'period';
+            } elseif ($profile->isApproved() && $profile->effective_from !== null && $profile->effective_from->toDateString() > $on) {
+                $standings[$profile->id] = 'upcoming';
+            } elseif (! $profile->isApproved() || ! $profile->coversDate($on)) {
+                $standings[$profile->id] = 'ended';
+            } elseif (($currentByScope[$key]->id ?? null) === $profile->id) {
+                $standings[$profile->id] = 'current';
+            } else {
+                $standings[$profile->id] = 'superseded';
+            }
+        }
+
+        return $standings;
+    }
+
+    public static function standingLabel(string $standing): string
+    {
+        return match ($standing) {
+            'current' => 'Current',
+            'period' => 'Service period',
+            'upcoming' => 'Upcoming',
+            'superseded' => 'Superseded',
+            default => 'Ended',
+        };
+    }
+
+    public static function standingMessage(self $profile, string $standing): string
+    {
+        if ($standing === 'superseded') {
+            return 'A newer billing profile is already in effect for this client and site. Choose the current profile.';
+        }
+
+        if ($profile->effective_to !== null) {
+            return 'This billing profile ended on '.$profile->effective_to->format('d M Y').'. Choose the current profile for this client and site.';
+        }
+
+        return 'This billing profile is not current. Choose the current profile for this client and site.';
+    }
+
+    /**
+     * A profile with both dates is billed for that service period.
+     * An open profile is billed for the current month, or its first month if it has not started.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    public function invoicePeriod(string $standing): ?array
+    {
+        if ($this->effective_from !== null && $this->effective_to !== null) {
+            if ($this->effective_to->toDateString() < $this->effective_from->toDateString()) {
+                return null;
+            }
+
+            return [$this->effective_from->toDateString(), $this->effective_to->toDateString()];
+        }
+
+        if (! in_array($standing, ['current', 'upcoming'], true)) {
+            return null;
+        }
+
+        if ($standing === 'upcoming') {
+            $start = $this->effective_from?->copy()->startOfDay() ?? now()->startOfMonth();
+            $end = $start->copy()->endOfMonth();
+        } else {
+            $start = now()->startOfMonth();
+            $end = now()->endOfMonth();
+        }
+
+        if ($this->effective_from !== null && $this->effective_from->gt($start)) {
+            $start = $this->effective_from->copy();
+        }
+
+        if ($this->effective_to !== null && $this->effective_to->lt($end)) {
+            $end = $this->effective_to->copy();
+        }
+
+        if ($end->toDateString() < $start->toDateString()) {
+            return null;
+        }
+
+        return [$start->toDateString(), $end->toDateString()];
+    }
+
+    private static function isNewerThan(self $candidate, self $existing): bool
+    {
+        $candidateFrom = $candidate->effective_from?->toDateString() ?? '0000-01-01';
+        $existingFrom = $existing->effective_from?->toDateString() ?? '0000-01-01';
+
+        if ($candidateFrom !== $existingFrom) {
+            return $candidateFrom > $existingFrom;
+        }
+
+        return $candidate->id > $existing->id;
     }
 
     public function contractedGuardTotal(): int

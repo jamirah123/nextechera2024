@@ -83,6 +83,7 @@ class LedgerFollowUpTest extends TestCase
 
         $bill = $service->createDraft([
             'supplier_name' => 'Kampala Uniforms Ltd',
+            'supplier_tin' => '100200300',
             'bill_date' => now()->toDateString(),
             'subtotal' => 100000,
             'tax_amount' => 18000,

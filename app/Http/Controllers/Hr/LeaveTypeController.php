@@ -53,6 +53,10 @@ class LeaveTypeController extends Controller
             'description' => ['nullable', 'string', 'max:2000'],
             'pay_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'max_days_per_year' => ['nullable', 'numeric', 'min:0'],
+            'min_notice_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'max_consecutive_days' => ['nullable', 'numeric', 'min:0'],
+            'min_service_months' => ['nullable', 'integer', 'min:0', 'max:240'],
+            'carry_forward_days' => ['nullable', 'numeric', 'min:0'],
             'eligibility' => ['required', 'in:all,guards,staff'],
         ]);
 
@@ -62,6 +66,8 @@ class LeaveTypeController extends Controller
         $data['count_weekends'] = $request->boolean('count_weekends');
         $data['count_public_holidays'] = $request->boolean('count_public_holidays');
         $data['is_active'] = $request->boolean('is_active', true);
+        $data['min_notice_days'] = (int) ($data['min_notice_days'] ?? 0);
+        $data['min_service_months'] = (int) ($data['min_service_months'] ?? 0);
 
         return $data;
     }

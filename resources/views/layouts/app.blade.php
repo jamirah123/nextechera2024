@@ -145,7 +145,7 @@
                 </div>
             </header>
 
-            <main class="psg-safe-bottom min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-2 sm:px-4 sm:py-3 lg:px-5">
+            <main class="psg-safe-bottom relative min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-2 sm:px-4 sm:py-3 lg:px-5">
                 <x-flash-status />
 
                 @if ($errors->any())

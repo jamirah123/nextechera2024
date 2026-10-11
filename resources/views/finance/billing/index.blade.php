@@ -39,7 +39,7 @@
             <form method="GET" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5 xl:items-end" x-data x-ref="filterForm">
                 @if ($scope === 'all')<input type="hidden" name="scope" value="all">@endif
                 <x-form-field label="Search" name="q" type="search" :value="$filters['q'] ?? ''" class="sm:col-span-2" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" />
-                <x-form-field label="Client" name="client_id" type="select" x-on:change="$refs.filterForm.requestSubmit()">
+                <x-form-field label="Client" name="client_id" type="select" data-searchable="true" x-on:change="$refs.filterForm.requestSubmit()">
                     <option value="">All clients</option>
                     @foreach ($clients as $client)
                         <option value="{{ $client->id }}" @selected((string) ($filters['client_id'] ?? '') === (string) $client->id)>{{ $client->name }}</option>
@@ -83,8 +83,9 @@
                                 </td>
                                 <td class="px-3 py-2" data-label="Mode">
                                     <x-status-badge :tone="$profile->billing_mode?->tone() ?? 'brand'" :label="$profile->billing_mode?->label() ?? 'Monthly'" />
+                                    <p class="mt-1"><x-status-badge tone="slate" :label="$profile->vatTreatment()->label()" /></p>
                                     @if ($profile->cash_no_tax)
-                                        <p class="mt-1"><x-status-badge tone="amber" label="Cash / no VAT" /></p>
+                                        <p class="mt-1"><x-status-badge tone="amber" label="Cash terms" /></p>
                                     @endif
                                 </td>
                                 <td class="px-3 py-2" data-label="Guards">
@@ -106,7 +107,13 @@
                                     {{ $profile->effective_from->format('d M Y') }}
                                     @if ($profile->effective_to) – {{ $profile->effective_to->format('d M Y') }} @endif
                                 </td>
-                                <td class="px-3 py-2" data-label="Status"><x-status-badge :tone="$profile->is_active ? 'emerald' : 'slate'" :label="$profile->is_active ? 'Active' : 'Inactive'" /></td>
+                                <td class="px-3 py-2" data-label="Status">
+                                    @php $standing = $standings[$profile->id] ?? 'ended'; @endphp
+                                    <x-status-badge :tone="match ($standing) { 'current' => 'emerald', 'period' => 'indigo', 'upcoming' => 'sky', 'superseded' => 'amber', default => 'slate' }" :label="\App\Models\BillingProfile::standingLabel($standing)" />
+                                    @unless ($profile->is_active)
+                                        <x-status-badge tone="slate" label="Inactive" />
+                                    @endunless
+                                </td>
                                 <td class="px-3 py-2 text-right" data-label="Actions"><x-action-icon :href="route('billing.show', $profile)" label="View" icon="eye" /></td>
                             </tr>
                         @endforeach

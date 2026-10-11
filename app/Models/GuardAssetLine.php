@@ -12,6 +12,8 @@ class GuardAssetLine extends Model
 {
     protected $fillable = [
         'guard_asset_issuance_id',
+        'stock_item_id',
+        'transferred_from_line_id',
         'asset_category',
         'description',
         'size',
@@ -24,6 +26,7 @@ class GuardAssetLine extends Model
         'monthly_recovery',
         'status',
         'returned_at',
+        'expected_return_on',
         'notes',
     ];
 
@@ -39,12 +42,18 @@ class GuardAssetLine extends Model
             'recovered_amount' => 'decimal:2',
             'monthly_recovery' => 'decimal:2',
             'returned_at' => 'datetime',
+            'expected_return_on' => 'date',
         ];
     }
 
     public function issuance(): BelongsTo
     {
         return $this->belongsTo(GuardAssetIssuance::class, 'guard_asset_issuance_id');
+    }
+
+    public function stockItem(): BelongsTo
+    {
+        return $this->belongsTo(ProcurementStockItem::class, 'stock_item_id');
     }
 
     public function recovery(): HasOne

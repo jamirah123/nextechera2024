@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AssetIssuanceStatus;
 use App\Enums\AssetIssuanceType;
 use App\Enums\AssetLineStatus;
+use App\Enums\AssetRecipientType;
 use App\Models\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +17,9 @@ class GuardAssetIssuance extends Model
 
     protected $fillable = [
         'reference',
+        'recipient_type',
         'guard_id',
+        'staff_id',
         'region_id',
         'issuance_type',
         'status',
@@ -30,6 +33,7 @@ class GuardAssetIssuance extends Model
     protected function casts(): array
     {
         return [
+            'recipient_type' => AssetRecipientType::class,
             'issuance_type' => AssetIssuanceType::class,
             'status' => AssetIssuanceStatus::class,
             'issued_at' => 'date',
@@ -39,6 +43,42 @@ class GuardAssetIssuance extends Model
     public function assignedGuard(): BelongsTo
     {
         return $this->belongsTo(Guard::class, 'guard_id');
+    }
+
+    public function assignedStaff(): BelongsTo
+    {
+        return $this->belongsTo(Staff::class, 'staff_id');
+    }
+
+    public function isStaffRecipient(): bool
+    {
+        return $this->recipient_type === AssetRecipientType::Staff;
+    }
+
+    public function recipientName(): string
+    {
+        if ($this->isStaffRecipient()) {
+            $this->loadMissing('assignedStaff:id,full_name');
+
+            return $this->assignedStaff?->full_name ?? 'Staff';
+        }
+
+        $this->loadMissing('assignedGuard:id,full_name');
+
+        return $this->assignedGuard?->full_name ?? 'Guard';
+    }
+
+    public function recipientEmploymentId(): ?string
+    {
+        if ($this->isStaffRecipient()) {
+            $this->loadMissing('assignedStaff:id,employment_id');
+
+            return $this->assignedStaff?->employment_id;
+        }
+
+        $this->loadMissing('assignedGuard:id,employment_id');
+
+        return $this->assignedGuard?->employment_id;
     }
 
     public function region(): BelongsTo
@@ -71,6 +111,12 @@ class GuardAssetIssuance extends Model
                     $guard->where('employment_id', 'like', $like)
                         ->orWhere('full_name', 'like', $like);
                 })
+                ->orWhereHas('assignedStaff', function ($staff) use ($like): void {
+                    $staff->where('employment_id', 'like', $like)
+                        ->orWhere('full_name', 'like', $like)
+                        ->orWhere('job_title', 'like', $like)
+                        ->orWhere('department', 'like', $like);
+                })
                 ->orWhereHas('lines', function ($line) use ($like): void {
                     $line->where('description', 'like', $like)
                         ->orWhere('serial_number', 'like', $like);
@@ -87,7 +133,7 @@ class GuardAssetIssuance extends Model
         }
 
         $allReturned = $this->lines->every(
-            fn (GuardAssetLine $line) => in_array($line->status, [AssetLineStatus::Returned, AssetLineStatus::WrittenOff, AssetLineStatus::Lost], true),
+            fn (GuardAssetLine $line) => in_array($line->status, [AssetLineStatus::Returned, AssetLineStatus::WrittenOff, AssetLineStatus::Lost, AssetLineStatus::Transferred], true),
         );
 
         $anyReturned = $this->lines->contains(

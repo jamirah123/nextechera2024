@@ -20,22 +20,24 @@
             :compact="$compact"
         />
 
-        <div @class([
-            'mt-2 flex flex-wrap items-center justify-between gap-2' => $compact,
-            'mt-5 flex flex-wrap items-start justify-between gap-3' => ! $compact,
-        ])>
-            <div class="min-w-0">
-                @if ($subtitle)
-                    <p @class([
-                        'text-xs font-medium text-slate-600 dark:text-slate-400' => $compact,
-                        'text-sm font-medium text-slate-700 dark:text-slate-300' => ! $compact,
-                    ])>{{ $subtitle }}</p>
+        @if ($subtitle || $statusLabel)
+            <div @class([
+                'mt-2 flex flex-wrap items-center justify-between gap-2' => $compact,
+                'mt-5 flex flex-wrap items-start justify-between gap-3' => ! $compact,
+            ])>
+                <div class="min-w-0">
+                    @if ($subtitle)
+                        <p @class([
+                            'text-xs font-medium text-slate-600 dark:text-slate-400' => $compact,
+                            'text-sm font-medium text-slate-700 dark:text-slate-300' => ! $compact,
+                        ])>{{ $subtitle }}</p>
+                    @endif
+                </div>
+                @if ($statusLabel)
+                    <x-status-badge :tone="$statusTone" :label="$statusLabel" />
                 @endif
             </div>
-            @if ($statusLabel)
-                <x-status-badge :tone="$statusTone" :label="$statusLabel" />
-            @endif
-        </div>
+        @endif
 
         @if (! empty($meta))
             <dl @class([

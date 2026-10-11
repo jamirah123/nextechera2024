@@ -27,7 +27,7 @@
                         </dd>
                     </div>
                 @endif
-                @if (filled($guard->bank_name) || filled($guard->bank_account))
+                @if (($canViewConfidential ?? true) && (filled($guard->bank_name) || filled($guard->bank_account)))
                     <div>
                         <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Bank</dt>
                         <dd class="mt-0.5 text-sm text-slate-900">
@@ -38,7 +38,7 @@
                         </dd>
                     </div>
                 @endif
-                @if (filled($guard->nssf_number))
+                @if (($canViewConfidential ?? true) && filled($guard->nssf_number))
                     <div>
                         <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">NSSF number</dt>
                         <dd class="mt-0.5 text-sm text-slate-900">{{ $guard->nssf_number }}</dd>

@@ -172,7 +172,7 @@
                         <p class="party-line">Site code: {{ $profile->site->code }}</p>
                     @endif
                     <p class="party-line">{{ $mode?->label() ?? 'Monthly day / night posts' }}</p>
-                    <p class="party-line">{{ $profile->cash_no_tax ? 'Cash / no VAT' : 'VAT applies when an invoice is issued' }}</p>
+                    <p class="party-line">{{ $profile->vatTreatment()->label() }}@if ($profile->cash_no_tax) · Cash settlement @endif</p>
                 </div>
             </td>
         </tr>
@@ -276,11 +276,7 @@
     <div class="payment-box">
         <p class="section-label">How this profile is used</p>
         <p class="payment-text">{{ $mode?->description() ?? 'Invoices use these contracted posts and rates.' }}</p>
-        @if ($profile->cash_no_tax)
-            <p class="payment-text">Cash terms. No VAT is added when an invoice is raised from this profile.</p>
-        @else
-            <p class="payment-text">VAT is calculated on the invoice, not on this profile.</p>
-        @endif
+        <p class="payment-text">Invoices inherit {{ $profile->vatTreatment()->label() }} VAT from this profile. Cash settlement does not remove VAT.</p>
         @if ($usesShift)
             <p class="payment-text">Shift amounts are counted from completed shifts in the invoice period.</p>
         @endif

@@ -11,6 +11,8 @@ enum LeaveType: string
     case Maternity = 'maternity';
     case Paternity = 'paternity';
     case Study = 'study';
+    case Emergency = 'emergency';
+    case Special = 'special';
     case Other = 'other';
 
     public function label(): string
@@ -23,6 +25,8 @@ enum LeaveType: string
             self::Maternity => 'Maternity',
             self::Paternity => 'Paternity',
             self::Study => 'Study',
+            self::Emergency => 'Emergency',
+            self::Special => 'Special',
             self::Other => 'Other',
         };
     }
@@ -36,6 +40,8 @@ enum LeaveType: string
             self::Unpaid => 'slate',
             self::Maternity, self::Paternity => 'indigo',
             self::Study => 'sky',
+            self::Emergency => 'rose',
+            self::Special => 'brand',
             self::Other => 'brand',
         };
     }

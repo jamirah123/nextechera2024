@@ -1,13 +1,13 @@
 import TomSelect from 'tom-select';
 
-const SELECTOR = 'select[data-searchable="true"]:not(.ts-hidden-accessible)';
+const SELECTOR = 'select:not([multiple]):not([data-searchable="false"]):not(.ts-hidden-accessible)';
 
 function shouldSkip(el) {
     if (! el || el.tomselect) {
         return true;
     }
 
-    if (el.dataset.searchable !== 'true') {
+    if (el.dataset.searchable === 'false' || el.multiple || Number(el.size) > 1) {
         return true;
     }
 
@@ -54,12 +54,11 @@ function watchOptionState(el, ts) {
         refreshing = true;
         window.requestAnimationFrame(() => {
             try {
-                const current = el.value;
+                const current = String(ts.getValue() ?? el.value ?? '');
                 ts.clearOptions();
                 ts.sync();
-                if (current !== undefined && current !== null) {
-                    ts.setValue(String(current), true);
-                }
+                ts.setValue(current, true);
+                Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(el, current);
             } finally {
                 refreshing = false;
             }
@@ -71,7 +70,7 @@ function watchOptionState(el, ts) {
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ['disabled', 'hidden', 'selected', 'value', 'label'],
+        attributeFilter: ['disabled', 'hidden'],
     });
 
     el._tomSelectObserver = observer;
@@ -107,6 +106,7 @@ function initSelect(el) {
         create: false,
         maxOptions: null,
         maxItems: 1,
+        dropdownParent: 'body',
         hideSelected: false,
         closeAfterSelect: true,
         openOnFocus: true,
@@ -163,7 +163,6 @@ function initSelect(el) {
                 'field__control--readonly',
             );
             this.control_input?.setAttribute('aria-label', `Search ${label}`);
-            this.control_input?.setAttribute('placeholder', '');
 
             if (! this.getValue()) {
                 this.clear(true);
@@ -195,12 +194,10 @@ export function refreshSearchableSelect(el) {
         return;
     }
 
-    const current = el.value;
+    const current = el.value == null ? '' : String(el.value);
     el.tomselect.clearOptions();
     el.tomselect.sync();
-    if (current) {
-        el.tomselect.setValue(current, true);
-    }
+    el.tomselect.setValue(current, true);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -13,6 +13,8 @@ use App\Models\Attendance;
 use App\Models\AuditLog;
 use App\Models\Guard;
 use App\Models\Leave;
+use App\Models\LeaveAdjustment;
+use App\Models\LeaveDecision;
 use App\Models\LeaveEntitlement;
 use App\Models\LeaveTypeConfig;
 use App\Models\Shift;
@@ -56,6 +58,8 @@ class LeaveService
                 throw new InvalidArgumentException('This date range has no leave days under the rules for '.$type->name.'.');
             }
 
+            $this->assertPolicyLimits($guard, $staff, $type, $start, $days);
+
             if ($type->requires_document && $document === null && empty($data['document_path'])) {
                 throw new InvalidArgumentException($type->name.' requires a supporting document.');
             }
@@ -85,6 +89,8 @@ class LeaveService
                 'reason' => $data['reason'] ?? null,
                 'contact_phone' => $data['contact_phone'] ?? null,
                 'employee_remarks' => $data['employee_remarks'] ?? null,
+                'handover_notes' => $data['handover_notes'] ?? null,
+                'self_service' => (bool) ($data['self_service'] ?? false),
                 'hr_remarks' => $data['hr_remarks'] ?? null,
                 'status' => $status,
                 'notes' => $data['notes'] ?? null,
@@ -122,8 +128,39 @@ class LeaveService
         return DB::transaction(function () use ($leave, $notes) {
             $leave = Leave::query()->lockForUpdate()->findOrFail($leave->id);
 
+            if ($leave->status === LeaveStatus::Draft) {
+                $type = LeaveTypeConfig::query()->find($leave->leave_type_id);
+                if ($type === null) {
+                    throw new InvalidArgumentException('This leave type is no longer available.');
+                }
+
+                $this->assertNoOverlap(
+                    $leave->guard_id,
+                    $leave->staff_id,
+                    $leave->start_date->toDateString(),
+                    $leave->end_date->toDateString(),
+                    $leave->id,
+                );
+                $this->assertEntitlement(
+                    $leave->guard_id,
+                    $leave->staff_id,
+                    $type,
+                    (int) $leave->start_date->year,
+                    (float) $leave->days,
+                );
+                $this->moveBalance($leave, 'pending', (float) $leave->days);
+                $leave->update([
+                    'status' => LeaveStatus::Pending,
+                    'submitted_at' => now(),
+                ]);
+            }
+
             if ($leave->status !== LeaveStatus::Pending) {
-                throw new InvalidArgumentException('Only pending leave can be approved.');
+                throw new InvalidArgumentException('Only draft or pending leave can be approved.');
+            }
+
+            if ($leave->self_service && (int) $leave->requested_by === (int) auth()->id()) {
+                throw new InvalidArgumentException('You cannot approve your own leave.');
             }
 
             $previous = $leave->status->value;
@@ -144,6 +181,7 @@ class LeaveService
             $this->moveBalance($leave, 'pending', -1 * (float) $leave->days);
             $this->moveBalance($leave, 'taken', (float) $leave->days);
             $this->applyApprovedEffects($leave->fresh());
+            $this->recordDecision($leave, 'approved', $notes);
 
             $fresh = $leave->fresh(['assignedGuard', 'staffMember', 'approver', 'leaveTypeConfig']);
             $this->auditLeave($fresh, 'leave.approved', 'Leave approved for '.$fresh->employeeCode().'.', [
@@ -200,6 +238,7 @@ class LeaveService
                 'new_status' => LeaveStatus::Rejected->value,
                 'reason' => $notes,
             ]);
+            $this->recordDecision($fresh, 'rejected', $notes);
 
             return $fresh;
         });
@@ -239,6 +278,7 @@ class LeaveService
                 'new_status' => LeaveStatus::Cancelled->value,
                 'reason' => $notes,
             ]);
+            $this->recordDecision($fresh, 'cancelled', $notes);
 
             return $fresh;
         });
@@ -263,6 +303,7 @@ class LeaveService
                 'previous_status' => $previous,
                 'new_status' => LeaveStatus::Completed->value,
             ]);
+            $this->recordDecision($fresh, 'completed', null);
 
             return $fresh;
         });
@@ -402,6 +443,108 @@ class LeaveService
         }
 
         return $type;
+    }
+
+    public function confirmReturn(Leave $leave, string $actualReturnDate, ?string $notes = null): Leave
+    {
+        return DB::transaction(function () use ($leave, $actualReturnDate, $notes) {
+            $leave = Leave::query()->lockForUpdate()->findOrFail($leave->id);
+
+            if (! in_array($leave->status, [LeaveStatus::Approved, LeaveStatus::Completed], true)) {
+                throw new InvalidArgumentException('Only approved leave can be marked as returned.');
+            }
+
+            $returnedOn = Carbon::parse($actualReturnDate)->startOfDay();
+            $expected = $leave->expected_return_date?->copy()->startOfDay();
+            $late = $expected !== null && $returnedOn->gt($expected);
+
+            $leave->update([
+                'actual_return_date' => $returnedOn->toDateString(),
+                'returned_at' => now(),
+                'returned_by' => auth()->id(),
+                'hr_remarks' => $notes ?: $leave->hr_remarks,
+            ]);
+
+            $this->recordDecision($leave, $late ? 'returned_late' : 'returned', $notes);
+
+            if ($leave->status === LeaveStatus::Approved) {
+                $leave = $this->complete($leave);
+            }
+
+            $fresh = $leave->fresh(['assignedGuard', 'staffMember']);
+            $this->auditLeave($fresh, 'leave.returned', $fresh->employeeCode().' returned on '.$returnedOn->toDateString().'.', [
+                'actual_return_date' => $returnedOn->toDateString(),
+                'late' => $late,
+            ]);
+
+            return $fresh;
+        });
+    }
+
+    public function adjustBalance(?int $guardId, ?int $staffId, LeaveTypeConfig $type, int $year, float $days, string $reason): LeaveEntitlement
+    {
+        $reason = trim($reason);
+        if ($reason === '') {
+            throw new InvalidArgumentException('A reason is required for a leave balance adjustment.');
+        }
+
+        if ($days == 0.0) {
+            throw new InvalidArgumentException('The adjustment must change the balance.');
+        }
+
+        return DB::transaction(function () use ($guardId, $staffId, $type, $year, $days, $reason) {
+            $balance = $this->entitlement($guardId, $staffId, $type, $year);
+            $balance->update([
+                'adjustments' => round((float) $balance->adjustments + $days, 1),
+            ]);
+
+            LeaveAdjustment::query()->create([
+                'guard_id' => $guardId,
+                'staff_id' => $guardId ? null : $staffId,
+                'leave_type_id' => $type->id,
+                'year' => $year,
+                'days' => $days,
+                'reason' => $reason,
+                'adjusted_by' => auth()->id(),
+            ]);
+
+            return $balance->fresh();
+        });
+    }
+
+    private function assertPolicyLimits(?Guard $guard, ?Staff $staff, LeaveTypeConfig $type, Carbon $start, float $days): void
+    {
+        if ($type->max_consecutive_days !== null && $days > (float) $type->max_consecutive_days) {
+            throw new InvalidArgumentException($type->name.' allows at most '.$type->max_consecutive_days.' consecutive day(s).');
+        }
+
+        $notice = (int) $type->min_notice_days;
+        $canOverride = auth()->user()?->can('approve', new Leave) ?? false;
+        if ($notice > 0 && $start->gt(now()->startOfDay()) && ! $canOverride) {
+            $earliest = now()->startOfDay()->addDays($notice);
+            if ($start->lt($earliest)) {
+                throw new InvalidArgumentException($type->name.' needs '.$notice.' day(s) notice.');
+            }
+        }
+
+        $months = (int) $type->min_service_months;
+        $employed = $guard?->date_employed ?? $staff?->date_employed;
+        if ($months > 0 && $employed !== null && ! $canOverride) {
+            $eligibleOn = Carbon::parse($employed)->startOfDay()->addMonths($months);
+            if ($start->lt($eligibleOn)) {
+                throw new InvalidArgumentException($type->name.' requires '.$months.' month(s) of service.');
+            }
+        }
+    }
+
+    private function recordDecision(Leave $leave, string $decision, ?string $comments): void
+    {
+        LeaveDecision::query()->create([
+            'leave_id' => $leave->id,
+            'user_id' => auth()->id(),
+            'decision' => $decision,
+            'comments' => filled($comments) ? $comments : null,
+        ]);
     }
 
     private function assertEmployeeMayTakeLeave(?Guard $guard, ?Staff $staff, LeaveTypeConfig $type): void

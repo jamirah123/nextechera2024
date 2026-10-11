@@ -11,18 +11,16 @@
 @php
     $fieldValue = old($name, $value);
     $hasError = $errors->has($name);
+    $fieldId = $attributes->get('id', $name);
 
-    $isGuardSelect = in_array($name, ['guard_id', 'replacement_guard_id'], true)
-        || str_ends_with($name, '_guard_id');
-
-    $selectAttributes = $attributes->except('class');
-    if ($type === 'select' && ! $selectAttributes->has('data-searchable') && $isGuardSelect) {
+    $selectAttributes = $attributes->except(['class', 'id']);
+    if ($type === 'select' && ! $selectAttributes->has('data-searchable')) {
         $selectAttributes = $selectAttributes->merge(['data-searchable' => 'true']);
     }
 @endphp
 
 <div {{ $attributes->only('class')->class(['field']) }}>
-    <label for="{{ $name }}" class="field__label">
+    <label for="{{ $fieldId }}" class="field__label">
         {{ $label }}
         @if ($required)
             <span class="field__required" aria-hidden="true">*</span>
@@ -31,17 +29,17 @@
 
     @if ($type === 'textarea')
         <textarea
-            id="{{ $name }}"
+            id="{{ $fieldId }}"
             name="{{ $name }}"
             rows="2"
             @if ($required) required @endif
             @if ($placeholder) placeholder="{{ $placeholder }}" @endif
-            {{ $attributes->except('class') }}
+            {{ $attributes->except(['class', 'id']) }}
             @class(['field__control', 'field__control--textarea', 'field__control--error' => $hasError])
         >{{ $fieldValue }}</textarea>
     @elseif ($type === 'select')
         <select
-            id="{{ $name }}"
+            id="{{ $fieldId }}"
             name="{{ $name }}"
             @if ($required) required @endif
             {{ $selectAttributes }}
@@ -52,14 +50,14 @@
     @elseif ($type === 'password')
         <div class="relative" x-data="{ show: false }">
             <input
-                id="{{ $name }}"
+                id="{{ $fieldId }}"
                 type="password"
                 :type="show ? 'text' : 'password'"
                 name="{{ $name }}"
                 value="{{ $fieldValue }}"
                 @if ($required) required @endif
                 @if ($placeholder) placeholder="{{ $placeholder }}" @endif
-                {{ $attributes->except('class') }}
+                {{ $attributes->except(['class', 'id']) }}
                 @class(['field__control field__control--password', 'field__control--error' => $hasError])
             >
             <button
@@ -75,13 +73,13 @@
         </div>
     @else
         <input
-            id="{{ $name }}"
+            id="{{ $fieldId }}"
             type="{{ $type }}"
             name="{{ $name }}"
             value="{{ $fieldValue }}"
             @if ($required) required @endif
             @if ($placeholder) placeholder="{{ $placeholder }}" @endif
-            {{ $attributes->except('class') }}
+            {{ $attributes->except(['class', 'id']) }}
             @class(['field__control', 'field__control--error' => $hasError])
         >
     @endif

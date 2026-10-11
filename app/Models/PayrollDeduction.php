@@ -16,6 +16,8 @@ class PayrollDeduction extends Model
         'is_statutory',
         'guard_advance_id',
         'guard_asset_recovery_id',
+        'employee_charge_id',
+        'leave_id',
     ];
 
     protected function casts(): array
@@ -40,5 +42,15 @@ class PayrollDeduction extends Model
     public function guardAssetRecovery(): BelongsTo
     {
         return $this->belongsTo(GuardAssetRecovery::class);
+    }
+
+    public function employeeCharge(): BelongsTo
+    {
+        return $this->belongsTo(EmployeeMisconductCharge::class, 'employee_charge_id');
+    }
+
+    public function leave(): BelongsTo
+    {
+        return $this->belongsTo(Leave::class);
     }
 }

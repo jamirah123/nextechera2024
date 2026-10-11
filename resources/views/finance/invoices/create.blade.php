@@ -4,101 +4,148 @@
 @section('page-title', 'New invoice')
 
 @section('content')
-<div class="form-page">
-    <form
-        method="POST"
-        action="{{ route('invoices.store') }}"
-        x-data="{
-            clientId: @js((string) old('client_id', '')),
-            siteId: @js((string) old('site_id', '')),
-            sites: @js($sites->map(fn ($s) => ['id' => (string) $s->id, 'client_id' => (string) $s->client_id, 'label' => $s->code.' — '.$s->name])->values()),
-            hints: @js($clientBillingHints),
-            taxAmount: @js((string) old('tax_amount', '0')),
-            hint() {
-                return this.hints[this.clientId] || null;
-            },
-            clientSites() {
-                if (! this.clientId) return [];
-                return this.sites.filter(s => s.client_id === this.clientId);
-            },
-            applyClientDefaults() {
-                const hint = this.hint();
-                if (hint?.cash_no_tax) {
-                    this.taxAmount = '0';
-                }
-                if (this.siteId && ! this.clientSites().some(s => s.id === this.siteId)) {
-                    this.siteId = '';
-                }
-            }
-        }"
-        x-init="applyClientDefaults()"
-    >
+<div class="form-page" x-data="{
+    query: '',
+    open: false,
+    selected: @js((string) old('billing_profile_id', '')),
+    dueDate: @js(old('due_date', '')),
+    dueTouched: @js(filled(old('due_date'))),
+    profiles: @js($profiles),
+    currency: @js($currency),
+    get filtered() {
+        const term = this.query.trim().toLowerCase();
+        if (! term) return this.profiles;
+        return this.profiles.filter(profile => profile.label.toLowerCase().includes(term) || profile.client.toLowerCase().includes(term) || profile.scope.toLowerCase().includes(term) || profile.mode.toLowerCase().includes(term) || profile.standing_label.toLowerCase().includes(term));
+    },
+    get current() {
+        return this.profiles.find(profile => String(profile.id) === String(this.selected)) || null;
+    },
+    pick(profile) {
+        this.selected = String(profile.id);
+        this.query = profile.label;
+        this.open = false;
+        if (! this.dueTouched && profile.due_on) this.dueDate = profile.due_on;
+    },
+    menuTop: 0,
+    menuLeft: 0,
+    menuWidth: 0,
+    menuMaxHeight: 256,
+    init() {
+        if (this.current) this.query = this.current.label;
+        if (! this.dueTouched && this.current && this.current.due_on) this.dueDate = this.current.due_on;
+        const update = () => { if (this.open) this.placeMenu(); };
+        window.addEventListener('resize', update);
+        document.addEventListener('scroll', update, true);
+    },
+    placeMenu() {
+        const input = this.$refs.search;
+        if (! input) return;
+        const rect = input.getBoundingClientRect();
+        const gap = 4;
+        const below = window.innerHeight - rect.bottom - gap - 12;
+        const above = rect.top - gap - 12;
+        const openUp = below < 180 && above > below;
+        const maxHeight = Math.max(140, Math.min(320, openUp ? above : below));
+        this.menuWidth = rect.width;
+        this.menuLeft = rect.left;
+        this.menuMaxHeight = maxHeight;
+        this.menuTop = openUp ? Math.max(8, rect.top - gap - maxHeight) : rect.bottom + gap;
+    },
+    money(amount) {
+        const value = Number(amount || 0);
+        return this.currency + ' ' + value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    }
+}">
+    <form method="POST" action="{{ route('invoices.store') }}" @submit="if (current && !current.billable) { $event.preventDefault() }">
         @csrf
+        <input type="hidden" name="billing_profile_id" :value="selected">
 
         <x-form-panel
-            title="Create draft invoice"
-            subtitle="Uses each client’s negotiated billing profile — monthly posts, completed shifts, or hybrid."
+            title="Generate draft invoice"
+            subtitle="Choose the billing profile, including one that covers all sites. The invoice uses that profile's posts, rates, VAT, and service period."
             :back="route('invoices.index')"
+            class="overflow-visible"
         >
-            <div class="form-panel__grid">
-                <x-form-group title="Bill to" description="Client and optional site scope.">
-                    <x-form-field label="Client" name="client_id" type="select" :required="true" class="sm:col-span-2" x-model="clientId" x-on:change="applyClientDefaults()">
-                        <option value="">Select client</option>
-                        @foreach ($clients as $client)
-                            <option value="{{ $client->id }}">{{ $client->name }}</option>
-                        @endforeach
-                    </x-form-field>
-                    <label class="block sm:col-span-2">
-                        <span class="field__label">Site</span>
-                        <select name="site_id" x-model="siteId" class="field__control field__control--select">
-                            <option value="">All client sites (client-wide profile)</option>
-                            <template x-for="site in clientSites()" :key="site.id">
-                                <option :value="site.id" x-text="site.label"></option>
-                            </template>
-                        </select>
-                        <p class="field__help">Leave blank to use the client-wide billing profile.</p>
-                    </label>
-                    <template x-if="hint()">
-                        <div class="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-                            <p>
-                                Profile:
-                                <span class="font-semibold" x-text="hint().billing_mode_label"></span>
-                                <span x-show="hint().cash_no_tax" class="ml-2 font-semibold text-amber-700 dark:text-amber-300">· Cash / no VAT</span>
-                            </p>
-                            <p class="mt-1 text-slate-500 dark:text-slate-400" x-show="hint().cash_no_tax">VAT defaults to 0. Client typically settles the full amount in cash.</p>
+            <x-form-group title="Billing profile" description="Search by client, site, or billing mode.">
+                <div class="relative z-30 sm:col-span-2" @click.outside="open = false">
+                    <label for="billing-profile-search" class="field__label">Billing profile</label>
+                    <input
+                        id="billing-profile-search"
+                        x-ref="search"
+                        type="search"
+                        x-model="query"
+                        @focus="open = true; placeMenu()"
+                        @click="open = true; placeMenu()"
+                        @input="open = true; placeMenu(); if (current && query !== current.label) selected = ''"
+                        placeholder="Search client, site, or mode"
+                        autocomplete="off"
+                        class="field__control"
+                    >
+                    <div
+                        x-show="open"
+                        x-cloak
+                        class="fixed z-50 overflow-x-hidden overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900"
+                        :style="'top:' + menuTop + 'px;left:' + menuLeft + 'px;width:' + menuWidth + 'px;max-height:' + menuMaxHeight + 'px'"
+                    >
+                        <template x-for="profile in filtered" :key="profile.id">
+                            <button type="button" class="block w-full whitespace-normal px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800" @click="pick(profile)">
+                                <span class="block font-semibold text-slate-900 dark:text-slate-100" x-text="profile.client"></span>
+                                <span class="mt-0.5 block whitespace-normal text-xs text-slate-500" x-text="profile.scope + ' · ' + profile.mode + ' · ' + profile.standing_label"></span>
+                            </button>
+                        </template>
+                        <p x-show="filtered.length === 0" class="px-3 py-2 text-xs text-slate-500">No approved billing profile matches that search.</p>
+                    </div>
+                    @error('billing_profile_id')
+                        <p class="field__error">{{ $message }}</p>
+                    @enderror
+                </div>
+            </x-form-group>
+
+            <div x-show="current" x-cloak class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Selected profile</p>
+                <dl class="mt-2 grid gap-2 sm:grid-cols-2">
+                    <div><dt class="text-slate-500">Client</dt><dd class="font-semibold" x-text="current?.client"></dd></div>
+                    <div><dt class="text-slate-500">Scope</dt><dd class="font-semibold" x-text="current?.scope"></dd></div>
+                    <div><dt class="text-slate-500">Billing mode</dt><dd class="font-semibold" x-text="current?.mode"></dd></div>
+                    <div><dt class="text-slate-500">VAT</dt><dd class="font-semibold" x-text="current?.vat"></dd></div>
+                    <div><dt class="text-slate-500">Payment terms</dt><dd class="font-semibold" x-text="current?.cash ? 'Cash settlement' : 'Invoice terms'"></dd></div>
+                    <div><dt class="text-slate-500">Profile</dt><dd class="font-semibold" x-text="current?.standing_label"></dd></div>
+                    <div><dt class="text-slate-500">Effective</dt><dd class="font-semibold" x-text="current?.effective"></dd></div>
+                    <div class="sm:col-span-2" x-show="current?.billable"><dt class="text-slate-500">Service period</dt><dd class="font-semibold" x-text="current?.period"></dd></div>
+                    <div class="sm:col-span-2"><dt class="text-slate-500">Contracted posts</dt><dd class="font-semibold" x-text="current?.posts"></dd></div>
+                    <template x-if="current?.uses_monthly">
+                        <div class="sm:col-span-2">
+                            <dt class="text-slate-500">Monthly rates</dt>
+                            <dd class="font-semibold" x-text="'Armed ' + money(current.monthly_armed) + ' · Unarmed ' + money(current.monthly_unarmed)"></dd>
                         </div>
                     </template>
-                </x-form-group>
-
-                <x-form-group title="Billing period" description="Invoice dates and optional VAT.">
-                    <x-form-field label="Period start" name="period_start" type="date" :value="old('period_start', now()->startOfMonth()->toDateString())" :required="true" />
-                    <x-form-field label="Period end" name="period_end" type="date" :value="old('period_end', now()->endOfMonth()->toDateString())" :required="true" />
-                    <x-form-field label="Due date" name="due_date" type="date" :value="old('due_date')" />
-                    <label class="block">
-                        <span class="field__label">VAT ({{ $currency }})</span>
-                        <input type="number" name="tax_amount" x-model="taxAmount" step="0.01" min="0" class="field__control">
-                        <p class="field__help">Leave at 0 for cash / no-VAT clients. Enter VAT amount if charged.</p>
-                    </label>
-                </x-form-group>
+                    <template x-if="current?.uses_shift">
+                        <div class="sm:col-span-2">
+                            <dt class="text-slate-500">Shift rates</dt>
+                            <dd class="font-semibold" x-text="'Day armed ' + money(current.shift_armed_day) + ' · Night armed ' + money(current.shift_armed_night) + ' · Day unarmed ' + money(current.shift_unarmed_day) + ' · Night unarmed ' + money(current.shift_unarmed_night)"></dd>
+                        </div>
+                    </template>
+                </dl>
             </div>
 
-            <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes')" placeholder="Optional notes shown on the invoice." />
-
-            <div class="form-options">
-                <x-form-checkbox
-                    name="auto_generate"
-                    label="Auto-generate lines from this client’s billing profile"
-                    help="Monthly: contracted posts × rates. Per-shift: completed day/night shifts. Hybrid: monthly posts plus overtime and special-duty shifts."
-                    :checked="old('auto_generate', true)"
-                    inline
+            <x-form-group title="Due date" description="Suggested as {{ $dueDays }} days after the service period ends. Change it when this invoice is due on another day.">
+                <x-form-field
+                    label="Due date"
+                    name="due_date"
+                    type="date"
+                    x-model="dueDate"
+                    @input="dueTouched = true"
+                    :required="true"
                 />
-            </div>
+            </x-form-group>
+
+            <p x-show="current && !current.billable" x-cloak class="form-alert form-alert--error" x-text="current?.block_reason"></p>
 
             @error('invoice')
                 <p class="form-alert form-alert--error">{{ $message }}</p>
             @enderror
 
-            <x-form-actions :cancel="route('invoices.index')" submit-label="Create draft" />
+            <x-form-actions :cancel="route('invoices.index')" submit-label="Generate draft" />
         </x-form-panel>
     </form>
 </div>

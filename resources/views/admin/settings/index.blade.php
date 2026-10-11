@@ -256,14 +256,14 @@
                                             <p class="text-slate-500">{{ $action }}</p>
                                         </td>
                                         <td class="px-3 py-2">
-                                            <select name="email_rules[{{ $action }}][channel]" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
+                                            <select name="email_rules[{{ $action }}][channel]" data-searchable="true" aria-label="Notification channel" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
                                                 @foreach (['both' => 'In-app and email', 'email' => 'Email only', 'in_app' => 'In-app only'] as $value => $label)
                                                     <option value="{{ $value }}" @selected($channel === $value)>{{ $label }}</option>
                                                 @endforeach
                                             </select>
                                         </td>
                                         <td class="px-3 py-2">
-                                            <select name="email_rules[{{ $action }}][audience]" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
+                                            <select name="email_rules[{{ $action }}][audience]" data-searchable="true" aria-label="Notification audience" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900">
                                                 @foreach (['default' => 'Default for this event', 'hr' => 'HR', 'operations' => 'Operations', 'finance' => 'Finance', 'administrators' => 'Administrators'] as $value => $label)
                                                     <option value="{{ $value }}" @selected($audience === $value)>{{ $label }}</option>
                                                 @endforeach
@@ -281,7 +281,7 @@
                 <x-form-group title="Preferences" description="Timezone applies immediately across the application. Database driver remains an environment install setting.">
                     <label class="block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:col-span-2">
                         Timezone <span class="text-rose-600">*</span>
-                        <select name="timezone" required class="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
+                        <select name="timezone" data-searchable="true" aria-label="Timezone" required class="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
                             @foreach ($timezones as $tz)
                                 <option value="{{ $tz }}" @selected(old('timezone', $settings->timezone ?? config('app.timezone')) === $tz)>{{ $tz }}</option>
                             @endforeach

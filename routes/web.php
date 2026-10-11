@@ -16,7 +16,9 @@ use App\Http\Controllers\Dashboards\OperationalDashboardController;
 use App\Http\Controllers\Deployments\DeploymentController;
 use App\Http\Controllers\Finance\AdvanceController;
 use App\Http\Controllers\Finance\BillingController;
+use App\Http\Controllers\Finance\ChargeController;
 use App\Http\Controllers\Finance\GuardAdvanceController;
+use App\Http\Controllers\Finance\GuardChargeController;
 use App\Http\Controllers\Finance\InvoiceController;
 use App\Http\Controllers\Finance\Ledger\BankReconciliationController;
 use App\Http\Controllers\Finance\Ledger\GlAccountController;
@@ -25,12 +27,16 @@ use App\Http\Controllers\Finance\Ledger\GlPeriodController;
 use App\Http\Controllers\Finance\Ledger\LedgerDashboardController;
 use App\Http\Controllers\Finance\Ledger\LedgerReportController;
 use App\Http\Controllers\Finance\Ledger\PurchaseInvoiceController;
+use App\Http\Controllers\Procurement\ProcurementReportController;
+use App\Http\Controllers\Procurement\StockItemController;
+use App\Http\Controllers\Procurement\SupplierController;
 use App\Http\Controllers\Finance\Ledger\VatPackController;
 use App\Http\Controllers\Finance\PaymentController;
 use App\Http\Controllers\Finance\PayrollPayslipController;
 use App\Http\Controllers\Finance\PayrollRunController;
 use App\Http\Controllers\Finance\ProfitabilityController;
 use App\Http\Controllers\Finance\StaffAdvanceController;
+use App\Http\Controllers\Finance\StaffChargeController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\Guards\GuardController;
 use App\Http\Controllers\Guards\GuardSalaryRevisionController;
@@ -150,6 +156,8 @@ Route::middleware('auth')->group(function () {
         ->name('staff.salary-revisions.store');
     Route::post('/staff/{staff}/advances', [StaffAdvanceController::class, 'store'])->name('staff.advances.store');
     Route::post('/staff/{staff}/advances/{advance}/write-off', [StaffAdvanceController::class, 'writeOff'])->name('staff.advances.write-off');
+    Route::post('/staff/{staff}/charges', [StaffChargeController::class, 'store'])->name('staff.charges.store');
+    Route::post('/staff/{staff}/charges/{charge}/write-off', [StaffChargeController::class, 'writeOff'])->name('staff.charges.write-off');
 
     Route::get('/deployments', [DeploymentController::class, 'index'])->name('deployments.index');
     Route::get('/deployments/board', [DeploymentController::class, 'board'])->name('deployments.board');
@@ -214,6 +222,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/leaves/{leave}/reject', [LeaveController::class, 'reject'])->name('leaves.reject');
     Route::post('/leaves/{leave}/cancel', [LeaveController::class, 'cancel'])->name('leaves.cancel');
     Route::post('/leaves/{leave}/complete', [LeaveController::class, 'complete'])->name('leaves.complete');
+    Route::post('/leaves/{leave}/return', [LeaveController::class, 'confirmReturn'])->name('leaves.return');
+    Route::post('/leaves/{leave}/adjust', [LeaveController::class, 'adjust'])->name('leaves.adjust');
 
     Route::get('/absences', [AbsenceController::class, 'index'])->name('absences.index');
     Route::get('/absences/create', [AbsenceController::class, 'create'])->name('absences.create');
@@ -295,6 +305,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/billing', [BillingController::class, 'index'])->name('billing.index');
     Route::get('/billing/export', [BillingController::class, 'export'])->name('billing.export');
     Route::get('/billing/create', [BillingController::class, 'create'])->name('billing.create');
+    Route::get('/billing/clients/{client}/sites', [BillingController::class, 'clientSites'])->name('billing.client-sites');
     Route::post('/billing', [BillingController::class, 'store'])->name('billing.store');
     Route::get('/billing/{billing}', [BillingController::class, 'show'])->name('billing.show');
     Route::get('/billing/{billing}/pdf', [BillingController::class, 'downloadPdf'])->name('billing.pdf');
@@ -323,6 +334,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/profitability/export', [ProfitabilityController::class, 'export'])->name('profitability.export');
 
     Route::get('/advances', [AdvanceController::class, 'index'])->name('advances.index');
+    Route::get('/charges', [ChargeController::class, 'index'])->name('charges.index');
+    Route::get('/charges/export', [ChargeController::class, 'export'])->middleware('throttle:exports')->name('charges.export');
     Route::get('/advances/export', [AdvanceController::class, 'export'])->name('advances.export');
 
     Route::get('/ledger', [LedgerDashboardController::class, '__invoke'])->name('ledger.index');
@@ -332,6 +345,26 @@ Route::middleware('auth')->group(function () {
     Route::get('/ledger/journals/create', [GlJournalController::class, 'create'])->name('ledger.journals.create');
     Route::post('/ledger/journals', [GlJournalController::class, 'store'])->name('ledger.journals.store');
     Route::get('/ledger/journals/{journal}', [GlJournalController::class, 'show'])->name('ledger.journals.show');
+    Route::get('/procurement/suppliers', [SupplierController::class, 'index'])->name('procurement.suppliers.index');
+    Route::get('/procurement/suppliers/create', [SupplierController::class, 'create'])->name('procurement.suppliers.create');
+    Route::post('/procurement/suppliers', [SupplierController::class, 'store'])->name('procurement.suppliers.store');
+    Route::get('/procurement/suppliers/{supplier}', [SupplierController::class, 'show'])->name('procurement.suppliers.show');
+    Route::get('/procurement/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])->name('procurement.suppliers.edit');
+    Route::put('/procurement/suppliers/{supplier}', [SupplierController::class, 'update'])->name('procurement.suppliers.update');
+    Route::get('/procurement/suppliers/{supplier}/document', [SupplierController::class, 'document'])->name('procurement.suppliers.document');
+    Route::get('/procurement/stock', [StockItemController::class, 'index'])->name('procurement.stock.index');
+    Route::get('/procurement/stock/create', [StockItemController::class, 'create'])->name('procurement.stock.create');
+    Route::get('/procurement/stock/template', [StockItemController::class, 'template'])->name('procurement.stock.template');
+    Route::post('/procurement/stock/import', [StockItemController::class, 'import'])->name('procurement.stock.import');
+    Route::post('/procurement/stock', [StockItemController::class, 'store'])->name('procurement.stock.store');
+    Route::get('/procurement/stock/{item}', [StockItemController::class, 'show'])->name('procurement.stock.show');
+    Route::post('/procurement/stock/{item}/status', [StockItemController::class, 'updateStatus'])->name('procurement.stock.status');
+    Route::post('/procurement/stock/{item}/receive', [StockItemController::class, 'receive'])->name('procurement.stock.receive');
+    Route::post('/procurement/stock/{item}/transfer', [StockItemController::class, 'transfer'])->name('procurement.stock.transfer');
+    Route::get('/procurement/stock/{item}/attachment', [StockItemController::class, 'attachment'])->name('procurement.stock.attachment');
+    Route::get('/procurement/reports', [ProcurementReportController::class, 'index'])->name('procurement.reports.index');
+    Route::get('/procurement/reports/export', [ProcurementReportController::class, 'export'])->name('procurement.reports.export');
+
     Route::get('/ledger/purchases', [PurchaseInvoiceController::class, 'index'])->name('ledger.purchases.index');
     Route::get('/ledger/purchases/create', [PurchaseInvoiceController::class, 'create'])->name('ledger.purchases.create');
     Route::post('/ledger/purchases', [PurchaseInvoiceController::class, 'store'])->name('ledger.purchases.store');
@@ -340,6 +373,9 @@ Route::middleware('auth')->group(function () {
     Route::put('/ledger/purchases/{purchase}', [PurchaseInvoiceController::class, 'update'])->name('ledger.purchases.update');
     Route::post('/ledger/purchases/{purchase}/post', [PurchaseInvoiceController::class, 'post'])->name('ledger.purchases.post');
     Route::post('/ledger/purchases/{purchase}/cancel', [PurchaseInvoiceController::class, 'cancel'])->name('ledger.purchases.cancel');
+    Route::get('/ledger/purchases/{purchase}/attachment/view', [PurchaseInvoiceController::class, 'viewAttachment'])->name('ledger.purchases.attachment.view');
+    Route::get('/ledger/purchases/{purchase}/attachment/stream', [PurchaseInvoiceController::class, 'streamAttachment'])->name('ledger.purchases.attachment.stream');
+    Route::get('/ledger/purchases/{purchase}/attachment', [PurchaseInvoiceController::class, 'attachment'])->name('ledger.purchases.attachment');
     Route::get('/ledger/reports/trial-balance', [LedgerReportController::class, 'trialBalance'])->name('ledger.reports.trial-balance');
     Route::get('/ledger/reports/profit-loss', [LedgerReportController::class, 'profitAndLoss'])->name('ledger.reports.profit-loss');
     Route::get('/ledger/periods', [GlPeriodController::class, 'index'])->name('ledger.periods.index');
@@ -392,6 +428,8 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/guards/{guard}/advances', [GuardAdvanceController::class, 'store'])->name('guards.advances.store');
     Route::post('/guards/{guard}/advances/{advance}/write-off', [GuardAdvanceController::class, 'writeOff'])->name('guards.advances.write-off');
+    Route::post('/guards/{guard}/charges', [GuardChargeController::class, 'store'])->name('guards.charges.store');
+    Route::post('/guards/{guard}/charges/{charge}/write-off', [GuardChargeController::class, 'writeOff'])->name('guards.charges.write-off');
 
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('audit.index');
     Route::get('/audit-logs/export', [AuditLogController::class, 'export'])

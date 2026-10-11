@@ -169,6 +169,11 @@ class Guard extends Model
         return $this->hasMany(GuardSalaryAdvance::class)->latest('id');
     }
 
+    public function misconductCharges(): HasMany
+    {
+        return $this->hasMany(EmployeeMisconductCharge::class)->latest('id');
+    }
+
     public function salaryRevisions(): HasMany
     {
         return $this->hasMany(GuardSalaryRevision::class)->orderBy('effective_from')->orderBy('id');

@@ -136,6 +136,7 @@ class GuardController extends Controller
             'updater',
             'attachments.uploader',
             'salaryAdvances',
+            'misconductCharges',
             'salaryRevisions.approver',
             'salaryRevisions.creator',
             'uniformChargeRevisions.approver',
@@ -164,6 +165,7 @@ class GuardController extends Controller
             'currentDeployment' => $guard->currentDeployment,
             'canManage' => request()->user()->can('update', $guard),
             'canViewSalary' => request()->user()->can('viewSalary', $guard),
+            'canViewConfidential' => request()->user()->can('viewConfidential', $guard),
             'canManageSalary' => request()->user()->can('manageSalary', $guard),
             'canManageUniformCharge' => request()->user()->can('manageUniformCharge', $guard),
             'uniformStatus' => app(UniformChargeExemptionService::class)->statusOn($guard, $today),
@@ -243,7 +245,7 @@ class GuardController extends Controller
 
     public function showAttachment(Guard $guard, GuardAttachment $attachment): View
     {
-        $this->authorize('view', $guard);
+        $this->authorize('viewConfidential', $guard);
         abort_unless($attachment->guard_id === $guard->id, 404);
         abort_unless(Storage::disk('local')->exists($attachment->path), 404);
 
@@ -258,7 +260,7 @@ class GuardController extends Controller
 
     public function streamAttachment(Guard $guard, GuardAttachment $attachment): StreamedResponse
     {
-        $this->authorize('view', $guard);
+        $this->authorize('viewConfidential', $guard);
         abort_unless($attachment->guard_id === $guard->id, 404);
         abort_unless(Storage::disk('local')->exists($attachment->path), 404);
 
@@ -267,7 +269,7 @@ class GuardController extends Controller
 
     public function downloadAttachment(Guard $guard, GuardAttachment $attachment): StreamedResponse
     {
-        $this->authorize('view', $guard);
+        $this->authorize('viewConfidential', $guard);
         abort_unless($attachment->guard_id === $guard->id, 404);
 
         return Storage::disk('local')->download($attachment->path, $attachment->original_name);

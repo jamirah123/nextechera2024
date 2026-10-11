@@ -78,6 +78,7 @@
                         </label>
                         <select
                             id="region_id"
+                            data-searchable="true"
                             name="region_id"
                             required
                             x-model="regionId"
@@ -98,6 +99,7 @@
                         <label for="supervisor_id" class="mb-1 block text-xs font-medium text-slate-700">Supervisor</label>
                         <select
                             id="supervisor_id"
+                            data-searchable="true"
                             name="supervisor_id"
                             x-ref="supervisorSelect"
                             x-model="supervisorId"

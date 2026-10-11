@@ -204,10 +204,13 @@
         </section>
     @endif
 
+    @include('staff.partials.issued-assets')
+
     @if ($canViewSalary ?? false)
         @include('staff.partials.salary-history', ['staff' => $staff])
     @endif
 
     @include('staff.partials.salary-advances', ['staff' => $staff])
+    @include('staff.partials.misconduct-charges', ['staff' => $staff])
 </div>
 @endsection

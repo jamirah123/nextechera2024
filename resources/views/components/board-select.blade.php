@@ -11,7 +11,7 @@
 @endphp
 
 <div {{ $attributes->only('class')->class(['relative w-full min-w-0']) }}>
-    <select {{ $attributes->except('class')->merge(['class' => $selectClass]) }} style="background-image:none">
+    <select {{ $attributes->except('class')->merge(['data-searchable' => 'true', 'class' => $selectClass]) }} style="background-image:none">
         {{ $slot }}
     </select>
     <span @class([

@@ -24,7 +24,7 @@ class InvoicePdfService
      */
     public function viewData(Invoice $invoice, bool $embedLogo = false): array
     {
-        $invoice->loadMissing(['client', 'site', 'lines']);
+        $invoice->loadMissing(['client', 'site', 'billingProfile.site', 'lines']);
 
         return [
             'invoice' => $invoice,

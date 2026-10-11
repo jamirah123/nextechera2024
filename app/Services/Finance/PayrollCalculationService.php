@@ -14,6 +14,7 @@ use App\Models\Guard;
 use App\Services\UniformChargeExemptionService;
 use App\Models\GuardAssetRecovery;
 use App\Models\Leave;
+use App\Models\EmployeeMisconductCharge;
 use App\Models\GuardSalaryAdvance;
 use App\Models\PayrollDeduction;
 use App\Models\PayrollPayslip;
@@ -233,6 +234,10 @@ class PayrollCalculationService
 
         if ($deduction->guard_advance_id) {
             throw new InvalidArgumentException('Advance recoveries are managed automatically. Recalculate the payroll run to adjust.');
+        }
+
+        if ($deduction->employee_charge_id) {
+            throw new InvalidArgumentException('Misconduct charge recoveries are managed automatically. Recalculate the payroll run to adjust.');
         }
 
         DB::transaction(function () use ($deduction, $payslip, $run): void {
@@ -491,6 +496,7 @@ class PayrollCalculationService
 
         $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true, guard: $guard, asOf: Carbon::parse($run->period_end)->toDateString());
         $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
+        $this->applyMisconductChargeDeductions($payslip, guardId: $guard->id);
         $this->applyAssetRecoveryDeductions($payslip, guardId: $guard->id);
         $this->linkShifts(
             $payslip,
@@ -560,6 +566,7 @@ class PayrollCalculationService
 
         $this->applyStatutoryDeductions($payslip, $gross, includeUniform: true, guard: $guard, asOf: Carbon::parse($run->period_end)->toDateString());
         $this->applyAdvanceDeductions($payslip, guardId: $guard->id);
+        $this->applyMisconductChargeDeductions($payslip, guardId: $guard->id);
         $this->applyAssetRecoveryDeductions($payslip, guardId: $guard->id);
         $this->applyUnpaidLeaveDeductions($payslip, $run, guardId: $guard->id);
 
@@ -666,6 +673,7 @@ class PayrollCalculationService
 
         $this->applyStatutoryDeductions($payslip, $gross, includeUniform: false);
         $this->applyAdvanceDeductions($payslip, staffId: $member->id);
+        $this->applyMisconductChargeDeductions($payslip, staffId: $member->id);
         $this->applyUnpaidLeaveDeductions($payslip, $run, staffId: $member->id, monthlyGross: (float) $monthlyGross);
 
         if ($coverGuard !== null && $overtime['count'] > 0) {
@@ -853,6 +861,58 @@ class PayrollCalculationService
         $this->recalculatePayslipTotals($payslip);
     }
 
+    private function applyMisconductChargeDeductions(PayrollPayslip $payslip, ?int $guardId = null, ?int $staffId = null): void
+    {
+        $available = max(0, round((float) $payslip->gross_pay - (float) $payslip->deductions()->sum('amount'), 2));
+
+        if ($available <= 0) {
+            return;
+        }
+
+        $charges = EmployeeMisconductCharge::query()
+            ->when($guardId, fn ($q) => $q->where('guard_id', $guardId))
+            ->when($staffId, fn ($q) => $q->where('staff_id', $staffId))
+            ->where('is_active', true)
+            ->where('balance_remaining', '>', 0)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($charges as $charge) {
+            if ($available <= 0) {
+                break;
+            }
+
+            $installment = $charge->monthly_installment !== null
+                ? (float) $charge->monthly_installment
+                : (float) $charge->balance_remaining;
+
+            $amount = min((float) $charge->balance_remaining, $installment, $available);
+
+            if ($amount <= 0) {
+                continue;
+            }
+
+            PayrollDeduction::query()->create([
+                'payroll_payslip_id' => $payslip->id,
+                'type' => PayrollDeductionType::Penalty,
+                'label' => $charge->reason.' (misconduct)',
+                'amount' => round($amount, 2),
+                'is_statutory' => false,
+                'employee_charge_id' => $charge->id,
+            ]);
+
+            $newBalance = max(0, round((float) $charge->balance_remaining - $amount, 2));
+            $charge->update([
+                'balance_remaining' => $newBalance,
+                'is_active' => $newBalance > 0,
+            ]);
+
+            $available = round($available - $amount, 2);
+        }
+
+        $this->recalculatePayslipTotals($payslip);
+    }
+
     private function applyUnpaidLeaveDeductions(PayrollPayslip $payslip, PayrollRun $run, ?int $guardId = null, ?int $staffId = null, ?float $monthlyGross = null): void
     {
         $monthly = $monthlyGross ?? (float) $payslip->base_shift_rate;
@@ -870,6 +930,10 @@ class PayrollCalculationService
             ->get();
 
         foreach ($leaves as $leave) {
+            if ($payslip->deductions()->where('leave_id', $leave->id)->exists()) {
+                continue;
+            }
+
             $amount = LeavePayrollAdjustment::unpaidAmount(
                 $leave,
                 $run->period_start->toDateString(),
@@ -887,6 +951,7 @@ class PayrollCalculationService
                 'label' => 'Unpaid leave '.$leave->typeLabel().' #'.$leave->id,
                 'amount' => $amount,
                 'is_statutory' => false,
+                'leave_id' => $leave->id,
             ]);
         }
 
@@ -960,6 +1025,7 @@ class PayrollCalculationService
     public function clearPayslips(PayrollRun $run): void
     {
         $this->restoreAdvanceBalancesForRun($run);
+        $this->restoreMisconductChargeBalancesForRun($run);
         $this->restoreAssetRecoveryBalancesForRun($run);
 
         $payslipIds = $run->payslips()->pluck('id');
@@ -1001,6 +1067,27 @@ class PayrollCalculationService
 
                 $advance->update([
                     'balance_remaining' => round((float) $advance->balance_remaining + (float) $deduction->amount, 2),
+                    'is_active' => true,
+                ]);
+            });
+    }
+
+    private function restoreMisconductChargeBalancesForRun(PayrollRun $run): void
+    {
+        PayrollDeduction::query()
+            ->whereNotNull('employee_charge_id')
+            ->whereHas('payslip', fn ($query) => $query->where('payroll_run_id', $run->id))
+            ->with('employeeCharge')
+            ->get()
+            ->each(function (PayrollDeduction $deduction): void {
+                $charge = $deduction->employeeCharge;
+
+                if ($charge === null) {
+                    return;
+                }
+
+                $charge->update([
+                    'balance_remaining' => round((float) $charge->balance_remaining + (float) $deduction->amount, 2),
                     'is_active' => true,
                 ]);
             });

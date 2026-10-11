@@ -20,16 +20,13 @@
         </x-slot:actions>
     </x-page-header>
 
-    <section class="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+    <section class="grid grid-cols-2 gap-2 lg:grid-cols-5">
         @foreach ([
             ['On leave', number_format($stats['on_leave']), 'text-sky-800'],
-            ['Guards on leave', number_format($stats['guards_on_leave']), 'text-indigo-800'],
-            ['Staff on leave', number_format($stats['staff_on_leave']), 'text-emerald-800'],
             ['Pending', number_format($stats['pending']), 'text-amber-800'],
             ['Returning today', number_format($stats['returning_today']), 'text-brand-800'],
-            ['Returning this week', number_format($stats['returning_week']), 'text-slate-700'],
-            ['Low balance', number_format($stats['low_balance']), 'text-rose-700'],
             ['Upcoming', number_format($stats['upcoming']), 'text-violet-700'],
+            ['Overdue returns', number_format($stats['overdue_returns']), 'text-rose-800'],
         ] as [$label, $value, $tone])
             <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>

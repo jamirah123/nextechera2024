@@ -46,6 +46,10 @@ class RoleNavigation
      */
     public static function groups(User $user): array
     {
+        if ($user->role === UserRole::ProcurementOfficer) {
+            return self::procurementSections(self::for($user));
+        }
+
         // Attention counts load from /navigation/badges after the page paints.
         // Counting them here held every module open on extra queries.
         $items = self::for($user);
@@ -144,6 +148,7 @@ class RoleNavigation
             || str_contains($pattern, 'payroll')
             || str_contains($pattern, 'profit')
             || str_contains($pattern, 'advance')
+            || str_contains($pattern, 'charge')
             || str_contains($pattern, 'ledger')
             || $label === 'finance'
             || str_contains($label, 'billing')
@@ -274,6 +279,7 @@ class RoleNavigation
                 self::module('Profitability', 'Client, site and region profitability analysis.', 'chart', 'violet', route('profitability.index')),
                 self::module('Payroll', 'Monthly payroll runs, payslips and bank payment files.', 'payroll', 'emerald', route('payroll.index')),
                 self::module('Advances', 'Guard and staff salary advances recovered through payroll.', 'wallet', 'amber', route('advances.index')),
+                self::module('Charges', 'Workplace misconduct charges recovered through payroll.', 'warning', 'rose', route('charges.index')),
                 self::module('General ledger', 'Chart of accounts, journals, VAT pack, bank reconciliation and period close.', 'wallet', 'indigo', route('ledger.index')),
                 self::module('Purchases', 'Supplier bills with input VAT posting to accounts payable.', 'invoice', 'violet', route('ledger.purchases.index')),
                 self::module('Assets & uniforms', 'Issue kit and track replacement cost recovery on payroll.', 'shield', 'indigo', route('assets.index')),
@@ -432,13 +438,14 @@ class RoleNavigation
                 ['label' => 'Occurrence book', 'href' => route('incidents.index')],
                 ['label' => 'Replacements', 'href' => route('replacements.index')],
             ]),
-            self::nav('Finance', 'wallet', route('billing.index'), 'billing.*|invoices.*|payments.*|profitability.*|payroll.*|advances.*|ledger.*', [
+            self::nav('Finance', 'wallet', route('billing.index'), 'billing.*|invoices.*|payments.*|profitability.*|payroll.*|advances.*|charges.*|ledger.*', [
                 ['label' => 'Client Billing', 'href' => route('billing.index')],
                 ['label' => 'Invoices', 'href' => route('invoices.index')],
                 ['label' => 'Payments', 'href' => route('payments.index')],
                 ['label' => 'Profitability', 'href' => route('profitability.index')],
                 ['label' => 'Payroll', 'href' => route('payroll.index')],
                 ['label' => 'Advances', 'href' => route('advances.index')],
+                ['label' => 'Charges', 'href' => route('charges.index')],
                 ['label' => 'General ledger', 'href' => route('ledger.index')],
                 ['label' => 'Purchases', 'href' => route('ledger.purchases.index')],
             ]),
@@ -478,13 +485,14 @@ class RoleNavigation
                 ['label' => 'Attendance', 'href' => route('attendances.index')],
                 ['label' => 'Replacements', 'href' => route('replacements.index')],
             ]),
-            self::nav('Finance', 'wallet', route('billing.index'), 'billing.*|invoices.*|payments.*|profitability.*|payroll.*|advances.*|ledger.*', [
+            self::nav('Finance', 'wallet', route('billing.index'), 'billing.*|invoices.*|payments.*|profitability.*|payroll.*|advances.*|charges.*|ledger.*', [
                 ['label' => 'Client Billing', 'href' => route('billing.index')],
                 ['label' => 'Invoices', 'href' => route('invoices.index')],
                 ['label' => 'Payments', 'href' => route('payments.index')],
                 ['label' => 'Profitability', 'href' => route('profitability.index')],
                 ['label' => 'Payroll', 'href' => route('payroll.index')],
                 ['label' => 'Advances', 'href' => route('advances.index')],
+                ['label' => 'Charges', 'href' => route('charges.index')],
                 ['label' => 'General ledger', 'href' => route('ledger.index')],
                 ['label' => 'Purchases', 'href' => route('ledger.purchases.index')],
             ]),
@@ -596,6 +604,7 @@ class RoleNavigation
             self::nav('Profitability', 'chart', route('profitability.index'), 'profitability.*'),
             self::nav('Payroll', 'payroll', route('payroll.index'), 'payroll.*'),
             self::nav('Advances', 'wallet', route('advances.index'), 'advances.*'),
+            self::nav('Charges', 'warning', route('charges.index'), 'charges.*'),
             self::nav('General ledger', 'wallet', route('ledger.index'), 'ledger.*'),
             self::nav('Shift Exports', 'report', route('reports.monthly-shifts'), 'reports.*'),
         ];
@@ -605,17 +614,70 @@ class RoleNavigation
     private static function procurement(): array
     {
         return [
-            self::nav('Dashboard', 'home', route('dashboard'), 'dashboard'),
-            self::nav('Assets & uniforms', 'shield', route('assets.index'), 'assets.*'),
-            self::nav('Purchases', 'invoice', route('ledger.purchases.index'), 'ledger.purchases*'),
-            self::nav('Guards', 'shield', route('guards.index'), 'guards.*'),
-            self::nav('Organization', 'building', route('organization.index'), 'organization.*|regions.*|sites.*', [
-                ['label' => 'Overview', 'href' => route('organization.index')],
+            self::nav('Procurement Overview', 'home', route('dashboard'), 'dashboard'),
+            self::nav('Purchasing', 'invoice', route('ledger.purchases.index'), 'ledger.purchases*|procurement.suppliers.*', [
+                ['label' => 'Suppliers', 'href' => route('procurement.suppliers.index')],
+                ['label' => 'Supplier Bills', 'href' => route('ledger.purchases.index')],
+                ['label' => 'Draft Bills', 'href' => route('ledger.purchases.index', ['status' => 'draft'])],
+                ['label' => 'Posted Bills', 'href' => route('ledger.purchases.index', ['status' => 'posted'])],
+                ['label' => 'Purchase History', 'href' => route('procurement.reports.index')],
+            ]),
+            self::nav('Asset Register', 'shield', route('procurement.stock.index'), 'procurement.stock.*'),
+            self::nav('Issue & Return Assets', 'swap', route('assets.index'), 'assets.*', [
+                ['label' => 'Issue asset', 'href' => route('assets.create')],
+                ['label' => 'Open assignments', 'href' => route('assets.index', ['status' => 'active'])],
+                ['label' => 'Returns', 'href' => route('assets.index', ['status' => 'returned'])],
+                ['label' => 'Damaged or missing', 'href' => route('assets.index', ['focus' => 'missing'])],
+            ]),
+            self::nav('Directory', 'building', route('guards.index'), 'guards.*|organization.*|regions.*|sites.*|clients.*', [
+                ['label' => 'Guards Directory', 'href' => route('guards.index')],
                 ['label' => 'Sites', 'href' => route('sites.index')],
                 ['label' => 'Regions', 'href' => route('regions.index')],
+                ['label' => 'Clients', 'href' => route('clients.index')],
+                ['label' => 'Organization', 'href' => route('organization.index')],
             ]),
-            self::nav('Reports', 'report', route('reports.index'), 'reports.*'),
+            self::nav('Reports', 'report', route('procurement.reports.index'), 'procurement.reports.*|reports.*', [
+                ['label' => 'Procurement Reports', 'href' => route('procurement.reports.index')],
+                ['label' => 'Asset & Uniform Reports', 'href' => route('reports.index')],
+            ]),
+            self::nav('Notifications', 'alert', route('notifications.index'), 'notifications.*'),
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $items
+     * @return list<array{key: string, label: string, items: list<array<string, mixed>>}>
+     */
+    private static function procurementSections(array $items): array
+    {
+        $labels = [
+            'Procurement Overview' => 'Dashboard',
+            'Purchasing' => 'Purchasing',
+            'Asset Register' => 'Assets & Inventory',
+            'Issue & Return Assets' => 'Assets & Inventory',
+            'Directory' => 'Directory & Delivery',
+            'Reports' => 'Reports',
+            'Notifications' => 'Notifications',
+        ];
+
+        $sections = [];
+
+        foreach ($items as $item) {
+            $label = $labels[$item['label']] ?? 'More';
+            $key = strtolower(str_replace([' ', '&'], ['-', ''], $label));
+
+            if (! isset($sections[$key])) {
+                $sections[$key] = [
+                    'key' => $key,
+                    'label' => $label,
+                    'items' => [],
+                ];
+            }
+
+            $sections[$key]['items'][] = $item;
+        }
+
+        return array_values($sections);
     }
 
     /** @return list<array{label: string, icon: string, href: string, active: bool, children?: list<array{label: string, href: string, active?: bool}>}> */

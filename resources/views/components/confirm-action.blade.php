@@ -42,6 +42,7 @@
         <div
             x-cloak
             x-show="open"
+            x-transition.opacity
             class="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center"
             role="dialog"
             aria-modal="true"
@@ -49,15 +50,11 @@
         >
             <div
                 class="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
-                x-show="open"
-                x-transition.opacity
                 @click="open = false"
             ></div>
 
             <div
                 class="relative w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
-                x-show="open"
-                x-transition
                 @click.stop
             >
                 <div class="border-b border-slate-100 px-3 py-2.5 dark:border-slate-800">
@@ -76,27 +73,30 @@
                     </div>
                 </div>
 
-                <div class="flex flex-col-reverse gap-2 bg-slate-50 px-3 py-2.5 sm:flex-row sm:justify-end sm:px-6 dark:bg-slate-950/50">
-                    <button
-                        type="button"
-                        class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                        @click="open = false"
-                    >
-                        {{ $cancelLabel }}
-                    </button>
-                    <form method="POST" action="{{ $action }}">
-                        @csrf
-                        @if ($httpMethod !== 'POST')
-                            @method($httpMethod)
-                        @endif
+                <form method="POST" action="{{ $action }}" class="bg-slate-50 px-3 py-2.5 sm:px-6 dark:bg-slate-950/50">
+                    @csrf
+                    @if ($httpMethod !== 'POST')
+                        @method($httpMethod)
+                    @endif
+                    @isset($fields)
+                        <div class="mb-3">{{ $fields }}</div>
+                    @endisset
+                    <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <button
+                            type="button"
+                            class="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            @click="open = false"
+                        >
+                            {{ $cancelLabel }}
+                        </button>
                         <button
                             type="submit"
                             class="inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold text-white sm:w-auto {{ $confirmButtonClass }}"
                         >
                             {{ $confirmLabel }}
                         </button>
-                    </form>
-                </div>
+                    </div>
+                </form>
             </div>
         </div>
     </template>

@@ -37,7 +37,7 @@
                     <template x-for="(line, index) in lines" :key="index">
                         <tr class="border-t border-slate-100 dark:border-slate-800">
                             <td class="px-3 py-2" data-label="Account">
-                                <select :name="'lines['+index+'][account_id]'" x-model="line.account_id" class="field__control" required>
+                                <select :name="'lines['+index+'][account_id]'" data-searchable="true" aria-label="Account" x-model="line.account_id" class="field__control" required>
                                     <option value="">Select</option>
                                     @foreach ($accounts as $account)
                                         <option value="{{ $account->id }}">{{ $account->label() }}</option>

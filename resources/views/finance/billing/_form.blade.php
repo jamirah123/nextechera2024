@@ -19,9 +19,9 @@
         <div class="form-group__fields sm:grid-cols-2">
             <label class="block sm:col-span-2">
                 <span class="field__label">Billing mode</span>
-                <select name="billing_mode" x-model="billingMode" class="field__control field__control--select" required>
+                <select name="billing_mode" data-searchable="true" aria-label="Billing mode" x-model="billingMode" class="field__control field__control--select" required>
                     @foreach ($modes as $mode)
-                        <option value="{{ $mode->value }}">{{ $mode->label() }}</option>
+                        <option value="{{ $mode->value }}" @selected((string) old('billing_mode', $profile?->billing_mode?->value ?? BillingMode::Monthly->value) === $mode->value)>{{ $mode->label() }}</option>
                     @endforeach
                 </select>
             </label>
@@ -31,13 +31,22 @@
                     per_shift: @js(BillingMode::PerShift->description()),
                     hybrid: @js(BillingMode::Hybrid->description()),
                }[billingMode]"></p>
-            <div class="sm:col-span-2">
+            <label class="block">
+                <span class="field__label">VAT treatment</span>
+                <select name="vat_treatment" data-searchable="true" aria-label="VAT treatment" class="field__control field__control--select" required>
+                    @foreach (\App\Enums\VatTreatment::cases() as $treatment)
+                        <option value="{{ $treatment->value }}" @selected(old('vat_treatment', $profile?->vat_treatment?->value ?? \App\Enums\VatTreatment::Standard->value) === $treatment->value)>{{ $treatment->label() }}</option>
+                    @endforeach
+                </select>
+                <p class="field__help">Standard-rated invoices use the platform VAT rate. Cash settlement does not change this.</p>
+            </label>
+            <div>
                 <label class="form-checkbox">
                     <input type="hidden" name="cash_no_tax" value="0">
                     <input type="checkbox" name="cash_no_tax" value="1" class="form-checkbox__input" @checked(old('cash_no_tax', $profile?->cash_no_tax ?? false))>
                     <span class="form-checkbox__content">
-                        <span class="form-checkbox__label">Cash client — no VAT</span>
-                        <span class="form-checkbox__help">Invoices default VAT to 0.</span>
+                        <span class="form-checkbox__label">Cash payment terms</span>
+                        <span class="form-checkbox__help">The client settles in cash. VAT still follows the treatment above.</span>
                     </span>
                 </label>
             </div>

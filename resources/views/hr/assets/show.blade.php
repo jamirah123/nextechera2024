@@ -2,21 +2,30 @@
 
 @section('title', $issuance->reference)
 @section('page-title', 'Asset issuance')
+@section('page-subtitle', $issuance->recipientName())
 
 @section('content')
+@php $empty = '<span class="font-normal text-slate-400">Not recorded</span>'; @endphp
 <div class="space-y-3">
     <x-page-header
+        size="sm"
         :title="$issuance->reference"
-        :subtitle="$issuance->assignedGuard?->full_name.' · '.$issuance->issued_at->format('d M Y')"
+        :subtitle="$issuance->recipient_type?->label().' · '.$issuance->recipientName().' · '.$issuance->issued_at->format('d M Y')"
         :back="route('assets.index')"
     >
         <x-slot:actions>
-            <a href="{{ route('guards.show', $issuance->assignedGuard) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">Guard profile</a>
+            <x-status-badge :tone="$issuance->status->tone()" :label="$issuance->status->label()" />
+            @if ($issuance->isStaffRecipient() && $issuance->assignedStaff)
+                @can('view', $issuance->assignedStaff)
+                    <a href="{{ route('staff.show', $issuance->assignedStaff) }}" class="btn btn-secondary">Staff profile</a>
+                @endcan
+            @elseif ($issuance->assignedGuard)
+                @can('view', $issuance->assignedGuard)
+                    <a href="{{ route('guards.show', $issuance->assignedGuard) }}" class="btn btn-secondary">Guard profile</a>
+                @endcan
+            @endif
             @if ($canManage && $canModify)
-                <a href="{{ route('assets.edit', $issuance) }}" class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700">
-                    <x-icon name="pencil" class="h-3.5 w-3.5" />
-                    Edit
-                </a>
+                <a href="{{ route('assets.edit', $issuance) }}" class="btn btn-secondary">Edit</a>
             @endif
             @if (($canDelete ?? false) && $canModify)
                 <x-delete-button
@@ -28,7 +37,7 @@
                 />
             @endif
             @if ($canManage && $issuance->outstandingLineCount() > 0)
-                <a href="#return-form" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-brand-800">Record return</a>
+                <a href="#return-form" class="btn btn-primary">Record return</a>
             @endif
         </x-slot:actions>
     </x-page-header>
@@ -41,71 +50,90 @@
         <p class="form-alert form-alert--error">{{ $message }}</p>
     @enderror
 
-    <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <dl class="grid gap-0 sm:grid-cols-2">
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r">
-                <dt class="text-xs uppercase tracking-wide text-slate-500">Guard</dt>
-                <dd class="mt-1 font-semibold">
-                    <a href="{{ route('guards.show', $issuance->assignedGuard) }}" class="text-brand-800 hover:underline">{{ $issuance->assignedGuard?->full_name }}</a>
+    <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div class="border-b border-slate-100 bg-slate-50/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/50">
+            <h2 class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Issuance details</h2>
+        </div>
+        <dl class="grid gap-0 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="border-b border-slate-100 px-3 py-2 sm:border-r dark:border-slate-800">
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{{ $issuance->recipient_type?->label() ?? 'Recipient' }}</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">{{ $issuance->recipientName() }}</dd>
+            </div>
+            <div class="border-b border-slate-100 px-3 py-2 sm:border-r dark:border-slate-800">
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Employment ID</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    @if ($issuance->recipientEmploymentId())
+                        {{ $issuance->recipientEmploymentId() }}
+                    @else
+                        {!! $empty !!}
+                    @endif
                 </dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5">
-                <dt class="text-xs uppercase tracking-wide text-slate-500">Issuance type</dt>
-                <dd class="mt-1"><x-status-badge :tone="$issuance->issuance_type->tone()" :label="$issuance->issuance_type->label()" /></dd>
+            <div class="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Role</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    @if ($issuance->isStaffRecipient())
+                        {{ $issuance->assignedStaff?->job_title ?: $issuance->assignedStaff?->position?->name ?: 'Staff' }}
+                    @else
+                        {{ $issuance->assignedGuard?->rank_designation ?: 'Guard' }}
+                    @endif
+                </dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5 sm:border-r">
-                <dt class="text-xs uppercase tracking-wide text-slate-500">Status</dt>
-                <dd class="mt-1"><x-status-badge :tone="$issuance->status->tone()" :label="$issuance->status->label()" /></dd>
+            <div class="border-b border-slate-100 px-3 py-2 sm:border-r dark:border-slate-800">
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Issuance type</dt>
+                <dd class="mt-0.5"><x-status-badge :tone="$issuance->issuance_type->tone()" :label="$issuance->issuance_type->label()" /></dd>
             </div>
-            <div class="border-b border-slate-100 px-3 py-2.5">
-                <dt class="text-xs uppercase tracking-wide text-slate-500">Issued by</dt>
-                <dd class="mt-1 font-semibold">{{ $issuance->issuer?->name ?? '—' }}</dd>
+            <div class="border-b border-slate-100 px-3 py-2 sm:border-r dark:border-slate-800">
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Issued on</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">{{ $issuance->issued_at->format('d M Y') }}</dd>
             </div>
-            @if ($issuance->notes)
-                <div class="px-3 py-2.5 sm:col-span-2">
-                    <dt class="text-xs uppercase tracking-wide text-slate-500">Notes</dt>
-                    <dd class="mt-1 text-sm text-slate-700">{{ $issuance->notes }}</dd>
-                </div>
-            @endif
+            <div class="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Issued by</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">{{ $issuance->issuer?->name ?? 'Not recorded' }}</dd>
+            </div>
+            <div class="border-b border-slate-100 px-3 py-2 sm:col-span-2 lg:col-span-3 dark:border-slate-800">
+                <dt class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Notes</dt>
+                <dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-slate-100">{!! filled($issuance->notes) ? e($issuance->notes) : $empty !!}</dd>
+            </div>
         </dl>
     </section>
 
-    <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div class="border-b border-slate-100 px-3 py-2.5">
-            <h2 class="text-sm font-semibold text-slate-900">Issued items</h2>
+    <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div class="border-b border-slate-100 bg-slate-50/80 px-3 py-2 dark:border-slate-800 dark:bg-slate-800/50">
+            <h2 class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Issued items</h2>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
-                <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <table class="min-w-full divide-y divide-slate-100 text-left text-xs dark:divide-slate-800">
+                <thead class="bg-slate-50 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800/60">
                     <tr>
                         <th class="px-3 py-2">Item</th>
+                        <th class="px-3 py-2">Size</th>
+                        <th class="px-3 py-2">Serial</th>
                         <th class="px-3 py-2">Qty</th>
                         <th class="px-3 py-2">Returned</th>
                         <th class="px-3 py-2">Value</th>
-                        <th class="px-3 py-2">Recovery</th>
                         <th class="px-3 py-2">Status</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                     @foreach ($issuance->lines as $line)
+                        @php $lineValue = (float) $line->unit_value * (int) $line->quantity; @endphp
                         <tr>
                             <td class="px-3 py-2">
-                                <p class="font-semibold text-slate-900">{{ $line->displayLabel() }}</p>
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{{ $line->asset_category->label() }}</p>
+                                <p class="font-semibold text-slate-900 dark:text-slate-100">{{ $line->description ?: 'Not recorded' }}</p>
+                                @if ((float) $line->recovery_amount > 0)
+                                    <p class="mt-0.5 text-[10px] text-slate-500">Recovery {{ \App\Support\Money::format($line->recoveryBalance()) }} of {{ \App\Support\Money::format($line->recovery_amount) }}</p>
+                                @endif
                                 @if ($line->notes)
                                     <p class="mt-0.5 text-[10px] text-slate-500">{{ $line->notes }}</p>
                                 @endif
                             </td>
+                            <td class="px-3 py-2 text-slate-700 dark:text-slate-200">{{ $line->size ?: '—' }}</td>
+                            <td class="px-3 py-2 text-slate-700 dark:text-slate-200">{{ $line->serial_number ?: '—' }}</td>
                             <td class="px-3 py-2 tabular-nums">{{ $line->quantity }}</td>
                             <td class="px-3 py-2 tabular-nums">{{ $line->quantity_returned }}</td>
-                            <td class="px-3 py-2 tabular-nums">{{ \App\Support\Money::format($line->unit_value * $line->quantity) }}</td>
-                            <td class="px-3 py-2">
-                                @if ((float) $line->recovery_amount > 0)
-                                    <p class="tabular-nums">{{ \App\Support\Money::format($line->recoveryBalance()) }} due</p>
-                                    <p class="text-[10px] text-slate-500">of {{ \App\Support\Money::format($line->recovery_amount) }}</p>
-                                @else
-                                    <span class="text-slate-400">—</span>
-                                @endif
-                            </td>
+                            <td class="px-3 py-2 tabular-nums">{{ $lineValue > 0 ? \App\Support\Money::format($lineValue) : '—' }}</td>
                             <td class="px-3 py-2"><x-status-badge :tone="$line->status->tone()" :label="$line->status->label()" /></td>
                         </tr>
                     @endforeach
@@ -115,19 +143,18 @@
     </section>
 
     @if ($canManage && $issuance->outstandingLineCount() > 0)
-        <section id="return-form" class="rounded-lg border border-emerald-200 bg-white p-4 shadow-sm dark:border-emerald-800 dark:bg-slate-800">
+        <section id="return-form" class="rounded-lg border border-emerald-200 bg-white p-2 shadow-sm dark:border-emerald-800 dark:bg-slate-800">
             <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Record return</h2>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Use termination return when a guard is leaving employment. Mark items as lost if they will not be returned.</p>
+            <p class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Mark lost or written-off items, or tick termination return to clear the whole issue.</p>
 
-            <form method="POST" action="{{ route('assets.return', $issuance) }}" class="mt-4 space-y-4">
+            <form method="POST" action="{{ route('assets.return', $issuance) }}" class="mt-2 space-y-2">
                 @csrf
 
                 @foreach ($issuance->lines as $line)
                     @continue($line->quantityOutstanding() <= 0 || in_array($line->status, [\App\Enums\AssetLineStatus::WrittenOff, \App\Enums\AssetLineStatus::Lost], true))
-                    <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-900/40">
-                        <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">{{ $line->displayLabel() }}</p>
-                        <p class="text-[10px] text-slate-500 dark:text-slate-400">{{ $line->quantityOutstanding() }} outstanding of {{ $line->quantity }}</p>
-                        <div class="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-2 dark:border-slate-700 dark:bg-slate-900/40">
+                        <p class="text-xs font-semibold text-slate-900 dark:text-slate-100">{{ $line->displayLabel() }} <span class="font-normal text-slate-500">· {{ $line->quantityOutstanding() }} of {{ $line->quantity }} out</span></p>
+                        <div class="mt-1 grid gap-2 sm:grid-cols-3">
                             <x-form-field
                                 label="Return qty"
                                 :name="'lines['.$line->id.'][return_qty]'"

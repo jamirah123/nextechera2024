@@ -94,6 +94,12 @@ class LeaveController extends Controller
                     ->whereRaw('(opening_balance + accrued + carried_forward + adjustments - taken - pending - expired) <= 3')
                     ->count(),
                 'upcoming' => Leave::query()->where('status', LeaveStatus::Approved)->where('start_date', '>=', $tomorrow)->where('start_date', '<', $weekEndNext)->count(),
+                'overdue_returns' => Leave::query()
+                    ->whereIn('status', [LeaveStatus::Approved, LeaveStatus::Completed])
+                    ->whereNull('actual_return_date')
+                    ->whereDate('expected_return_date', '<', $today)
+                    ->whereDate('expected_return_date', '>=', now()->subDays(14)->toDateString())
+                    ->count(),
             ],
         ]);
     }
@@ -200,10 +206,13 @@ class LeaveController extends Controller
 
     public function store(StoreLeaveRequest $request): RedirectResponse
     {
-        $data = $request->validated();
+            $data = $request->validated();
+            unset($data['employee_type']);
 
-        try {
-            if ($request->boolean('approve_now') && (
+            try {
+            if ($request->boolean('save_draft')) {
+                $data['status'] = LeaveStatus::Draft->value;
+            } elseif ($request->boolean('approve_now') && (
                 $request->user()->isSuperAdmin() || $request->user()->hasRole(UserRole::HrManager)
             )) {
                 $data['status'] = LeaveStatus::Approved->value;
@@ -221,11 +230,22 @@ class LeaveController extends Controller
     {
         $this->authorize('view', $leave);
 
-        $leave->load(['assignedGuard.region', 'staffMember.region', 'leaveTypeConfig', 'approver', 'requester', 'creator']);
+        $leave->load(['assignedGuard.region', 'staffMember.region', 'leaveTypeConfig', 'approver', 'requester', 'creator', 'decisions.actor']);
+
+        $balance = null;
+        if ($leave->leave_type_id) {
+            $balance = LeaveEntitlement::query()
+                ->where('leave_type_id', $leave->leave_type_id)
+                ->where('year', $leave->start_date?->year ?? now()->year)
+                ->when($leave->guard_id, fn ($query) => $query->where('guard_id', $leave->guard_id))
+                ->when($leave->staff_id, fn ($query) => $query->where('staff_id', $leave->staff_id))
+                ->first();
+        }
 
         return view('hr.leaves.show', [
             'leave' => $leave,
-            'canApprove' => request()->user()->can('approve', $leave) && $leave->status === LeaveStatus::Pending,
+            'balance' => $balance,
+            'canApprove' => request()->user()->can('approve', $leave) && in_array($leave->status, [LeaveStatus::Draft, LeaveStatus::Pending], true),
             'canManage' => request()->user()->can('update', $leave),
         ]);
     }
@@ -280,6 +300,54 @@ class LeaveController extends Controller
         }
 
         return back()->with('status', 'Leave marked completed. Guard status restored.');
+    }
+
+    public function confirmReturn(Request $request, Leave $leave): RedirectResponse
+    {
+        $this->authorize('update', $leave);
+
+        $data = $request->validate([
+            'actual_return_date' => ['required', 'date'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            $this->leaves->confirmReturn($leave, $data['actual_return_date'], $data['notes'] ?? null);
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['leave' => $e->getMessage()]);
+        }
+
+        return back()->with('status', 'Return recorded. The employee is not marked as absconded.');
+    }
+
+    public function adjust(Request $request, Leave $leave): RedirectResponse
+    {
+        $this->authorize('update', $leave);
+
+        $data = $request->validate([
+            'days' => ['required', 'numeric', 'not_in:0'],
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        $type = $leave->leaveTypeConfig;
+        if ($type === null) {
+            return back()->withErrors(['leave' => 'This leave has no configured type to adjust.']);
+        }
+
+        try {
+            $this->leaves->adjustBalance(
+                $leave->guard_id,
+                $leave->staff_id,
+                $type,
+                (int) ($leave->start_date?->year ?? now()->year),
+                (float) $data['days'],
+                $data['reason'],
+            );
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['leave' => $e->getMessage()]);
+        }
+
+        return back()->with('status', 'Leave balance adjusted. Previous leave records were not rewritten.');
     }
 
     public function downloadLetter(Leave $leave): Response

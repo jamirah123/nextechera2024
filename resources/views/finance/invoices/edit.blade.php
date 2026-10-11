@@ -16,33 +16,30 @@
         @csrf
         @method('PUT')
 
-        <x-form-panel :title="'Edit '.$invoice->reference" :back="route('invoices.show', $invoice)">
-            <div class="form-panel__grid">
-                <x-form-group title="Bill to" description="Client and optional site scope.">
-                    <x-form-field label="Client" name="client_id" type="select" :required="true" class="sm:col-span-2">
-                        @foreach ($clients as $client)
-                            <option value="{{ $client->id }}" @selected((string) old('client_id', $invoice->client_id) === (string) $client->id)>{{ $client->name }}</option>
-                        @endforeach
-                    </x-form-field>
-                    <x-form-field label="Site" name="site_id" type="select" class="sm:col-span-2">
-                        <option value="">All client sites</option>
-                        @foreach ($sites as $site)
-                            <option value="{{ $site->id }}" @selected((string) old('site_id', $invoice->site_id) === (string) $site->id)>{{ $site->code }} — {{ $site->name }}</option>
-                        @endforeach
-                    </x-form-field>
-                </x-form-group>
-
-                <x-form-group title="Billing period" description="Invoice dates and tax.">
-                    <x-form-field label="Period start" name="period_start" type="date" :value="old('period_start', $invoice->period_start->toDateString())" :required="true" />
-                    <x-form-field label="Period end" name="period_end" type="date" :value="old('period_end', $invoice->period_end->toDateString())" :required="true" />
-                    <x-form-field label="Due date" name="due_date" type="date" :value="old('due_date', $invoice->due_date?->toDateString())" />
-                    <x-form-field label="VAT amount" name="tax_amount" type="number" :value="old('tax_amount', $invoice->tax_amount)" step="0.01" min="0" />
-                </x-form-group>
+        <x-form-panel :title="'Review '.$invoice->reference" subtitle="Line changes recalculate VAT from the billing profile. Client, period, and VAT treatment stay with the draft." :back="route('invoices.show', $invoice)">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                <dl class="grid gap-2 sm:grid-cols-2">
+                    <div><dt class="text-slate-500">Client</dt><dd class="font-semibold">{{ $invoice->client?->name }}</dd></div>
+                    <div><dt class="text-slate-500">Scope</dt><dd class="font-semibold">{{ $invoice->billingProfile?->scopeLabel() ?? ($invoice->site?->name ?? 'Client-wide') }}</dd></div>
+                    <div><dt class="text-slate-500">Service period</dt><dd class="font-semibold">{{ $invoice->period_start->format('d M Y') }} – {{ $invoice->period_end->format('d M Y') }}</dd></div>
+                    <div>
+                        <dt class="text-slate-500">VAT</dt>
+                        <dd class="font-semibold">
+                            {{ $invoice->vat_treatment?->label() ?? 'Not classified' }}
+                            @if ($invoice->vat_treatment?->chargesVat())
+                                · {{ rtrim(rtrim(number_format((float) $invoice->vat_rate, 2), '0'), '.') }}%
+                            @endif
+                        </dd>
+                    </div>
+                </dl>
             </div>
 
-            <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes', $invoice->notes)" />
+            <x-form-group title="Draft fields" description="Due date and notes can be adjusted before issue.">
+                <x-form-field label="Due date" name="due_date" type="date" :value="old('due_date', $invoice->due_date?->toDateString())" />
+                <x-form-field label="Notes" name="notes" type="textarea" :value="old('notes', $invoice->notes)" class="sm:col-span-2" />
+            </x-form-group>
 
-            <x-form-group title="Lines" description="Add or remove invoice line items.">
+            <x-form-group title="Lines" description="Descriptions, quantities, and rates. VAT is recalculated when you save.">
                 <div class="sm:col-span-2 flex justify-end">
                     <button type="button" class="btn btn-secondary" @click="lines.push({description:'', quantity:1, unit_price:0, site_id:null})">Add line</button>
                 </div>
@@ -64,6 +61,7 @@
                             <div class="flex items-end sm:col-span-1">
                                 <button type="button" class="btn btn-secondary text-rose-700" @click="lines.splice(index,1)">×</button>
                             </div>
+                            <input type="hidden" :name="`lines[${index}][site_id]`" :value="line.site_id || ''">
                         </div>
                     </div>
                 </template>

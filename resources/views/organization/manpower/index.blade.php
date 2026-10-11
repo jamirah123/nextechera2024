@@ -209,7 +209,7 @@
                                             @if ($canResolveGaps && $gap->isOpen())
                                                 <form method="POST" action="{{ route('manpower.gaps.overtime', $gap) }}" class="flex flex-wrap items-center gap-1">
                                                     @csrf
-                                                    <select name="guard_id" required class="min-w-[10rem] flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px]">
+                                                    <select name="guard_id" data-searchable="true" aria-label="Guard" required class="min-w-[10rem] flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px]">
                                                         <option value="">Guard…</option>
                                                         @foreach (($gapGuardOptions[$gap->id] ?? collect()) as $guard)
                                                             <option value="{{ $guard->id }}">{{ $guard->employment_id }} — {{ $guard->full_name }}</option>
@@ -240,7 +240,7 @@
                                 @if ($canResolveGaps && $gap->isOpen())
                                     <form method="POST" action="{{ route('manpower.gaps.overtime', $gap) }}" class="mt-2 flex gap-1">
                                         @csrf
-                                        <select name="guard_id" required class="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px]">
+                                        <select name="guard_id" data-searchable="true" aria-label="Guard" required class="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px]">
                                             <option value="">Guard…</option>
                                             @foreach (($gapGuardOptions[$gap->id] ?? collect()) as $guard)
                                                 <option value="{{ $guard->id }}">{{ $guard->employment_id }} — {{ $guard->full_name }}</option>

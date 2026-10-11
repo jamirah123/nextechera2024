@@ -91,7 +91,7 @@
                                 @elseif ($canManage && $line->status->value === 'unmatched')
                                     <form method="POST" action="{{ route('ledger.bank.lines.match', [$account, $line]) }}" class="flex items-center gap-1">
                                         @csrf
-                                        <select name="payment_id" class="field__control text-xs" required>
+                                        <select name="payment_id" data-searchable="true" aria-label="Payment" class="field__control text-xs" required>
                                             <option value="">Select payment</option>
                                             @foreach ($candidatePayments as $payment)
                                                 <option value="{{ $payment->id }}">

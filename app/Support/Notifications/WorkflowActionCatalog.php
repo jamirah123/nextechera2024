@@ -118,6 +118,13 @@ class WorkflowActionCatalog
                 'action_label' => 'View leave request',
                 'include_stakeholders' => true,
             ],
+            'leave.returned' => [
+                'permissions' => ['hr.leaves_manage'],
+                'subject' => 'Employee return from leave recorded',
+                'headline' => 'An employee return date was recorded',
+                'action_label' => 'View leave request',
+                'include_stakeholders' => true,
+            ],
             'leave.rejected' => [
                 'permissions' => ['hr.leaves_manage'],
                 'subject' => 'Leave request rejected',
@@ -386,6 +393,32 @@ class WorkflowActionCatalog
                 'headline' => 'A client invoice was cancelled',
                 'action_label' => 'View invoice',
                 'priority' => 'important',
+            ],
+            'ledger.purchase_posted' => [
+                'permissions' => ['finance.purchases_manage'],
+                'subject' => 'Supplier bill posted',
+                'headline' => 'A supplier bill was posted',
+                'action_label' => 'View supplier bill',
+                'priority' => 'normal',
+            ],
+            'ledger.purchase_cancelled' => [
+                'permissions' => ['finance.purchases_manage'],
+                'subject' => 'Supplier bill cancelled',
+                'headline' => 'A posted supplier bill was cancelled',
+                'action_label' => 'View supplier bill',
+                'priority' => 'important',
+            ],
+            'asset.issued' => [
+                'permissions' => ['hr.assets_manage'],
+                'subject' => 'Equipment issued',
+                'headline' => 'Kit was issued to a guard',
+                'action_label' => 'View issuance',
+            ],
+            'asset.returned' => [
+                'permissions' => ['hr.assets_manage'],
+                'subject' => 'Equipment returned',
+                'headline' => 'A kit return was recorded',
+                'action_label' => 'View issuance',
             ],
             'finance.payment_recorded' => [
                 'permissions' => ['finance.view'],

@@ -25,6 +25,10 @@ class Leave extends Model
         'end_date',
         'days',
         'expected_return_date',
+        'actual_return_date',
+        'returned_at',
+        'returned_by',
+        'self_service',
         'reason',
         'contact_phone',
         'document_path',
@@ -33,6 +37,7 @@ class Leave extends Model
         'rejection_reason',
         'hr_remarks',
         'employee_remarks',
+        'handover_notes',
         'submitted_at',
         'conflicting_shifts_count',
         'conflict_snapshot',
@@ -50,6 +55,9 @@ class Leave extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'expected_return_date' => 'date',
+            'actual_return_date' => 'date',
+            'returned_at' => 'datetime',
+            'self_service' => 'boolean',
             'days' => 'decimal:1',
             'conflict_snapshot' => 'array',
             'approved_at' => 'datetime',
@@ -89,6 +97,11 @@ class Leave extends Model
     public function flaggedShifts(): HasMany
     {
         return $this->hasMany(Shift::class, 'leave_id');
+    }
+
+    public function decisions(): HasMany
+    {
+        return $this->hasMany(LeaveDecision::class)->latest('id');
     }
 
     public function typeCode(): string

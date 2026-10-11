@@ -149,6 +149,7 @@
         </div>
     </div>
 
+    @if ($canViewConfidential ?? true)
     <section class="w-full rounded-lg border border-slate-200 bg-white shadow-sm">
         <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">
             <h2 class="text-sm font-semibold text-slate-900">Documents</h2>
@@ -227,6 +228,7 @@
             </ul>
         @endif
     </section>
+    @endif
 
     @include('guards.partials.promotion', ['guard' => $guard, 'canViewSalary' => $canViewSalary ?? true])
 
@@ -239,14 +241,17 @@
         ])
     @endif
 
-    @include('guards.partials.uniform-charge', [
-        'guard' => $guard,
-        'uniformStatus' => $uniformStatus ?? \App\Enums\UniformChargeStatus::Subject,
-        'companyUniformCharge' => $companyUniformCharge ?? (float) config('psg.payroll.uniform_charge', 0),
-        'canManageUniformCharge' => $canManageUniformCharge ?? false,
-    ])
+    @if ($canViewConfidential ?? true)
+        @include('guards.partials.uniform-charge', [
+            'guard' => $guard,
+            'uniformStatus' => $uniformStatus ?? \App\Enums\UniformChargeStatus::Subject,
+            'companyUniformCharge' => $companyUniformCharge ?? (float) config('psg.payroll.uniform_charge', 0),
+            'canManageUniformCharge' => $canManageUniformCharge ?? false,
+        ])
 
-    @include('guards.partials.salary-advances', ['guard' => $guard, 'canManageFinance' => $canManageFinance ?? false])
+        @include('guards.partials.salary-advances', ['guard' => $guard, 'canManageFinance' => $canManageFinance ?? false])
+        @include('guards.partials.misconduct-charges', ['guard' => $guard, 'canManageFinance' => $canManageFinance ?? false])
+    @endif
 
     @include('guards.partials.assets', ['guard' => $guard, 'canManageAssets' => $canManageAssets ?? false])
 

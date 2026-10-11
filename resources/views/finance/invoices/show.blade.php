@@ -20,8 +20,16 @@
             @if ($canManage && $invoice->status->isOpen())
                 <a href="{{ route('payments.create', ['invoice_id' => $invoice->id]) }}" class="btn btn-primary">Record payment</a>
             @endif
-            @if ($canManage && $invoice->status->value !== 'paid' && (float) $invoice->amount_paid == 0)
-                <form method="POST" action="{{ route('invoices.cancel', $invoice) }}" onsubmit="return confirm('Cancel this invoice?')">@csrf<button class="inline-flex rounded-lg bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-800">Cancel</button></form>
+            @if ($canManage && ! $invoice->status->isTerminalLifecycle() && (float) $invoice->amount_paid == 0)
+                <x-confirm-action
+                    :action="route('invoices.cancel', $invoice)"
+                    title="Cancel this invoice?"
+                    :confirm="'Cancel '.$invoice->reference.'? The invoice will be marked cancelled and can no longer be issued or collected.'"
+                    label="Cancel"
+                    confirm-label="Yes, cancel invoice"
+                    cancel-label="Keep invoice"
+                    button-class="inline-flex rounded-lg bg-rose-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-800"
+                />
             @endif
         </x-slot:actions>
     </x-page-header>

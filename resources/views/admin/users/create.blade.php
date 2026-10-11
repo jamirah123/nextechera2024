@@ -26,6 +26,7 @@
                     <select
                         id="role"
                         name="role"
+                        data-searchable="true"
                         required
                         x-model="role"
                         class="field__control field__control--select @error('role') field__control--error @enderror"
@@ -44,6 +45,7 @@
                     <select
                         id="supervisor_id"
                         name="supervisor_id"
+                        data-searchable="true"
                         x-bind:required="role === @js($regionSupervisorRole)"
                         class="field__control field__control--select @error('supervisor_id') field__control--error @enderror"
                     >

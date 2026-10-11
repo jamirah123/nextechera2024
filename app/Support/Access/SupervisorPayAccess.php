@@ -29,6 +29,10 @@ class SupervisorPayAccess
 
     public static function canViewGuardPay(User $user, Guard $guard): bool
     {
+        if ($user->role === UserRole::ProcurementOfficer) {
+            return false;
+        }
+
         if (! self::hidesSupervisorPay($user)) {
             return true;
         }

@@ -79,6 +79,11 @@ class Staff extends Model
         return $this->hasMany(GuardSalaryAdvance::class)->latest('id');
     }
 
+    public function misconductCharges(): HasMany
+    {
+        return $this->hasMany(EmployeeMisconductCharge::class)->latest('id');
+    }
+
     public function position(): BelongsTo
     {
         return $this->belongsTo(Position::class);
@@ -102,6 +107,11 @@ class Staff extends Model
     public function payslips(): HasMany
     {
         return $this->hasMany(PayrollPayslip::class);
+    }
+
+    public function assetIssuances(): HasMany
+    {
+        return $this->hasMany(GuardAssetIssuance::class, 'staff_id')->latest('issued_at');
     }
 
     public function supervisorProfile(): HasOne

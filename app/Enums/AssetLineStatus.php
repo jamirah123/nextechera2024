@@ -9,6 +9,7 @@ enum AssetLineStatus: string
     case Returned = 'returned';
     case WrittenOff = 'written_off';
     case Lost = 'lost';
+    case Transferred = 'transferred';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum AssetLineStatus: string
             self::Returned => 'Returned',
             self::WrittenOff => 'Written off',
             self::Lost => 'Lost',
+            self::Transferred => 'Transferred',
         };
     }
 
@@ -29,6 +31,7 @@ enum AssetLineStatus: string
             self::Returned => 'emerald',
             self::WrittenOff => 'slate',
             self::Lost => 'rose',
+            self::Transferred => 'indigo',
         };
     }
 

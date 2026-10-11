@@ -427,7 +427,8 @@ class LeaveManagementTest extends TestCase
             ->assertOk()
             ->assertSee($guard->full_name)
             ->assertSee('On leave')
-            ->assertSee('Guards on leave')
+            ->assertSee('Pending')
+            ->assertDontSee('Guards on leave')
             ->assertViewHas('stats', function (array $stats): bool {
                 return $stats['on_leave'] === 1
                     && $stats['guards_on_leave'] === 1
@@ -554,6 +555,7 @@ class LeaveManagementTest extends TestCase
         $deduction = $staffPayslip->deductions()->where('type', PayrollDeductionType::UnpaidLeave)->first();
         $this->assertNotNull($deduction);
         $this->assertSame($expected, (float) $deduction->amount);
+        $this->assertSame($staffLeave->id, $deduction->leave_id);
         $this->assertStringContainsString((string) $staffLeave->id, $deduction->label);
 
         $guardPayslip = PayrollPayslip::query()->where('guard_id', $guard->id)->firstOrFail();

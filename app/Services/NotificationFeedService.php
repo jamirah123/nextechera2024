@@ -62,8 +62,12 @@ class NotificationFeedService
                 AuditCategory::Hr,
                 AuditCategory::Guard,
             ],
-            UserRole::FinanceManager, UserRole::ProcurementOfficer => [
+            UserRole::FinanceManager => [
                 AuditCategory::Finance,
+            ],
+            UserRole::ProcurementOfficer => [
+                AuditCategory::Finance,
+                AuditCategory::Hr,
             ],
         };
     }
@@ -450,9 +454,24 @@ class NotificationFeedService
         );
 
         return $query->where(function (Builder $inner) use ($allowed, $user): void {
-            $inner->whereIn('audit_logs.category', $allowed)
-                ->orWhereJsonContains('audit_logs.context->notify_user_ids', (int) $user->id)
+            $inner->where(function (Builder $scoped) use ($allowed, $user): void {
+                $scoped->whereIn('audit_logs.category', $allowed);
+                $this->whereProcurementActions($scoped, $user);
+            })->orWhereJsonContains('audit_logs.context->notify_user_ids', (int) $user->id)
                 ->orWhere('audit_logs.context->company_wide', true);
+        });
+    }
+
+    private function whereProcurementActions(Builder $query, User $user): void
+    {
+        if ($user->role !== UserRole::ProcurementOfficer) {
+            return;
+        }
+
+        $query->where(function (Builder $actions): void {
+            $actions->where('audit_logs.action', 'like', 'ledger.purchase%')
+                ->orWhere('audit_logs.action', 'like', 'supplier.%')
+                ->orWhere('audit_logs.action', 'like', 'asset.%');
         });
     }
 

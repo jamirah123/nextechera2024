@@ -9,6 +9,8 @@ use App\Enums\SupervisorStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Staff\StoreStaffRequest;
 use App\Http\Requests\Staff\UpdateStaffRequest;
+use App\Models\GuardAssetIssuance;
+use App\Models\GuardAssetLine;
 use App\Models\Region;
 use App\Models\Staff;
 use App\Services\StaffService;
@@ -99,6 +101,7 @@ class StaffController extends Controller
         $staff->load([
             'region',
             'salaryAdvances',
+            'misconductCharges',
             'salaryRevisions.approver',
             'salaryRevisions.creator',
             'creator',
@@ -110,9 +113,23 @@ class StaffController extends Controller
         ]);
 
         $currentRevision = $staff->salaryRevisions->first(fn ($revision) => $revision->isCurrent());
+        $canViewAssets = request()->user()->can('viewAny', GuardAssetIssuance::class);
+        $assetIssuances = $canViewAssets
+            ? $staff->assetIssuances()->with('lines')->limit(30)->get()
+            : collect();
+        $outstandingAssets = $canViewAssets
+            ? GuardAssetLine::query()
+                ->whereHas('issuance', fn ($query) => $query->where('staff_id', $staff->id))
+                ->whereColumn('quantity_returned', '<', 'quantity')
+                ->whereNotIn('status', ['returned', 'written_off', 'lost'])
+                ->count()
+            : 0;
 
         return view('staff.show', [
             'staff' => $staff,
+            'canViewAssets' => $canViewAssets,
+            'assetIssuances' => $assetIssuances,
+            'outstandingAssets' => $outstandingAssets,
             'currentSalary' => \App\Support\Finance\PayrollRates::staffSalaryOn($staff, now()),
             'currentRevision' => $currentRevision,
             'canManage' => request()->user()->can('update', $staff),

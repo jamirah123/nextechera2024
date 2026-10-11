@@ -202,6 +202,16 @@ class NotificationRecipientService
                     return false;
                 }
 
+                if ($user->role === UserRole::ProcurementOfficer) {
+                    $relevant = str_starts_with($log->action, 'ledger.purchase')
+                        || str_starts_with($log->action, 'supplier.')
+                        || str_starts_with($log->action, 'asset.');
+
+                    if (! $relevant) {
+                        return false;
+                    }
+                }
+
                 return collect($this->feed->categoriesFor($user))
                     ->contains(fn (AuditCategory $category) => $category === $log->category);
             });

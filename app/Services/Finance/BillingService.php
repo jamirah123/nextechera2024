@@ -5,6 +5,7 @@ namespace App\Services\Finance;
 use App\Enums\AuditCategory;
 use App\Enums\AuditSeverity;
 use App\Enums\BillingMode;
+use App\Enums\VatTreatment;
 use App\Models\BillingProfile;
 use App\Models\Site;
 use App\Services\AuditService;
@@ -96,6 +97,7 @@ class BillingService
             'cash_no_tax' => array_key_exists('cash_no_tax', $data)
                 ? (bool) $data['cash_no_tax']
                 : (bool) ($profile?->cash_no_tax ?? false),
+            'vat_treatment' => $data['vat_treatment'] ?? $profile?->vat_treatment?->value ?? VatTreatment::Standard->value,
             'contracted_day_armed_guards' => $dayArmedCount,
             'contracted_day_unarmed_guards' => $dayUnarmedCount,
             'contracted_night_armed_guards' => $nightArmedCount,

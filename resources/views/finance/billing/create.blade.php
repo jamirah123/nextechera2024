@@ -14,15 +14,8 @@
         x-data="{
             clientId: @js((string) old('client_id', '')),
             siteId: @js((string) old('site_id', '')),
-            sites: @js($sites->map(fn ($s) => [
-                'id' => (string) $s->id,
-                'client_id' => (string) $s->client_id,
-                'label' => $s->code.' — '.$s->name,
-                'day_armed' => (int) $s->required_day_armed_guards,
-                'day_unarmed' => (int) $s->required_day_unarmed_guards,
-                'night_armed' => (int) $s->required_night_armed_guards,
-                'night_unarmed' => (int) $s->required_night_unarmed_guards,
-            ])->values()),
+            sites: [],
+            sitesRequest: 0,
             billingMode: @js((string) old('billing_mode', BillingMode::Monthly->value)),
             dayArmed: 0,
             dayUnarmed: 0,
@@ -35,14 +28,51 @@
             shiftArmedNight: {{ (float) old('rate_per_armed_night_shift', 0) }},
             shiftUnarmedNight: {{ (float) old('rate_per_unarmed_night_shift', 0) }},
             clientSites() {
-                if (! this.clientId) return [];
-                return this.sites.filter(s => s.client_id === this.clientId);
+                return this.clientId ? this.sites : [];
             },
-            syncSite() {
-                if (this.siteId && ! this.clientSites().some(s => s.id === this.siteId)) {
+            renderSiteOptions(preserveSelection = false) {
+                const select = this.$root.querySelector('select[name=site_id]');
+                if (! select) return;
+                const sites = this.clientSites();
+                [...select.options].forEach((option) => {
+                    if (option.value !== '') option.remove();
+                });
+                sites.forEach((site) => select.add(new Option(site.label, site.id)));
+                const current = String(this.siteId || '');
+                const value = sites.some(site => site.id === current) ? current : (preserveSelection ? current : '');
+                if (! preserveSelection) this.siteId = value;
+                Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set?.call(select, value);
+                window.refreshSearchableSelect && window.refreshSearchableSelect(select);
+            },
+            async loadClientSites() {
+                const requestId = ++this.sitesRequest;
+                const clientId = this.clientId;
+                this.sites = [];
+                this.renderSiteOptions(true);
+                if (! clientId) {
                     this.siteId = '';
+                    this.syncManpower();
+                    this.renderSiteOptions();
+                    return;
+                }
+                try {
+                    const response = await fetch(@js(url('/billing/clients')) + '/' + encodeURIComponent(clientId) + '/sites', {
+                        headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                    });
+                    if (! response.ok) throw new Error('Unable to load sites');
+                    const payload = await response.json();
+                    if (requestId !== this.sitesRequest) return;
+                    this.sites = Array.isArray(payload.sites) ? payload.sites : [];
+                } catch (error) {
+                    if (requestId !== this.sitesRequest) return;
+                    this.sites = [];
                 }
                 this.syncManpower();
+                this.renderSiteOptions();
+            },
+            syncSite() {
+                this.loadClientSites();
             },
             syncManpower() {
                 const list = this.clientSites();
@@ -69,7 +99,7 @@
                 return '{{ $currency }} ' + new Intl.NumberFormat().format(Math.round(value || 0));
             }
         }"
-        x-init="syncManpower()"
+        x-init="loadClientSites()"
     >
         @csrf
 
@@ -80,7 +110,7 @@
         >
             <div class="form-panel__grid">
                 <x-form-group title="Scope" description="Client and optional site coverage.">
-                    <x-form-field label="Client" name="client_id" type="select" :required="true" class="sm:col-span-2" x-model="clientId" x-on:change="syncSite()">
+                    <x-form-field label="Client" name="client_id" type="select" data-searchable="true" :required="true" class="sm:col-span-2" x-model="clientId" x-on:change="syncSite()">
                         <option value="">Select client</option>
                         @foreach ($clients as $client)
                             <option value="{{ $client->id }}">{{ $client->name }}</option>
@@ -88,13 +118,10 @@
                     </x-form-field>
                     <label class="block sm:col-span-2">
                         <span class="field__label">Site (optional)</span>
-                        <select name="site_id" x-model="siteId" class="field__control field__control--select" x-on:change="syncManpower()">
+                        <select name="site_id" data-searchable="true" aria-label="Site" x-model="siteId" class="field__control field__control--select" x-on:change="syncManpower()">
                             <option value="">Client-wide default (all sites)</option>
-                            <template x-for="site in clientSites()" :key="site.id">
-                                <option :value="site.id" x-text="site.label"></option>
-                            </template>
                         </select>
-                        <p class="field__help">Leave blank to total manpower across all client sites.</p>
+                        <p class="field__help">Leave blank to total manpower across all of this client's sites. The list is loaded from the client's site records.</p>
                     </label>
                 </x-form-group>
 

@@ -1,6 +1,14 @@
 @php
-    $isTaxInvoice = (float) $invoice->tax_amount > 0;
+    $vatTreatment = $invoice->vat_treatment;
+    $isTaxInvoice = $vatTreatment === \App\Enums\VatTreatment::Standard || (float) $invoice->tax_amount > 0;
     $documentTitle = $isTaxInvoice ? 'Tax Invoice' : 'Invoice';
+    $vatRateLabel = rtrim(rtrim(number_format((float) ($invoice->vat_rate ?? 0), 2), '0'), '.');
+    $vatRowLabel = match ($vatTreatment) {
+        \App\Enums\VatTreatment::Standard => 'VAT ('.$vatRateLabel.'% standard-rated)',
+        \App\Enums\VatTreatment::ZeroRated => 'VAT (0% zero-rated)',
+        \App\Enums\VatTreatment::Exempt => 'VAT (exempt)',
+        default => 'VAT',
+    };
     $company = config('psg.company', 'Platinum Security Group');
     $tagline = config('psg.tagline', 'New Age Security and Protection');
     $email = config('psg.support_email');
@@ -98,6 +106,12 @@
                     <p class="party-line">
                         Period: {{ $invoice->period_start->format('d M Y') }} – {{ $invoice->period_end->format('d M Y') }}
                     </p>
+                    @if ($invoice->billingProfile)
+                        <p class="party-line">Profile: {{ $invoice->billingProfile->scopeLabel() }} · {{ $invoice->billingProfile->billing_mode?->label() }}</p>
+                    @endif
+                    @if ($vatTreatment)
+                        <p class="party-line">VAT: {{ $vatTreatment->label() }}@if ($vatTreatment->chargesVat()) · {{ $vatRateLabel }}%@endif</p>
+                    @endif
                 </div>
             </td>
         </tr>
@@ -138,7 +152,11 @@
                     <p class="notes-text">{{ $invoice->notes }}</p>
                 @else
                     <p class="notes-text" style="color:#94a3b8;">
-                        @if ($isTaxInvoice)
+                        @if ($vatTreatment === \App\Enums\VatTreatment::Exempt)
+                            This supply is VAT-exempt. Please retain for your records.
+                        @elseif ($vatTreatment === \App\Enums\VatTreatment::ZeroRated)
+                            This supply is zero-rated for VAT. Please retain for your records.
+                        @elseif ($isTaxInvoice)
                             This is a tax invoice. Please retain for your records.
                         @else
                             No VAT charged on this invoice. Please retain for your records.
@@ -153,7 +171,7 @@
                         <td class="value">{{ \App\Support\Money::format($invoice->subtotal, $currency) }}</td>
                     </tr>
                     <tr class="divider">
-                        <td class="label">VAT</td>
+                        <td class="label">{{ $vatRowLabel }}</td>
                         <td class="value">{{ \App\Support\Money::format($invoice->tax_amount, $currency) }}</td>
                     </tr>
                     <tr class="total">
@@ -176,7 +194,11 @@
     <div class="payment-box">
         <p class="section-label">Payment instructions</p>
         <p class="payment-text">{{ $paymentTerms }}</p>
-        @if (! $isTaxInvoice)
+        @if ($vatTreatment === \App\Enums\VatTreatment::Exempt)
+            <p class="payment-text">VAT-exempt supply. Settle the full balance due.</p>
+        @elseif ($vatTreatment === \App\Enums\VatTreatment::ZeroRated)
+            <p class="payment-text">Zero-rated supply. Settle the full balance due.</p>
+        @elseif (! $isTaxInvoice)
             <p class="payment-text">No VAT is charged on this invoice. Settle the full balance due.</p>
         @endif
         @if ($bankDetails)

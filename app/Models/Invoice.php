@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Enums\InvoiceStatus;
+use App\Enums\VatTreatment;
 use App\Models\Concerns\CapturesDeletionSnapshot;
 use App\Models\Concerns\TracksUserChanges;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -19,18 +21,23 @@ class Invoice extends Model
         'reference',
         'client_id',
         'site_id',
+        'billing_profile_id',
         'status',
         'period_start',
         'period_end',
         'issue_date',
         'due_date',
         'currency',
+        'vat_treatment',
+        'vat_rate',
         'subtotal',
         'tax_amount',
         'total',
         'amount_paid',
         'balance',
         'notes',
+        'calculation_snapshot',
+        'issued_snapshot',
         'approved_by',
         'approved_at',
         'created_by',
@@ -41,6 +48,10 @@ class Invoice extends Model
     {
         return [
             'status' => InvoiceStatus::class,
+            'vat_treatment' => VatTreatment::class,
+            'vat_rate' => 'decimal:2',
+            'calculation_snapshot' => 'array',
+            'issued_snapshot' => 'array',
             'period_start' => 'date',
             'period_end' => 'date',
             'issue_date' => 'date',
@@ -62,6 +73,16 @@ class Invoice extends Model
     public function site(): BelongsTo
     {
         return $this->belongsTo(Site::class);
+    }
+
+    public function billingProfile(): BelongsTo
+    {
+        return $this->belongsTo(BillingProfile::class);
+    }
+
+    public function billedShifts(): BelongsToMany
+    {
+        return $this->belongsToMany(Shift::class, 'invoice_billed_shifts');
     }
 
     public function lines(): HasMany

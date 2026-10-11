@@ -47,6 +47,10 @@
             <x-form-field label="Name" name="name" :value="old('name')" :required="true" />
             <x-form-field label="Pay percent" name="pay_percent" type="number" min="0" max="100" step="0.01" :value="old('pay_percent', 100)" :required="true" />
             <x-form-field label="Maximum days per year" name="max_days_per_year" type="number" min="0" step="0.5" :value="old('max_days_per_year')" />
+            <x-form-field label="Minimum notice days" name="min_notice_days" type="number" min="0" :value="old('min_notice_days', 0)" />
+            <x-form-field label="Maximum consecutive days" name="max_consecutive_days" type="number" min="0" step="0.5" :value="old('max_consecutive_days')" />
+            <x-form-field label="Minimum service months" name="min_service_months" type="number" min="0" :value="old('min_service_months', 0)" />
+            <x-form-field label="Carry-forward days" name="carry_forward_days" type="number" min="0" step="0.5" :value="old('carry_forward_days')" />
             <x-form-field label="Eligibility" name="eligibility" type="select" :required="true">
                 <option value="all">All employees</option>
                 <option value="guards">Guards</option>

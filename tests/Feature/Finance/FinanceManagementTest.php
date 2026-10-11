@@ -60,14 +60,13 @@ class FinanceManagementTest extends TestCase
             'monthly_site_fee' => 0,
         ]);
 
+        $profile = BillingProfile::query()->where('client_id', $client->id)->firstOrFail();
+
         $this->actingAs($finance)
             ->post(route('invoices.store'), [
-                'client_id' => $client->id,
+                'billing_profile_id' => $profile->id,
                 'period_start' => now()->startOfMonth()->toDateString(),
                 'period_end' => now()->endOfMonth()->toDateString(),
-                'due_date' => now()->addDays(20)->toDateString(),
-                'tax_amount' => 0,
-                'auto_generate' => true,
             ])
             ->assertRedirect();
 
@@ -105,6 +104,39 @@ class FinanceManagementTest extends TestCase
 
         $this->actingAs($manager)
             ->get(route('invoices.index'))
+            ->assertForbidden();
+    }
+
+    public function test_billing_site_lookup_returns_the_clients_sites_from_the_database(): void
+    {
+        $finance = User::factory()->role(UserRole::FinanceManager)->create();
+        $client = Client::factory()->create(['name' => 'Bugolobi Shopping Centre']);
+        $other = Client::factory()->create();
+        $own = Site::factory()->create([
+            'client_id' => $client->id,
+            'code' => 'KLA-008',
+            'name' => 'Kampala Distribution Centre 8',
+            'required_day_armed_guards' => 2,
+            'required_day_unarmed_guards' => 3,
+            'required_night_armed_guards' => 1,
+            'required_night_unarmed_guards' => 4,
+        ]);
+        Site::factory()->create([
+            'client_id' => $other->id,
+            'code' => 'OTH-1',
+            'name' => 'Other Gate',
+        ]);
+
+        $this->actingAs($finance)
+            ->getJson(route('billing.client-sites', $client))
+            ->assertOk()
+            ->assertJsonPath('sites.0.id', (string) $own->id)
+            ->assertJsonPath('sites.0.label', 'KLA-008 — Kampala Distribution Centre 8')
+            ->assertJsonPath('sites.0.day_armed', 2)
+            ->assertJsonCount(1, 'sites');
+
+        $this->actingAs(User::factory()->role(UserRole::ShiftManager)->create())
+            ->getJson(route('billing.client-sites', $client))
             ->assertForbidden();
     }
 
@@ -179,12 +211,13 @@ class FinanceManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        $profile = BillingProfile::query()->where('client_id', $client->id)->firstOrFail();
+
         $this->actingAs($finance)
             ->post(route('invoices.store'), [
-                'client_id' => $client->id,
+                'billing_profile_id' => $profile->id,
                 'period_start' => now()->startOfMonth()->toDateString(),
                 'period_end' => now()->endOfMonth()->toDateString(),
-                'auto_generate' => true,
             ])
             ->assertRedirect();
 
@@ -193,7 +226,9 @@ class FinanceManagementTest extends TestCase
 
         $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Day armed security posts') && str_contains($line, '30 posts')));
         $this->assertFalse(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Night')));
-        $this->assertSame(19500000.0, (float) $invoice->total);
+        $this->assertSame(19500000.0, (float) $invoice->subtotal);
+        $this->assertSame(3510000.0, (float) $invoice->tax_amount);
+        $this->assertSame(23010000.0, (float) $invoice->total);
     }
 
     public function test_invoice_auto_generate_uses_contracted_guard_headcount(): void
@@ -222,12 +257,13 @@ class FinanceManagementTest extends TestCase
             'is_active' => true,
         ]);
 
+        $profile = BillingProfile::query()->where('client_id', $client->id)->firstOrFail();
+
         $this->actingAs($finance)
             ->post(route('invoices.store'), [
-                'client_id' => $client->id,
+                'billing_profile_id' => $profile->id,
                 'period_start' => now()->startOfMonth()->toDateString(),
                 'period_end' => now()->endOfMonth()->toDateString(),
-                'auto_generate' => true,
             ])
             ->assertRedirect();
 
@@ -238,8 +274,9 @@ class FinanceManagementTest extends TestCase
         $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Day unarmed security posts') && str_contains($line, '20 posts')));
         $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Night armed security posts') && str_contains($line, '5 posts')));
         $this->assertTrue(collect($descriptions)->contains(fn (string $line) => str_contains($line, 'Night unarmed security posts') && str_contains($line, '15 posts')));
-        // (10+5)*650000 + (20+15)*450000 = 9750000 + 15750000 = 25500000
-        $this->assertSame(25500000.0, (float) $invoice->total);
+        // (10+5)*650000 + (20+15)*450000 = 9750000 + 15750000 = 25500000, plus 18% VAT
+        $this->assertSame(25500000.0, (float) $invoice->subtotal);
+        $this->assertSame(30090000.0, (float) $invoice->total);
     }
 
     public function test_billing_profile_accepts_night_only_manpower(): void
@@ -324,20 +361,22 @@ class FinanceManagementTest extends TestCase
             'is_overnight' => true,
         ]);
 
+        $profile = BillingProfile::query()->where('client_id', $client->id)->firstOrFail();
+
         $this->actingAs($finance)
             ->post(route('invoices.store'), [
-                'client_id' => $client->id,
-                'site_id' => $site->id,
+                'billing_profile_id' => $profile->id,
                 'period_start' => now()->startOfMonth()->toDateString(),
                 'period_end' => now()->endOfMonth()->toDateString(),
-                'auto_generate' => true,
             ])
             ->assertRedirect();
 
         $invoice = Invoice::query()->where('client_id', $client->id)->firstOrFail();
-        $this->assertSame(0.0, (float) $invoice->tax_amount);
-        $this->assertSame(110000.0, (float) $invoice->total);
-        $this->assertStringContainsString('cash basis', strtolower((string) $invoice->notes));
+        $this->assertSame(110000.0, (float) $invoice->subtotal);
+        $this->assertSame(19800.0, (float) $invoice->tax_amount);
+        $this->assertSame(129800.0, (float) $invoice->total);
+        $this->assertStringContainsString('cash settlement', strtolower((string) $invoice->notes));
+        $this->assertStringNotContainsString('no vat', strtolower((string) $invoice->notes));
         $this->assertTrue($invoice->lines()->where('description', 'like', '%Day Armed shifts%')->exists());
         $this->assertTrue($invoice->lines()->where('description', 'like', '%Night Armed shifts%')->exists());
     }

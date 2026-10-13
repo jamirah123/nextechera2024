@@ -127,10 +127,10 @@ class ShiftDeskService
                 'tone' => 'brand',
             ],
             [
-                'label' => 'Needs allocation',
-                'value' => (string) $desk['needs_allocation'],
-                'hint' => 'Posted today without a duty shift',
-                'tone' => 'amber',
+                'label' => 'Shortage',
+                'value' => (string) ($desk['shortage'] ?? 0),
+                'hint' => 'Guards still short of the site requirement',
+                'tone' => 'rose',
             ],
             [
                 'label' => 'Missed today',

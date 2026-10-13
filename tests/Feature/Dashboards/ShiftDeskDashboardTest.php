@@ -33,7 +33,10 @@ class ShiftDeskDashboardTest extends TestCase
             ->assertSee('Today’s work queue', false)
             ->assertSee($shownAt->format('D, j M Y').', '.$shownAt->format('H:i'), false)
             ->assertSee('Awaiting deploy', false)
-            ->assertSee('Needs allocation', false)
+            ->assertSee('Shortage', false)
+            ->assertDontSee('Needs allocation', false)
+            ->assertDontSee('Guards ready for site posting', false)
+            ->assertDontSee('Guards still short of the site requirement', false)
             ->assertDontSee('Daily workflow', false)
             ->assertSee(route('deployments.board'), false)
             ->assertSee(route('deployments.board'), false);

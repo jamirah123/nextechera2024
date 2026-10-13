@@ -37,9 +37,15 @@ class DashboardController extends Controller
             default => 'dashboards.generic',
         };
 
+        $ops = $this->opsDashboards->landingSnapshot();
         $shiftDeskSnapshot = in_array($user->role?->value, ['shift_manager', 'operations_manager', 'managing_director'], true)
             ? $this->shiftDesk->snapshot($user)
             : null;
+
+        if (is_array($shiftDeskSnapshot)) {
+            $shiftDeskSnapshot['shortage'] = (int) ($ops['manpower']['shortage'] ?? 0);
+            $shiftDeskSnapshot['links']['shortage'] = route('manpower.coverage');
+        }
 
         $kpis = match ($user->role?->value) {
             'shift_manager', 'operations_manager' => $shiftDeskSnapshot !== null
@@ -52,7 +58,7 @@ class DashboardController extends Controller
             'user' => $user,
             'kpis' => $kpis,
             'modules' => RoleNavigation::modules($user),
-            'ops' => $this->opsDashboards->landingSnapshot(),
+            'ops' => $ops,
             'compliance' => $this->compliance->cachedSnapshot(),
             'shiftDesk' => $shiftDeskSnapshot,
             'charts' => $user->role?->value === 'procurement_officer' ? [] : $this->statistics->for($user),

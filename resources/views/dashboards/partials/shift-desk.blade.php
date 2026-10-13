@@ -2,7 +2,7 @@
     /** @var array{
      *     date: string,
      *     awaiting_deployment: int,
-     *     needs_allocation: int,
+     *     shortage: int,
      *     missed_today: int,
      *     recorded_today: int,
      *     deployed: int,
@@ -40,9 +40,9 @@
             <p class="text-[10px] font-semibold uppercase tracking-wide text-brand-700">Awaiting deploy</p>
             <p class="text-lg font-semibold text-brand-950">{{ number_format($shiftDesk['awaiting_deployment']) }}</p>
         </a>
-        <a href="{{ $shiftDesk['links']['allocate'] }}" class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 transition hover:bg-amber-100/70">
-            <p class="text-[10px] font-semibold uppercase tracking-wide text-amber-800">Needs allocation</p>
-            <p class="text-lg font-semibold text-amber-950">{{ number_format($shiftDesk['needs_allocation']) }}</p>
+        <a href="{{ $shiftDesk['links']['shortage'] }}" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 transition hover:bg-rose-100/70">
+            <p class="text-[10px] font-semibold uppercase tracking-wide text-rose-800">Shortage</p>
+            <p class="text-lg font-semibold text-rose-950">{{ number_format($shiftDesk['shortage'] ?? 0) }}</p>
         </a>
         <a href="{{ $shiftDesk['links']['missed_shifts'] }}" class="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 transition hover:bg-rose-100/70">
             <p class="text-[10px] font-semibold uppercase tracking-wide text-rose-800">Missed</p>

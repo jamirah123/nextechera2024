@@ -5,8 +5,6 @@
 @section('page-subtitle', 'Scheduling and deployments')
 
 @section('content')
-    @include('dashboards.partials.shell', ['kpis' => $kpis])
-
     @if ($shiftDesk ?? null)
         @include('dashboards.partials.shift-desk', ['shiftDesk' => $shiftDesk])
     @endif

@@ -5,8 +5,6 @@
 @section('page-subtitle', 'Company-wide operational oversight')
 
 @section('content')
-    @include('dashboards.partials.shell', ['kpis' => $kpis])
-
     @include('dashboards.partials.ops-pulse', ['ops' => $ops])
 
     @include('dashboards.partials.compliance-pulse', ['compliance' => $compliance])

@@ -4,6 +4,7 @@ import { initAppearance } from './theme';
 import { registerDashboardCharts } from './charts';
 import { initAutoHideScrollbars } from './scrollbars';
 import { watchPhoneTables } from './phone-tables';
+import './live-search';
 
 window.Alpine = Alpine;
 

@@ -151,13 +151,13 @@
         ] as [$label, $value, $tone])
             <div class="flex min-h-[3.75rem] flex-col justify-center rounded-lg border border-slate-200 bg-white px-2.5 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <p class="truncate text-[10px] font-semibold uppercase tracking-wide {{ $tone }}">{{ $label }}</p>
-                <p class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
+                <p @if ($label === 'On the board') id="board-awaiting-count" @endif class="mt-0.5 text-base font-semibold tabular-nums text-slate-900 dark:text-slate-100">{{ $value }}</p>
             </div>
         @endforeach
     </section>
 
     @if ($regions->count() > 1)
-        <section class="form-card">
+        <section id="board-region-bar" class="form-card">
             <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Available by region</p>
             <div class="mt-3 flex gap-2 overflow-x-auto pb-1">
                 <a
@@ -180,9 +180,9 @@
     @endif
 
     <section class="filter-bar rounded-lg border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <form method="GET" action="{{ route('deployments.board') }}" x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:items-end">
+        <form method="GET" action="{{ route('deployments.board') }}" data-board-filters x-data x-ref="filterForm" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:items-end">
             <x-form-field label="Duty date" name="start_date" type="date" :value="$filters['start_date'] ?? now()->toDateString()" x-on:change="$refs.filterForm.requestSubmit()" />
-            <x-form-field label="Search guard" name="q" type="search" :value="$filters['q'] ?? ''" placeholder="Name or ID" x-on:input.debounce.400ms="$refs.filterForm.requestSubmit()" />
+            <x-form-field id="board-guard-search" label="Search guard" name="q" type="search" :value="$filters['q'] ?? ''" placeholder="Name or ID" autocomplete="off" x-on:input.debounce.400ms="window.psgBoardLiveSearch()" x-on:keydown.enter.prevent="window.psgBoardLiveSearch()" />
             <x-form-field label="Region" name="region_id" type="select" x-on:change="$refs.filterForm.requestSubmit()">
                 <option value="">All regions</option>
                 @foreach ($regions as $region)
@@ -320,6 +320,70 @@
         };
         document.addEventListener('pointerdown', window.psgBoardSiteSelectFromEvent, true);
         document.addEventListener('focusin', window.psgBoardSiteSelectFromEvent, true);
+        window.psgBoardLiveSearch = function () {
+            const form = document.querySelector('[data-board-filters]');
+            const input = document.getElementById('board-guard-search');
+            const results = document.getElementById('board-results');
+            if (! form || ! input || ! results) return;
+            const url = new URL(form.action, window.location.origin);
+            const params = new URLSearchParams(new FormData(form));
+            params.delete('page');
+            [...params.entries()].forEach(([key, value]) => {
+                if (value === '') params.delete(key);
+            });
+            url.search = params.toString();
+            if (window.psgBoardSearchAbort) window.psgBoardSearchAbort.abort();
+            const controller = new AbortController();
+            window.psgBoardSearchAbort = controller;
+            const caret = input.selectionStart;
+            const caretEnd = input.selectionEnd;
+            const typed = input.value;
+            fetch(url.toString(), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+                credentials: 'same-origin',
+                signal: controller.signal,
+            }).then(async (response) => {
+                if (controller.signal.aborted) return;
+                if (response.redirected && /\/login(?:\?|$)/.test(response.url)) {
+                    window.location.assign(response.url);
+                    return;
+                }
+                if (! response.ok) return;
+                const html = await response.text();
+                if (controller.signal.aborted) return;
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const nextResults = doc.getElementById('board-results');
+                if (! nextResults) return;
+                results.querySelectorAll('select').forEach((select) => {
+                    if (select.tomselect) select.tomselect.destroy();
+                });
+                results.replaceWith(nextResults);
+                const nextRegions = doc.getElementById('board-region-bar');
+                const regions = document.getElementById('board-region-bar');
+                if (nextRegions && regions) regions.replaceWith(nextRegions);
+                const nextCount = doc.getElementById('board-awaiting-count');
+                const count = document.getElementById('board-awaiting-count');
+                if (nextCount && count) count.textContent = nextCount.textContent;
+                const root = document.querySelector('[data-posting-board]');
+                if (window.Alpine && root) {
+                    window.Alpine.initTree(document.getElementById('board-results'));
+                }
+                if (window.psgBoardApplyVisible) window.psgBoardApplyVisible();
+                if (window.Alpine && root) window.Alpine.$data(root).sync();
+                history.replaceState(null, '', url);
+                const keep = () => {
+                    if (! input.isConnected || document.activeElement === input) return;
+                    input.focus({ preventScroll: true });
+                    if (input.value === typed && typeof caret === 'number' && typeof caretEnd === 'number') {
+                        input.setSelectionRange(caret, caretEnd);
+                    }
+                };
+                keep();
+                window.requestAnimationFrame(keep);
+            }).catch((error) => {
+                if (error?.name === 'AbortError') return;
+            });
+        };
         window.psgBoardApplyVisible = function () {
             const store = window.psgBoardLoad();
             document.querySelectorAll('[data-row-check]').forEach((check) => {
@@ -749,6 +813,7 @@
                 </div>
             </div>
 
+            <div id="board-results">
             @if ($guards->isEmpty())
                 <x-empty-state
                     title="{{ $isHistorical ? 'No guards free on this duty date' : 'No guards to post' }}"
@@ -883,6 +948,7 @@
                 <x-table-pagination :paginator="$guards" :summary="false" />
             </div>
             @endif
+            </div>
 
             <script>
                 document.currentScript.closest('form').addEventListener('submit', function (event) {

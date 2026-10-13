@@ -48,7 +48,10 @@ class BulkDeploymentBoardTest extends TestCase
             ->assertOk()
             ->assertSee($guard->full_name, false)
             ->assertSee('Deploy selected', false)
-            ->assertSee('Showing', false);
+            ->assertSee('Showing', false)
+            ->assertSee('psgBoardLiveSearch', false)
+            ->assertSee('id="board-results"', false)
+            ->assertSee('id="board-guard-search"', false);
     }
 
     public function test_bulk_deploy_assigns_selected_guards(): void

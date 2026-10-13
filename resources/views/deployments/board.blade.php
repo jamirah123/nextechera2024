@@ -301,7 +301,25 @@
             select.replaceChildren(template.content.cloneNode(true));
             if (current) select.value = current;
             select.dataset.sitesReady = '1';
+            const searchable = select.tomselect;
+            if (! searchable) return;
+            searchable.clearOptions();
+            searchable.sync();
+            if (current) {
+                searchable.setValue(String(current), true);
+            } else {
+                searchable.clear(true);
+            }
+            searchable.refreshOptions(false);
         };
+        window.psgBoardSiteSelectFromEvent = function (event) {
+            const select = event.target.closest?.('[data-row-site]')
+                || event.target.closest?.('.ts-wrapper')?.previousElementSibling;
+            if (! select?.matches?.('[data-row-site]')) return;
+            window.psgFillBoardSiteSelect(select);
+        };
+        document.addEventListener('pointerdown', window.psgBoardSiteSelectFromEvent, true);
+        document.addEventListener('focusin', window.psgBoardSiteSelectFromEvent, true);
         window.psgBoardApplyVisible = function () {
             const store = window.psgBoardLoad();
             document.querySelectorAll('[data-row-check]').forEach((check) => {
@@ -452,8 +470,9 @@
             };
             const viewport = window.psgBoardActiveViewport();
             viewport?.querySelectorAll('tr, article').forEach((row) => {
-                if (! row.querySelector('[data-manpower-indicator]')) return;
-                add(row.querySelector('[data-row-site]')?.value);
+                const site = row.querySelector('[data-row-site]');
+                if (! site) return;
+                add(site.value);
             });
             Object.values(window.psgBoardLoad()).forEach((guard) => add(guard.siteId));
             return groups;
@@ -659,7 +678,7 @@
                                         <optgroup label="{{ $region->name }} ({{ $regionSites->count() }})">
                                             @foreach ($regionSites as $site)
                                                 <option value="{{ $site->id }}" data-region-id="{{ $site->region_id }}">
-                                                    {{ $site->name }} · {{ $site->code }}
+                                                    {{ $site->code }} — {{ $site->name }}
                                                 </option>
                                             @endforeach
                                         </optgroup>
@@ -751,7 +770,6 @@
                                 <th class="px-2.5 py-2">Region</th>
                                 <th class="px-2.5 py-2">{{ $isHistorical ? 'Duty-day status' : 'Status' }}</th>
                                 <th class="px-2.5 py-2">Assign to site</th>
-                                <th class="px-2.5 py-2">Manpower</th>
                                 <th class="px-2.5 py-2">Posting type</th>
                                 <th class="px-2.5 py-2">Duty type</th>
                             </tr>
@@ -798,9 +816,6 @@
                                         >
                                             <option value="">Choose a site…</option>
                                         </x-board-select>
-                                    </td>
-                                    <td class="px-2.5 py-1.5">
-                                        <span data-manpower-indicator class="block text-[10px] font-semibold tabular-nums leading-snug text-slate-700 dark:text-slate-200" title="Choose a site to see its manpower requirement for this duty date.">—</span>
                                     </td>
                                     <td class="px-2.5 py-1.5">
                                         <x-board-select

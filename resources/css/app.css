@@ -582,6 +582,16 @@
     @apply relative w-full;
 }
 
+.ts-wrapper.single {
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border-width: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
 .ts-wrapper.field__control,
 .ts-wrapper.field__control--select {
     border: 0 !important;
@@ -638,6 +648,11 @@
 
 .ts-wrapper .clear-button {
     @apply absolute right-6 top-1/2 z-10 -translate-y-1/2 rounded p-0.5 text-[10px] leading-none text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200;
+}
+
+.ts-wrapper.single:not(.has-items) .clear-button,
+.ts-wrapper.single.has-items:has(.item--placeholder) .clear-button {
+    display: none !important;
 }
 
 .ts-wrapper .ts-control::after {

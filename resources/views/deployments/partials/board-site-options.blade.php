@@ -6,7 +6,7 @@
 @endphp
 <option value="">Choose site in {{ $regionName }}…</option>
 @forelse ($guardSites as $site)
-    <option value="{{ $site->id }}" data-region-id="{{ $site->region_id }}">{{ $site->name }} · {{ $site->code }}</option>
+    <option value="{{ $site->id }}" data-region-id="{{ $site->region_id }}">{{ $site->code }} — {{ $site->name }}</option>
 @empty
     <option value="" disabled>No active sites in {{ $regionName }}</option>
 @endforelse
